@@ -13,14 +13,15 @@ export const VYLEPSENI = {
   oziveni: { nazev: 'Oživení', popis: 'Jednou za hru tě duše vrátí s půlkou životů', vlastnost: 'oziveni', pricti: 1, max: 1, cena: 150 },
 };
 
-// Za kolik se hra promění v duše: čas, zabití a Strážci hlubin.
-export const DUSE_ZA = { sekund: 20, zabitych: 20, strazce: 10 };
+// Za kolik se hra promění v duše: čas, zabití, Strážci hlubin a zlaťáky z bedniček.
+export const DUSE_ZA = { sekund: 20, zabitych: 20, strazce: 10, zlatak: 1 };
 
 export function dusZaHru(hra) {
   const cas = Math.floor(Math.max(0, hra.cas) / DUSE_ZA.sekund);
   const zabiti = Math.floor(Math.max(0, hra.zabito) / DUSE_ZA.zabitych);
   const strazci = Math.max(0, hra.zabitoBossu) * DUSE_ZA.strazce;
-  return { cas, zabiti, strazci, celkem: cas + zabiti + strazci };
+  const zlataky = Math.max(0, Math.floor(hra.zlataky || 0)) * DUSE_ZA.zlatak;
+  return { cas, zabiti, strazci, zlataky, celkem: cas + zabiti + strazci + zlataky };
 }
 
 // Každá další úroveň stojí o polovinu víc než předchozí, zaokrouhleno na pětky.

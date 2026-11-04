@@ -57,6 +57,17 @@ html, body {
   text-shadow: 0 2px 0 #000;
 }
 
+/* Zlaťáky z bedniček vedle počtu zabitých: ikonka a číslo. */
+.hud-zlato {
+  margin-left: 12px;
+  color: var(--zlata);
+}
+
+.hud-zlato canvas {
+  vertical-align: -5px;
+  margin-right: 4px;
+}
+
 .cas {
   font-size: 22px;
   color: var(--zlata);

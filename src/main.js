@@ -139,7 +139,7 @@ function zapisKonec() {
   // Duše za hru se připíšou hned, utratit se dají v menu Vylepšení.
   const duse = dusZaHru(hra);
   const { duse: celkem } = pripisDuse(duse.celkem);
-  const rozpis = textovyPrvek('small', `čas ${duse.cas} · zabití ${duse.zabiti} · Strážci ${duse.strazci} · celkem ${celkem}`);
+  const rozpis = textovyPrvek('small', `čas ${duse.cas} · zabití ${duse.zabiti} · Strážci ${duse.strazci} · zlaťáky ${duse.zlataky} · celkem ${celkem}`);
   el('konec-duse').replaceChildren(
     obrazekSpritu('duse', 3),
     textovyPrvek('b', `+${duse.celkem} ${pocetDusi(duse.celkem)}`),
@@ -157,6 +157,7 @@ function hud() {
   const { hrdina } = hra;
   el('uroven').textContent = hrdina.uroven;
   el('zabito').textContent = hra.zabito;
+  el('zlataky').textContent = hra.zlataky;
   el('cas').textContent = formatCas(hra.cas);
   el('xp-pruh').style.width = `${Math.min(100, (hrdina.xp / hrdina.potreba) * 100)}%`;
   // Překreslí se jen když se výbava změnila (po výběru vylepšení nebo v nové hře).
@@ -231,6 +232,8 @@ addEventListener('resize', zmenVelikost);
 el('znovu').addEventListener('click', () => { if (hra?.konec) start(); });
 el('do-menu').addEventListener('click', () => { if (hra?.konec) doMenu(); });
 
+// Ikonka zlaťáku v horní liště (sprite z sprity.js, stejný jako na louce).
+el('zlato-ikona').replaceWith(obrazekSpritu('zlatak', 2));
 zmenVelikost();
 doMenu();
 requestAnimationFrame(smycka);
