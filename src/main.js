@@ -9,7 +9,7 @@ import {
 import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu } from './ulozeni.js';
 import { MAPY, ODEMKNUTI_MAPY, dalsiMapa } from './mapy.js';
 import {
-  odemkniZvuk, zvukStartu, zvukVolby, zvukVyberu, zvukZlataku, zvukNakupu, zvukOdmitnuti, zvukPrehozeni, zvukZvonu,
+  odemkniZvuk, zvukStartu, zvukVolby, zvukVyberu, zvukZlataku, zvukNakupu, zvukOdmitnuti, zvukPrehozeni, zvukZvonu, zvukKamene,
 } from './zvuk.js';
 import { ukazVolby, ukazPorovnani } from './volba.js';
 import { ukazObchod, zatresZbozim, textZlataku } from './obchod.js';
@@ -35,6 +35,10 @@ let ukazaneZlato = 0;
 let cinkloOd = 0;
 // Kolikrát už zvon hlubin zazvonil (každé nové zvonění se ozve).
 let slyseneZvoneni = 0;
+// Kolikrát už kámen praku zasáhl a kdy naposledy ťukl (nejvýš jednou za ODSTUP_TUKNUTI ms, odrazů je hodně).
+let slyseneKameny = 0;
+let tukloOd = 0;
+const ODSTUP_TUKNUTI = 90;
 // Mapa, která se v téhle hře odemkne po ODEMKNUTI_MAPY s (null = další není nebo už je odemčená),
 // a která se v ní opravdu odemkla (ukáže se na konci).
 let mapaKOdemceni = null;
@@ -55,6 +59,7 @@ function start() {
   zapsanoNalezu = 0;
   ukazaneZlato = 0;
   slyseneZvoneni = 0;
+  slyseneKameny = 0;
   vMenu = false;
   menu.skryj();
   document.body.classList.remove('v-menu');
@@ -326,6 +331,11 @@ function hud() {
   ukazaneZlato = hra.zlataky;
   if (hra.zvoneni > slyseneZvoneni) zvukZvonu(hra.vlnyZvonu.at(-1)?.ozvena);
   slyseneZvoneni = hra.zvoneni;
+  if (hra.zasahuKamenem > slyseneKameny && performance.now() - tukloOd > ODSTUP_TUKNUTI) {
+    zvukKamene(hra.oblazky.reduce((nej, k) => Math.max(nej, k.zasahu), 1));
+    tukloOd = performance.now();
+  }
+  slyseneKameny = hra.zasahuKamenem;
   el('hud-klice').hidden = !(hra.klice > 0);
   el('klice').textContent = hra.klice;
   el('cas').textContent = formatCas(hra.cas);

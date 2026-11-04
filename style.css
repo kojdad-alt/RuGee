@@ -547,9 +547,12 @@ html, body {
 
 canvas.stin { filter: brightness(0); opacity: 0.35; }
 
+/* Nejvýš 7 políček vedle sebe, další zbraně jdou do druhé řady (ať se přehled vejde i na úzký mobil). */
 .vybava-radek {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--mezera);
+  max-width: calc(7 * (var(--ikona) + 8px) + 6 * var(--mezera));
 }
 
 .vybava-policko {

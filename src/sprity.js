@@ -748,6 +748,92 @@ const SPRITY = {
     'W.LlLlL.',
     '..N..N..',
   ],
+  // Kořeny: ikona je kořen, který se z hlíny stáčí do smyčky jako do oka, a vedle něj klíček. Ve hře běží pod zemí
+  // hrbolek hlíny (hrbolek), z vyražené země trčí kořeny (koren) a drženému nepříteli se kořeny omotají kolem
+  // nohou (uponka).
+  korene: [
+    '..nhh...',
+    '.hN..h..',
+    '.h...N.M',
+    '..hn.hMl',
+    '...NhN.l',
+    '..hNNh..',
+    'NnNnNnNn',
+    '.NNNNNN.',
+  ],
+  koren: [
+    '.n..',
+    '.hn.',
+    '..hN',
+    '.hN.',
+    'hN..',
+    'Nh..',
+    '.hN.',
+  ],
+  uponka: [
+    'n..n..n.',
+    'hnhNhnhn',
+    'NhNhNhNh',
+    '.N.NN.N.',
+  ],
+  hrbolek: [
+    '..nn..',
+    '.nhhn.',
+    'nhNNhn',
+  ],
+  // Ohnivá stopa: ikona je hořící cesta (velký plamen a dva menší na spálené zemi). Ve hře hoří plameny ve dvou
+  // snímcích (plamen, plamen2) a zapálenému nepříteli plápolá plamínek.
+  stopa: [
+    '.....Y..',
+    '....yY..',
+    '...yYYo.',
+    '.Y.oYyo.',
+    'yYooyYoe',
+    'oyeoyyoe',
+    'eoeEooeE',
+    'KKKKKKKK',
+  ],
+  plamen: [
+    '..Y..',
+    '.yY..',
+    '.yYy.',
+    'oyYyo',
+    'oyYyo',
+    'eoyoe',
+    '.eoe.',
+  ],
+  plamen2: [
+    '...Y.',
+    '..yY.',
+    '.yYy.',
+    'oyYyo',
+    'oyYyo',
+    'eoyoe',
+    '.eoe.',
+  ],
+  plaminek: [
+    '.Y.',
+    'yYy',
+    'oyo',
+    '.e.',
+  ],
+  // Odrazný kámen: ikona je dřevěný prak s gumou a kamenem v kapse. Ve hře letí oblázek.
+  prak: [
+    '.n....n.',
+    '.hE..Eh.',
+    '.h.EE.h.',
+    '.h.GH.h.',
+    '..hGGh..',
+    '...hn...',
+    '...hn...',
+    '...NN...',
+  ],
+  oblazek: [
+    '.HG.',
+    'HGGD',
+    'GGDD',
+    '.DD.',
+  ],
   krumpac: [
     '.ppppp..',
     'p..h..p.',
