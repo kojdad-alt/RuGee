@@ -169,6 +169,14 @@ export const ZBRANE = {
 //   Rychlé ruce – kratší nabíjení všech zbraní (hrdina.nabijeni, stejné číslo jako u Bouřliváka a výbavy).
 //   Příval – +1 kus všem zbraním (střela, krumpáč, kořen, keř, … lucerně uhlík a stopě další řada plamenů),
 //            nejvýš 3 a nabízí se zřídka.
+// Pasivy pro přežití:
+//   Zbroj – každá úroveň ubere 1 z každé rány od nepřátel (dotyk, schopnosti bossů, jedový oblak po houbákovi),
+//           aspoň 1 projde vždy. Láva a bahenní oblaky jsou mapa, ne nepřítel, ty bolí celé. hrdina.pancir.
+//           Strop nemá: rány s hrozbou rostou čím dál rychleji, takže ji pozdě ve hře stejně přerostou.
+//   Regenerace – životy samy přibývají (hrdina.regenerace za sekundu), nejvýš STROPY.pasivy.regenerace, ať se
+//                nedá přežít donekonečna jen stáním.
+//   Štěstí – větší šance, že nepřítel pustí srdce nebo magnet (hrdina.stestiKoristi násobí šanci spolu se
+//            Štěstím z trvalých vylepšení, karty ani výbavu nemění), nejvýš STROPY.pasivy.stesti.
 export const PASIVY = {
   srdce: {
     nazev: 'Srdce', ikona: 'srdce', popis: '+20 max. životů a doléčení', vlastnost: 'maxHp', pricti: 20,
@@ -210,6 +218,18 @@ export const PASIVY = {
     nazev: 'Příval', ikona: 'prival', popis: '+1 střela nebo kus všem zbraním', vlastnost: 'prival', pricti: 1,
     dal: 1, popisDal: '+1 střela nebo kus všem zbraním', vaha: 0.35,
   },
+  zbroj: {
+    nazev: 'Zbroj', ikona: 'zbroj', popis: '-1 poškození z každé rány nepřátel', vlastnost: 'pancir', pricti: 1,
+    dal: 1, popisDal: '-1 poškození z každé rány nepřátel',
+  },
+  regenerace: {
+    nazev: 'Regenerace', ikona: 'regenerace', popis: '+0,4 životů za sekundu', vlastnost: 'regenerace', pricti: 0.4,
+    dal: 0.4, popisDal: '+0,4 životů za sekundu',
+  },
+  stesti: {
+    nazev: 'Štěstí', ikona: 'stesti', popis: '+20 % šance na srdce a magnet', vlastnost: 'stestiKoristi', pricti: 0.2,
+    dal: 0.2, popisDal: '+20 % šance na srdce a magnet',
+  },
 };
 
 // Úrovně nemají strop. Úrovně 1–5 popisuje každá zbraň a pasiva sama (popis), od 6. dál dá každá úroveň menší
@@ -223,11 +243,13 @@ export const RUST_UROVNI = { poskozeni: 0.08, kazda: 3, nabiti: 0.9, velikost: 0
 // uteklo a osminásobný magnet už sahá přes celou obrazovku.
 // Nové pasivy mají strop všechny: dvojnásobná rána nebo ozvěna u každé druhé rány, oblasti přes celou obrazovku
 // a efekty, které nikdy nepovolí, by hru rozbily. Rychlé ruce nejvýš o 40 % (krumpáče a zrcadla se točí s nimi).
+// Regenerace nejvýš 4 životy za sekundu (10 úrovní) a Štěstí nejvýš +200 % (10 úrovní): víc srdcí by doléčilo
+// každou ránu (u pricti je strop to, co pasiva přidá celkem). Zbroj strop nemá, zastaví ji rána aspoň 1.
 export const STROPY = {
   pocet: 12,
   nabiti: 0.25,
   velikost: 2.5,
-  pasivy: { boty: 2, magnet: 8, krit: 0.5, rozpeti: 1.6, ozvena: 0.5, vydrz: 2, rychleRuce: 0.6, prival: 3 },
+  pasivy: { boty: 2, magnet: 8, krit: 0.5, rozpeti: 1.6, ozvena: 0.5, vydrz: 2, rychleRuce: 0.6, prival: 3, regenerace: 4, stesti: 2 },
 };
 // Od těchto úrovní mění barvu rámeček v přehledu výbavy a čtverečky na kartě (stupenUrovne).
 export const STUPNE_UROVNI = [5, 10, 15];
@@ -290,7 +312,8 @@ export function platnaTrida(id) {
 // ozvěna, rychlé ruce, příval …) zase místo 21–24 min 27–30+, proto 1,3 místo 1,15. Bez trvalých vylepšení se tam
 // nikdo nedostane, takže se mu nic nemění.
 // Vyváženo simulací (tests/simulace.mjs, hrozba.preziti_min): bot bez trvalých vylepšení vydrží zhruba 4–15 min,
-// se všemi na maximu (s výbavou bossů z truhel, se zlaťáky a s pasivami pro zbraně) 21–26 min. Brzký růst rychlosti je citlivý: už 0,015 místo 0,01 složí slabého bota v 6. minutě.
+// se všemi na maximu (s výbavou bossů z truhel, se zlaťáky, s pasivami pro zbraně i se Zbrojí, Regenerací
+// a Štěstím) 21–28 min. Brzký růst rychlosti je citlivý: už 0,015 místo 0,01 složí slabého bota v 6. minutě.
 export const HROZBA = {
   zivoty: 0.1, narustOd: 8, narustZivotu: 1.25, bossZivoty: 0.2, bossNavic: 0.3, pozdeOd: 18, narustPozde: 1.3,
   poskozeni: 0.05, narustPoskozeni: 1.1,
@@ -739,6 +762,10 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     zbroj: 0, neviditelny: 0, doZmizeni: 0, zmizelX: 0, zmizelY: 0, naLedu: false, plocha: null, strana: 1,
     // Pasivy pro zbraně: krit a ozvena = šance (0–1), rozpeti a vydrz = násobky, prival = kusů navíc.
     krit: 0, rozpeti: 1, ozvena: 0, vydrz: 1, prival: 0,
+    // Pasivy pro přežití: pancir = kolik ubere Zbroj z každé rány nepřátel, regenerace = životů za sekundu,
+    // stestiKoristi = násobek šance na srdce a magnet ze Štěstí (pasiva), naRegeneraci = vyléčeno, ale ještě
+    // neukázáno číslem, doCislaRegenerace = za jak dlouho vyskočí další zelené číslo.
+    pancir: 0, regenerace: 0, stestiKoristi: 1, naRegeneraci: 0, doCislaRegenerace: 0,
   };
   for (const [vlastnost, nasobek] of Object.entries(TRIDY[trida].nasobky)) hrdina[vlastnost] *= nasobek;
   pouzijVylepseni(hrdina, vylepseni);
@@ -845,6 +872,11 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     ozvenVystrelu: 0,
     ozvenZasahu: 0,
     otreseno: 0,
+    // Pasivy pro přežití (počítadla pro simulaci): ubranoZbroji = kolik poškození Zbroj zastavila,
+    // zbrojiZasahu = kolik ran zmenšila, vylecenoRegeneraci = kolik životů vrátila Regenerace.
+    ubranoZbroji: 0,
+    zbrojiZasahu: 0,
+    vylecenoRegeneraci: 0,
     doSpawnu: 0,
     dalsiBoss: BOSS_KAZDYCH,
     bossu: 0,
@@ -1048,9 +1080,10 @@ function brzdaOtresu(n) {
 }
 
 // Zelené +N nad hrdinou, když se opravdu léčil.
-function cisloLeceni(hra, kolik) {
+// regenerace = číslo ukazuje, co Regenerace vrátila za poslední chvíli (ne léčení v tomhle snímku).
+function cisloLeceni(hra, kolik, regenerace = false) {
   const k = Math.round(kolik);
-  if (k > 0) pridejCislo(hra, { x: hra.hrdina.x, y: hra.hrdina.y - 18, text: `+${k}`, hodnota: k, zivot: TRVANI_CISLA_LECENI, barva: 'leceni' });
+  if (k > 0) pridejCislo(hra, { x: hra.hrdina.x, y: hra.hrdina.y - 18, text: `+${k}`, hodnota: k, zivot: TRVANI_CISLA_LECENI, barva: 'leceni', regenerace });
 }
 
 // Sebrané zlaťáky: přičtou se, zapíše se odkud jsou (zlatakyZ) a nad hrdinou vyskočí zlaté +N.
@@ -1108,9 +1141,17 @@ function oziv(hra) {
 // Zranění hrdiny (dotyk nepřítele, útok bosse nebo jedový oblak): červené číslo nad ním, chvíle bez zranění,
 // třes, případně konec nebo Oživení. barva 'jed' = rána z oblaku (kreslí se stejně, jen se pozná).
 // Zbroj z výbavy ubere z rány svůj díl (aspoň 1 projde vždy). S Bludným plamenem hrdina po ráně zmizí.
-function zran(hra, kolik, barva = 'zraneni') {
+// Zbroj (pasiva) pak ubere ještě svůj počet, jen z ran od nepřátel (odNepritele = false: láva, bahenní oblak),
+// a i tak projde aspoň 1 (menší rána zůstane, jak byla).
+function zran(hra, kolik, barva = 'zraneni', odNepritele = true) {
   const { hrdina } = hra;
   if (hrdina.zbroj > 0 && kolik > 0) kolik = Math.max(1, Math.round(kolik * (1 - hrdina.zbroj)));
+  if (odNepritele && hrdina.pancir > 0 && kolik > 1) {
+    const zbude = Math.max(1, kolik - hrdina.pancir);
+    hra.ubranoZbroji += kolik - zbude;
+    hra.zbrojiZasahu += 1;
+    kolik = zbude;
+  }
   if (kolik > 0) pridejCislo(hra, { x: hrdina.x, y: hrdina.y - 18, text: `-${kolik}`, hodnota: kolik, barva });
   hrdina.hp -= kolik;
   hrdina.nezranitelny = 0.5;
@@ -1128,6 +1169,25 @@ function zran(hra, kolik, barva = 'zraneni') {
     hrdina.zmizelY = hrdina.y;
     hra.efektyPouzito.zmizeni += 1;
     rozprsk(hra, hrdina.x, hrdina.y, 'bludicka', 8);
+  }
+}
+
+// Regenerace (pasiva): životy přibývají plynule, zelené číslo vyskočí nejvýš jednou za CISLO_REGENERACE s
+// (jinak by se nad hrdinou míhaly drobky). Na plných životech ani po konci hry nic.
+export const CISLO_REGENERACE = 1.5;
+function regeneruj(hra, dt) {
+  const { hrdina } = hra;
+  hrdina.doCislaRegenerace = Math.max(0, hrdina.doCislaRegenerace - dt);
+  if (!(hrdina.regenerace > 0) || hra.konec || hrdina.hp >= hrdina.maxHp) return;
+  const pred = hrdina.hp;
+  hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + hrdina.regenerace * dt);
+  hra.vylecenoRegeneraci += hrdina.hp - pred;
+  hrdina.naRegeneraci += hrdina.hp - pred;
+  if (hrdina.doCislaRegenerace <= 0 && hrdina.naRegeneraci >= 1) {
+    const cele = Math.floor(hrdina.naRegeneraci);
+    cisloLeceni(hra, cele, true);
+    hrdina.naRegeneraci -= cele;
+    hrdina.doCislaRegenerace = CISLO_REGENERACE;
   }
 }
 
@@ -3193,10 +3253,11 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   hra.tres = Math.max(0, hra.tres - dt);
   hra.zablesk = Math.max(0, hra.zablesk - dt);
   hra.vybuch = Math.max(0, hra.vybuch - dt);
+  regeneruj(hra, dt);
   // Láva pálí, dokud v ní hrdina stojí (po každé ráně chvíle klidu jako u jedu), rána roste s hrozbou.
   if (mapa.lava && naPlose(hra.mapa, hrdina.x, hrdina.y) === 'lava' && hrdina.nezranitelny <= 0 && !hra.konec) {
     hra.popaleno += 1;
-    zran(hra, ranaHrozby(hra, mapa.lava.poskozeni), 'ohen');
+    zran(hra, ranaHrozby(hra, mapa.lava.poskozeni), 'ohen', false);
     rozprsk(hra, hrdina.x, hrdina.y + 8, 'lava', 5);
   }
   bublinyBahna(hra, dt);
@@ -3333,7 +3394,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   for (const o of hra.oblaky) {
     const pali = TRVANI_OBLAKU - o.zivot >= NAFUKOVANI_OBLAKU;
     if (pali && hrdina.nezranitelny <= 0 && !hra.konec && vzdalenost(o, hrdina) < o.polomer) {
-      zran(hra, ranaHrozby(hra, o.jed ?? JED_OBLAKU), 'jed');
+      zran(hra, ranaHrozby(hra, o.jed ?? JED_OBLAKU), 'jed', o.druh !== 'bahno');
     }
   }
 
@@ -3674,10 +3735,10 @@ function pohrbi(hra) {
         hra.mesec -= hromadka;
         hra.predmety.push({ druh: 'zlatak', x: n.x, y: n.y, hodnota: hromadka, z: 'elity' });
       }
-      // Štěstí z trvalých vylepšení zvětší šanci na srdce a magnet, los z rng je pořád jeden (náhoda vln se
-      // neposune). Zlaťák se bere ze stejného losu hned za nimi.
+      // Štěstí z trvalých vylepšení i pasiva Štěstí zvětší šanci na srdce a magnet, los z rng je pořád jeden
+      // (náhoda vln se neposune). Zlaťák se bere ze stejného losu hned za nimi.
       const los = hra.rng.dalsi();
-      const stesti = hrdina.stesti;
+      const stesti = hrdina.stesti * (hrdina.stestiKoristi ?? 1);
       if (los < SANCE_MAGNET * stesti) hra.predmety.push({ druh: 'magnet', x: n.x, y: n.y });
       else if (los < (SANCE_MAGNET + SANCE_SRDCE) * stesti) hra.predmety.push({ druh: 'srdce', x: n.x, y: n.y });
       else if (!n.elita && los < (SANCE_MAGNET + SANCE_SRDCE) * stesti + SANCE_ZLATAKU && hra.mesec >= 1) {
