@@ -23,9 +23,11 @@ export const PASIVY = {
 };
 
 const MAX_UROVEN = 5;
+const MAX_NEPRATEL = 350;
+const MAX_KRYSTALU = 300;
 
 const NEPRATELE = {
-  netopyr: { hp: 10, rychlost: 72, poskozeni: 6, xp: 1, polomer: 10 },
+  netopyr: { hp: 10, rychlost: 72, poskozeni: 5, xp: 1, polomer: 10 },
   slizak: { hp: 32, rychlost: 42, poskozeni: 10, xp: 2, polomer: 12 },
   kostlivec: { hp: 60, rychlost: 58, poskozeni: 14, xp: 3, polomer: 11 },
 };
@@ -38,7 +40,7 @@ export function novaHra(rng) {
     konec: false,
     volby: null,
     hrdina: {
-      x: 0, y: 0, hp: 100, maxHp: 100, rychlost: 110, magnet: 48,
+      x: 0, y: 0, hp: 100, maxHp: 100, rychlost: 110, magnet: 64,
       sila: 1, uroven: 1, xp: 0, potreba: 5, nezranitelny: 0, otoceny: 1,
     },
     zbrane: { jiskra: { uroven: 1, nabiti: 0 } },
@@ -63,23 +65,28 @@ function zasah(hra, n, kolik) {
   hra.cisla.push({ x: n.x, y: n.y - 10, text: String(poskozeni), zivot: 0.6 });
 }
 
+function polomerSpawnu(sirka, vyska) {
+  return Math.hypot(sirka, vyska) / 2 + 40;
+}
+
+function naOkraji(hra, sirka, vyska) {
+  const uhel = hra.rng.dalsi() * Math.PI * 2;
+  const r = polomerSpawnu(sirka, vyska);
+  return { x: hra.hrdina.x + Math.cos(uhel) * r, y: hra.hrdina.y + Math.sin(uhel) * r };
+}
+
 function spawn(hra, sirka, vyska) {
-  const { rng, hrdina, cas } = hra;
+  const { rng, cas } = hra;
+  if (hra.nepratele.length >= MAX_NEPRATEL) return;
   const druhy = ['netopyr'];
-  if (cas > 45) druhy.push('slizak');
-  if (cas > 120) druhy.push('kostlivec');
-  const davka = 1 + Math.floor(cas / 45);
-  const polomer = Math.hypot(sirka, vyska) / 2 + 40;
+  if (cas > 60) druhy.push('slizak');
+  if (cas > 150) druhy.push('kostlivec');
+  const davka = 1 + Math.floor(cas / 60);
   for (let i = 0; i < davka; i++) {
     const druh = rng.vyber(druhy);
     const vzor = NEPRATELE[druh];
-    const uhel = rng.dalsi() * Math.PI * 2;
     const hp = Math.round(vzor.hp * (1 + cas / 150));
-    hra.nepratele.push({
-      druh, ...vzor, hp, maxHp: hp, zasazen: 0, zasahKrumpacem: 0,
-      x: hrdina.x + Math.cos(uhel) * polomer,
-      y: hrdina.y + Math.sin(uhel) * polomer,
-    });
+    hra.nepratele.push({ druh, ...vzor, hp, maxHp: hp, zasazen: 0, zasahKrumpacem: 0, ...naOkraji(hra, sirka, vyska) });
   }
 }
 
@@ -99,7 +106,7 @@ export function staty(hra) {
   const l = u('lucerna');
   const k = u('krumpace');
   return {
-    jiskra: { pocet: 1 + (j >= 2) + (j >= 4), nabiti: j >= 3 ? 0.6 : 0.85, poskozeni: j >= 5 ? 16 : 11 },
+    jiskra: { pocet: 1 + (j >= 2) + (j >= 4), nabiti: j >= 3 ? 0.5 : 0.7, poskozeni: j >= 5 ? 16 : 11 },
     lucerna: { dosah: 56 + 22 * ((l >= 2) + (l >= 4)), zar: 14 + 9 * ((l >= 3) + (l >= 5)) },
     krumpace: { pocet: 1 + (k >= 2) + (k >= 4), rychlost: k >= 3 ? 4.5 : 3, poskozeni: k >= 5 ? 18 : 12, polomer: 64 },
   };
@@ -126,7 +133,12 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   hra.doSpawnu -= dt;
   if (hra.doSpawnu <= 0) {
     spawn(hra, sirka, vyska);
-    hra.doSpawnu = Math.max(0.15, 1.1 - hra.cas / 120);
+    hra.doSpawnu = Math.max(0.25, 1.2 - hra.cas / 180);
+  }
+  // Kdo zůstal daleko za hrdinou, vrátí se na okraj obrazovky, aby se nepřátelé nehromadili mimo dohled.
+  const daleko = polomerSpawnu(sirka, vyska) * 1.5;
+  for (const n of hra.nepratele) {
+    if (vzdalenost(n, hrdina) > daleko) Object.assign(n, naOkraji(hra, sirka, vyska));
   }
   for (const n of hra.nepratele) {
     const d = vzdalenost(n, hrdina) || 1;
@@ -221,6 +233,11 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     }
   }
   hra.krystaly = hra.krystaly.filter((kr) => !kr.sebran);
+  // Moc krystalů na zemi: dva nejstarší se slijí do jednoho, zkušenosti se neztratí.
+  while (hra.krystaly.length > MAX_KRYSTALU) {
+    const [a, b] = hra.krystaly.splice(0, 2);
+    hra.krystaly.push({ x: b.x, y: b.y, xp: a.xp + b.xp });
+  }
   if (hrdina.xp >= hrdina.potreba) {
     hrdina.xp -= hrdina.potreba;
     hrdina.uroven += 1;
