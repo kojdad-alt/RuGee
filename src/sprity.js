@@ -1,7 +1,7 @@
 // Pixelové sprity 8×8 kreslené z textu. Každý znak je barva z palety, tečka je průhledná.
 const PALETA = {
   g: '#e9c46a', f: '#f1d2a8', b: '#5f7fb8', B: '#3e5684', o: '#ffb347',
-  k: '#3b2a4a', v: '#6b4c8a', r: '#ff5a5a',
+  k: '#3b2a4a', v: '#6b4c8a', r: '#ff5a5a', R: '#ffc2c2',
   m: '#5fae4e', M: '#9be08a', w: '#10200c',
   W: '#e8e2d0', K: '#151318',
   c: '#4fd6c9', C: '#b8fff5',
@@ -57,6 +57,26 @@ const SPRITY = {
     '..cCc...',
     '...c....',
     '........',
+    '........',
+  ],
+  srdce: [
+    '........',
+    '.rr..rr.',
+    'rRrrrrrr',
+    'rrrrrrrr',
+    '.rrrrrr.',
+    '..rrrr..',
+    '...rr...',
+    '........',
+  ],
+  magnet: [
+    'rr....pp',
+    'rr....pp',
+    'rr....pp',
+    'rr....pp',
+    'rrr..ppp',
+    '.rrrppp.',
+    '..rrpp..',
     '........',
   ],
   krumpac: [
