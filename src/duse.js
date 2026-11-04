@@ -8,7 +8,7 @@ export const VYLEPSENI = {
   zivoty: { nazev: 'Životy', popis: '+10 max. životů', vlastnost: 'maxHp', pricti: 10, max: 5, cena: 25 },
   rychlost: { nazev: 'Rychlost', popis: '+4 % rychlost pohybu', vlastnost: 'rychlost', nasobek: 0.04, max: 5, cena: 25 },
   magnet: { nazev: 'Magnet', popis: '+10 % dosah sběru krystalů', vlastnost: 'magnet', nasobek: 0.1, max: 5, cena: 20 },
-  stesti: { nazev: 'Štěstí', popis: '+20 % šance, že padne srdce nebo magnet', vlastnost: 'stesti', nasobek: 0.2, max: 5, cena: 30 },
+  stesti: { nazev: 'Štěstí', popis: '+20 % šance na srdce, magnet a vzácnější karty', vlastnost: 'stesti', nasobek: 0.2, max: 5, cena: 30 },
   zkusenosti: { nazev: 'Zkušenosti', popis: '+5 % zkušeností z krystalů', vlastnost: 'zkusenosti', nasobek: 0.05, max: 5, cena: 35 },
   oziveni: { nazev: 'Oživení', popis: 'Jednou za hru tě duše vrátí s půlkou životů', vlastnost: 'oziveni', pricti: 1, max: 1, cena: 150 },
 };

@@ -169,7 +169,7 @@ const OVLADANI = [
   [['W', 'A', 'S', 'D'], 'pohyb'],
   [['šipky'], 'pohyb'],
   [['tah prstem'], 'pohyb na mobilu'],
-  [['1', '2', '3'], 'výběr vylepšení (nebo klik)'],
+  [['1', '2', '3'], 'výběr vylepšení (nebo klik, šipky a Enter)'],
   [['P'], 'pauza'],
   [['R'], 'znovu po prohře'],
   [['M'], 'menu po prohře'],
