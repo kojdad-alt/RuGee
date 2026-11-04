@@ -85,6 +85,38 @@ function zvol(i) {
   el('volba').hidden = true;
 }
 
+// Rekord se drží jen v tomhle prohlížeči. V anonymním okně nebo se zablokovaným úložištěm
+// se prostě neuloží, hra kvůli tomu nespadne.
+const KLIC_REKORDU = 'hlubiny.rekord';
+
+function nactiRekord() {
+  try {
+    return JSON.parse(localStorage.getItem(KLIC_REKORDU)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function ulozRekord(rekord) {
+  try {
+    localStorage.setItem(KLIC_REKORDU, JSON.stringify(rekord));
+  } catch {
+    // úložiště nejde, rekord se neuloží
+  }
+}
+
+function zapisKonec() {
+  const vysledek = { cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito };
+  const rekord = nactiRekord();
+  const novy = !rekord || vysledek.cas > rekord.cas;
+  if (novy) ulozRekord(vysledek);
+  const text = `Přežil jsi ${formatCas(hra.cas)}, úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}, Strážců ${hra.zabitoBossu}.`;
+  const radekRekordu = novy
+    ? 'Nový rekord!'
+    : `Rekord: ${formatCas(rekord.cas)}, úroveň ${rekord.uroven}, zabito ${rekord.zabito}.`;
+  el('konec-text').textContent = `${text} ${radekRekordu}`;
+}
+
 function formatCas(s) {
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
@@ -104,7 +136,7 @@ function smycka(t) {
   aktualizuj(hra, dt, vstup(), platno.width, platno.height);
   if (!melVolby && hra.volby) ukazVolby();
   if (hra.konec && el('konec').hidden) {
-    el('konec-text').textContent = `Přežil jsi ${formatCas(hra.cas)}, úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}, Strážců ${hra.zabitoBossu}.`;
+    zapisKonec();
     el('konec').hidden = false;
   }
   kresli(ctx, hra);
