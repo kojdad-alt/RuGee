@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RuGee</title>
-<link rel="stylesheet" href="style.css?v=d18b94a5">
+<link rel="stylesheet" href="style.css?v=d36bf43a">
 </head>
 <body class="v-menu">
 <canvas id="platno" aria-label="RuGee"></canvas>
@@ -74,7 +74,7 @@
 </section>
 
 <section id="konec" class="okno" hidden>
-  <h2>Hlubiny tě pohltily</h2>
+  <h2>Horda tě pohltila</h2>
   <p id="konec-text" class="podtitul"></p>
   <p id="konec-duse" class="konec-duse"></p>
   <div class="radek-tlacitek">
@@ -83,28 +83,29 @@
   </div>
 </section>
 
-<p class="napoveda">Pohyb: WASD, šipky nebo tah prstem · zbraně střílí samy · P pauza</p>
+<p class="napoveda">Pohyb: WASD, šipky nebo tah prstem · zbraně střílí samy · P pauza · N zvuk</p>
+<p id="zvuk-hlaseni" class="zvuk-hlaseni" role="status" hidden></p>
 <script type="importmap">
 {
   "imports": {
     "./src/duse.js": "./src/duse.js?v=deee8ca0",
-    "./src/hra.js": "./src/hra.js?v=989fba40",
+    "./src/hra.js": "./src/hra.js?v=c6d39541",
     "./src/kresleni.js": "./src/kresleni.js?v=4eee840a",
     "./src/louka.js": "./src/louka.js?v=aff52225",
-    "./src/main.js": "./src/main.js?v=de4079d6",
+    "./src/main.js": "./src/main.js?v=8eaefeb3",
     "./src/mapy.js": "./src/mapy.js?v=8be105f4",
-    "./src/menu.js": "./src/menu.js?v=5b379e7b",
+    "./src/menu.js": "./src/menu.js?v=dc8ef4b6",
     "./src/obchod.js": "./src/obchod.js?v=8eefb34c",
     "./src/rng.js": "./src/rng.js?v=60bdabbe",
     "./src/sprity.js": "./src/sprity.js?v=9dd6beb8",
-    "./src/ulozeni.js": "./src/ulozeni.js?v=fdf55368",
+    "./src/ulozeni.js": "./src/ulozeni.js?v=f2d3b8ba",
     "./src/volba.js": "./src/volba.js?v=a315aa98",
     "./src/vybava.js": "./src/vybava.js?v=ad7ca2a5",
     "./src/vystroj.js": "./src/vystroj.js?v=0ce521ae",
-    "./src/zvuk.js": "./src/zvuk.js?v=ec634b59"
+    "./src/zvuk.js": "./src/zvuk.js?v=b1a2d247"
   }
 }
 </script>
-<script type="module" src="src/main.js?v=de4079d6"></script>
+<script type="module" src="src/main.js?v=8eaefeb3"></script>
 </body>
 </html>

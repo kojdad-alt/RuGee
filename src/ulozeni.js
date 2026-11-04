@@ -13,8 +13,9 @@ const KLIC_NASTAVENI = 'hlubiny.nastaveni';
 const KLIC_SBIRKY = 'hlubiny.sbirka';
 const KLIC_MAPY = 'hlubiny.mapa';
 const KLIC_ODEMCENYCH = 'hlubiny.mapy';
-// Přepínače v Ovládání a v pauze. Co v záznamu chybí nebo není ano/ne, platí výchozí.
-export const VYCHOZI_NASTAVENI = { cislaPoskozeni: true };
+// Nastavení z menu a pauzy: přepínače ano/ne a hlasitosti zvuku v procentech (efekty 60 %, hudba 40 %,
+// ztlumeno = klávesa N). Co v záznamu chybí nebo má špatný druh, platí výchozí, procenta se zaokrouhlí do 0–100.
+export const VYCHOZI_NASTAVENI = { cislaPoskozeni: true, efekty: 60, hudba: 40, ztlumeno: false };
 
 function nacti(klic) {
   try {
@@ -101,8 +102,10 @@ export function ulozDuse(stav) {
 function platnaNastaveni(zaznam) {
   const nastaveni = { ...VYCHOZI_NASTAVENI };
   if (!zaznam || typeof zaznam !== 'object') return nastaveni;
-  for (const klic of Object.keys(VYCHOZI_NASTAVENI)) {
-    if (typeof zaznam[klic] === 'boolean') nastaveni[klic] = zaznam[klic];
+  for (const [klic, vychozi] of Object.entries(VYCHOZI_NASTAVENI)) {
+    const hodnota = zaznam[klic];
+    if (typeof vychozi === 'boolean' && typeof hodnota === 'boolean') nastaveni[klic] = hodnota;
+    else if (typeof vychozi === 'number' && Number.isFinite(hodnota)) nastaveni[klic] = Math.min(100, Math.max(0, Math.round(hodnota)));
   }
   return nastaveni;
 }

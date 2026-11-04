@@ -15,6 +15,7 @@ Nic se neinstaluje, jde to i na mobilu.
 - **6 map**: Louka, Jeskyně hlubin, Zamrzlé jezero, Sopka, Bažina a Hřbitov za noci. Každá má svého bosse a svoje nástrahy.
 - **4 postavy**: Lovec, Havíř, Světlonoš a Bouřlivák.
 - **Zlaťáky** na kupce, přehazování karet a zamčené truhly. Z **duší** si koupíš trvalá vylepšení.
+- **Zvuky a hudba** ze syntezátoru, každá mapa má svou náladu. Hlasitost je v Nastavení, N ztlumí.
 
 ## Ovládání
 

@@ -997,6 +997,8 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     zamcenych: 0,
     otevrenoZamcenych: { klic: 0, zlato: 0 },
     odemceno: null,
+    // Zvuky pro prohlížeč: co se od posledního snímku stalo (id → { pocet, sila }), viz zvuk().
+    zvuky: {},
   };
 }
 
@@ -1018,6 +1020,19 @@ export function kratkeCislo(h) {
 
 // Nové číslo nad hlavou. barva: null = zásah (bílé), 'silny', 'zraneni', 'jed', 'leceni', 'zlato', 'utrata'.
 // Kreslení si z vek (trvani − zivot) spočítá, jak vysoko je a jak průhledné, smer je mírný úlet do strany.
+// Zvuk pro prohlížeč: zapíše, že se ve hře stalo id (sila = číslo pro zvuk, třeba kolikátý odraz kamene).
+// main.js po každém snímku zapsané přehraje (zvuk.js) a vynuluje. Nic nelosuje a na průběh hry nemá vliv,
+// v simulaci jen přibývají počty.
+function zvuk(hra, id, sila = 0) {
+  const zvuky = hra.zvuky ?? (hra.zvuky = {});
+  const z = zvuky[id];
+  if (!z) zvuky[id] = { pocet: 1, sila };
+  else {
+    z.pocet += 1;
+    if (sila > z.sila) z.sila = sila;
+  }
+}
+
 function pridejCislo(hra, cislo) {
   const trvani = cislo.zivot ?? TRVANI_CISLA;
   const c = { barva: null, ...cislo, zivot: trvani, trvani, od: hra.cas, pridano: 0, smer: (hra.cisla.length % 3) - 1 };
@@ -1059,7 +1074,10 @@ export function zasah(hra, n, kolik, zar = false) {
   if (zar) n.zar = TRVANI_ZARU;
   else n.zasazen = 0.1;
   if (krit) hra.kritu += 1;
-  if (poskozeni > 0) cisloZasahu(hra, n, poskozeni, krit);
+  if (poskozeni > 0) {
+    cisloZasahu(hra, n, poskozeni, krit);
+    zvuk(hra, 'zasah');
+  }
   const sit = hra.ucinekVystroje?.efekty.sit;
   if (sit && poskozeni > 0 && n.hp > 0 && !(n.zapreden > 0)) {
     hra.doSite += sit.sance;
@@ -1155,6 +1173,7 @@ function cisloLeceni(hra, kolik, regenerace = false) {
 function pridejZlataky(hra, kolik, odkud) {
   if (!(kolik > 0)) return;
   hra.zlataky += kolik;
+  zvuk(hra, 'zlatak');
   if (Object.hasOwn(hra.zlatakyZ, odkud)) hra.zlatakyZ[odkud] += kolik;
   pridejCislo(hra, { x: hra.hrdina.x, y: hra.hrdina.y - 18, text: `+${kolik}`, hodnota: kolik, zivot: TRVANI_CISLA_LECENI, barva: 'zlato' });
 }
@@ -1200,6 +1219,7 @@ function oziv(hra) {
     n.y = hrdina.y + Math.sin(uhel) * ODHOZENI_PRI_OZIVENI;
   }
   hra.oznameni = { text: 'Duše tě vrátily z hlubin', zivot: 3 };
+  zvuk(hra, 'oziveni');
   cisloLeceni(hra, hrdina.hp);
 }
 
@@ -1226,13 +1246,19 @@ function zran(hra, kolik, barva = 'zraneni', odNepritele = true, utocnik = null)
     hra.zbrojiZasahu += 1;
     kolik = zbude;
   }
-  if (kolik > 0) pridejCislo(hra, { x: hrdina.x, y: hrdina.y - 18, text: `-${kolik}`, hodnota: kolik, barva });
+  if (kolik > 0) {
+    pridejCislo(hra, { x: hrdina.x, y: hrdina.y - 18, text: `-${kolik}`, hodnota: kolik, barva });
+    zvuk(hra, 'zraneni');
+  }
   hrdina.hp -= kolik;
   hrdina.nezranitelny = 0.5;
   hra.tres = TRVANI_TRESU;
   if (hrdina.hp <= 0) {
     if (hrdina.oziveni > 0) oziv(hra);
-    else hra.konec = true;
+    else {
+      hra.konec = true;
+      zvuk(hra, 'smrtHrdiny');
+    }
   }
   const zmizeni = hra.ucinekVystroje?.efekty.zmizeni;
   if (zmizeni && !hra.konec && hrdina.doZmizeni <= 0) {
@@ -1272,6 +1298,7 @@ function zablokuj(hra, kolik) {
   hra.ubranoStitem += kolik;
   hra.prasklStit = TRVANI_PRASKNUTI;
   pridejCislo(hra, { x: hrdina.x, y: hrdina.y - 18, text: '0', hodnota: kolik, barva: 'stit' });
+  zvuk(hra, 'stit');
   rozprsk(hra, hrdina.x, hrdina.y, 'stit', 10);
 }
 
@@ -1433,6 +1460,7 @@ function spawn(hra, sirka, vyska) {
         hra.doElity -= 1;
         hra.elit += 1;
         elita = true;
+        zvuk(hra, 'elita');
       }
     }
     pridejNepritele(hra, druh, x, y, elita);
@@ -1585,6 +1613,7 @@ function rozbij(hra, b) {
   if (b.rozbita) return;
   b.rozbita = true;
   hra.rozbitoBeden += 1;
+  zvuk(hra, 'bedna');
   trisky(hra, b);
   const vec = losujKorist(hra.rng.dalsi());
   hra.zBeden[vec] += 1;
@@ -1612,6 +1641,7 @@ function vybuch(hra, sirka, vyska) {
     if (Math.abs(n.x - hrdina.x) <= sirka / 2 + n.polomer && Math.abs(n.y - hrdina.y) <= vyska / 2 + n.polomer) n.hp = 0;
   }
   hra.bomb += 1;
+  zvuk(hra, 'bomba');
   hra.vybuch = TRVANI_VYBUCHU;
   hra.tres = TRVANI_TRESU;
   hra.oznameni = { text: 'Bomba!', zivot: 1.2 };
@@ -1667,6 +1697,7 @@ function zamirVypad(n, sch, hrdina) {
 
 // Jeden vějíř střel z bosse na hrdinu.
 function vystrelVejir(hra, n, s) {
+  zvuk(hra, 'strelaBosse');
   const zaklad = Math.atan2(hra.hrdina.y - n.y, hra.hrdina.x - n.x);
   for (let i = 0; i < s.strel; i++) {
     const uhel = zaklad + (i - (s.strel - 1) / 2) * s.rozestup;
@@ -1688,6 +1719,7 @@ const PRUBEH_SCHOPNOSTI = {
       hra.vlny.push({ x: n.x, y: n.y, r: 0, max: s.polomer, poskozeni: s.poskozeni, odhozeni: s.odhozeni, zasahla: false, zdroj: n });
       hra.tres = Math.max(hra.tres, TRES_DUPNUTI);
       rozprsk(hra, n.x, n.y + n.polomer / 2, 'kamen', 10);
+      zvuk(hra, 'uder');
     },
   },
   hod: {
@@ -1718,6 +1750,7 @@ const PRUBEH_SCHOPNOSTI = {
     proved(hra, n, sch) {
       sch.ujde = 0;
       sch.trefil = false;
+      zvuk(hra, 'vypadBezi');
     },
     dal(hra, n, sch, dt) {
       const { hrdina } = hra;
@@ -1801,6 +1834,8 @@ function zacniSchopnost(hra, n, sirka, vyska) {
     n.dalsiSchopnost = (i + 1) % seznam.length;
     n.schopnost = { id: s.id, s, faze: 'varovani', zbyva: s.varovani };
     hra.schopnostiPouzito[s.id] = (hra.schopnostiPouzito[s.id] ?? 0) + 1;
+    // Varování má každá schopnost svým zvukem (dupnutí duní, hod hvízdá, výpad vrčí, vyvolání se chvěje …).
+    zvuk(hra, s.id);
     prubeh.zacni?.(hra, n, n.schopnost, sirka, vyska);
     return;
   }
@@ -1820,6 +1855,7 @@ function schopnostiBossu(hra, dt, sirka, vyska) {
     n.zjeveni = Math.max(0, n.zjeveni - dt);
     if (!n.zuri && n.hp <= n.maxHp * ZURIVOST) {
       n.zuri = true;
+      zvuk(hra, 'zurivost');
       if (!hra.oznameni || hra.oznameni.zivot < 1) hra.oznameni = { text: `${BOSSOVE[n.druh]?.nazev ?? n.druh} zuří`, zivot: 2 };
     }
     const sch = n.schopnost;
@@ -1871,6 +1907,7 @@ function strelyBossu(hra, dt) {
     k.let += dt;
     if (k.let < k.trvani) continue;
     k.dopadl = true;
+    zvuk(hra, 'dopad');
     rozprsk(hra, k.x, k.y, k.druh, 6);
     hra.dopady.push({ x: k.x, y: k.y, polomer: k.polomer, druh: k.druh, zivot: TRVANI_DOPADU });
     if (vzdalenost(k, hrdina) < k.polomer && muzeDostat()) {
@@ -2111,6 +2148,7 @@ function zasadTrny(hra, st, ozvena = false) {
     rozprsk(hra, m.x, m.y, 'trny', 5);
   }
   if (hra.trny.length > MAX_TRNU) hra.trny.splice(0, hra.trny.length - MAX_TRNU);
+  if (nove.length) zvuk(hra, 'trny');
   return nove.length;
 }
 
@@ -2154,12 +2192,14 @@ function zrcadla(hra, s) {
       st.zivot = ZIVOT_ODRAZU;
       st.poskozeni = z.odraz;
       hra.odrazeno += 1;
+      zvuk(hra, 'zrcadlo', 1);
       hra.odlesky.push({ x: st.x, y: st.y, zivot: TRVANI_ODLESKU });
     }
     for (const n of hra.nepratele) {
       if (n.zasahZrcadlem > 0 || n.hp <= 0 || !viditelny(n) || vzdalenost(n, p) >= n.polomer + z.velikost) continue;
       zasah(hra, n, z.poskozeni);
       n.zasahZrcadlem = 0.5;
+      zvuk(hra, 'zrcadlo');
       ozvenaZasahu(hra, n, z.poskozeni);
       hra.odlesky.push({ x: (n.x + p.x) / 2, y: (n.y + p.y) / 2, zivot: TRVANI_ODLESKU });
       if (n.boss) continue;
@@ -2277,6 +2317,7 @@ function rojSvetlusek(hra, dt, s) {
           zasah(hra, c, st.poskozeni);
           otres(hra, c, st.otres);
           hra.zasahuSvetluskami += 1;
+          zvuk(hra, 'svetlusky');
         }
         rozprsk(hra, l.x, l.y, 'svetluska', 3);
         // Ozvěna: světluška se nevrátí a hned se vrhne na dalšího nepřítele (jednou, pak už letí domů).
@@ -2365,6 +2406,7 @@ function hodKrystaly(hra, st) {
     });
     hra.zon += 1;
   }
+  if (mista.length) zvuk(hra, 'mraz');
   return mista.length;
 }
 
@@ -2401,6 +2443,7 @@ function mrznouZony(hra, dt) {
       if (vzdalenost(b, z) < z.polomer + POLOMER_BEDNY / 2) rozbij(hra, b);
     }
     hra.roztristeni.push({ x: z.x, y: z.y, polomer: z.polomer, zivot: TRVANI_TRISTENI });
+    zvuk(hra, 'trist');
     rozprsk(hra, z.x, z.y, 'led', 10);
     // Ozvěna (pasiva): zóna za ZPOZDENI_OZVENY zamrzne a roztříští se ještě jednou (podruhé už bez ozvěny).
     if (!z.ozvenou && hra.hrdina.ozvena > 0 && losPasiv(hra) < hra.hrdina.ozvena) {
@@ -2443,6 +2486,7 @@ function zvon(hra, dt, s) {
         omraceni: st.omraceni, zasazeni: new Set(), ozvena: zv.ozveny > 0,
       });
       hra.zvoneni += 1;
+      zvuk(hra, 'zvon', zv.ozveny > 0 ? 1 : 0);
       hra.kyvZvonu = KYV_ZVONU;
     };
     zv.nabiti = (zv.nabiti ?? 0) - dt;
@@ -2572,6 +2616,7 @@ function cep(hra, dt, s) {
       if (n.zasahCepem > 0 || n.hp <= 0 || !viditelny(n) || vzdalenost(n, k) >= n.polomer + st.velikost) continue;
       zasah(hra, n, rana);
       n.zasahCepem = ZASAH_CEPEM;
+      zvuk(hra, 'cep');
       hra.zasahuCepem += 1;
       ozvenaZasahu(hra, n, rana);
       odhodNepritele(n, { x: n.x - smerX * 10, y: n.y - smerY * 10 }, st.odhozeni, st.let);
@@ -2626,6 +2671,7 @@ function rostouSeminka(hra, dt, s) {
       p.vybuchlo = true;
       p.tik = p.kazdych;
       hra.vybuchlo += 1;
+      zvuk(hra, 'seminka');
       for (const n of hra.nepratele) {
         if (n.hp > 0 && viditelny(n) && vzdalenost(n, p) < p.polomer + n.polomer / 2) zasah(hra, n, p.poskozeni);
       }
@@ -2713,6 +2759,7 @@ function novyCilKorene(hra, k) {
 // Kořen vyrazí ze země: rána všem v poloměru a koho smí chytit, toho drží (a odhození s ním přestane hýbat).
 // Rozbije bedny v poloměru.
 function vyrazKoren(hra, k) {
+  zvuk(hra, 'korene');
   k.faze = 'drzi';
   k.zivot = k.trvani;
   k.cil = null;
@@ -2870,6 +2917,7 @@ function ohnivaStopa(hra, dt, s) {
     zasah(hra, n, rana, true);
     ozvenaZasahu(hra, n, rana, true);
     hra.paleniStopou += 1;
+    zvuk(hra, 'stopa');
   }
 }
 
@@ -2916,6 +2964,7 @@ function zasahKamenem(hra, k, n) {
   k.zasahu += 1;
   k.zbyva -= 1;
   hra.zasahuKamenem += 1;
+  zvuk(hra, 'kamen', k.zasahu);
   if (k.zasahu > 1) hra.odrazu += 1;
   rozprsk(hra, k.x, k.y, 'oblazek', 4);
   if (k.zbyva <= 0) {
@@ -3067,6 +3116,7 @@ function otevriTruhlu(hra, p) {
   const od = Object.hasOwn(BOSSOVE, p.od) ? p.od : 'strazce';
   const kus = losujKus(zakladBosse(od), hra.rng.dalsi(), hra.rng.dalsi(), hra.hrozba, hra.hrdina.stesti);
   hra.otevira = { x: p.x, y: p.y, od, kus, cas: 0 };
+  zvuk(hra, 'truhla');
 }
 
 // Truhla je otevřená: kus výbavy (nasadí se, nebo čeká na porovnání) a k tomu karta aspoň vzácná jako dřív.
@@ -3178,6 +3228,7 @@ function jedeKupec(hra, dt, sirka, vyska) {
     zasoba: Object.fromEntries(PORADI_ZBOZI.map((id) => [id, ZBOZI[id].zasoba])),
   };
   hra.kupcu += 1;
+  zvuk(hra, 'kupec');
   hra.dalsiKupec = hra.cas + KUPEC.kazdych;
   hra.oznameni = { text: 'Přijel kupec! Šipka ukáže, kde stojí', zivot: 3 };
 }
@@ -3303,6 +3354,7 @@ function zamceneTruhly(hra) {
     if (!cim) continue;
     z.otevrena = true;
     hra.otevrenoZamcenych[cim] += 1;
+    zvuk(hra, 'zamcena', cim === 'klic' ? 1 : 0);
     rozprsk(hra, z.x, z.y, 'zamcena', 10);
     hra.volby = nabidka(hra, 'vzacna');
     hra.zTruhly = true;
@@ -3421,6 +3473,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   const hrozba = silaHrozby(hra.cas).uroven;
   if (hrozba > hra.hrozba) {
     hra.hrozba = hrozba;
+    zvuk(hra, 'hrozba');
     hra.hlaseniHrozby = { uroven: hrozba, text: textHrozby(hrozba), zivot: TRVANI_HLASENI_HROZBY };
   }
   if (hra.hlaseniHrozby) {
@@ -3458,6 +3511,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     hra.bossu += 1;
     hra.dalsiBoss += BOSS_KAZDYCH;
     hra.oznameni = { text: BOSSOVE[druh].prichod, zivot: 3 };
+    zvuk(hra, 'boss');
   }
   jedeKupec(hra, dt, sirka, vyska);
   if (hra.dalsiSmecka !== null && hra.cas >= hra.dalsiSmecka) {
@@ -3607,6 +3661,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
         if (n.zasahKrumpacem <= 0 && viditelny(n) && Math.hypot(n.x - kx, n.y - ky) < n.polomer + st.velikost) {
           zasah(hra, n, st.poskozeni);
           n.zasahKrumpacem = 0.4;
+          zvuk(hra, 'krumpace');
           otres(hra, n, st.otres);
           ozvenaZasahu(hra, n, st.poskozeni);
         }
@@ -3700,12 +3755,14 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
         const pred = hrdina.hp;
         hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + LECENI_SRDCE);
         cisloLeceni(hra, hrdina.hp - pred);
+        zvuk(hra, 'srdce');
       } else if (p.druh === 'zlatak') {
         pridejZlataky(hra, p.hodnota ?? 1, p.z ?? 'bedny');
       } else if (p.druh === 'bomba') {
         vybuch(hra, sirka, vyska);
         bouchlo = true;
       } else {
+        zvuk(hra, 'magnet');
         for (const kr of hra.krystaly) kr.pritahovan = true;
         for (const q of hra.predmety) if (q.druh === 'zlatak') q.pritahovan = true;
       }
@@ -3727,6 +3784,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     if (d < 12) {
       kr.sebran = true;
       hrdina.xp += kr.xp * hrdina.zkusenosti;
+      zvuk(hra, 'krystal');
     }
   }
   hra.krystaly = hra.krystaly.filter((kr) => !kr.sebran);
@@ -3765,15 +3823,19 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
 // (jen s Výdrží). Vrací true (lucerna pálí, i když kolem nikdo není).
 function zarLucerny(hra, st) {
   const { hrdina } = hra;
+  let palila = false;
   for (const n of hra.nepratele) {
     if (!viditelny(n)) continue;
     if (vzdalenost(n, hrdina) < st.dosah) {
       zasah(hra, n, st.zar * 0.3, true);
       if (st.dosvit > 0) n.dosvit = st.dosvit;
+      palila = true;
     } else if (n.dosvit > 0) {
       zasah(hra, n, st.zar * 0.3, true);
+      palila = true;
     }
   }
+  if (palila) zvuk(hra, 'lucerna');
   for (const b of hra.bedny) {
     if (vzdalenost(b, hrdina) < st.dosah) rozbij(hra, b);
   }
@@ -3799,6 +3861,7 @@ function uhlikyLucerny(hra, dt, s) {
       if (n.zasahUhlikem > 0 || n.hp <= 0 || !viditelny(n) || vzdalenost(n, u) >= n.polomer + 6) continue;
       zasah(hra, n, rana, true);
       n.zasahUhlikem = ZASAH_UHLIKEM;
+      zvuk(hra, 'lucerna');
       hra.zasahuUhliky += 1;
       ozvenaZasahu(hra, n, rana, true);
     }
@@ -3839,6 +3902,7 @@ function uderBlesk(hra, st, ozvena = false) {
     hra.blesky.push({ body, zivot: 0.18 });
     cile = cile.filter((c) => !zasazeni.has(c) && !c.rozbita);
   }
+  zvuk(hra, 'blesk');
   return true;
 }
 
@@ -3857,6 +3921,7 @@ function vystrelJiskry(hra, st) {
       x: hrdina.x, y: hrdina.y, vx: Math.cos(uhel) * 340, vy: Math.sin(uhel) * 340, zivot: st.zivot, poskozeni: st.poskozeni, velikost: st.velikost,
     });
   }
+  zvuk(hra, 'jiskra');
   return true;
 }
 
@@ -3867,6 +3932,7 @@ function pohrbi(hra) {
   for (const n of hra.nepratele) {
     if (n.hp <= 0) {
       hra.zabito += 1;
+      zvuk(hra, n.boss ? 'bossPadl' : n.elita ? 'elitaPadla' : 'smrt');
       rozlet(hra, n);
       sajKrev(hra, n);
       hra.krystaly.push({ x: n.x, y: n.y, xp: n.xp });

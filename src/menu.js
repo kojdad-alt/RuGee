@@ -14,7 +14,7 @@ import {
   VYBAVA, PORADI_SAD, PORADI_SLOTU, SLOTY, VSECHNY_KUSY, RARITY_VYBAVY, EFEKTY_VYBAVY, idKusu, vytvorKus, radkyStatu,
   popisEfektu, popisSady,
 } from './vystroj.js';
-import { odemkniZvuk, zvukNakupu, zvukOdmitnuti } from './zvuk.js';
+import { odemkniZvuk, zvukNakupu, zvukOdmitnuti, zvukHry, nastavZvuk, ukazkaHudby } from './zvuk.js';
 
 // Zvolená třída hrdiny: načte se z prohlížeče a mění se v záložce Postavy. Hra ji bere při startu.
 let trida = nactiTridu();
@@ -30,8 +30,10 @@ export function zvolenaMapa() {
   return mapa;
 }
 
-// Nastavení (čísla poškození): načte se z prohlížeče, mění ho přepínač v Ovládání nebo v pauze.
+// Nastavení (čísla poškození, hlasitost efektů a hudby, ztlumení): načte se z prohlížeče, mění ho Nastavení
+// nebo pauza (a klávesa N). Hlasitosti se hned předají zvuku.
 let nastaveni = nactiNastaveni();
+nastavZvuk(nastaveni);
 
 export function cislaPoskozeni() {
   return nastaveni.cislaPoskozeni;
@@ -308,13 +310,14 @@ const OVLADANI = [
   [['R'], 'přehodit karty za zlaťáky (nebo zdarma od kupce)'],
   [['1–5'], 'u kupce koupit zboží (Esc nebo Q odejít)'],
   [['P', 'Esc'], 'pauza'],
+  [['N'], 'ztlumit nebo zapnout zvuk (hlasitost je v Nastavení)'],
   [['R'], 'znovu po prohře'],
   [['M'], 'menu po prohře'],
   [['↑', '↓', 'Enter'], 'výběr v menu'],
   [['Esc'], 'zpět v menu'],
 ];
 
-// Přepínač je tlačítko: klik (nebo Enter) volbu otočí a hned uloží. Stejný je v Ovládání i v pauze.
+// Přepínač je tlačítko: klik (nebo Enter) volbu otočí a hned uloží. Stejný je v Nastavení i v pauze.
 export function prepinacNastaveni(klic, nazev) {
   const b = prvek('button', 'menu-tlacitko prepinac');
   b.type = 'button';
@@ -336,6 +339,106 @@ export function prepinacNastaveni(klic, nazev) {
   return b;
 }
 
+function zmenNastaveni(zmena) {
+  nastaveni = { ...nastaveni, ...zmena };
+  ulozNastaveni(nastaveni);
+  nastavZvuk(nastaveni);
+  for (const prvekZvuku of document.querySelectorAll('[data-zvuk]')) obnovy.get(prvekZvuku)?.();
+}
+
+// Jak se ovládání zvuku překreslí, když se nastavení změní jinde (klávesa N, druhé okno s ovládáním).
+const obnovy = new WeakMap();
+const KROK_HLASITOSTI = 10;
+let ukazkaOd = 0;
+
+// Řádek hlasitosti: název, −, pruh (klik nebo tah prstem ho nastaví po 5 %), procenta, +. Tlačítka mění o 10 %
+// a jdou vybírat šipkami a Enterem. Změna se hned uloží a je slyšet krátká ukázka (hudba nejvýš 4× za sekundu).
+function radekHlasitosti(klic, nazev) {
+  const radek = prvek('div', 'hlasitost');
+  radek.dataset.zvuk = klic;
+  const minus = prvek('button', 'menu-tlacitko hlasitost-krok', '−');
+  const plus = prvek('button', 'menu-tlacitko hlasitost-krok', '+');
+  minus.type = 'button';
+  plus.type = 'button';
+  minus.setAttribute('aria-label', `${nazev} tišeji`);
+  plus.setAttribute('aria-label', `${nazev} hlasitěji`);
+  const pruh = prvek('span', 'hlasitost-pruh');
+  pruh.setAttribute('role', 'slider');
+  pruh.setAttribute('aria-label', `Hlasitost: ${nazev}`);
+  pruh.setAttribute('aria-valuemin', '0');
+  pruh.setAttribute('aria-valuemax', '100');
+  const vypln = prvek('i');
+  pruh.append(vypln);
+  const cislo = prvek('b', 'hlasitost-cislo');
+  const ukaz = () => {
+    const v = nastaveni[klic];
+    vypln.style.width = `${v}%`;
+    cislo.textContent = v > 0 ? `${v} %` : 'vypnuto';
+    pruh.setAttribute('aria-valuenow', String(v));
+    radek.classList.toggle('nula', v === 0);
+  };
+  const nastav = (v, krok) => {
+    const nova = Math.min(100, Math.max(0, Math.round(v / krok) * krok));
+    if (nova === nastaveni[klic]) return;
+    odemkniZvuk();
+    zmenNastaveni({ [klic]: nova });
+    if (klic === 'efekty') zvukHry('ukazka');
+    else if (performance.now() - ukazkaOd > 250) {
+      ukazkaOd = performance.now();
+      ukazkaHudby();
+    }
+  };
+  minus.addEventListener('click', () => nastav(nastaveni[klic] - KROK_HLASITOSTI, KROK_HLASITOSTI));
+  plus.addEventListener('click', () => nastav(nastaveni[klic] + KROK_HLASITOSTI, KROK_HLASITOSTI));
+  const podlePrstu = (e) => {
+    const r = pruh.getBoundingClientRect();
+    if (r.width > 0) nastav(((e.clientX - r.left) / r.width) * 100, 5);
+  };
+  pruh.addEventListener('pointerdown', (e) => {
+    pruh.setPointerCapture?.(e.pointerId);
+    podlePrstu(e);
+  });
+  pruh.addEventListener('pointermove', (e) => {
+    if (e.buttons) podlePrstu(e);
+  });
+  obnovy.set(radek, ukaz);
+  ukaz();
+  radek.append(prvek('span', 'hlasitost-nazev', nazev), minus, pruh, cislo, plus);
+  return radek;
+}
+
+// Klávesa N a přepínač Zvuk: ztlumí všechno (efekty i hudbu), hlasitosti zůstanou. Vrací, jestli je teď ztlumeno.
+export function prepniZtlumeni() {
+  zmenNastaveni({ ztlumeno: !nastaveni.ztlumeno });
+  return nastaveni.ztlumeno;
+}
+
+// Ovládání zvuku pro Nastavení i pauzu: Efekty, Hudba a přepínač Zvuk (N).
+export function ovladaniZvuku() {
+  const box = prvek('div', 'zvuk-nastaveni');
+  box.dataset.zvuk = 'vse';
+  const prepinac = prvek('button', 'menu-tlacitko prepinac');
+  prepinac.type = 'button';
+  const stav = prvek('span', 'prepinac-stav');
+  prepinac.append(prvek('span', '', 'Zvuk (N): '), stav);
+  const ukaz = () => {
+    const zapnuto = !nastaveni.ztlumeno;
+    stav.textContent = zapnuto ? 'zapnutý' : 'vypnutý';
+    prepinac.classList.toggle('vypnuto', !zapnuto);
+    prepinac.setAttribute('aria-pressed', String(zapnuto));
+    box.classList.toggle('ztlumeno', !zapnuto);
+  };
+  prepinac.addEventListener('click', () => {
+    odemkniZvuk();
+    prepniZtlumeni();
+    if (!nastaveni.ztlumeno) zvukHry('ukazka');
+  });
+  obnovy.set(box, ukaz);
+  ukaz();
+  box.append(radekHlasitosti('efekty', 'Efekty'), radekHlasitosti('hudba', 'Hudba'), prepinac);
+  return box;
+}
+
 function vyplnOvladani(panel) {
   const seznam = prvek('div', 'ovladani');
   for (const [klavesy, co] of OVLADANI) {
@@ -345,9 +448,21 @@ function vyplnOvladani(panel) {
     radek.append(kde, prvek('span', '', co));
     seznam.append(radek);
   }
+  panel.append(
+    prvek('p', 'podtitul', 'Zbraně střílí samy, ty jen uhýbáš a sbíráš krystaly.'), seznam,
+    prvek('p', 'podtitul ovladani-pata', 'Hlasitost a čísla poškození najdeš v Nastavení.'),
+  );
+}
+
+// Nastavení: zvuk (hlasitost efektů a hudby, ztlumení N) a čísla poškození. Všechno se hned uloží.
+function vyplnNastaveni(panel) {
   const radek = prvek('div', 'radek-tlacitek nastaveni-radek');
   radek.append(prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'));
-  panel.append(prvek('p', 'podtitul', 'Zbraně střílí samy, ty jen uhýbáš a sbíráš krystaly.'), seznam, radek);
+  panel.append(
+    prvek('p', 'podtitul', 'Volby se hned uloží v tomhle prohlížeči. Stejné najdeš i v pauze.'),
+    prvek('h3', 'nastaveni-nadpis', 'Zvuk'), ovladaniZvuku(),
+    prvek('h3', 'nastaveni-nadpis', 'Hra'), radek,
+  );
 }
 
 export const ZALOZKY = {
@@ -357,6 +472,7 @@ export const ZALOZKY = {
   sbirka: { nazev: 'Sbírka', vypln: vyplnSbirku },
   rekordy: { nazev: 'Rekordy', vypln: vyplnRekordy },
   ovladani: { nazev: 'Ovládání', vypln: vyplnOvladani },
+  nastaveni: { nazev: 'Nastavení', vypln: vyplnNastaveni },
 };
 
 // Pixelové písmo loga: X je plný pixel, tahy široké 2 pixely.
