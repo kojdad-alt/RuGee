@@ -2,7 +2,7 @@ import { sprity } from './sprity.js';
 import {
   staty, TRVANI_TRESU, VYCHOZI_TRIDA, TRVANI_ZABLESKU, ODHOZENI_PRI_OZIVENI, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU,
   TRVANI_ZARU, TRVANI_VYBUCHU, bossBary, TRVANI_DOPADU, ZJEVENI_BLUDICKY, POLOMER_STRELY_BOSSU,
-  RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, TRVANI_ODLESKU, poziceZrcadla, TRVANI_HLASENI_HROZBY,
+  RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, TRVANI_ODLESKU, poziceZrcadla, TRVANI_HLASENI_HROZBY, TRVANI_OTEVRENI,
 } from './hra.js';
 import { dlazdiceLouky, ozdobyLouky } from './louka.js';
 
@@ -46,6 +46,18 @@ const BARVY_BOSSU = {
   obr: { pruh: '#7fc46a', tmava: '#2f5a2a', text: '#c8f0b0' },
   bludicka: { pruh: '#8fb4ff', tmava: '#2c3f7a', text: '#dfe8ff' },
 };
+// Barvy rarit výbavy (stejné jako u karet v style.css): c = rámeček a paprsky, svetla = záře a nápis.
+const BARVY_RARIT = {
+  bezna: { c: '#8f86a0', svetla: '#f3efe6' },
+  vzacna: { c: '#3d7fd9', svetla: '#9fd0ff' },
+  epicka: { c: '#9a4fd8', svetla: '#dcb0ff' },
+  legendarni: { c: '#e8962a', svetla: '#ffd27a' },
+};
+// Otevírání truhly: prvních TRESENI_TRUHLY z celé doby se zavřená truhla třese, pak se otevře a kus vystoupá
+// o VYSTUP_KUSU px nad ni. Truhla na zemi poskočí jednou za SKOK_TRUHLY s.
+const TRESENI_TRUHLY = 0.3;
+const VYSTUP_KUSU = 54;
+const SKOK_TRUHLY = 1.6;
 // Pruhy bossů nahoře: začínají pod horní lištou (úroveň, čas a pod ním hrozba), každý další o VYSKA_BARU níž.
 const HORNI_BARY = 76;
 const VYSKA_BARU = 48;
@@ -141,20 +153,21 @@ function obrysElity(ctx, obr, x, y, otoceny, velikost, cas) {
   for (const [dx, dy] of [[-krok, 0], [krok, 0], [0, -krok], [0, krok]]) sprite(ctx, obr, x + dx, y + dy, otoceny, OBRYS_ELITY, velikost);
 }
 
-// Pavoučí síť přes hrdinu: paprsky a dva kruhy, s koncem sítě bledne.
-function sit(ctx, x, y, zbyva) {
+// Pavoučí síť přes hrdinu (nebo zapředeného nepřítele): paprsky a dva kruhy, s koncem sítě bledne.
+// polomer = jak daleko sahají paprsky, kruhy jsou úměrně menší.
+function sit(ctx, x, y, zbyva, polomer = 17) {
   ctx.save();
   ctx.translate(Math.round(x) + 0.5, Math.round(y) + 0.5);
-  ctx.globalAlpha = Math.min(1, zbyva * 2);
+  ctx.globalAlpha *= Math.min(1, zbyva * 2);
   ctx.strokeStyle = BARVA_SITE;
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let i = 0; i < 8; i++) {
     const uhel = (i / 8) * Math.PI * 2 + 0.3;
     ctx.moveTo(0, 0);
-    ctx.lineTo(Math.round(Math.cos(uhel) * 17), Math.round(Math.sin(uhel) * 17));
+    ctx.lineTo(Math.round(Math.cos(uhel) * polomer), Math.round(Math.sin(uhel) * polomer));
   }
-  for (const r of [7, 13]) {
+  for (const r of [Math.round(polomer * 0.41), Math.round(polomer * 0.76)]) {
     for (let i = 0; i <= 8; i++) {
       const uhel = (i / 8) * Math.PI * 2 + 0.3;
       const bx = Math.round(Math.cos(uhel) * r);
@@ -698,6 +711,101 @@ function cislaNadHlavami(ctx, hra, naObrazovce, pixel, poskozeni) {
   ctx.restore();
 }
 
+// Truhla bosse na zemi: pod ní pulzuje kruh v barvě bosse, nad ní stoupá slabý sloup světla a jednou za chvíli
+// poskočí, ať ji hráč na louce najde.
+function truhlaNaZemi(ctx, pr, p, cas) {
+  const barva = (BARVY_BOSSU[pr.od] ?? BARVY_BOSSU.strazce).pruh;
+  const obr = sprity[`truhla_${pr.od}`] ?? sprity.truhla;
+  const pulz = (cas % 1.2) / 1.2;
+  ctx.save();
+  ctx.globalAlpha = 0.5 * (1 - pulz);
+  ctx.fillStyle = barva;
+  kruhNaZemi(ctx, p.x, p.y + 10, 14 + 22 * pulz);
+  ctx.globalAlpha = 0.12;
+  ctx.fillRect(Math.round(p.x) - 9, Math.round(p.y) - 70, 18, 70);
+  ctx.globalAlpha = 0.18;
+  ctx.fillRect(Math.round(p.x) - 3, Math.round(p.y) - 90, 6, 90);
+  ctx.restore();
+  const faze = (cas + pr.x * 0.01) % SKOK_TRUHLY;
+  const skok = faze < 0.25 ? Math.round(Math.sin((faze / 0.25) * Math.PI) * 6) : 0;
+  sprite(ctx, obr, p.x, p.y - skok);
+}
+
+// Otevírání truhly (svět stojí): okolí ztmavne, truhla se zatřese a otevře, z ní vyrazí paprsky v barvě rarity
+// kusu, kus vystoupá nad ni a nad ním se objeví jeho jméno.
+function otevirani(ctx, hra, naObrazovce, sirka, vyska) {
+  const o = hra.otevira;
+  const t = Math.min(1, o.cas / TRVANI_OTEVRENI);
+  const p = naObrazovce(o);
+  const barvy = BARVY_RARIT[o.kus.rarita] ?? BARVY_RARIT.bezna;
+  ctx.save();
+  ctx.fillStyle = `rgba(11,10,15,${(0.45 * Math.min(1, t * 4)).toFixed(3)})`;
+  ctx.fillRect(0, 0, sirka, vyska);
+  const otevrena = t >= TRESENI_TRUHLY;
+  const x = Math.round(p.x + (otevrena ? 0 : (Math.floor(o.cas * 40) % 2 ? 2 : -2)));
+  const y = Math.round(p.y);
+  if (otevrena) {
+    // paprsky: osm světlých klínů z truhly, pomalu se točí a rostou
+    const u = (t - TRESENI_TRUHLY) / (1 - TRESENI_TRUHLY);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = barvy.c;
+    ctx.globalAlpha = 0.35;
+    for (let i = 0; i < 8; i++) {
+      const uhel = (i / 8) * Math.PI * 2 + o.cas * 0.8;
+      const delka = 40 + 90 * u;
+      ctx.beginPath();
+      ctx.moveTo(x, y - 6);
+      ctx.lineTo(x + Math.cos(uhel - 0.09) * delka, y - 6 + Math.sin(uhel - 0.09) * delka);
+      ctx.lineTo(x + Math.cos(uhel + 0.09) * delka, y - 6 + Math.sin(uhel + 0.09) * delka);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = barvy.svetla;
+    kruhNaZemi(ctx, x, y - 6, 10 + 14 * u, true);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+  }
+  sprite(ctx, sprity[`truhla_${o.od}${otevrena ? '_otevrena' : ''}`] ?? sprity.truhla, x, y);
+  if (otevrena) {
+    const u = Math.min(1, (t - TRESENI_TRUHLY) / 0.45);
+    const vystup = Math.round(VYSTUP_KUSU * (1 - (1 - u) ** 3));
+    const obr = sprity[o.kus.id];
+    const velikost = obr.width * (MERITKO + 1);
+    // jiskry kolem stoupajícího kusu
+    ctx.fillStyle = barvy.svetla;
+    for (let i = 0; i < 10; i++) {
+      const uhel = (i / 10) * Math.PI * 2 + o.cas * 3;
+      const r = 20 + 10 * Math.sin(o.cas * 6 + i);
+      ctx.fillRect(Math.round(x + Math.cos(uhel) * r) - 1, Math.round(y - vystup + Math.sin(uhel) * r * 0.6) - 1, 3, 3);
+    }
+    if (obr) sprite(ctx, obr, x, y - vystup, 1, null, velikost);
+    if (u >= 1) {
+      ctx.font = 'bold 15px ui-monospace, Menlo, monospace';
+      ctx.textAlign = 'center';
+      napis(ctx, o.kus.nazev, x, y - vystup - velikost / 2 - 8, barvy.svetla);
+    }
+  }
+  ctx.restore();
+}
+
+// Rázové vlny z výbavy Strážce: zlatobílý prstenec (bossova vlna je oranžová a zraňuje hrdinu, tahle pomáhá).
+function vlnyHrdiny(ctx, hra, naObrazovce) {
+  for (const v of hra.vlnyHrdiny ?? []) {
+    const p = naObrazovce(v);
+    const t = v.r / v.max;
+    ctx.save();
+    ctx.globalAlpha = 1 - t * t * 0.8;
+    ctx.fillStyle = '#c4862f';
+    kruhNaZemi(ctx, p.x, p.y, Math.max(3, v.r - 3));
+    ctx.fillStyle = '#ffe08a';
+    kruhNaZemi(ctx, p.x, p.y, v.r);
+    ctx.fillStyle = '#fff8e0';
+    kruhNaZemi(ctx, p.x, p.y, v.r + 3);
+    ctx.restore();
+  }
+}
+
 // Text se stínem pod sebou (jako nápisy při příchodu).
 function napis(ctx, text, x, y, barva) {
   ctx.fillStyle = '#000';
@@ -761,7 +869,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
   const { width: sirka, height: vyska } = ctx.canvas;
   const { hrdina } = hra;
   // Po zásahu hrdiny se celý svět krátce otřese, slábne k nule. V pauze a ve volbě stojí.
-  const bezi = !hra.pauza && !hra.volby && !hra.konec;
+  const bezi = !hra.pauza && !hra.volby && !hra.konec && !hra.otevira && !hra.porovnani;
   const tres = bezi ? (hra.tres / TRVANI_TRESU) * SILA_TRESU : 0;
   const kx = hrdina.x - sirka / 2 + (tres ? Math.round((Math.random() * 2 - 1) * tres) : 0);
   const ky = hrdina.y - vyska / 2 + (tres ? Math.round((Math.random() * 2 - 1) * tres) : 0);
@@ -799,6 +907,10 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
 
   for (const pr of hra.predmety) {
     const p = naObrazovce(pr);
+    if (pr.druh === 'truhla') {
+      if (p.x > -60 && p.y > -100 && p.x < sirka + 60 && p.y < vyska + 60) truhlaNaZemi(ctx, pr, p, hra.cas);
+      continue;
+    }
     const houpani = Math.sin(hra.cas * 4 + pr.x) * 2;
     ctx.drawImage(sprity[pr.druh], Math.round(p.x - 13), Math.round(p.y - 13 + houpani), 26, 26);
   }
@@ -814,6 +926,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     trsTrnu(ctx, t, p.x, p.y);
   }
   utokyNaZemi(ctx, hra, naObrazovce);
+  vlnyHrdiny(ctx, hra, naObrazovce);
 
   for (const n of hra.nepratele) {
     const p = naObrazovce(n);
@@ -828,6 +941,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
       if (n.zar > 0) rozzar(ctx, obr, p.x, vy, n.smerX < 0 ? -1 : 1, velikost, n.zar / TRVANI_ZARU);
       ctx.globalAlpha = 1;
       if (n.trny > 0 && !n.skryty) sponaTrnu(ctx, n, p.x, vy, velikost);
+      if (n.zapreden > 0 && !n.skryty) sit(ctx, p.x, vy, n.zapreden, velikost * 0.6);
       continue;
     }
     let { x, y } = p;
@@ -861,6 +975,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     if (n.zar > 0) rozzar(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, velikost, n.zar / TRVANI_ZARU);
     ctx.globalAlpha = 1;
     if (n.trny > 0) sponaTrnu(ctx, n, x, y, velikost);
+    if (n.zapreden > 0) sit(ctx, x, y, n.zapreden, velikost * 0.6);
     if (n.elita && n.hp < n.maxHp) {
       // malý pruh životů nad zraněnou elitou
       const nad = Math.round(y - velikost / 2 - 5);
@@ -979,9 +1094,13 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     ctx.restore();
   }
 
-  const blika = hrdina.nezranitelny > 0 && Math.floor(hrdina.nezranitelny * 20) % 2 === 0;
+  // Zmizelý hrdina (Bludný plamen) nebliká, je průsvitný a modře se mihotá.
+  const zmizel = hrdina.neviditelny > 0;
+  const blika = !zmizel && hrdina.nezranitelny > 0 && Math.floor(hrdina.nezranitelny * 20) % 2 === 0;
   const obrHrdiny = sprity[hra.trida] ?? sprity[VYCHOZI_TRIDA];
-  if (!blika) sprite(ctx, obrHrdiny, stred.x, stred.y, hrdina.otoceny, hrdina.sit > 0 ? 'rgba(215,222,236,0.5)' : null);
+  if (zmizel) ctx.globalAlpha = 0.45 + 0.12 * Math.sin(hra.cas * 18);
+  if (!blika) sprite(ctx, obrHrdiny, stred.x, stred.y, hrdina.otoceny, zmizel ? 'rgba(127,156,240,0.55)' : hrdina.sit > 0 ? 'rgba(215,222,236,0.5)' : null);
+  ctx.globalAlpha = 1;
   if (lucerna && !blika) {
     // plamen v lucerně nepravidelně poskakuje (dva snímky)
     const obr = (Math.floor(hra.cas * 7) * 5) % 3 === 0 ? sprity.lucernaHrdiny2 : sprity.lucernaHrdiny;
@@ -1014,6 +1133,25 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     ctx.fill();
     ctx.restore();
   }
+
+  // malá šipka k truhle bosse, která zůstala mimo obrazovku (v barvě bosse, s tečkou místo hrotu)
+  for (const pr of hra.predmety) {
+    if (pr.druh !== 'truhla') continue;
+    const p = naObrazovce(pr);
+    if (p.x > 0 && p.y > 0 && p.x < sirka && p.y < vyska) continue;
+    const uhel = Math.atan2(p.y - vyska / 2, p.x - sirka / 2);
+    const r = Math.min(sirka, vyska) / 2 - 64;
+    ctx.save();
+    ctx.translate(Math.round(sirka / 2 + Math.cos(uhel) * r), Math.round(vyska / 2 + Math.sin(uhel) * r));
+    ctx.drawImage(sprity[`truhla_${pr.od}`] ?? sprity.truhla, -12, -12, 24, 24);
+    ctx.rotate(uhel);
+    ctx.fillStyle = (BARVY_BOSSU[pr.od] ?? BARVY_BOSSU.strazce).pruh;
+    ctx.fillRect(16, -3, 6, 6);
+    ctx.fillRect(22, -1, 3, 2);
+    ctx.restore();
+  }
+
+  if (hra.otevira) otevirani(ctx, hra, naObrazovce, sirka, vyska);
 
   // ztmavení u okrajů, ať je hrdina uprostřed vidět nejlíp
   const tma = ctx.createRadialGradient(sirka / 2, vyska / 2, Math.min(sirka, vyska) * 0.4, sirka / 2, vyska / 2, Math.max(sirka, vyska) * 0.8);
