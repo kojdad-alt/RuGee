@@ -1,5 +1,5 @@
 import { sprity } from './sprity.js';
-import { staty, TRVANI_TRESU, VYCHOZI_TRIDA } from './hra.js';
+import { staty, TRVANI_TRESU, VYCHOZI_TRIDA, TRVANI_ZABLESKU, ODHOZENI_PRI_OZIVENI } from './hra.js';
 import { dlazdiceLouky, ozdobyLouky } from './louka.js';
 
 const MERITKO = 3;
@@ -201,6 +201,21 @@ export function kresli(ctx, hra) {
       ctx.drawImage(sprity.krumpac, -v / 2, -v / 2, v, v);
       ctx.restore();
     }
+  }
+
+  // Oživení: od hrdiny se rozběhne modrobílý kruh duší a bledne.
+  if (hra.zablesk > 0) {
+    const t = 1 - hra.zablesk / TRVANI_ZABLESKU;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - t);
+    for (const [barva, sirkaCary] of [['rgba(127,156,240,0.6)', 8], ['#dfe8ff', 3]]) {
+      ctx.strokeStyle = barva;
+      ctx.lineWidth = sirkaCary;
+      ctx.beginPath();
+      ctx.arc(stred.x, stred.y, 16 + t * ODHOZENI_PRI_OZIVENI, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   const blika = hrdina.nezranitelny > 0 && Math.floor(hrdina.nezranitelny * 20) % 2 === 0;

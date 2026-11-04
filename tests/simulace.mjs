@@ -5,11 +5,19 @@
 // Pavouci: nesmí přijít před 4. minutou, jejich zásah zalepí hrdinu sítí a v síti chodí pomaleji.
 // Rekord pro menu: výsledek se uloží jen když je delší, rozbitý záznam ani chybějící úložiště hru neshodí.
 // Třídy: hlavní hra je za výchozí třídu, každá třída pak hraje krátce sama (svoje zbraň, svoje výhoda).
+// Duše a trvalá vylepšení: hlavní hra je bez vylepšení (stejná jako před nimi), prázdná nebo rozbitá vylepšení
+// hrají úplně stejně, každé vylepšení změní svou vlastnost, Oživení vrátí hrdinu jednou, obchod a úložiště sedí.
 import { vytvorRng } from '../src/rng.js';
 import {
   novaHra, aktualizuj, vyber, staty, TRVANI_TRESU, OD_PAVOUKU, TRVANI_SITE, ZPOMALENI_SITI, TRIDY, VYCHOZI_TRIDA,
+  ZIVOTY_PO_OZIVENI, NEZRANITELNY_PO_OZIVENI, ODHOZENI_PRI_OZIVENI,
 } from '../src/hra.js';
-import { nactiRekord, zapisVysledek, nactiTridu, ulozTridu } from '../src/ulozeni.js';
+import {
+  VYLEPSENI, DUSE_ZA, dusZaHru, cenaVylepseni, kupVylepseni, vratDuse, utraceno,
+} from '../src/duse.js';
+import {
+  nactiRekord, zapisVysledek, nactiTridu, ulozTridu, nactiDuse, ulozDuse, pripisDuse,
+} from '../src/ulozeni.js';
 
 const seminko = Number(process.argv[2] ?? 1);
 const delka = Number(process.argv[3] ?? 600);
@@ -132,6 +140,109 @@ if (!(sB.jiskra.nabiti < sO.jiskra.nabiti && sB.blesk.nabiti < sO.blesk.nabiti
   chybyTrid.push('kratší nabíjení Bouřliváka nezrychlilo všechny zbraně');
 }
 
+// Trvalá vylepšení. Krátká hra s danými vylepšeními a řidičem (bot nebo kamikaze).
+function hrajKratce(vylepseni, sekund, ridic = rozhodni, kazdyKrok = () => {}) {
+  const h = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, vylepseni);
+  for (let t = 0; t < sekund && !h.konec; t += DT) {
+    aktualizuj(h, DT, ridic(h, t), SIRKA, VYSKA);
+    if (h.volby) vyber(h, zvol(h.volby));
+    if (![h.hrdina.x, h.hrdina.y, h.hrdina.hp, h.hrdina.xp].every(Number.isFinite)) throw new Error('NaN ve hře s vylepšeními');
+    kazdyKrok(h);
+  }
+  return h;
+}
+const otiskHry = (h) => JSON.stringify({ cas: h.cas, zabito: h.zabito, hrdina: h.hrdina, nepratel: h.nepratele.length, krystalu: h.krystaly.length });
+const chybyDusi = [];
+// Bez vylepšení, s prázdnými, nulovými nebo rozbitými musí hra dopadnout úplně stejně.
+const bezVylepseni = otiskHry(hrajKratce(undefined, 150));
+const nuly = Object.fromEntries(Object.keys(VYLEPSENI).map((id) => [id, 0]));
+for (const [popis, nic] of [['{}', {}], ['nuly', nuly], ['null', null], ['rozbitá', { drak: 5, sila: 'hodně', zivoty: -2, rychlost: 1.5 }]]) {
+  if (otiskHry(hrajKratce(nic, 150)) !== bezVylepseni) chybyDusi.push(`vylepšení ${popis} změnila hru`);
+}
+if (hra.oziveno !== 0) chybyDusi.push('hra bez vylepšení oživila hrdinu');
+// Každé vylepšení na maximu změní svou vlastnost přesně o to, co slibuje.
+const plna = Object.fromEntries(Object.entries(VYLEPSENI).map(([id, v]) => [id, v.max]));
+const slaby = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA).hrdina;
+const silny = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, plna).hrdina;
+for (const [id, v] of Object.entries(VYLEPSENI)) {
+  const ocekavano = v.nasobek ? slaby[v.vlastnost] * (1 + v.nasobek * v.max) : slaby[v.vlastnost] + v.pricti * v.max;
+  if (!(Math.abs(silny[v.vlastnost] - ocekavano) < 1e-9) || silny[v.vlastnost] === slaby[v.vlastnost]) {
+    chybyDusi.push(`vylepšení ${id} nezměnilo ${v.vlastnost} (${silny[v.vlastnost]})`);
+  }
+}
+if (silny.hp !== silny.maxHp) chybyDusi.push('s vylepšenými životy hrdina nezačíná naplno');
+// Zkušenosti: krystal pod nohama dá víc.
+const zk = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, { zkusenosti: VYLEPSENI.zkusenosti.max });
+zk.krystaly.push({ x: 0, y: 0, xp: 2 });
+aktualizuj(zk, 0.001, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+if (Math.abs(zk.hrdina.xp - 2 * zk.hrdina.zkusenosti) > 1e-9 || zk.hrdina.zkusenosti <= 1) chybyDusi.push(`zkušenosti z krystalu nesedí (${zk.hrdina.xp})`);
+// Štěstí: stejné losy z rng, víc srdcí a magnetů. 3000 nepřátel padne naráz u nezranitelného hrdiny.
+const padlo = (vylepseni) => {
+  const h = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, vylepseni);
+  h.hrdina.nezranitelny = 10;
+  for (let i = 0; i < 3000; i++) h.nepratele.push({ druh: 'netopyr', x: 30, y: 0, hp: 0, maxHp: 1, rychlost: 0, poskozeni: 0, xp: 0, polomer: 1, zasazen: 0, zasahKrumpacem: 0 });
+  aktualizuj(h, 0.001, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  return h.predmety.filter((p) => p.druh === 'srdce' || p.druh === 'magnet').length;
+};
+const padloBez = padlo({});
+const padloSeStestim = padlo({ stesti: VYLEPSENI.stesti.max });
+if (!(padloSeStestim > padloBez && padloBez > 0)) chybyDusi.push(`štěstí nepřidalo srdce a magnety (${padloBez} → ${padloSeStestim})`);
+// Plně vylepšený hrdina 3 minuty s botem: nic nespadne a nevydrží méně.
+const vylepsena = hrajKratce(plna, 180);
+// Oživení: hrdina běží rovnou do nepřátel. Po první smrti vstane s půlkou životů, nepřátelé odletí, po druhé je konec.
+const kamikaze = (h) => {
+  let nej = null;
+  let nejD = Infinity;
+  for (const n of h.nepratele) {
+    const d = Math.hypot(n.x - h.hrdina.x, n.y - h.hrdina.y);
+    if (d < nejD) { nej = n; nejD = d; }
+  }
+  return nej ? { dx: nej.x - h.hrdina.x, dy: nej.y - h.hrdina.y } : { dx: 0, dy: 0 };
+};
+let oziveni = null;
+const sOzivenim = hrajKratce({ oziveni: 1 }, 1200, kamikaze, (h) => {
+  if (h.oziveno && !oziveni) {
+    const nejblizsi = Math.min(...h.nepratele.map((n) => Math.hypot(n.x - h.hrdina.x, n.y - h.hrdina.y)));
+    oziveni = { cas: h.cas, hp: h.hrdina.hp, nezranitelny: h.hrdina.nezranitelny, nejblizsi };
+  }
+});
+const bezOziveni = hrajKratce({}, 1200, kamikaze);
+if (!oziveni) chybyDusi.push('Oživení hrdinu nevrátilo');
+else {
+  if (oziveni.hp !== Math.round(sOzivenim.hrdina.maxHp * ZIVOTY_PO_OZIVENI)) chybyDusi.push(`po oživení ${oziveni.hp} životů`);
+  if (oziveni.nezranitelny !== NEZRANITELNY_PO_OZIVENI) chybyDusi.push('po oživení hrdina není nezranitelný');
+  if (oziveni.nejblizsi < ODHOZENI_PRI_OZIVENI - 4) chybyDusi.push(`po oživení zůstal nepřítel ${oziveni.nejblizsi.toFixed(1)} px od hrdiny`);
+  if (!sOzivenim.konec || sOzivenim.oziveno !== 1) chybyDusi.push('Oživení platí víc než jednou za hru');
+  if (!bezOziveni.konec || bezOziveni.oziveno !== 0 || bezOziveni.cas > oziveni.cas + 1e-9) chybyDusi.push('bez Oživení hrdina vstal nebo přežil déle');
+}
+// Duše za hru podle času, zabití a Strážců.
+const duseHry = dusZaHru(hra);
+const ocekavaneDuse = Math.floor(hra.cas / DUSE_ZA.sekund) + Math.floor(hra.zabito / DUSE_ZA.zabitych) + hra.zabitoBossu * DUSE_ZA.strazce;
+if (duseHry.celkem !== ocekavaneDuse || duseHry.celkem !== duseHry.cas + duseHry.zabiti + duseHry.strazci) chybyDusi.push('duše za hru nesedí');
+if (dusZaHru(novaHra(vytvorRng(1))).celkem !== 0) chybyDusi.push('nová hra má mít 0 duší');
+if (dusZaHru({ cas: 0, zabito: 0, zabitoBossu: 2 }).celkem !== 2 * DUSE_ZA.strazce) chybyDusi.push('Strážci nedávají duše');
+// Obchod: ceny rostou, bez duší ani nad maximum se nekoupí, Vrátit duše vrátí přesně utracené.
+let obchod = { duse: 100000, vylepseni: {} };
+let zaplaceno = 0;
+for (const [id, v] of Object.entries(VYLEPSENI)) {
+  for (let u = 1; u < v.max; u++) {
+    if (!(cenaVylepseni(id, u) > cenaVylepseni(id, u - 1))) chybyDusi.push(`cena ${id} neroste`);
+  }
+  for (let u = 0; u < v.max; u++) {
+    const cena = cenaVylepseni(id, u);
+    const dalsi = kupVylepseni(obchod, id);
+    if (!dalsi || dalsi.duse !== obchod.duse - cena || dalsi.vylepseni[id] !== u + 1) chybyDusi.push(`nákup ${id} ${u + 1} nesedí`);
+    obchod = dalsi ?? obchod;
+    zaplaceno += cena;
+  }
+  if (cenaVylepseni(id, v.max) !== null || kupVylepseni(obchod, id) !== null) chybyDusi.push(`${id} jde koupit nad maximum`);
+}
+if (utraceno(obchod.vylepseni) !== zaplaceno || obchod.duse !== 100000 - zaplaceno) chybyDusi.push('utracené duše nesedí');
+const vraceno = vratDuse(obchod);
+if (vraceno.duse !== 100000 || Object.keys(vraceno.vylepseni).length) chybyDusi.push('Vrátit duše nevrátilo všechno');
+if (kupVylepseni({ duse: cenaVylepseni('sila', 0) - 1, vylepseni: {} }, 'sila') !== null) chybyDusi.push('nákup bez dost duší prošel');
+if (kupVylepseni({ duse: 999, vylepseni: {} }, 'drak') !== null) chybyDusi.push('koupilo se neznámé vylepšení');
+
 const vysledek = {
   seminko,
   trida: hra.trida,
@@ -151,10 +262,17 @@ const vysledek = {
   sekund_v_siti: Math.round(krokuVSiti * DT),
   zbrane: Object.fromEntries(Object.entries(hra.zbrane).map(([id, z]) => [id, z.uroven])),
   tridy_3_minuty: tridy,
+  duse_za_hru: duseHry,
+  vse_vylepsene_3_minuty: { preziti_s: Math.round(vylepsena.cas), uroven: vylepsena.hrdina.uroven, zabito: vylepsena.zabito },
+  stesti_srdce_a_magnety: { bez: padloBez, max: padloSeStestim },
+  oziveni_kamikaze: {
+    ozivil_v_s: oziveni && Math.round(oziveni.cas), konec_s: Math.round(sOzivenim.cas), bez_oziveni_konec_s: Math.round(bezOziveni.cas),
+  },
+  cena_vseho: zaplaceno,
 };
 console.log(JSON.stringify(vysledek, null, 2));
 
-const chyby = [...chybyTrid];
+const chyby = [...chybyTrid, ...chybyDusi];
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);
 if (hra.zabito === 0) chyby.push('nikdo nezemřel, zbraně asi nestřílí');
 if (hra.hrdina.uroven < 3) chyby.push('hrdina skoro nepostoupil, krystaly se asi nesbírají');
@@ -188,7 +306,26 @@ for (const spatna of ['{rozbité', '"toString"', '"drak"', '42']) {
   mapa.set('hlubiny.trida', spatna);
   if (nactiTridu() !== VYCHOZI_TRIDA) chyby.push(`špatná třída ${spatna} se nenačetla jako výchozí`);
 }
+// Duše v úložišti: prázdné = 0 a nic koupeno, připsání a nákup se uloží, rozbitý záznam nic nedá.
+if (JSON.stringify(nactiDuse()) !== '{"duse":0,"vylepseni":{}}') chyby.push('prázdné úložiště má mít 0 duší');
+pripisDuse(40);
+if (pripisDuse(15).duse !== 55 || nactiDuse().duse !== 55) chyby.push('duše se nepřipsaly');
+if (pripisDuse(-5).duse !== 55 || pripisDuse(NaN).duse !== 55) chyby.push('záporné nebo NaN duše něco změnily');
+ulozDuse(kupVylepseni(nactiDuse(), 'sila'));
+if (nactiDuse().vylepseni.sila !== 1 || nactiDuse().duse !== 55 - cenaVylepseni('sila', 0)) chyby.push('nákup se neuložil');
+ulozDuse(vratDuse(nactiDuse()));
+if (nactiDuse().duse !== 55 || Object.keys(nactiDuse().vylepseni).length) chyby.push('vrácení se neuložilo');
+for (const spatne of ['{rozbité', '42', '"duse"', '{"duse":"hodně","vylepseni":{"sila":99,"drak":3,"toString":1}}', '{"duse":-7,"vylepseni":[1,2]}']) {
+  mapa.set('hlubiny.duse', spatne);
+  const st = nactiDuse();
+  const id = Object.keys(st.vylepseni);
+  if (!Number.isInteger(st.duse) || st.duse < 0 || id.some((k) => !Object.hasOwn(VYLEPSENI, k) || st.vylepseni[k] > VYLEPSENI[k].max)) {
+    chyby.push(`rozbité duše ${spatne} se načetly jako ${JSON.stringify(st)}`);
+  }
+}
 nahradUloziste({ getItem() { throw new Error('zakázáno'); }, setItem() { throw new Error('zakázáno'); } });
+if (nactiDuse().duse !== 0 || pripisDuse(10).duse !== 10) chyby.push('zakázané úložiště u duší nefunguje jako prázdné');
+ulozDuse({ duse: 5, vylepseni: { sila: 1 } });
 if (nactiRekord() !== null || !zapisVysledek(vysledekHry).novy) chyby.push('zakázané úložiště se nechová jako prázdné');
 ulozTridu('lovec');
 if (nactiTridu() !== VYCHOZI_TRIDA) chyby.push('zakázané úložiště nevrátilo výchozí třídu');

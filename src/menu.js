@@ -3,7 +3,9 @@
 // Tlačítka, která záložka do panelu přidá, jdou taky vybírat šipkami a Enterem.
 import { sprity } from './sprity.js';
 import { TRIDY, ZBRANE, platnaTrida } from './hra.js';
-import { nactiRekord, nactiTridu, ulozTridu } from './ulozeni.js';
+import { nactiRekord, nactiTridu, ulozTridu, nactiDuse, ulozDuse } from './ulozeni.js';
+import { VYLEPSENI, cenaVylepseni, kupVylepseni, vratDuse, utraceno } from './duse.js';
+import { odemkniZvuk, zvukNakupu, zvukOdmitnuti } from './zvuk.js';
 
 // Zvolená třída hrdiny: načte se z prohlížeče a mění se v záložce Postavy. Hra ji bere při startu.
 let trida = nactiTridu();
@@ -24,7 +26,7 @@ function prvek(znacka, trida = '', text = null) {
 }
 
 // Zvětšená kopie spritu jako obrázek do stránky (originál zůstává pro kreslení hry).
-function obrazekSpritu(jmeno, meritko = 4) {
+export function obrazekSpritu(jmeno, meritko = 4) {
   const zdroj = sprity[jmeno];
   const c = prvek('canvas', 'pixel');
   c.width = zdroj.width;
@@ -33,14 +35,6 @@ function obrazekSpritu(jmeno, meritko = 4) {
   c.style.width = `${zdroj.width * meritko}px`;
   c.style.height = `${zdroj.height * meritko}px`;
   return c;
-}
-
-function zamceneSloty(pocet) {
-  return Array.from({ length: pocet }, () => {
-    const slot = prvek('div', 'slot zamceny');
-    slot.append(prvek('span', 'otaznik', '?'), prvek('small', '', 'Brzy'));
-    return slot;
-  });
 }
 
 // Karta třídy je tlačítko: klik (nebo Enter) třídu zvolí a uloží, zvolená karta svítí zlatě.
@@ -77,10 +71,79 @@ function vyplnPostavy(panel) {
   panel.append(prvek('p', 'podtitul', 'Vyber, za koho půjdeš do hlubin. Volba se zapamatuje.'), mrizka);
 }
 
+// 1–4 duše, jinak duší (0 duší, 5 duší).
+export function pocetDusi(kolik) {
+  return kolik >= 1 && kolik <= 4 ? 'duše' : 'duší';
+}
+
+// Obchod s trvalými vylepšeními. Karta je tlačítko: klik (nebo Enter) koupí další úroveň, když jsou duše.
+// Vrátit duše chce dva stisky, první se jen zeptá. Po každé změně se panel překreslí a výběr zůstane na místě.
 function vyplnVylepseni(panel) {
-  const mrizka = prvek('div', 'mrizka');
-  mrizka.append(...zamceneSloty(4));
-  panel.append(prvek('p', 'podtitul', 'Trvalá vylepšení, která ti zůstanou i po prohře, se připravují.'), mrizka);
+  const stav = nactiDuse();
+  const hlava = prvek('div', 'duse-stav');
+  hlava.append(obrazekSpritu('duse', 3), prvek('b', '', String(stav.duse)), prvek('span', '', pocetDusi(stav.duse)));
+  const mrizka = prvek('div', 'mrizka-vylepseni');
+  const prekresli = (vybrat) => {
+    panel.replaceChildren();
+    vyplnVylepseni(panel);
+    vyberTlacitko(panel.querySelector(vybrat) ?? panel.querySelector('button'));
+  };
+  for (const [id, v] of Object.entries(VYLEPSENI)) {
+    const uroven = stav.vylepseni[id] ?? 0;
+    const cena = cenaVylepseni(id, uroven);
+    const karta = prvek('button', 'vylepseni');
+    karta.type = 'button';
+    karta.dataset.vylepseni = id;
+    if (v.max === 1) karta.classList.add('jednou');
+    if (cena === null) karta.classList.add('hotovo');
+    else if (cena > stav.duse) karta.classList.add('drahe');
+    const nazev = prvek('span', 'vylepseni-hlava');
+    nazev.append(prvek('b', '', v.nazev), prvek('span', 'vylepseni-uroven', `${uroven}/${v.max}`));
+    const ctverecky = prvek('span', 'ctverecky');
+    for (let i = 0; i < v.max; i++) ctverecky.append(prvek('i', i < uroven ? 'plny' : ''));
+    const cenovka = prvek('span', 'cena');
+    if (cena === null) cenovka.textContent = 'Hotovo';
+    else cenovka.append(obrazekSpritu('duse', 2), prvek('span', '', String(cena)));
+    karta.append(nazev, ctverecky, prvek('small', '', v.popis), cenovka);
+    karta.setAttribute('aria-label', `${v.nazev}, úroveň ${uroven} z ${v.max}, ${cena === null ? 'hotovo' : `cena ${cena} ${pocetDusi(cena)}`}`);
+    karta.addEventListener('click', () => {
+      odemkniZvuk();
+      const novy = kupVylepseni(nactiDuse(), id);
+      if (!novy) {
+        zvukOdmitnuti();
+        karta.classList.remove('zatrast');
+        void karta.offsetWidth;
+        karta.classList.add('zatrast');
+        return;
+      }
+      ulozDuse(novy);
+      zvukNakupu();
+      prekresli(`[data-vylepseni="${id}"]`);
+    });
+    mrizka.append(karta);
+  }
+  const vratit = utraceno(stav.vylepseni);
+  const tlacitkoVratit = prvek('button', 'menu-tlacitko vratit', vratit ? 'Vrátit duše' : 'Není co vracet');
+  tlacitkoVratit.type = 'button';
+  tlacitkoVratit.dataset.vylepseni = 'vratit';
+  tlacitkoVratit.addEventListener('click', () => {
+    if (!vratit) return;
+    if (!tlacitkoVratit.classList.contains('potvrdit')) {
+      tlacitkoVratit.classList.add('potvrdit');
+      tlacitkoVratit.textContent = `Opravdu? Vrátí se ${vratit} ${pocetDusi(vratit)}`;
+      return;
+    }
+    ulozDuse(vratDuse(nactiDuse()));
+    prekresli('[data-vylepseni="vratit"]');
+  });
+  const radek = prvek('div', 'radek-tlacitek vratit-radek');
+  radek.append(tlacitkoVratit);
+  panel.append(
+    prvek('p', 'podtitul', 'Za duše z každé výpravy si kup trvalou sílu. Platí od začátku každé hry.'),
+    hlava,
+    mrizka,
+    radek,
+  );
 }
 
 function vyplnRekordy(panel) {
@@ -249,7 +312,10 @@ export function vytvorMenu({ hrat }) {
     ...Object.entries(ZALOZKY).map(([id, z]) => ({ id, nazev: z.nazev, akce: () => otevri(id) })),
   ];
   const radekPostavy = prvek('p', 'menu-postava');
-  const ukazPostavu = () => { radekPostavy.textContent = `Hraješ za: ${TRIDY[trida].nazev}`; };
+  const ukazPostavu = () => {
+    const { duse } = nactiDuse();
+    radekPostavy.textContent = `Hraješ za: ${TRIDY[trida].nazev} · ${duse} ${pocetDusi(duse)}`;
+  };
   ukazPostavu();
   volby.replaceChildren(...polozky.map((p) => {
     const b = prvek('button', p.hlavni ? 'menu-tlacitko hlavni' : 'menu-tlacitko', p.nazev);
@@ -292,6 +358,7 @@ export function vytvorMenu({ hrat }) {
     ukaz() {
       koren.hidden = false;
       upravLogo(logo);
+      ukazPostavu();
       if (otevrena) zavri();
       else vyberTlacitko(volby.querySelector('button'));
     },

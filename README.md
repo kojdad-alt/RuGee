@@ -10,6 +10,8 @@ Hra začíná v hlavním menu (Hrát, Postavy, Vylepšení, Rekordy, Ovládání
 
 V Postavách si vybereš třídu a hra si ji zapamatuje: Lovec (Jiskra, rychlejší pohyb), Havíř (Krumpáče, víc životů), Světlonoš (Lucerna, větší dosah sběru) a Bouřlivák (Blesk, rychlejší nabíjení zbraní).
 
+Po každé hře dostaneš duše: 1 za každých 20 s přežití, 1 za každých 20 zabitých a 10 za každého Strážce. Ve Vylepšeních si za ně kupuješ trvalá vylepšení, která platí od začátku každé další hry: Síla, Životy, Rychlost, Magnet, Štěstí (častěji padá srdce a magnet), Zkušenosti a Oživení (jednou za hru tě vrátí s půlkou životů). Každá další úroveň stojí víc. Vrátit duše zruší všechna vylepšení a duše ti vrátí, ať je můžeš rozdělit jinak. Duše i vylepšení se pamatují jen v tomhle prohlížeči.
+
 Ovládání: WASD nebo šipky, na mobilu tah prstem. P pauza, po prohře R znovu a M menu.
 
 ## Pro vývoj
@@ -30,7 +32,7 @@ Simulace hry bez prohlížeče (Node 18+):
 node tests/simulace.mjs 1 600
 ```
 
-Jednoduchý hráč utíká od nepřátel, sbírá krystaly a na úrovni bere nejdřív zbraně. Test spadne, když se objeví NaN, nikdo nezemře, nepřátel přibývá bez konce, po zabití nevyletí úlomky, po zásahu hrdiny se neotřese obrazovka, pavouk přijde před 4. minutou, hrdina v síti nezpomalí, se špatně ukládá rekord nebo zvolená třída (kratší hra rekord přepíše, rozbitý záznam nebo zakázané úložiště spadne) nebo když některá třída nezačne se svou zbraní a výhodou. Hlavní hra je za výchozí třídu (Lovec), každá třída pak ještě 3 minuty hraje sama.
+Jednoduchý hráč utíká od nepřátel, sbírá krystaly a na úrovni bere nejdřív zbraně. Test spadne, když se objeví NaN, nikdo nezemře, nepřátel přibývá bez konce, po zabití nevyletí úlomky, po zásahu hrdiny se neotřese obrazovka, pavouk přijde před 4. minutou, hrdina v síti nezpomalí, se špatně ukládá rekord nebo zvolená třída (kratší hra rekord přepíše, rozbitý záznam nebo zakázané úložiště spadne) nebo když některá třída nezačne se svou zbraní a výhodou. Hlavní hra je za výchozí třídu (Lovec) bez trvalých vylepšení, každá třída pak ještě 3 minuty hraje sama. Hlídá i duše: hra s prázdnými nebo rozbitými vylepšeními musí dopadnout úplně stejně jako bez nich, každé vylepšení změní svou vlastnost, Oživení vrátí hrdinu jen jednou, obchod nepustí nákup bez duší ani nad maximum, Vrátit duše vrátí přesně utracené a rozbitý záznam duší hru neshodí.
 
 ## Nová verze
 

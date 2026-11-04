@@ -11,6 +11,7 @@ const PALETA = {
   l: '#3f8a3c', L: '#26552a',
   y: '#f2c94c', Y: '#fff3b0',
   e: '#b8443c', E: '#7a2b2e',
+  u: '#7f9cf0', U: '#dfe8ff',
 };
 
 const SPRITY = {
@@ -144,6 +145,17 @@ const SPRITY = {
     'hhhhhhhh',
     '.hhhhhh.',
     '........',
+  ],
+  // Duše: modrobílý plamínek s očima, měna za trvalá vylepšení.
+  duse: [
+    '....u...',
+    '...uu...',
+    '..uUu...',
+    '..uUUu..',
+    '.uUUUUu.',
+    '.uKUUKu.',
+    '.uUUUUu.',
+    '..uuuu..',
   ],
   krumpac: [
     '.ppppp..',

@@ -1,8 +1,9 @@
 import { vytvorRng } from './rng.js';
 import { novaHra, aktualizuj, vyber, TRIDY } from './hra.js';
 import { kresli, kresliMenu } from './kresleni.js';
-import { vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida } from './menu.js';
-import { zapisVysledek } from './ulozeni.js';
+import { dusZaHru } from './duse.js';
+import { vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, obrazekSpritu, pocetDusi } from './menu.js';
+import { zapisVysledek, nactiDuse, pripisDuse } from './ulozeni.js';
 import { odemkniZvuk, zvukStartu } from './zvuk.js';
 
 const platno = document.getElementById('platno');
@@ -22,7 +23,7 @@ function zmenVelikost() {
 function start() {
   // ?seed=123 v adrese dá pořád stejné vlny (hodí se na hledání chyb).
   const seminko = Number(new URLSearchParams(location.search).get('seed')) || (Date.now() >>> 0);
-  hra = novaHra(vytvorRng(seminko), zvolenaTrida());
+  hra = novaHra(vytvorRng(seminko), zvolenaTrida(), nactiDuse().vylepseni);
   vMenu = false;
   menu.skryj();
   document.body.classList.remove('v-menu');
@@ -123,7 +124,24 @@ function zapisKonec() {
   const radekRekordu = novy
     ? 'Nový rekord!'
     : `Rekord: ${formatCas(rekord.cas)}, úroveň ${rekord.uroven}, zabito ${rekord.zabito}.`;
-  el('konec-text').textContent = `${text} ${radekRekordu}`;
+  const oziveni = hra.oziveno ? ' Duše tě jednou vrátily.' : '';
+  el('konec-text').textContent = `${text}${oziveni} ${radekRekordu}`;
+
+  // Duše za hru se připíšou hned, utratit se dají v menu Vylepšení.
+  const duse = dusZaHru(hra);
+  const { duse: celkem } = pripisDuse(duse.celkem);
+  const rozpis = textovyPrvek('small', `čas ${duse.cas} · zabití ${duse.zabiti} · Strážci ${duse.strazci} · celkem ${celkem}`);
+  el('konec-duse').replaceChildren(
+    obrazekSpritu('duse', 3),
+    textovyPrvek('b', `+${duse.celkem} ${pocetDusi(duse.celkem)}`),
+    rozpis,
+  );
+}
+
+function textovyPrvek(znacka, text) {
+  const e = document.createElement(znacka);
+  e.textContent = text;
+  return e;
 }
 
 function hud() {
