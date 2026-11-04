@@ -5,6 +5,7 @@ import {
   RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, TRVANI_ODLESKU, poziceZrcadla, TRVANI_HLASENI_HROZBY, TRVANI_OTEVRENI,
   KUPEC, CENA_ZAMCENE, POLOMER_ZAMCENE, zakladBosse, DOPAD_KRYSTALU, DOZNIVANI_MRAZU, TRVANI_TRISTENI,
   KYV_ZVONU, ZRANI_SEMINKA, POMER_KERE, RUST_KERE, VADNUTI_KERE, TRVANI_VYBUCHU_SEMINKA,
+  VYRAZENI_KORENU, VZPLANUTI, DOHASINANI, PAD_KAMENE,
 } from './hra.js';
 import { kresliPodlahu } from './louka.js';
 import { MAPY, VYCHOZI_MAPA, hash } from './mapy.js';
@@ -48,6 +49,8 @@ const BARVY_CASTIC = {
   svetluska: ['#fff3b0', '#d8f7b0', '#9be08a'],
   cep: ['#c9ccd2', '#8d9098', '#fff3b0'],
   seminko: ['#3f8a3c', '#a07e5c', '#9be08a'],
+  korene: ['#8a5a35', '#4a3530', '#a07e5c'],
+  oblazek: ['#c9ccd2', '#8d9098', '#53565e'],
   zamcena: ['#a07e5c', '#8a5a35', '#f2c94c'],
 };
 const BARVA_SITE = 'rgba(236,236,244,0.8)';
@@ -118,6 +121,16 @@ const STOPA_CEPU = 170;
 const STOPY_CEPU = [[0.05, 0.2], [0.025, 0.4]];
 // Keř s poloměrem do KER_PRI_MERITKU px se kreslí po MERITKO px na pixel, větší keř po větších pixelech.
 const KER_PRI_MERITKU = 22;
+// Kořeny: prasklá zem za kořenem v zemi zmizí za MIZENI_PRASKLINY s po vyražení, posledních ZALEZANI_KORENU
+// s držení kořeny zalézají. Držený nepřítel sebou škube (o pixel sem a tam) každých CUKANI s.
+const MIZENI_PRASKLINY = 0.5;
+const ZALEZANI_KORENU = 0.25;
+const CUKANI = 0.06;
+// Ohnivá stopa: plameny se střídají ve dvou snímcích (každý plamen jindy), snímek trvá SNIMEK_PLAMENE s.
+const SNIMEK_PLAMENE = 0.12;
+// Kámen praku letí VYSKA_KAMENE px nad svým stínem a za sebou nechává dvě tečky prachu (o kolik sekund zpátky).
+const VYSKA_KAMENE = 8;
+const STOPA_KAMENE = [0.03, 0.06];
 
 // Světlo lucerny se kreslí po čtverečcích stejně velkých jako pixel spritu, ať nevypadá rozmazaně.
 // Jednou za PULZ_LUCERNY sekund vyjde od hrdiny vlna světla, na okraji dosahu prstenec zjasní.
@@ -193,6 +206,15 @@ function svetlaVeTme(ctx, zare, hra, naObrazovce) {
   for (const l of hra.svetlusky ?? []) {
     const p = naObrazovce(l);
     zareSvetlusky(ctx, Math.round(p.x), Math.round(p.y) + 3, false);
+  }
+  // Ohnivá stopa ve tmě svítí do oranžova (dohasínající plamen slabě).
+  for (const pl of hra.plameny ?? []) {
+    const p = naObrazovce(pl);
+    const zhasina = Math.min(1, pl.zivot / DOHASINANI);
+    ctx.fillStyle = `rgba(255,140,60,${(0.08 * zhasina).toFixed(3)})`;
+    kruhNaZemi(ctx, p.x, p.y, pl.polomer * 1.6, true);
+    ctx.fillStyle = `rgba(255,200,120,${(0.12 * zhasina).toFixed(3)})`;
+    kruhNaZemi(ctx, p.x, p.y, pl.polomer * 0.6, true);
   }
   ctx.restore();
 }
@@ -961,6 +983,219 @@ function vybuchySeminek(ctx, hra, naObrazovce) {
   }
 }
 
+// Kořeny: kořen v zemi táhne za sebou prasklou zem (tmavé pixely po své cestě) a na špičce hrbolek hlíny, ze
+// kterého odskakují hroudy. Vyražený kořen: rozrytá zem v poloměru a z ní trčí kořeny (rostou ze země, špičky
+// první, kývou se a na konci zase zalezou), prasklina za ním zmizí.
+function koreny(ctx, hra, naObrazovce, sirka, vyska) {
+  const m = MERITKO;
+  for (const k of hra.korene ?? []) {
+    const p = naObrazovce(k);
+    const drzi = k.faze === 'drzi';
+    const stari = drzi ? k.trvani - k.zivot : 0;
+    const prasklina = drzi ? 1 - stari / MIZENI_PRASKLINY : 1;
+    if (prasklina > 0) {
+      ctx.save();
+      ctx.globalAlpha = prasklina * 0.85;
+      const body = [...k.cesta, ...(drzi ? [] : [k])];
+      const zaklad = hash(Math.round(k.cesta[0].x), Math.round(k.cesta[0].y));
+      for (let i = 1; i < body.length; i++) {
+        const a = naObrazovce(body[i - 1]);
+        const b = naObrazovce(body[i]);
+        const kusu = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / m));
+        for (let j = 0; j < kusu; j++) {
+          const t = j / kusu;
+          const cik = ((zaklad >>> ((i + j) % 24)) & 1) ? 1 : -1;
+          const x = Math.round((a.x + (b.x - a.x) * t) / m) * m;
+          const y = Math.round((a.y + (b.y - a.y) * t) / m) * m + (j % 3 === 0 ? cik * m : 0);
+          ctx.fillStyle = '#2e1e16';
+          ctx.fillRect(x - 1, y - 1, m + 2, m + 2);
+          ctx.fillStyle = j % 4 === 1 ? '#a07e5c' : '#4a3530';
+          ctx.fillRect(x, y, m, m);
+        }
+      }
+      ctx.restore();
+    }
+    if (p.x < -k.polomer - 30 || p.y < -k.polomer - 40 || p.x > sirka + k.polomer + 30 || p.y > vyska + k.polomer + 30) continue;
+    if (!drzi) {
+      // hrbolek hlíny na špičce poskakuje a odskakují z něj dvě hroudy
+      const obr = sprity.hrbolek;
+      const skok = Math.floor(hra.cas * 14 + k.cesta[0].x) % 2;
+      ctx.drawImage(obr, Math.round(p.x - (obr.width * m) / 2), Math.round(p.y - obr.height * m + 4 - skok), obr.width * m, obr.height * m);
+      for (let i = 0; i < 2; i++) {
+        const f = (hra.cas * 3 + i * 0.5) % 1;
+        const hx = Math.round(p.x + (i ? 1 : -1) * (4 + f * 8));
+        const hy = Math.round(p.y - 6 - Math.sin(f * Math.PI) * 10);
+        ctx.fillStyle = '#0b0a0f';
+        ctx.fillRect(hx - 1, hy - 1, m + 2, m + 2);
+        ctx.fillStyle = '#8a5a35';
+        ctx.fillRect(hx, hy, m, m);
+      }
+      continue;
+    }
+    const rust = Math.min(1, stari / VYRAZENI_KORENU);
+    const venku = Math.max(0, Math.min(rust, k.zivot / ZALEZANI_KORENU));
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, k.zivot / ZALEZANI_KORENU + 0.3);
+    ctx.fillStyle = 'rgba(46,30,22,0.45)';
+    kruhNaZemi(ctx, p.x, p.y, k.polomer * (0.5 + 0.4 * rust), true);
+    ctx.fillStyle = 'rgba(74,53,48,0.8)';
+    kruhNaZemi(ctx, p.x, p.y, k.polomer * (0.5 + 0.4 * rust));
+    ctx.restore();
+    const obr = sprity.koren;
+    const radku = Math.ceil(obr.height * venku);
+    if (radku <= 0) continue;
+    const zaklad = hash(Math.round(k.x), Math.round(k.y));
+    const pocet = k.polomer > 26 ? 6 : 4;
+    const kusy = [];
+    for (let i = 0; i < pocet; i++) {
+      const uhel = i * 2.4 + (zaklad % 628) / 100;
+      const vzdal = k.polomer * (i % 2 ? 0.75 : 0.45);
+      kusy.push({ x: p.x + Math.cos(uhel) * vzdal, y: p.y + Math.sin(uhel) * vzdal * 0.7, otoceny: Math.cos(uhel) < 0, i });
+    }
+    kusy.sort((a, b) => a.y - b.y);
+    const w = obr.width * m;
+    const v = radku * m;
+    for (const o of kusy) {
+      const kyv = Math.round(Math.sin(hra.cas * 5 + o.i * 1.3) * 1.2);
+      ctx.save();
+      ctx.translate(Math.round(o.x) + kyv, Math.round(o.y + (obr.height * m) / 2));
+      if (o.otoceny) ctx.scale(-1, 1);
+      ctx.drawImage(obr, 0, 0, obr.width, radku, -w / 2, -v, w, v);
+      ctx.restore();
+    }
+  }
+}
+
+// Drženému nepříteli se kolem nohou omotají kořeny (bossovi dvoje), na konci držení vyblednou.
+function uponkyKorenu(ctx, n, x, y, velikost) {
+  const obr = sprity.uponka;
+  const w = obr.width * MERITKO;
+  const v = obr.height * MERITKO;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, n.drzen / ZALEZANI_KORENU);
+  const dole = Math.round(y + velikost / 2 - v + 3);
+  for (const posun of n.boss ? [-w / 2 + 2, w / 2 - 2] : [0]) ctx.drawImage(obr, Math.round(x + posun - w / 2), dole, w, v);
+  ctx.restore();
+}
+
+// Plameny Ohnivé stopy. Nejdřív pod všemi spálená zem (tmavý kruh, s dohasínáním bledne), pak teplá záře a nad
+// tím plameny: v každém dva (ve větším tři), každý jinde podle pořadí plamene, střídají se ve dvou snímcích
+// a mihotají. Nový plamen vyšlehne ze země (špička první), dohasínající se zmenšuje do žhavých uhlíků.
+function plamenyStopy(ctx, hra, naObrazovce, sirka, vyska) {
+  const plameny = (hra.plameny ?? []).filter((pl) => {
+    const p = naObrazovce(pl);
+    return p.x > -pl.polomer - 20 && p.y > -pl.polomer - 40 && p.x < sirka + pl.polomer + 20 && p.y < vyska + pl.polomer + 20;
+  });
+  if (!plameny.length) return;
+  for (const pl of plameny) {
+    const p = naObrazovce(pl);
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, pl.zivot / DOHASINANI) * 0.5;
+    ctx.fillStyle = '#1e1414';
+    kruhNaZemi(ctx, p.x, p.y + 4, pl.polomer * 0.8, true);
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const pl of plameny) {
+    const p = naObrazovce(pl);
+    const zhasina = Math.min(1, pl.zivot / DOHASINANI);
+    ctx.fillStyle = `rgba(255,120,40,${(0.12 * zhasina).toFixed(3)})`;
+    kruhNaZemi(ctx, p.x, p.y + 4, pl.polomer * (0.6 + 0.08 * Math.sin(hra.cas * 9 + pl.poradi)), true);
+  }
+  ctx.restore();
+  const ohne = [];
+  for (const pl of plameny) {
+    const p = naObrazovce(pl);
+    const vzplanuti = Math.min(1, pl.stari / VZPLANUTI);
+    const zhasina = Math.min(1, pl.zivot / DOHASINANI);
+    const pocet = pl.polomer > 24 ? 3 : 2;
+    for (let i = 0; i < pocet; i++) {
+      const uhel = (pl.poradi * 2.4 + i * 2.1) % (Math.PI * 2);
+      const vzdal = pl.polomer * (i ? 0.45 : 0.15);
+      ohne.push({
+        x: p.x + Math.cos(uhel) * vzdal, y: p.y + 4 + Math.sin(uhel) * vzdal * 0.6, vyska: Math.min(vzplanuti, zhasina),
+        snimek: Math.floor(hra.cas / SNIMEK_PLAMENE + pl.poradi + i) % 2, otoceny: (pl.poradi + i) % 2, zhasina,
+      });
+    }
+  }
+  ohne.sort((a, b) => a.y - b.y);
+  for (const o of ohne) {
+    const obr = o.snimek ? sprity.plamen2 : sprity.plamen;
+    const radku = Math.ceil(obr.height * o.vyska);
+    if (radku <= 0) continue;
+    const w = obr.width * MERITKO;
+    const v = radku * MERITKO;
+    ctx.save();
+    ctx.globalAlpha = 0.5 + 0.5 * o.zhasina;
+    ctx.translate(Math.round(o.x), Math.round(o.y));
+    if (o.otoceny) ctx.scale(-1, 1);
+    ctx.drawImage(o.zhasina < 0.6 ? prebarvi(obr, 'rgba(184,68,60,0.55)') : obr, 0, 0, obr.width, radku, -w / 2, -v, w, v);
+    ctx.restore();
+  }
+}
+
+// Zapálenému nepříteli (stojí v ohni nebo ještě hoří) plápolají nad hlavou a na boku plamínky, s koncem hoření
+// se zmenšují.
+function plaminkyNaNepriteli(ctx, n, x, y, velikost, cas) {
+  const obr = sprity.plaminek;
+  const sila = n.vOhni ? 1 : Math.min(1, n.hori * 2);
+  if (sila <= 0) return;
+  const w = obr.width * MERITKO;
+  const v = obr.height * MERITKO;
+  const mista = n.vOhni ? [[0.2, 0.15]] : [[-0.22, -0.25], [0.25, 0.05]];
+  mista.forEach(([dx, dy], i) => {
+    const mih = Math.floor(cas / SNIMEK_PLAMENE + i + n.maxHp) % 2;
+    const radku = Math.max(1, Math.ceil(obr.height * sila));
+    ctx.save();
+    ctx.translate(Math.round(x + dx * velikost), Math.round(y + dy * velikost + v / 2));
+    if (mih) ctx.scale(-1, 1);
+    ctx.drawImage(obr, 0, 0, obr.width, radku, -w / 2, -radku * MERITKO, w, radku * MERITKO);
+    ctx.restore();
+  });
+}
+
+// Kameny praku: stín na zemi, nad ním kámen (točí se podle toho, kolik uletěl) a za ním dvě tečky prachu.
+// Dopadlý kámen spadne k zemi, jednou odskočí a zmizí.
+function kamenyPraku(ctx, hra, naObrazovce) {
+  const obr = sprity.oblazek;
+  const w = obr.width * MERITKO;
+  const kresli1 = (x, y, ulet) => {
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.rotate(Math.floor(ulet / 10) * (Math.PI / 2));
+    ctx.drawImage(obr, -w / 2, -w / 2, w, w);
+    ctx.restore();
+  };
+  for (const k of hra.oblazky ?? []) {
+    const p = naObrazovce(k);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(Math.round(p.x - w * 0.35), Math.round(p.y + 3), Math.round(w * 0.7), MERITKO);
+    STOPA_KAMENE.forEach((zpet, i) => {
+      ctx.fillStyle = i ? 'rgba(201,204,210,0.35)' : 'rgba(201,204,210,0.6)';
+      const r = i ? 2 : MERITKO;
+      ctx.fillRect(Math.round(p.x - k.vx * zpet - r / 2), Math.round(p.y - VYSKA_KAMENE - k.vy * zpet - r / 2), r, r);
+    });
+    kresli1(p.x, p.y - VYSKA_KAMENE, k.ulet);
+    if (k.zasahu > 1) {
+      // rozjetý kámen (po odrazech) má bílý záblesk na boku
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fillRect(Math.round(p.x - 1), Math.round(p.y - VYSKA_KAMENE - w / 2 - 1), 2, 2);
+    }
+  }
+  for (const pd of hra.padleKameny ?? []) {
+    const p = naObrazovce(pd);
+    const t = 1 - pd.zivot / PAD_KAMENE;
+    const nad = t < 0.6 ? VYSKA_KAMENE * (1 - t / 0.6) : Math.sin(((t - 0.6) / 0.4) * Math.PI) * 3;
+    ctx.save();
+    ctx.globalAlpha = t > 0.75 ? (1 - t) / 0.25 : 1;
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(Math.round(p.x - w * 0.35), Math.round(p.y + 3), Math.round(w * 0.7), MERITKO);
+    kresli1(p.x, p.y - nad, pd.ulet);
+    ctx.restore();
+  }
+}
+
 // Jak daleko je varování schopnosti: 0 na začátku, 1 těsně před provedením.
 function prubehVarovani(sch) {
   return Math.max(0, Math.min(1, 1 - sch.zbyva / sch.s.varovani));
@@ -1576,6 +1811,8 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     ledovaZona(ctx, z, p.x, p.y, hra.cas);
   }
   seminkaNaZemi(ctx, hra, naObrazovce, sirka, vyska);
+  plamenyStopy(ctx, hra, naObrazovce, sirka, vyska);
+  koreny(ctx, hra, naObrazovce, sirka, vyska);
   utokyNaZemi(ctx, hra, naObrazovce);
   vlnyHrdiny(ctx, hra, naObrazovce);
   vlnyZvonu(ctx, hra, naObrazovce);
@@ -1595,6 +1832,8 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
       if (n.trny > 0 && !n.skryty) sponaTrnu(ctx, n, p.x, vy, velikost);
       if (n.zapreden > 0 && !n.skryty) sit(ctx, p.x, vy, n.zapreden, velikost * 0.6);
       if (n.omracen > 0 && !n.skryty) hvezdickyOmraceni(ctx, n, p.x, vy, velikost, hra.cas);
+      if (n.drzen > 0 && !n.skryty) uponkyKorenu(ctx, n, p.x, vy, velikost);
+      if ((n.hori > 0 || n.vOhni) && !n.skryty) plaminkyNaNepriteli(ctx, n, p.x, vy, velikost, hra.cas);
       continue;
     }
     let { x, y } = p;
@@ -1602,6 +1841,8 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     // Boss se při varování třese. Při výpadu za sebou nechává dva bledé obrysy.
     const vznasiSe = zakladBosse(n.druh) === 'bludicka';
     if (sch?.faze === 'varovani' && !vznasiSe) x += Math.floor(hra.cas * 30) % 2 ? 2 : -2;
+    // Koho drží kořeny, ten sebou škube.
+    if (n.drzen > 0 && !n.boss) x += Math.floor(hra.cas / CUKANI + n.maxHp) % 2 ? 1 : -1;
     if (sch?.id === 'vypad' && sch.faze === 'provadi') {
       for (const [zpet, pruhlednost] of [[30, 0.2], [15, 0.4]]) {
         ctx.globalAlpha = pruhlednost;
@@ -1637,6 +1878,8 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     if (n.trny > 0) sponaTrnu(ctx, n, x, y, velikost);
     if (n.zapreden > 0) sit(ctx, x, y, n.zapreden, velikost * 0.6);
     if (n.omracen > 0) hvezdickyOmraceni(ctx, n, x, y, velikost, hra.cas);
+    if (n.drzen > 0) uponkyKorenu(ctx, n, x, y, velikost);
+    if (n.hori > 0 || n.vOhni) plaminkyNaNepriteli(ctx, n, x, y, velikost, hra.cas);
     if (n.elita && n.hp < n.maxHp) {
       // malý pruh životů nad zraněnou elitou
       const nad = Math.round(y - velikost / 2 - 5);
@@ -1675,6 +1918,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
   utokyVeVzduchu(ctx, hra, naObrazovce);
   krystalyVeVzduchu(ctx, hra, naObrazovce);
   vybuchySeminek(ctx, hra, naObrazovce);
+  kamenyPraku(ctx, hra, naObrazovce);
 
   ctx.fillStyle = '#ffd27a';
   for (const st of hra.strely) {

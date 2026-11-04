@@ -105,6 +105,32 @@ export const ZBRANE = {
       texty: { pocet: '+1 semínko', velikost: 'Větší výbuch a keř' },
     },
   },
+  korene: {
+    nazev: 'Kořeny', ikona: 'korene',
+    popis: ['Kořen proběhne pod zemí k nepříteli, vyrazí a chvíli ho drží a svírá.', '+1 kořen', 'Kořeny drží déle a chytí i sousedy', '+1 kořen', 'Trnité kořeny svírají silněji'],
+    // Kořenů nejvýš 8 jako trsů trnů: víc by drželo skoro celou louku.
+    dal: {
+      poradi: ['pocet', 'velikost', 'nabiti'], poskozeni: ['poskozeni', 'svirani'], pocet: 'pocet', velikost: ['polomer'], nabiti: ['nabiti'], maxPocet: 8,
+      texty: { pocet: '+1 kořen', velikost: 'Kořeny chytí širší kruh', nabiti: 'Častější kořeny' },
+    },
+  },
+  stopa: {
+    nazev: 'Ohnivá stopa', ikona: 'stopa',
+    popis: ['Kudy jdeš, tudy hoří: plameny za tebou pálí každého, kdo do nich vleze.', 'Širší plameny', 'Plameny hoří déle', 'Kdo projde ohněm, ještě chvíli hoří', 'Žhavější oheň'],
+    // Bez kusů: stopa je jedna. Širší plamen má i větší rozestup, takže plamenů naráz nepřibude.
+    dal: {
+      poradi: ['velikost', 'nabiti'], poskozeni: ['poskozeni', 'pali'], nabiti: ['tik'], velikost: ['polomer'],
+      texty: { velikost: 'Širší plameny', nabiti: 'Oheň pálí častěji' },
+    },
+  },
+  prak: {
+    nazev: 'Odrazný kámen', ikona: 'prak',
+    popis: ['Prak vystřelí kámen, který se odráží od nepřítele k nepříteli a s každým odrazem víc bolí.', '+2 odrazy', 'Rychlejší střelba', '+1 kámen', 'Těžší kámen'],
+    dal: {
+      poradi: ['pocet', 'nabiti', 'velikost'], poskozeni: ['poskozeni'], pocet: 'odrazy', nabiti: ['nabiti'], velikost: ['skok'],
+      texty: { pocet: '+1 odraz', nabiti: 'Rychlejší střelba', velikost: 'Delší odrazy' },
+    },
+  },
 };
 
 // Pasivy: na úrovních 1–5 dá každá úroveň plný díl (násobí vlastnost hrdiny o nasobek, Srdce přičte pricti),
@@ -512,6 +538,43 @@ export const VADNUTI_KERE = 0.3;
 export const TRVANI_VYBUCHU_SEMINKA = 0.3;
 export const MAX_SEMINEK = 40;
 const ROZESTUP_SEMINEK = 24;
+// Kořeny: kořen vyběhne od hrdiny pod zemí (RYCHLOST_KORENE px/s) za svým nepřítelem a pod ním vyrazí: rána
+// všem v poloměru a kdo tam stojí, toho kořeny drží (stojí, boss jde ZPOMALENI_DRZENEHO_BOSSE) a každých
+// TIK_KORENU s svírají. Odhození s drženým nehne. Po puštění je nepřítel IMUNITA_KORENU s odolný (kořeny ho
+// nechytí), ať ho nedrží pořád. Když cíl cestou zmizí, kořen si najde jiný, a když žádný není, vyrazí tam, kde je
+// (nejpozději po MAX_BEHU_KORENE s). Kořenů v zemi i vyražených je naráz nejvýš MAX_KORENU. Ze země vyrůstají
+// VYRAZENI_KORENU s (jen na pohled, drží hned).
+export const RYCHLOST_KORENE = 260;
+export const MAX_BEHU_KORENE = 1.6;
+export const IMUNITA_KORENU = 1.5;
+export const ZPOMALENI_DRZENEHO_BOSSE = 0.5;
+export const VYRAZENI_KORENU = 0.25;
+export const TIK_KORENU = 0.4;
+export const MAX_KORENU = 80;
+const STOPA_KORENE = 12;
+// Ohnivá stopa: pod nohama hrdiny vzplane plamen, kdykoli od posledního ujde ROZESTUP_STOPY jeho poloměru
+// (když stojí, plamen pod ním nedohasne). Plamen hoří trvani s a kdo v něm stojí, toho každý tik spálí (stojí-li
+// v několika plamenech naráz, pálí ho jen jednou). Od 4. úrovně ho oheň zapálí: po vylezení ještě hori s hoří
+// a každý tik ho pálí slabší pali. Plamenů je naráz nejvýš MAX_PLAMENU (nejstarší zhasne dřív).
+export const ROZESTUP_STOPY = 0.8;
+export const VZPLANUTI = 0.15;
+export const DOHASINANI = 0.4;
+export const MAX_PLAMENU = 80;
+// Odrazný kámen: prak vystřelí kámen (RYCHLOST_KAMENE px/s) na nejbližší nepřátele, každý kámen na jiného.
+// Kámen svůj cíl dohoní, po zásahu se odrazí na nejbližšího dosud nezasaženého do skok px a každým odrazem
+// zrychlí (ZRYCHLENI_KAMENE, nanejvýš MAX_RYCHLOST_KAMENE) a víc bolí (RUST_RANY_KAMENE za odraz). Když už
+// nemá na koho, odletí od posledního pryč a do VOLNY_LET s spadne. Od skály (překážky mapy) se odrazí zadarmo
+// a BEZ_CILE_PO_SKALE s si nevybírá cíl, ať do ní nenaráží pořád. Bedny, přes které letí, rozbije.
+export const RYCHLOST_KAMENE = 380;
+export const ZRYCHLENI_KAMENE = 1.08;
+export const MAX_RYCHLOST_KAMENE = 700;
+export const RUST_RANY_KAMENE = 0.15;
+export const POLOMER_KAMENE = 5;
+export const VOLNY_LET = 0.4;
+export const BEZ_CILE_PO_SKALE = 0.2;
+export const ZIVOT_KAMENE = 3;
+export const PAD_KAMENE = 0.35;
+export const MAX_KAMENU = 30;
 
 // Výbava bossů (data a staty v vystroj.js). Truhla bosse se po dotyku TRVANI_OTEVRENI s otevírá a svět mezitím
 // stojí, pak dá kus výbavy a kartu. Efekty sad: rázová vlna běží RYCHLOST_VLNY_HRDINY px/s a první vyběhne
@@ -674,6 +737,22 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     vybuchySeminek: [],
     vybuchlo: 0,
     zaseto: 0,
+    // Kořeny (běžící pod zemí i vyražené), plameny Ohnivé stopy (posledniPlamen = ten pod nohama, od kterého se
+    // měří rozestup), kameny praku v letu a padleKameny = kameny, které právě dopadají na zem. drzeno, zapaleno,
+    // plamenu, vystreleno, zasahuKamenem, odrazu a odSkal jsou počítadla pro simulaci.
+    korene: [],
+    drzeno: 0,
+    plameny: [],
+    posledniPlamen: null,
+    plamenu: 0,
+    zapaleno: 0,
+    paleniStopou: 0,
+    oblazky: [],
+    padleKameny: [],
+    vystreleno: 0,
+    zasahuKamenem: 0,
+    odrazu: 0,
+    odSkal: 0,
     doSpawnu: 0,
     dalsiBoss: BOSS_KAZDYCH,
     bossu: 0,
@@ -917,10 +996,14 @@ export function pridejNepritele(hra, druh, x, y, elita = false) {
   const hp = Math.round(vzor.hp * (vzor.boss ? sila.bossZivoty : sila.zivoty) * (e ? e.zivoty : 1) * ob.zivoty);
   // trny = jak dlouho ještě je zpomalený trny, zpomaleni = na kolik, odhozen = ještě letí od zrcadla,
   // mraz a zpomaleniMrazem totéž od ledové zóny Mrazivého krystalu, omracen = jak dlouho ještě je omráčený
-  // zvonem, odolny = jak dlouho ho zvon znovu neomráčí, zasahCepem = kdy ho koule cepu smí trefit znovu
+  // zvonem, odolny = jak dlouho ho zvon znovu neomráčí, zasahCepem = kdy ho koule cepu smí trefit znovu,
+  // drzen = jak dlouho ho ještě drží kořeny (svirani = rána za tik, tikKorenu = do dalšího sevření),
+  // vyrvan = jak dlouho ho kořeny znovu nechytí, hori = jak dlouho ještě hoří po vylezení z Ohnivé stopy
+  // (pali = rána za tik), tikOhne = do další rány ohněm, vOhni = právě stojí v plameni (pro kreslení)
   const n = {
     druh, ...vzor, hp, maxHp: hp, zasazen: 0, zar: 0, zasahKrumpacem: 0, zasahZrcadlem: 0, trny: 0, zpomaleni: 1, odhozen: 0, x, y,
     mraz: 0, zpomaleniMrazem: 1, omracen: 0, odolny: 0, zasahCepem: 0,
+    drzen: 0, svirani: 0, tikKorenu: 0, vyrvan: 0, hori: 0, pali: 0, tikOhne: 0, vOhni: false,
     poskozeni: Math.round(vzor.poskozeni * sila.poskozeni * (e ? e.poskozeni : 1) * ob.poskozeni),
     rychlost: vzor.rychlost * sila.rychlost,
   };
@@ -1457,7 +1540,8 @@ export function bossBary(hra) {
 
 // Čísla zbraní na úrovních 1–5: u = úroveň (nad pátou platí čísla páté, růst přidá statyZbrane),
 // n = násobek nabíjení hrdiny. Kratší nabíjení zrychlí všechny zbraně: střelbu, údery, žár lucerny, trny,
-// otáčení krumpáčů a zrcadel, odpočinek světlušek, krystaly, zvonění, rozmach cepu i semínka.
+// otáčení krumpáčů a zrcadel, odpočinek světlušek, krystaly, zvonění, rozmach cepu, semínka, kořeny, pálení
+// ohnivé stopy i prak.
 const CISLA_ZBRANI = {
   jiskra: (j, n) => ({ pocet: 1 + (j >= 2) + (j >= 4), nabiti: (j >= 3 ? 0.5 : 0.7) * n, poskozeni: j >= 5 ? 16 : 11 }),
   lucerna: (l, n) => ({ dosah: 56 + 22 * ((l >= 2) + (l >= 4)), zar: 14 + 9 * ((l >= 3) + (l >= 5)), tik: 0.3 * n }),
@@ -1501,6 +1585,24 @@ const CISLA_ZBRANI = {
   seminka: (s, n) => ({
     pocet: 1 + (s >= 2) + (s >= 4), nabiti: 1.2 * n, polomer: s >= 3 ? 40 : 32, poskozeni: s >= 5 ? 34 : 24,
     trvani: s >= 3 ? 3 : 2.2, tik: 0.5, pichnuti: s >= 5 ? 6 : 4,
+  }),
+  // korene: pocet kořenů naráz (každý na jiného nepřítele), dosah = jak daleko od hrdiny si hledá cíl,
+  // polomer = koho kolem cíle při vyražení chytí, trvani = jak dlouho drží, poskozeni = rána při vyražení,
+  // svirani = rána za každý tik držení
+  korene: (k, n) => ({
+    pocet: 1 + (k >= 2) + (k >= 4), nabiti: 2.4 * n, dosah: 260, polomer: k >= 3 ? 30 : 22, trvani: k >= 3 ? 1.6 : 1.2,
+    poskozeni: k >= 5 ? 22 : 14, svirani: k >= 5 ? 6 : 4,
+  }),
+  // stopa: polomer jednoho plamene, trvani = jak dlouho hoří, tik = jak často pálí, poskozeni = rána v plameni,
+  // hori = jak dlouho zapálený nepřítel hoří po vylezení (0 = nezapálí), pali = rána za tik, když hoří
+  stopa: (o, n) => ({
+    polomer: o >= 2 ? 20 : 16, trvani: o >= 3 ? 2.6 : 1.8, tik: 0.4 * n, poskozeni: o >= 5 ? 9 : 6,
+    hori: o >= 4 ? 1.6 : 0, pali: o >= 5 ? 5 : 3,
+  }),
+  // prak: pocet kamenů v jedné ráně, odrazy = na kolik dalších nepřátel se kámen odrazí, dosah = na koho vystřelí,
+  // skok = jak daleko od zásahu hledá dalšího, poskozeni = rána prvního zásahu (každý odraz o RUST_RANY_KAMENE víc)
+  prak: (p, n) => ({
+    pocet: 1 + (p >= 4), odrazy: 2 + 2 * (p >= 2), nabiti: (p >= 3 ? 1.1 : 1.5) * n, poskozeni: p >= 5 ? 20 : 13, dosah: 300, skok: 150,
   }),
 };
 
@@ -2106,6 +2208,338 @@ function rostouSeminka(hra, dt, s) {
   hra.vybuchySeminek = hra.vybuchySeminek.filter((v) => v.zivot > 0);
 }
 
+// O kolik kořeny zpomalí: držený nepřítel stojí, boss jde napůl. 1 = nedrží ho.
+function brzdaKorenu(n) {
+  if (!(n.drzen > 0)) return 1;
+  return n.boss ? ZPOMALENI_DRZENEHO_BOSSE : 0;
+}
+
+// Koho kořen smí chytit: viditelného živého nepřítele, kterého zrovna nic nedrží a není po puštění odolný.
+function chytitelny(n) {
+  return n.hp > 0 && viditelny(n) && !(n.drzen > 0) && !(n.vyrvan > 0);
+}
+
+// Cíle nových kořenů: nejbližší chytitelní nepřátelé v dosahu, na které už neběží jiný kořen, každý jinde (kdo
+// stojí v poloměru už vybraného, ten se přeskočí). Na co nezbyl nepřítel, to běží pod nejbližší bednu v dosahu.
+function cileKorenu(hra, st) {
+  const { hrdina } = hra;
+  const obsazene = new Set(hra.korene.filter((k) => k.faze === 'bezi').map((k) => k.cil));
+  const cile = [];
+  const volno = (o) => !obsazene.has(o) && cile.every((c) => vzdalenost(c, o) >= st.polomer);
+  const kandidati = hra.nepratele
+    .filter((n) => chytitelny(n) && vzdalenost(n, hrdina) < st.dosah)
+    .sort((a, b) => vzdalenost(a, hrdina) - vzdalenost(b, hrdina));
+  for (const n of kandidati) {
+    if (cile.length >= st.pocet) break;
+    if (volno(n)) cile.push(n);
+  }
+  const bedny = hra.bedny
+    .filter((b) => !b.rozbita && vzdalenost(b, hrdina) < st.dosah)
+    .sort((a, b) => vzdalenost(a, hrdina) - vzdalenost(b, hrdina));
+  for (const b of bedny) {
+    if (cile.length >= st.pocet) break;
+    if (volno(b)) cile.push(b);
+  }
+  return cile;
+}
+
+// Nové kořeny vyběhnou od hrdiny, každý za svým cílem. Vrací, kolik jich vyběhlo (bez cíle čeká nabitý).
+function vypustKoreny(hra, st) {
+  const { hrdina } = hra;
+  const cile = cileKorenu(hra, st);
+  for (const cil of cile) {
+    hra.korene.push({
+      x: hrdina.x, y: hrdina.y, cil, naBednu: hra.bedny.includes(cil), faze: 'bezi', beh: 0, zivot: 0, cesta: [{ x: hrdina.x, y: hrdina.y }],
+      dosah: st.dosah, polomer: st.polomer, trvani: st.trvani, poskozeni: st.poskozeni, svirani: st.svirani,
+    });
+  }
+  if (hra.korene.length > MAX_KORENU) hra.korene.splice(0, hra.korene.length - MAX_KORENU);
+  return cile.length;
+}
+
+// Nejbližší chytitelný nepřítel od špičky kořene (v dosahu od hrdiny), když mu původní cíl zmizel.
+function novyCilKorene(hra, k) {
+  let nej = null;
+  let nejD = Infinity;
+  for (const n of hra.nepratele) {
+    if (!chytitelny(n) || vzdalenost(n, hra.hrdina) >= k.dosah) continue;
+    const d = vzdalenost(n, k);
+    if (d < nejD) { nej = n; nejD = d; }
+  }
+  return nej;
+}
+
+// Kořen vyrazí ze země: rána všem v poloměru a koho smí chytit, toho drží (a odhození s ním přestane hýbat).
+// Rozbije bedny v poloměru.
+function vyrazKoren(hra, k) {
+  k.faze = 'drzi';
+  k.zivot = k.trvani;
+  k.cil = null;
+  for (const n of hra.nepratele) {
+    if (n.hp <= 0 || !viditelny(n) || vzdalenost(n, k) >= k.polomer + n.polomer / 2) continue;
+    const chytit = chytitelny(n);
+    zasah(hra, n, k.poskozeni);
+    if (!chytit) continue;
+    n.drzen = k.trvani;
+    n.vyrvan = k.trvani + IMUNITA_KORENU;
+    n.svirani = k.svirani;
+    n.tikKorenu = TIK_KORENU;
+    n.odhozen = 0;
+    hra.drzeno += 1;
+  }
+  for (const b of hra.bedny) {
+    if (!b.rozbita && vzdalenost(b, k) < k.polomer + POLOMER_BEDNY / 2) rozbij(hra, b);
+  }
+  rozprsk(hra, k.x, k.y, 'korene', 7);
+}
+
+// Kořeny: nabité vyběhnou za cíli, v zemi běží za svým cílem (když zmizí nebo ho chytil jiný kořen, vezmou
+// nejbližší jiný) a za sebou nechávají prasklou zem (cesta). U cíle, bez cíle nebo po MAX_BEHU_KORENE s
+// vyrazí. Vyražené kořeny stojí, dokud drží. Koho drží, toho každý tik sevřou (schovaného ducha ne).
+function rostouKoreny(hra, dt, s) {
+  const kr = hra.zbrane.korene;
+  if (kr) {
+    kr.nabiti = (kr.nabiti ?? 0) - dt;
+    if (kr.nabiti <= 0 && vypustKoreny(hra, s.korene)) kr.nabiti = s.korene.nabiti;
+  }
+  const krok = RYCHLOST_KORENE * dt;
+  for (const k of hra.korene) {
+    if (k.faze === 'drzi') {
+      k.zivot -= dt;
+      continue;
+    }
+    k.beh += dt;
+    const platny = k.cil && (k.naBednu ? !k.cil.rozbita : chytitelny(k.cil));
+    if (!platny) {
+      k.cil = novyCilKorene(hra, k);
+      k.naBednu = false;
+    }
+    if (k.cil) {
+      const d = vzdalenost(k, k.cil);
+      if (d <= krok) {
+        k.x = k.cil.x;
+        k.y = k.cil.y;
+        vyrazKoren(hra, k);
+        continue;
+      }
+      k.x += ((k.cil.x - k.x) / d) * krok;
+      k.y += ((k.cil.y - k.y) / d) * krok;
+    }
+    if (!k.cil || k.beh >= MAX_BEHU_KORENE) {
+      vyrazKoren(hra, k);
+      continue;
+    }
+    if (vzdalenost(k.cesta[k.cesta.length - 1], k) >= STOPA_KORENE) k.cesta.push({ x: k.x, y: k.y });
+  }
+  hra.korene = hra.korene.filter((k) => k.faze === 'bezi' || k.zivot > 0);
+  for (const n of hra.nepratele) {
+    if (!(n.drzen > 0) || n.hp <= 0) continue;
+    n.tikKorenu -= dt;
+    if (n.tikKorenu > 0) continue;
+    n.tikKorenu += TIK_KORENU;
+    if (viditelny(n)) zasah(hra, n, n.svirani);
+  }
+}
+
+// Ohnivá stopa: pod nohama vzplane nový plamen, když je hrdina od posledního aspoň rozestup daleko (nebo poslední
+// už dohořel), jinak plamen pod nohama hoří dál od začátku. Plamen rozbije bednu, které se dotkne. Kdo stojí
+// v ohni, toho každý tik spálí (jednou, ať stojí v kolika plamenech chce), a od 4. úrovně ho oheň zapálí: po
+// vylezení ještě hori s hoří a každý tik ho pálí slabší pali. Zásah ohněm nepřítele rozžhaví (jako žár lucerny).
+function ohnivaStopa(hra, dt, s) {
+  const { hrdina } = hra;
+  if (hra.zbrane.stopa) {
+    const st = s.stopa;
+    const posledni = hra.posledniPlamen;
+    const cisla = { trvani: st.trvani, polomer: st.polomer, poskozeni: st.poskozeni, pali: st.pali, hori: st.hori };
+    if (posledni && posledni.zivot > 0 && vzdalenost(posledni, hrdina) < st.polomer * ROZESTUP_STOPY) {
+      Object.assign(posledni, cisla, { zivot: st.trvani });
+    } else {
+      const novy = { x: hrdina.x, y: hrdina.y, stari: 0, zivot: st.trvani, poradi: hra.plamenu, ...cisla };
+      hra.plameny.push(novy);
+      hra.posledniPlamen = novy;
+      hra.plamenu += 1;
+      if (hra.plameny.length > MAX_PLAMENU) hra.plameny.splice(0, hra.plameny.length - MAX_PLAMENU);
+    }
+  }
+  for (const p of hra.plameny) {
+    p.zivot -= dt;
+    p.stari += dt;
+  }
+  hra.plameny = hra.plameny.filter((p) => p.zivot > 0);
+  if (hra.posledniPlamen && !(hra.posledniPlamen.zivot > 0)) hra.posledniPlamen = null;
+  // Kdo je mimo obdélník kolem všech plamenů, ten v žádném nestojí (ať se nemusí měřit ke každému).
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  let r = 0;
+  for (const p of hra.plameny) {
+    x0 = Math.min(x0, p.x);
+    x1 = Math.max(x1, p.x);
+    y0 = Math.min(y0, p.y);
+    y1 = Math.max(y1, p.y);
+    r = Math.max(r, p.polomer);
+    for (const b of hra.bedny) {
+      if (!b.rozbita && vzdalenost(b, p) < p.polomer + POLOMER_BEDNY / 2) rozbij(hra, b);
+    }
+  }
+  const tik = s.stopa.tik;
+  for (const n of hra.nepratele) {
+    if (n.hp <= 0 || !viditelny(n)) continue;
+    let plamen = null;
+    const okraj = r + n.polomer;
+    if (n.x > x0 - okraj && n.x < x1 + okraj && n.y > y0 - okraj && n.y < y1 + okraj) {
+      for (const p of hra.plameny) {
+        const dosah = p.polomer + n.polomer / 2;
+        const dx = n.x - p.x;
+        const dy = n.y - p.y;
+        if (dx * dx + dy * dy < dosah * dosah) {
+          plamen = p;
+          break;
+        }
+      }
+    }
+    n.vOhni = Boolean(plamen);
+    if (plamen && plamen.hori > 0) {
+      if (!(n.hori > 0)) hra.zapaleno += 1;
+      n.hori = Math.max(n.hori, plamen.hori);
+      n.pali = plamen.pali;
+    }
+    if ((!plamen && !(n.hori > 0)) || n.tikOhne > 0) continue;
+    n.tikOhne = tik;
+    zasah(hra, n, plamen ? plamen.poskozeni : n.pali, true);
+    hra.paleniStopou += 1;
+  }
+}
+
+// Nejbližší viditelný živý nepřítel, kterého kámen ještě nezasáhl, nanejvýš doKolika px od kamene.
+function dalsiCilKamene(hra, k, doKolika) {
+  let nej = null;
+  let nejD = doKolika;
+  for (const n of hra.nepratele) {
+    if (n.hp <= 0 || !viditelny(n) || k.zasazeni.has(n)) continue;
+    const d = vzdalenost(n, k);
+    if (d < nejD) { nej = n; nejD = d; }
+  }
+  return nej;
+}
+
+// Prak vystřelí na nejbližší nepřátele v dosahu (každý kámen na jiného), a když žádný není, jedním kamenem na
+// nejbližší bednu. Vrací, kolik kamenů vyletělo (bez cíle čeká nabitý).
+function vystrelKameny(hra, st) {
+  const { hrdina } = hra;
+  const cile = hra.nepratele
+    .filter((n) => n.hp > 0 && viditelny(n) && vzdalenost(n, hrdina) < st.dosah)
+    .sort((a, b) => vzdalenost(a, hrdina) - vzdalenost(b, hrdina))
+    .slice(0, st.pocet);
+  const bedna = cile.length ? null : nejblizsiBedna(hra, st.dosah);
+  if (bedna) cile.push(bedna);
+  for (const cil of cile) {
+    const d = vzdalenost(cil, hrdina) || 1;
+    hra.oblazky.push({
+      x: hrdina.x, y: hrdina.y, vx: ((cil.x - hrdina.x) / d) * RYCHLOST_KAMENE, vy: ((cil.y - hrdina.y) / d) * RYCHLOST_KAMENE,
+      cil, naBednu: cil === bedna, zasazeni: new Set(), zasahu: 0, zbyva: 1 + st.odrazy, poskozeni: st.poskozeni, skok: st.skok,
+      zivot: ZIVOT_KAMENE, volny: VOLNY_LET, bezCile: 0, ulet: 0, konec: false,
+    });
+    hra.vystreleno += 1;
+  }
+  if (hra.oblazky.length > MAX_KAMENU) hra.oblazky.splice(0, hra.oblazky.length - MAX_KAMENU);
+  return cile.length;
+}
+
+// Kámen zasáhl nepřítele: rána roste s každým odrazem. Když má ještě odrazy, zrychlí a vezme nejbližšího
+// nezasaženého do skok px, a když žádný není, odletí od zasaženého pryč. Poslední zásah ho shodí.
+function zasahKamenem(hra, k, n) {
+  zasah(hra, n, k.poskozeni * (1 + RUST_RANY_KAMENE * k.zasahu));
+  k.zasazeni.add(n);
+  k.zasahu += 1;
+  k.zbyva -= 1;
+  hra.zasahuKamenem += 1;
+  if (k.zasahu > 1) hra.odrazu += 1;
+  rozprsk(hra, k.x, k.y, 'oblazek', 4);
+  if (k.zbyva <= 0) {
+    k.konec = true;
+    return;
+  }
+  const rychlost = Math.min(MAX_RYCHLOST_KAMENE, Math.hypot(k.vx, k.vy) * ZRYCHLENI_KAMENE);
+  k.cil = dalsiCilKamene(hra, k, k.skok);
+  k.naBednu = false;
+  k.volny = VOLNY_LET;
+  // Bez dalšího cíle se odrazí od zasaženého pryč (kdo stojí přesně na něm, letí dál, kam letěl).
+  const od = vzdalenost(k, n);
+  const [dx, dy] = k.cil ? [k.cil.x - k.x, k.cil.y - k.y] : od > 1e-6 ? [k.x - n.x, k.y - n.y] : [k.vx, k.vy];
+  const d = Math.hypot(dx, dy) || 1;
+  k.vx = (dx / d) * rychlost;
+  k.vy = (dy / d) * rychlost;
+}
+
+// Prak a kameny v letu. Kámen míří za svým cílem (zmizí-li, vezme nejbližšího nezasaženého do skok px), bez cíle
+// letí rovně a do VOLNY_LET s spadne. Narazí do prvního nezasaženého nepřítele, kterého potká (svůj cíl má
+// přednost), bednu po cestě rozbije, od skály se odrazí. Dopadlé kameny chvíli padají na zem (jen na pohled).
+function letiKameny(hra, dt, s) {
+  const pr = hra.zbrane.prak;
+  if (pr) {
+    pr.nabiti = (pr.nabiti ?? 0) - dt;
+    if (pr.nabiti <= 0 && vystrelKameny(hra, s.prak)) pr.nabiti = s.prak.nabiti;
+  }
+  for (const k of hra.oblazky) {
+    k.zivot -= dt;
+    k.bezCile -= dt;
+    const platny = k.cil && (k.naBednu ? !k.cil.rozbita : k.cil.hp > 0 && viditelny(k.cil) && !k.zasazeni.has(k.cil));
+    if (!platny) k.cil = null;
+    if (!k.cil && k.bezCile <= 0) {
+      k.cil = dalsiCilKamene(hra, k, k.skok);
+      k.naBednu = false;
+    }
+    // Za svým cílem letí nanejvýš k jeho středu (při dlouhém snímku by ho jinak přeletěl a kmital kolem něj).
+    const v = Math.hypot(k.vx, k.vy) || RYCHLOST_KAMENE;
+    let krok = v * dt;
+    if (k.cil) {
+      const d = vzdalenost(k, k.cil) || 1;
+      k.vx = ((k.cil.x - k.x) / d) * v;
+      k.vy = ((k.cil.y - k.y) / d) * v;
+      krok = Math.min(krok, d);
+    } else {
+      k.volny -= dt;
+    }
+    k.x += (k.vx / v) * krok;
+    k.y += (k.vy / v) * krok;
+    k.ulet += krok;
+    const narazil = (n) => n.hp > 0 && viditelny(n) && !k.zasazeni.has(n) && vzdalenost(n, k) < n.polomer + POLOMER_KAMENE;
+    const zasazen = k.cil && !k.naBednu && narazil(k.cil) ? k.cil : hra.nepratele.find(narazil);
+    if (zasazen) zasahKamenem(hra, k, zasazen);
+    for (const b of hra.bedny) {
+      if (b.rozbita || vzdalenost(b, k) >= POLOMER_BEDNY + POLOMER_KAMENE) continue;
+      rozbij(hra, b);
+      if (k.cil === b) k.cil = null;
+    }
+    const skala = vytlacZPrekazek(hra.mapa, k, POLOMER_KAMENE);
+    if (skala) {
+      const doSkaly = k.vx * skala.x + k.vy * skala.y;
+      if (doSkaly < 0) {
+        k.vx -= 2 * doSkaly * skala.x;
+        k.vy -= 2 * doSkaly * skala.y;
+        hra.odSkal += 1;
+        rozprsk(hra, k.x, k.y, 'oblazek', 3);
+      }
+      k.cil = null;
+      k.bezCile = BEZ_CILE_PO_SKALE;
+    }
+    if (k.konec || k.zivot <= 0 || k.volny <= 0) {
+      k.konec = true;
+      hra.padleKameny.push({ x: k.x, y: k.y, vx: k.vx * 0.2, vy: k.vy * 0.2, zivot: PAD_KAMENE, ulet: k.ulet });
+    }
+  }
+  hra.oblazky = hra.oblazky.filter((k) => !k.konec);
+  for (const p of hra.padleKameny) {
+    p.zivot -= dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+  }
+  hra.padleKameny = hra.padleKameny.filter((p) => p.zivot > 0);
+  if (hra.padleKameny.length > MAX_KAMENU) hra.padleKameny.splice(0, hra.padleKameny.length - MAX_KAMENU);
+}
+
 // Výbava bossů. Po každé změně výbavy se spočítá znovu, co celá dává (ucinekVystroje), a do vlastností hrdiny
 // se promítne jen rozdíl proti minulému stavu: životy přičíst (přibyté i doléčí), násobky vydělit starým
 // a vynásobit novým, zbroj nastavit. Sundaný kus tak vrátí hrdinu přesně tam, kde byl.
@@ -2572,9 +3006,11 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   const naposledy = { x: hrdina.zmizelX, y: hrdina.zmizelY };
   for (const n of hra.nepratele) {
     const d = vzdalenost(n, hrdina) || 1;
-    const brzda = brzdaTrnu(n) * brzdaSite(n) * brzdaMrazu(n) * brzdaZvonu(n);
+    const brzda = brzdaTrnu(n) * brzdaSite(n) * brzdaMrazu(n) * brzdaZvonu(n) * brzdaKorenu(n);
     const nPredX = n.x;
     const nPredY = n.y;
+    // Koho drží kořeny, s tím ani odhození nehne (bosse kořeny jen brzdí).
+    if (n.drzen > 0 && !n.boss) n.odhozen = 0;
     if (n.odhozen > 0) {
       // Odhozený zrcadlem letí od hrdiny a mezitím po něm nejde (uletí přesně o odhození, ne o kus víc).
       const kus = Math.min(dt, n.odhozen);
@@ -2616,6 +3052,10 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     n.omracen = Math.max(0, (n.omracen || 0) - dt);
     n.odolny = Math.max(0, (n.odolny || 0) - dt);
     n.zasahCepem = Math.max(0, (n.zasahCepem || 0) - dt);
+    n.drzen = Math.max(0, (n.drzen || 0) - dt);
+    n.vyrvan = Math.max(0, (n.vyrvan || 0) - dt);
+    n.hori = Math.max(0, (n.hori || 0) - dt);
+    n.tikOhne = Math.max(0, (n.tikOhne || 0) - dt);
     if (d < n.polomer + 8 && hrdina.nezranitelny <= 0 && viditelny(n) && !nekouse(n)) {
       if (n.sit) hrdina.sit = TRVANI_SITE;
       if (n.pan) hra.zasahyBossu.pomocnik += 1;
@@ -2768,6 +3208,10 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   zvon(hra, dt, s);
   cep(hra, dt, s);
   rostouSeminka(hra, dt, s);
+  // Kořeny, Ohnivá stopa a Odrazný kámen
+  rostouKoreny(hra, dt, s);
+  ohnivaStopa(hra, dt, s);
+  letiKameny(hra, dt, s);
   // Rázová vlna z výbavy Strážce
   razoveVlny(hra, dt);
   hra.bedny = hra.bedny.filter((b) => !b.rozbita);

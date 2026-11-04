@@ -82,3 +82,8 @@ export function zvukZvonu(ozvena = false) {
   ton(196, 0, 0.45, h);
   ton(494, 0, 0.3, h * 0.45);
 }
+
+// Odrazný kámen: krátké ťuknutí, s každým dalším odrazem o kus výš (nejvýš o oktávu).
+export function zvukKamene(odraz = 1) {
+  ton(620 * Math.min(2, 1 + (odraz - 1) * 0.12), 0, 0.035, 0.014);
+}

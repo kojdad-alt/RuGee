@@ -44,6 +44,14 @@
 // ním a nikdy není dál než řetěz, rána roste s rychlostí, víc koulí má každá jiný řetěz. Semínka: padnou za
 // hrdinu, do vteřiny nic nedělají, pak vybuchnou (rána jen v poloměru) a keř píchá, dokud nezvadne, víc
 // semínek padne vedle sebe a semínek s keři nikdy není víc než MAX_SEMINEK.
+// Kořeny: kořen běží pod zemí za nepřítelem v dosahu (za dosahem nic), pod ním vyrazí, zraní ho a drží (stojí,
+// odhození s ním nehne, boss jde napůl), každý tik ho sevře a po puštění je chvíli odolný. Víc kořenů míří každý
+// na jiného, když cíl cestou zmizí, kořen vezme jiného, a schovaného ducha nechytí. Ohnivá stopa: za běžícím
+// hrdinou zůstávají plameny s rozestupem, vestoje hoří jeden pod nohama, kdo v ohni stojí, toho pálí jednou za tik
+// (i v několika plamenech), od 4. úrovně ho zapálí a hoří ještě po vylezení, plameny dohoří a schovaného ducha
+// nepálí. Odrazný kámen: kámen se odráží od nepřítele k nepříteli (každého zasáhne jednou, s každým odrazem víc
+// bolí a letí rychleji), za skok dál nedoletí, bez dalšího cíle spadne, víc kamenů letí na různé nepřátele,
+// schovaného ducha mine a od skály se odrazí.
 // Hrozba: hra nekončí, každou minutu je hrozba o stupeň výš (s ohlášením) a noví nepřátelé mají životy, poškození
 // a rychlost podle tabulky HROZBA. Elity nechodí před 5. minutou, od 10. přibývají, bossové nejsou nikdy elitou.
 // Na vyvážení hraje plně vylepšený bot až do konce: musí padnout do 30 minut (nikdo nevydrží donekonečna).
@@ -92,6 +100,9 @@ import {
   DOPAD_KRYSTALU, DOZNIVANI_MRAZU, PRAH_ROZTRISTENI, MAX_ZON,
   RYCHLOST_ZVUKU, OZVENA_ZVONU, IMUNITA_OMRACENI, ZPOMALENI_OMRACENEHO_BOSSE, nekouse,
   MIN_RYCHLOST_CEPU, RYCHLOST_RANY_CEPU, ranaCepu, delkaRetezu, ZRANI_SEMINKA, POMER_KERE, MAX_SEMINEK,
+  RYCHLOST_KORENE, MAX_BEHU_KORENE, IMUNITA_KORENU, ZPOMALENI_DRZENEHO_BOSSE, TIK_KORENU, MAX_KORENU,
+  ROZESTUP_STOPY, MAX_PLAMENU, RYCHLOST_KAMENE, ZRYCHLENI_KAMENE, MAX_RYCHLOST_KAMENE, RUST_RANY_KAMENE, POLOMER_KAMENE,
+  VOLNY_LET, ZIVOT_KAMENE, MAX_KAMENU,
   HROZBA, ELITA, silaHrozby, textHrozby, POLOMER_OBLAKU,
   zasah, kratkeCislo, TRVANI_CISLA, SLUCOVANI_CISEL, MAX_CISEL, NAD_PRAHEM,
   TRVANI_OTEVRENI, PRVNI_VLNA_HRDINY, ZPOMALENI_SITE_BOSSE, nasadKus, sundejKus, ziskejKus, rozhodniKus, seznamVystroje,
@@ -630,7 +641,8 @@ if (!(sB.jiskra.nabiti < sO.jiskra.nabiti && sB.blesk.nabiti < sO.blesk.nabiti
   && sB.lucerna.tik < sO.lucerna.tik && sB.krumpace.rychlost > sO.krumpace.rychlost
   && sB.trny.nabiti < sO.trny.nabiti && sB.zrcadlo.rychlost > sO.zrcadlo.rychlost
   && sB.svetlusky.nabiti < sO.svetlusky.nabiti && sB.mraz.nabiti < sO.mraz.nabiti
-  && sB.zvon.nabiti < sO.zvon.nabiti && sB.cep.rozmach > sO.cep.rozmach && sB.seminka.nabiti < sO.seminka.nabiti)) {
+  && sB.zvon.nabiti < sO.zvon.nabiti && sB.cep.rozmach > sO.cep.rozmach && sB.seminka.nabiti < sO.seminka.nabiti
+  && sB.korene.nabiti < sO.korene.nabiti && sB.stopa.tik < sO.stopa.tik && sB.prak.nabiti < sO.prak.nabiti)) {
   chybyTrid.push('kratší nabíjení Bouřliváka nezrychlilo všechny zbraně');
 }
 
@@ -934,7 +946,8 @@ const korist = (h) => Object.values(h.zBeden).reduce((a, b) => a + b, 0);
 const dosahLucerny1 = staty(novaHra(vytvorRng(seminko), 'svetlonos')).lucerna.dosah;
 const kdeBedna = {
   jiskra: [150, 0], lucerna: [dosahLucerny1 - 10, 0], krumpace: [64, 0], blesk: [200, 0], trny: [150, 0], zrcadlo: [34, 0],
-  svetlusky: [150, 0], mraz: [150, 0], zvon: [80, 0], cep: [52, 0], seminka: [40, 0],
+  svetlusky: [150, 0], mraz: [150, 0], zvon: [80, 0], cep: [52, 0], seminka: [40, 0], korene: [150, 0], stopa: [16, 0],
+  prak: [150, 0],
 };
 const rozbiteZbrani = {};
 for (const id of Object.keys(ZBRANE)) {
@@ -950,7 +963,8 @@ for (const id of Object.keys(ZBRANE)) {
   if (!blizka.rozbita || h.bedny.includes(blizka)) chybyBeden.push(`${id} nerozbila bednu`);
   if (daleka.rozbita || !h.bedny.includes(daleka)) chybyBeden.push(`${id} rozbila bednu 500 px daleko`);
   if (h.rozbitoBeden !== 1 || korist(h) !== 1) chybyBeden.push(`${id}: rozbito ${h.rozbitoBeden}, kořisti ${korist(h)}`);
-  const naZemi = h.krystaly.length + h.predmety.length + (h.hrdina.xp > 0 || h.hrdina.uroven > 1 ? 1 : 0);
+  // Co padlo hrdinovi pod nohy (Ohnivá stopa), to sebral rovnou: krystal, zlaťák.
+  const naZemi = h.krystaly.length + h.predmety.length + (h.hrdina.xp > 0 || h.hrdina.uroven > 1 || h.zlataky > 0 ? 1 : 0);
   if (naZemi < 1) chybyBeden.push(`${id}: z bedny nic nevypadlo`);
   if (!h.castice.length) chybyBeden.push(`${id}: bedna se rozbila bez třísek`);
 }
@@ -1857,6 +1871,216 @@ const seminkovePokusy = {};
   if (duch.hp !== duch.maxHp || !d.vybuchlo) chybyZbrani.push('výbuch semínka našel schovaného ducha');
 }
 
+// Kořeny zblízka. Kostlivec jde k hrdinovi: kořen k němu běží pod zemí (zatím ho nedrží), pod ním vyrazí, zraní ho
+// a drží: kostlivec stojí, odhození s ním nehne a každý tik ho kořeny sevřou. Po puštění jde dál a chvíli ho nové
+// kořeny nechytí. Slizák za dosahem zůstane celý.
+const korenovePokusy = {};
+{
+  const h = samotny({ korene: { uroven: 1, nabiti: 0 } });
+  const st = staty(h).korene;
+  const kost = pridejNepritele(h, 'kostlivec', 150, 0);
+  const daleko = pridejNepritele(h, 'slizak', -(st.dosah + 40), 0);
+  daleko.rychlost = 0;
+  let behu = 0;
+  let chycen = null;
+  for (let t = 0; t < 2 && chycen === null; t += DT) {
+    krok(h);
+    if (h.korene.some((k) => k.faze === 'bezi')) behu += 1;
+    if (kost.drzen > 0) chycen = { cas: h.cas, x: kost.x, rana: kost.maxHp - kost.hp };
+  }
+  korenovePokusy.kostlivec_150_px = { chycen_s: chycen && Math.round(chycen.cas * 100) / 100, snimku_pod_zemi: behu, rana: chycen?.rana };
+  if (!chycen || chycen.rana !== st.poskozeni || behu < 3 || h.drzeno !== 1) chybyZbrani.push(`kořen kostlivce nechytil (${JSON.stringify(korenovePokusy.kostlivec_150_px)})`);
+  else if (Math.abs(chycen.cas - chycen.x / RYCHLOST_KORENE) > 0.15) chybyZbrani.push(`kořen běžel ${chycen.cas.toFixed(2)} s na ${chycen.x.toFixed(0)} px`);
+  // Držený stojí, i když ho něco odhodí.
+  const x0 = kost.x;
+  Object.assign(kost, { odhozen: TRVANI_ODHOZENI, odhozVx: 600, odhozVy: 0 });
+  const stoji = krok(h).get(kost);
+  if (stoji !== 0 || kost.x !== x0) chybyZbrani.push(`držený kostlivec se hnul o ${stoji} px`);
+  hraj(h, st.trvani);
+  const sevreni = (kost.maxHp - kost.hp - st.poskozeni) / st.svirani;
+  korenovePokusy.kostlivec_150_px.sevreni = sevreni;
+  if (!Number.isInteger(sevreni) || sevreni < Math.floor(st.trvani / TIK_KORENU) - 1 || sevreni > Math.ceil(st.trvani / TIK_KORENU)) chybyZbrani.push(`kořeny sevřely ${sevreni}× za ${st.trvani} s`);
+  if (kost.drzen !== 0 || !(krok(h).get(kost) > 0)) chybyZbrani.push('kostlivec po puštění nejde dál');
+  // Odolný: další kořeny ho nechytí, dokud odolnost nevyprší (kořen bez cíle čeká nabitý).
+  h.hrdina.nezranitelny = 100;
+  const drzenoPred = h.drzeno;
+  Object.assign(kost, { x: 120, y: 0, rychlost: 0 });
+  hraj(h, IMUNITA_KORENU - 0.3);
+  if (h.drzeno !== drzenoPred) chybyZbrani.push('kořeny chytily odolného kostlivce');
+  hraj(h, 0.3 + 120 / RYCHLOST_KORENE + 0.3);
+  if (h.drzeno !== drzenoPred + 1) chybyZbrani.push('kořeny po odolnosti kostlivce znovu nechytily');
+  if (daleko.hp !== daleko.maxHp || daleko.drzen > 0) chybyZbrani.push('kořen chytil slizáka za dosahem');
+}
+{
+  // Držený boss jde napůl, kořeny ho zraní a sevřou taky.
+  const b = samotny({});
+  const obr = pridejNepritele(b, 'obr', 300, 0);
+  obr.doSchopnosti = Infinity;
+  obr.drzen = 1;
+  obr.vyrvan = 2;
+  const krokBosse = krok(b).get(obr) / (obr.rychlost * DT);
+  korenovePokusy.krok_drzeneho_bosse = Math.round(krokBosse * 100) / 100;
+  if (Math.abs(krokBosse - ZPOMALENI_DRZENEHO_BOSSE) > 1e-6) chybyZbrani.push(`držený boss jde ${krokBosse.toFixed(3)}×`);
+  // 4. úroveň: tři kořeny na tři různé kostlivce (ne na dva vedle sebe), schovaný duch zůstane.
+  const h = samotny({ korene: { uroven: 4, nabiti: 0 } });
+  const st = staty(h).korene;
+  h.hrdina.nezranitelny = 100;
+  const kosti = [[100, 0], [104, 6], [0, 110], [-110, 0]].map(([x, y]) => {
+    const n = pridejNepritele(h, 'kostlivec', x, y);
+    n.rychlost = 0;
+    return n;
+  });
+  const duch = pridejNepritele(h, 'duch', 60, -60);
+  Object.assign(duch, { rychlost: 0, skryty: true, duchCas: 100 });
+  krok(h);
+  const cile = new Set(h.korene.map((k) => k.cil));
+  hraj(h, 1);
+  korenovePokusy.ctvrta_uroven = { korenu: h.korene.length, drzeno: h.drzeno };
+  if (st.pocet !== 3 || cile.size !== 3 || cile.has(kosti[1]) || h.drzeno < 3 || ![kosti[0], kosti[2], kosti[3]].every((n) => n.vyrvan > 0)) {
+    chybyZbrani.push(`na 4. úrovni kořeny na ${cile.size} cílů, drženo ${h.drzeno}`);
+  }
+  if (duch.hp !== duch.maxHp || duch.drzen > 0) chybyZbrani.push('kořen našel schovaného ducha');
+  // Cíl cestou padne: kořen vezme jiného kostlivce.
+  const z = samotny({ korene: { uroven: 1, nabiti: 0 } });
+  z.hrdina.nezranitelny = 100;
+  const prvni = pridejNepritele(z, 'kostlivec', 160, 0);
+  const druhy = pridejNepritele(z, 'kostlivec', 170, 60);
+  for (const n of [prvni, druhy]) n.rychlost = 0;
+  krok(z);
+  prvni.hp = 0;
+  hraj(z, 1.2);
+  if (druhy.vyrvan === 0 || z.drzeno !== 1) chybyZbrani.push('kořen si po padlém cíli nevzal jiného');
+}
+
+// Ohnivá stopa zblízka. Hrdina běží doprava: za ním plameny s rozestupem, vestoje jen jeden pod nohama. Kostlivec
+// v ohni dostane ránu jednou za tik, i když stojí ve dvou plamenech naráz. Na 4. úrovni ho oheň zapálí a hoří
+// ještě po vylezení, pak zhasne. Plameny dohoří, schovaného ducha nepálí.
+const stopovePokusy = {};
+{
+  const h = samotny({ stopa: { uroven: 1, nabiti: 0 } });
+  const st = staty(h).stopa;
+  const rozestup = st.polomer * ROZESTUP_STOPY;
+  for (let t = 0; t < 1; t += DT) aktualizuj(h, DT, { dx: 1, dy: 0 }, SIRKA, VYSKA);
+  const xs = h.plameny.map((p) => p.x);
+  const mezery = xs.slice(1).map((x, i) => x - xs[i]);
+  const krokHrdiny = h.hrdina.rychlost * DT;
+  stopovePokusy.za_behu = { plamenu: h.plameny.length, ujito_px: Math.round(h.hrdina.x), mezery_px: [Math.min(...mezery), Math.max(...mezery)].map((m) => Math.round(m * 10) / 10) };
+  if (h.plameny.length < 4 || !h.plameny.every((p) => Math.abs(p.y) < 1e-9 && p.x <= h.hrdina.x) || !mezery.every((m) => m >= rozestup - 1e-9 && m < rozestup + krokHrdiny + 1e-9)) {
+    chybyZbrani.push(`stopa za běžícím hrdinou: ${JSON.stringify(stopovePokusy.za_behu)}`);
+  }
+  // Vestoje 3 s: plamenů nepřibude (poslední, pod nohama, hoří dál), staré za hrdinou dohoří.
+  const pod = h.plamenu;
+  hraj(h, 3);
+  stopovePokusy.vestoje = { plamenu: h.plameny.length, pribylo: h.plamenu - pod };
+  if (h.plamenu !== pod || h.plameny.length !== 1 || !(Math.hypot(h.plameny[0].x - h.hrdina.x, h.plameny[0].y - h.hrdina.y) < rozestup)) {
+    chybyZbrani.push(`vestoje ${h.plameny.length} plamenů (přibylo ${h.plamenu - pod})`);
+  }
+}
+{
+  // Kostlivec stojí ve dvou plamenech: pálí ho jednou za tik. Pak hrdina odejde (bez zbraně) a oheň dohoří.
+  const h = samotny({ stopa: { uroven: 1, nabiti: 0 } });
+  const st = staty(h).stopa;
+  h.hrdina.nezranitelny = 100;
+  for (let t = 0; t < 0.4; t += DT) aktualizuj(h, DT, { dx: 1, dy: 0 }, SIRKA, VYSKA);
+  const kost = pridejNepritele(h, 'kostlivec', h.plameny[1].x, 0);
+  Object.assign(kost, { rychlost: 0, hp: 1e6, maxHp: 1e6 });
+  const vKolika = h.plameny.filter((p) => Math.hypot(p.x - kost.x, p.y - kost.y) < p.polomer + kost.polomer / 2).length;
+  h.zbrane = {};
+  h.hrdina.x = -400;
+  const T = 1;
+  hraj(h, T);
+  const ran = (kost.maxHp - kost.hp) / st.poskozeni;
+  stopovePokusy.kostlivec_v_ohni = { plamenu_kolem: vKolika, ran_za_1_s: ran, tik_s: st.tik };
+  if (vKolika < 2 || !Number.isInteger(ran) || ran < Math.floor(T / st.tik) || ran > Math.ceil(T / st.tik) + 1) chybyZbrani.push(`oheň pálil ${ran}× za ${T} s (plamenů kolem ${vKolika})`);
+  hraj(h, st.trvani);
+  const poDohoreni = kost.hp;
+  hraj(h, 1);
+  if (h.plameny.length || kost.hp !== poDohoreni || kost.hori > 0) chybyZbrani.push('stopa nedohořela nebo pálí i potom (bez zapálení)');
+}
+{
+  // 4. úroveň: kostlivec vyleze z ohně a hoří ještě hori s (slabší ranou), pak zhasne.
+  const h = samotny({ stopa: { uroven: 4, nabiti: 0 } });
+  const st = staty(h).stopa;
+  h.hrdina.nezranitelny = 100;
+  const kost = pridejNepritele(h, 'kostlivec', 0, 0);
+  Object.assign(kost, { rychlost: 0, hp: 1e6, maxHp: 1e6 });
+  krok(h);
+  h.zbrane = {};
+  h.hrdina.x = -400;
+  if (!(kost.hori > 0) || h.zapaleno !== 1) chybyZbrani.push('oheň na 4. úrovni nezapálil');
+  Object.assign(kost, { x: 300, y: 0 });
+  const pred = kost.hp;
+  hraj(h, st.hori + 0.2);
+  const pali = (pred - kost.hp) / st.pali;
+  stopovePokusy.zapaleny = { hori_s: st.hori, ran_po_vylezeni: pali };
+  if (!Number.isInteger(pali) || pali < Math.floor(st.hori / st.tik) - 1 || pali > Math.ceil(st.hori / st.tik) + 1 || kost.hori !== 0) chybyZbrani.push(`zapálený hořel ${pali}× (hori ${kost.hori})`);
+  const zhasl = kost.hp;
+  hraj(h, 1);
+  if (kost.hp !== zhasl) chybyZbrani.push('zapálený hoří i po zhasnutí');
+  // Schovaný duch v ohni.
+  const d = samotny({ stopa: { uroven: 4, nabiti: 0 } });
+  const duch = pridejNepritele(d, 'duch', 4, 0);
+  Object.assign(duch, { rychlost: 0, skryty: true, duchCas: 100 });
+  hraj(d, 1);
+  if (duch.hp !== duch.maxHp || duch.hori > 0) chybyZbrani.push('oheň pálil schovaného ducha');
+}
+
+// Odrazný kámen zblízka. Řada kostlivců: kámen zasáhne prvního a odráží se na další, každého jednou, s každým
+// odrazem rychleji a s větší ranou. Na dalšího za skok už nedoletí a bez cíle spadne. Na 4. úrovni letí dva
+// kameny na dva různé nepřátele. Schovaného ducha mine.
+const prakovePokusy = {};
+{
+  const h = samotny({ prak: { uroven: 2, nabiti: 0 } });
+  const st = staty(h).prak;
+  h.hrdina.nezranitelny = 100;
+  const rada = [1, 2, 3, 4, 5, 6].map((i) => {
+    const n = pridejNepritele(h, 'kostlivec', 80 * i, 20 * (i % 2));
+    Object.assign(n, { rychlost: 0, hp: 1e6, maxHp: 1e6 });
+    return n;
+  });
+  let nejrychleji = 0;
+  hraj(h, 0.1, (g) => { for (const k of g.oblazky) nejrychleji = Math.max(nejrychleji, Math.hypot(k.vx, k.vy)); });
+  h.zbrane = {};
+  hraj(h, 2, (g) => { for (const k of g.oblazky) nejrychleji = Math.max(nejrychleji, Math.hypot(k.vx, k.vy)); });
+  const rany = rada.map((n) => n.maxHp - n.hp);
+  const ocekavane = rada.map((_, i) => (i <= st.odrazy ? Math.round(st.poskozeni * (1 + RUST_RANY_KAMENE * i)) : 0));
+  prakovePokusy.rada_kostlivcu = { rany, odrazu: h.odrazu, nejrychleji: Math.round(nejrychleji), spadlo: h.oblazky.length === 0 };
+  if (st.odrazy !== 4 || rany.join() !== ocekavane.join() || h.odrazu !== st.odrazy || h.oblazky.length) chybyZbrani.push(`kámen v řadě: ${rany} místo ${ocekavane}, ${h.odrazu} odrazů`);
+  const cekane = Math.min(MAX_RYCHLOST_KAMENE, RYCHLOST_KAMENE * ZRYCHLENI_KAMENE ** st.odrazy);
+  if (Math.abs(nejrychleji - cekane) > 1e-6) chybyZbrani.push(`kámen po odrazech letí ${nejrychleji.toFixed(1)} místo ${cekane.toFixed(1)} px/s`);
+}
+{
+  // Druhý kostlivec je za skok od prvního: kámen se od prvního odrazí pryč a spadne, druhého nezasáhne.
+  const h = samotny({ prak: { uroven: 1, nabiti: 0 } });
+  const st = staty(h).prak;
+  h.hrdina.nezranitelny = 100;
+  const blizko = pridejNepritele(h, 'kostlivec', 100, 0);
+  const zaSkokem = pridejNepritele(h, 'kostlivec', 100 + st.skok + 40, 0);
+  for (const n of [blizko, zaSkokem]) Object.assign(n, { rychlost: 0, hp: 1e6, maxHp: 1e6 });
+  krok(h);
+  h.zbrane = {};
+  let spadl = null;
+  hraj(h, 1.5, (g) => { if (spadl === null && g.cas > 0.1 && !g.oblazky.length) spadl = g.cas; });
+  prakovePokusy.za_skokem = { blizko: blizko.maxHp - blizko.hp, za_skokem: zaSkokem.maxHp - zaSkokem.hp, spadl_s: spadl && Math.round(spadl * 100) / 100 };
+  if (blizko.maxHp - blizko.hp !== st.poskozeni || zaSkokem.hp !== zaSkokem.maxHp || spadl === null || spadl > 100 / RYCHLOST_KAMENE + VOLNY_LET + 0.2) {
+    chybyZbrani.push(`kámen bez dalšího cíle: ${JSON.stringify(prakovePokusy.za_skokem)}`);
+  }
+  // 4. úroveň: dva kameny, každý na jiného. Schovaný duch blíž než oni: ten zůstane.
+  const d = samotny({ prak: { uroven: 4, nabiti: 0 } });
+  d.hrdina.nezranitelny = 100;
+  const duch = pridejNepritele(d, 'duch', 40, 0);
+  Object.assign(duch, { rychlost: 0, skryty: true, duchCas: 100 });
+  const a = pridejNepritele(d, 'kostlivec', 120, 0);
+  const b = pridejNepritele(d, 'kostlivec', -130, 0);
+  for (const n of [a, b]) Object.assign(n, { rychlost: 0, hp: 1e6, maxHp: 1e6 });
+  krok(d);
+  const cile = d.oblazky.map((k) => k.cil);
+  hraj(d, 1);
+  prakovePokusy.ctvrta_uroven = { kamenu: cile.length, ruzne_cile: new Set(cile).size };
+  if (staty(d).prak.pocet !== 2 || cile.length !== 2 || new Set(cile).size !== 2 || cile.includes(duch)) chybyZbrani.push(`na 4. úrovni ${cile.length} kameny na ${new Set(cile).size} cílů`);
+  if (duch.hp !== duch.maxHp || a.hp === a.maxHp || b.hp === b.maxHp) chybyZbrani.push('kameny našly schovaného ducha nebo minuly');
+}
+
 // Úrovně bez stropu. Každá zbraň až do 200. úrovně: do 5. bez bonusu (stejně jako dřív), pak každá úroveň víc
 // poškození, každá třetí ještě kus, nabíjení nebo velikost, dokud to jde, a nic přes strop. Řádky karty sedí s tím,
 // co úroveň opravdu přidala. Data růstu (poradi, čísla, texty) musí k sobě pasovat.
@@ -1965,6 +2189,9 @@ let silnaMaxZon = 0;
 let silnaMaxCisel = 0;
 let silnaMaxSeminek = 0;
 let silnaMaxVlnZvonu = 0;
+let silnaMaxKorenu = 0;
+let silnaMaxPlamenu = 0;
+let silnaMaxKamenu = 0;
 for (let t = 0; t < 30 && !silna.konec; t += DT) {
   aktualizuj(silna, DT, rozhodni(silna, t), SIRKA, VYSKA);
   silnaMaxCisel = Math.max(silnaMaxCisel, silna.cisla.length);
@@ -1975,6 +2202,9 @@ for (let t = 0; t < 30 && !silna.konec; t += DT) {
   if (silna.svetlusky.length > STROPY.pocet) chybyUrovni.push(`na 60. úrovni ${silna.svetlusky.length} světlušek`);
   silnaMaxSeminek = Math.max(silnaMaxSeminek, silna.seminka.length);
   silnaMaxVlnZvonu = Math.max(silnaMaxVlnZvonu, silna.vlnyZvonu.length);
+  silnaMaxKorenu = Math.max(silnaMaxKorenu, silna.korene.length);
+  silnaMaxPlamenu = Math.max(silnaMaxPlamenu, silna.plameny.length);
+  silnaMaxKamenu = Math.max(silnaMaxKamenu, silna.oblazky.length);
   const stCepu = staty(silna).cep;
   if (silna.koule.length !== stCepu.pocet || silna.koule.some((k, i) => Math.hypot(k.x - silna.hrdina.x, k.y - silna.hrdina.y) > delkaRetezu(stCepu, i) + 1e-6)) {
     chybyUrovni.push(`na 60. úrovni ${silna.koule.length} koulí cepu nebo koule dál než řetěz`);
@@ -1988,6 +2218,33 @@ if (silnaMaxZon > MAX_ZON || !(silna.zon > 0) || !(silna.zasahuSvetluskami > 0))
 if (silnaMaxSeminek > MAX_SEMINEK || !(silna.vybuchlo > 0) || !(silna.omraceno > 0)) {
   chybyUrovni.push(`na 60. úrovni ${silna.vybuchlo} výbuchů semínek (naráz ${silnaMaxSeminek}), ${silna.zasahuCepem} zásahů cepem, ${silna.omraceno} omráčení`);
 }
+if (silnaMaxKorenu > MAX_KORENU || silnaMaxPlamenu > MAX_PLAMENU || silnaMaxKamenu > MAX_KAMENU) {
+  chybyUrovni.push(`na 60. úrovni kořenů naráz ${silnaMaxKorenu}, plamenů ${silnaMaxPlamenu}, kamenů ${silnaMaxKamenu}`);
+}
+// Se vším na 60. úrovni padne každý dřív, než dojde ke kořenům nebo do ohně (lucerna sahá skoro stejně daleko).
+// Kořeny, stopa a prak proto ještě každý sám na 60. úrovni 20 s v plné hře od 10. minuty (hrdina nezraněný,
+// bot běhá, jinou zbraň nedostane): pracují, drží se limitů a nic nerozbijí.
+const sami60 = {};
+for (const id of ['korene', 'stopa', 'prak']) {
+  const h = novaHra(vytvorRng(seminko));
+  h.zbrane = { [id]: { uroven: 60, nabiti: 0 } };
+  Object.assign(h, { cas: 600, dalsiBoss: 605, dalsiSmecka: 602, dalsiPrichod: 4 });
+  const nejvic = { korene: 0, plameny: 0, oblazky: 0 };
+  for (let t = 0; t < 20; t += DT) {
+    h.hrdina.nezranitelny = 1;
+    aktualizuj(h, DT, rozhodni(h, t), SIRKA, VYSKA);
+    // Jen ta jedna zbraň: karty se nahradí Odpočinkem, kus z truhly se nechá a od kupce odejde.
+    if (h.porovnani) rozhodniKus(h, false);
+    if (h.volby) vyber(h, { druh: 'leceni', kroku: 1 });
+    if (h.obchod) odejdiOdKupce(h);
+    for (const co of Object.keys(nejvic)) nejvic[co] = Math.max(nejvic[co], h[co].length);
+    if (!Number.isFinite(h.hrdina.x) || h.nepratele.some((n) => !Number.isFinite(n.x) || !Number.isFinite(n.hp))) throw new Error(`NaN se samotnou zbraní ${id} na 60. úrovni`);
+  }
+  const prace = { korene: h.drzeno, stopa: h.paleniStopou, prak: h.odrazu }[id];
+  sami60[id] = { prace, zapaleno: h.zapaleno, zabito: h.zabito, naraz: nejvic };
+  if (!(prace > 0) || !(h.zabito > 0) || nejvic.korene > MAX_KORENU || nejvic.plameny > MAX_PLAMENU || nejvic.oblazky > MAX_KAMENU) chybyUrovni.push(`${id} sám na 60. úrovni: ${JSON.stringify(sami60[id])}`);
+}
+if (!(sami60.stopa.zapaleno > 0)) chybyUrovni.push('stopa na 60. úrovni nikoho nezapálila');
 // Ani na stropu trnů (s nejkratším nabíjením tříd) jich nevyraší víc, než unese MAX_TRNU.
 for (const n of [1, ...Object.values(TRIDY).map((t) => t.nasobky.nabijeni ?? 1)]) {
   const st = statyZbrane('trny', 200, n);
@@ -1999,6 +2256,25 @@ for (const n of [1, ...Object.values(TRIDY).map((t) => t.nasobky.nabijeni ?? 1)]
   // Koule cepu na stropu nepřeskočí nepřítele: za snímek uletí míň, než je koule a nejmenší nepřítel dohromady.
   const ce = statyZbrane('cep', 200, n);
   if (!(ce.rozmach * delkaRetezu(ce, ce.pocet - 1) * DT < 2 * (ce.velikost + 8))) chybyUrovni.push(`koule cepu na stropu (nabíjení ${n}) přeskočí nepřítele`);
+  // Kořeny v zemi i vyražené a kameny v letu se na stropu vejdou do svých limitů.
+  const ko = statyZbrane('korene', 200, n);
+  if (MAX_KORENU < ko.pocet * Math.ceil((MAX_BEHU_KORENE + ko.trvani) / ko.nabiti)) chybyUrovni.push(`na stropu kořenů (nabíjení ${n}) víc kořenů, než unese MAX_KORENU`);
+  const pr = statyZbrane('prak', 200, n);
+  if (MAX_KAMENU < pr.pocet * Math.ceil(ZIVOT_KAMENE / pr.nabiti)) chybyUrovni.push(`na stropu praku (nabíjení ${n}) víc kamenů, než unese MAX_KAMENU`);
+}
+// Plameny se na žádné úrovni nevejdou do MAX_PLAMENU až za hrdinou, který běží 400 px/s (rychleji neběhá ani
+// s Botami na stropu).
+{
+  for (let u = 1; u <= 200; u++) {
+    const st = statyZbrane('stopa', u);
+    if (MAX_PLAMENU < Math.ceil((400 * st.trvani) / (st.polomer * ROZESTUP_STOPY)) + 1) {
+      chybyUrovni.push(`na ${u}. úrovni nechá rychlý hrdina víc plamenů, než unese MAX_PLAMENU`);
+      break;
+    }
+  }
+  // Kámen na nejvyšší rychlosti za snímek nepřeskočí nejmenšího nepřítele (svůj cíl nepřeletí nikdy, letí
+  // nanejvýš k jeho středu).
+  if (!(MAX_RYCHLOST_KAMENE * DT < 2 * (POLOMER_KAMENE + 8))) chybyUrovni.push('kámen na nejvyšší rychlosti přeskočí nepřítele');
 }
 const silnaStaty = staty(silna);
 
@@ -2900,7 +3176,22 @@ for (const id of PORADI_MAP.filter((m) => MAPY[m].prekazky)) {
   hs.strelyBossu.push({ x: k.x - k.r - 30, y: k.y, vx: 160, vy: 0, zivot: 3.5, rana: 5 });
   hraj(hs, 0.6);
   if (hs.strely.length !== 1 || hs.strely[0].x < k.x + k.r || hs.strelyBossu.length !== 1 || hs.strelyBossu[0].x < k.x + k.r) chybyMap.push(`na mapě ${id} střela nepřeletěla překážku`);
-  pokusyPrekazek[id] = { kostlivec_dosel_s: kost.doslo, duch_dosel_s: duch.doslo };
+  // kámen praku na kostlivce za překážkou se od ní odrazí zpátky a nikdy v ní není
+  const hk = tichaMapa(id);
+  hk.zbrane = { prak: { uroven: 1, nabiti: 0 } };
+  Object.assign(hk.hrdina, { x: k.x - k.r - 60, y: k.y });
+  const zaSkalou = pridejNepritele(hk, 'kostlivec', k.x + k.r + 20, k.y);
+  zaSkalou.rychlost = 0;
+  let vSkale = 0;
+  let zpet = false;
+  hraj(hk, 0.6, (g) => {
+    for (const kam of g.oblazky) {
+      vSkale = Math.max(vSkale, hloubkaVPrekazce(id, kam.x, kam.y, POLOMER_KAMENE));
+      if (kam.vx < 0) zpet = true;
+    }
+  });
+  if (!(hk.odSkal > 0) || !zpet || vSkale > 1e-6) chybyMap.push(`na mapě ${id} se kámen od překážky neodrazil (${hk.odSkal}×, v ní ${vSkale.toFixed(2)} px)`);
+  pokusyPrekazek[id] = { kostlivec_dosel_s: kost.doslo, duch_dosel_s: duch.doslo, kamen_od_skaly: hk.odSkal };
 }
 // Láva pálí, dokud v ní hrdina stojí: každou půlsekundu rána ranaHrozby(lava.poskozeni) s oranžovým číslem.
 // Kousek vedle na skále se nic neděje.
@@ -3163,6 +3454,16 @@ const vysledek = {
       vybuchlo_seminek: silna.vybuchlo, max_seminek_naraz: silnaMaxSeminek,
     },
     zvon: zvonovePokusy, cep: cepovePokusy, seminka: seminkovePokusy,
+  },
+  korene_stopa_prak: {
+    hlavni_hra: {
+      urovne: { korene: hra.zbrane.korene?.uroven ?? 0, stopa: hra.zbrane.stopa?.uroven ?? 0, prak: hra.zbrane.prak?.uroven ?? 0 },
+      drzeno: hra.drzeno, plamenu: hra.plamenu, paleni: hra.paleniStopou, zapaleno: hra.zapaleno, vystreleno: hra.vystreleno,
+      zasahu_kamenem: hra.zasahuKamenem, odrazu: hra.odrazu,
+    },
+    se_vsim_na_60_urovni: { max_korenu_naraz: silnaMaxKorenu, max_plamenu_naraz: silnaMaxPlamenu, max_kamenu_naraz: silnaMaxKamenu },
+    sami_na_60_urovni: sami60,
+    korene: korenovePokusy, stopa: stopovePokusy, prak: prakovePokusy,
   },
   vybava_bossu: {
     otevreno_truhel: otevrenoTruhel,
