@@ -1,6 +1,7 @@
 import { sprity } from './sprity.js';
 import {
   staty, TRVANI_TRESU, VYCHOZI_TRIDA, TRVANI_ZABLESKU, ODHOZENI_PRI_OZIVENI, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU,
+  TRVANI_ZARU,
 } from './hra.js';
 import { dlazdiceLouky, ozdobyLouky } from './louka.js';
 
@@ -23,6 +24,13 @@ const BARVA_SITE = 'rgba(236,236,244,0.8)';
 const PRUHLEDNOST_DUCHA = 0.62;
 const PRUHLEDNOST_SCHOVANEHO = 0.1;
 const PRECHOD_DUCHA = 0.25;
+// Světlo lucerny se kreslí po čtverečcích stejně velkých jako pixel spritu, ať nevypadá rozmazaně.
+// Jednou za PULZ_LUCERNY sekund vyjde od hrdiny vlna světla, na okraji dosahu prstenec zjasní.
+const PULZ_LUCERNY = 1.2;
+const JISKER_LUCERNY = 14;
+const BARVA_ZARU = '#ff9a3c';
+// Jak moc nepřítel po zásahu žárem nejvýš zjasní (víc už by z něj byla jen oranžová skvrna).
+const SILA_ZARU = 0.6;
 
 function hash(x, y) {
   let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
@@ -103,6 +111,84 @@ function sit(ctx, x, y, zbyva) {
   ctx.restore();
 }
 
+// Pixelový kruh o poloměru r čtverečků (Bresenhamův kruh). Pro každý řádek vrací, jak daleko od středu
+// kruh sahá, a seznam políček obvodu. Počítá se jednou pro každý poloměr.
+const kruhy = new Map();
+function pixelovyKruh(r) {
+  if (!kruhy.has(r)) {
+    const obvod = new Map();
+    let x = r;
+    let y = 0;
+    let chyba = 1 - r;
+    while (x >= y) {
+      for (const [a, b] of [[x, y], [y, x], [-y, x], [-x, y], [-x, -y], [-y, -x], [y, -x], [x, -y]]) obvod.set(`${a},${b}`, [a, b]);
+      y += 1;
+      if (chyba < 0) chyba += 2 * y + 1;
+      else {
+        x -= 1;
+        chyba += 2 * (y - x) + 1;
+      }
+    }
+    const radky = new Map();
+    for (const [a, b] of obvod.values()) radky.set(b, Math.max(radky.get(b) ?? 0, Math.abs(a)));
+    kruhy.set(r, { obvod: [...obvod.values()], radky: [...radky] });
+  }
+  return kruhy.get(r);
+}
+
+// Kolem (x, y) na zem: teplý pixelový kruh přes celý dosah, vlna od středu, jasný prstenec na okraji dosahu
+// (pulzuje) a jiskry, které na okraji vyskočí a zhasnou. Všechno je jen podle času, nic se neukládá.
+function svetloLucerny(ctx, x, y, dosah, cas) {
+  const m = MERITKO;
+  const cx = Math.round(x) - Math.floor(m / 2);
+  const cy = Math.round(y) - Math.floor(m / 2);
+  const r = Math.max(2, Math.round(dosah / m));
+  const t = (cas % PULZ_LUCERNY) / PULZ_LUCERNY;
+  const policka = (kruh) => {
+    for (const [a, b] of kruh.obvod) ctx.fillRect(cx + a * m, cy + b * m, m, m);
+  };
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = 'rgba(255,170,70,0.07)';
+  for (const [b, sirka] of pixelovyKruh(r).radky) ctx.fillRect(cx - sirka * m, cy + b * m, (2 * sirka + 1) * m, m);
+  ctx.fillStyle = `rgba(255,190,90,${(0.2 * (1 - t)).toFixed(3)})`;
+  policka(pixelovyKruh(Math.max(1, Math.round(r * (0.2 + 0.8 * t)))));
+  const jas = 0.5 + 0.35 * (1 - t) ** 2;
+  ctx.fillStyle = `rgba(255,150,60,${(jas * 0.45).toFixed(3)})`;
+  policka(pixelovyKruh(r - 1));
+  ctx.fillStyle = `rgba(255,214,120,${jas.toFixed(3)})`;
+  policka(pixelovyKruh(r));
+  for (let i = 0; i < JISKER_LUCERNY; i++) {
+    const beh = cas * 0.8 + i * 0.618;
+    const faze = beh % 1;
+    const uhel = i * 2.4 + Math.floor(beh) * 1.7 + faze * 0.25;
+    const vzdal = r * m + (faze - 0.3) * 10;
+    const velikost = i % 3 === 0 ? m : 2;
+    ctx.globalAlpha = Math.sin(faze * Math.PI);
+    ctx.fillStyle = i % 2 ? '#fff3b0' : '#ffb347';
+    ctx.fillRect(Math.round(x + Math.cos(uhel) * vzdal - velikost / 2), Math.round(y + Math.sin(uhel) * vzdal - velikost / 2), velikost, velikost);
+  }
+  ctx.restore();
+}
+
+// Kde se vedle hrdiny vznáší lucerna: za zády (na opačné straně, než kouká), ve výšce ramen, a pomalu
+// se pohupuje. Vrací střed skla.
+function poziceLucerny(hra, stred) {
+  return {
+    x: Math.round(stred.x - hra.hrdina.otoceny * 21),
+    y: Math.round(stred.y - 3 + Math.sin(hra.cas * 2.5) * 2),
+  };
+}
+
+// Kdo dostal žár, krátce se rozzáří: přes sprite se přičte teplé světlo a pomalu zhasne.
+function rozzar(ctx, obr, x, y, otoceny, velikost, sila) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha *= sila * SILA_ZARU;
+  sprite(ctx, obr, x, y, otoceny, BARVA_ZARU, velikost);
+  ctx.restore();
+}
+
 // Průhlednost ducha podle toho, kolik mu zbývá do změny: před zmizením bledne, před vynořením sílí.
 function pruhlednostDucha(n) {
   const t = Math.min(1, n.duchCas / PRECHOD_DUCHA);
@@ -161,14 +247,17 @@ export function kresli(ctx, hra) {
   podlaha(ctx, kx, ky, sirka, vyska);
 
   const stred = naObrazovce(hrdina);
-  if (hra.zbrane.lucerna) {
-    const zar = ctx.createRadialGradient(stred.x, stred.y, 8, stred.x, stred.y, s.lucerna.dosah);
-    zar.addColorStop(0, 'rgba(255,179,71,0.28)');
-    zar.addColorStop(1, 'rgba(255,179,71,0)');
-    ctx.fillStyle = zar;
-    ctx.beginPath();
-    ctx.arc(stred.x, stred.y, s.lucerna.dosah, 0, Math.PI * 2);
-    ctx.fill();
+  const lucerna = hra.zbrane.lucerna ? poziceLucerny(hra, stred) : null;
+  if (lucerna) {
+    svetloLucerny(ctx, stred.x, stred.y, s.lucerna.dosah, hra.cas);
+    // malá záře kolem samotné lucerny
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(255,170,70,0.12)';
+    for (const r of [4, 2]) {
+      for (const [b, sirka] of pixelovyKruh(r).radky) ctx.fillRect(lucerna.x - 1 - sirka * MERITKO, lucerna.y - 1 + b * MERITKO, (2 * sirka + 1) * MERITKO, MERITKO);
+    }
+    ctx.restore();
   }
 
   for (const kr of hra.krystaly) {
@@ -196,11 +285,14 @@ export function kresli(ctx, hra) {
     if (n.duch) {
       // duch se vznáší a kouká tam, kam letí (ne na hrdinu, letí kolem něj)
       ctx.globalAlpha = pruhlednostDucha(n);
-      sprite(ctx, obr, p.x, p.y + Math.sin(hra.cas * 4 + n.maxHp + n.x * 0.01) * 2, n.smerX < 0 ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : null, velikost);
+      const vy = p.y + Math.sin(hra.cas * 4 + n.maxHp + n.x * 0.01) * 2;
+      sprite(ctx, obr, p.x, vy, n.smerX < 0 ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : null, velikost);
+      if (n.zar > 0) rozzar(ctx, obr, p.x, vy, n.smerX < 0 ? -1 : 1, velikost, n.zar / TRVANI_ZARU);
       ctx.globalAlpha = 1;
       continue;
     }
     sprite(ctx, obr, p.x, p.y, n.x > hrdina.x ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : null, velikost);
+    if (n.zar > 0) rozzar(ctx, obr, p.x, p.y, n.x > hrdina.x ? -1 : 1, velikost, n.zar / TRVANI_ZARU);
     if (n.boss) {
       ctx.fillStyle = '#2a0f14';
       ctx.fillRect(Math.round(p.x - 24), Math.round(p.y - 34), 48, 5);
@@ -286,6 +378,11 @@ export function kresli(ctx, hra) {
   const blika = hrdina.nezranitelny > 0 && Math.floor(hrdina.nezranitelny * 20) % 2 === 0;
   const obrHrdiny = sprity[hra.trida] ?? sprity[VYCHOZI_TRIDA];
   if (!blika) sprite(ctx, obrHrdiny, stred.x, stred.y, hrdina.otoceny, hrdina.sit > 0 ? 'rgba(215,222,236,0.5)' : null);
+  if (lucerna && !blika) {
+    // plamen v lucerně nepravidelně poskakuje (dva snímky)
+    const obr = (Math.floor(hra.cas * 7) * 5) % 3 === 0 ? sprity.lucernaHrdiny2 : sprity.lucernaHrdiny;
+    ctx.drawImage(obr, lucerna.x - Math.round(obr.width * MERITKO / 2), lucerna.y - Math.round(obr.height * MERITKO / 2), obr.width * MERITKO, obr.height * MERITKO);
+  }
   if (hrdina.sit > 0) sit(ctx, stred.x, stred.y, hrdina.sit);
 
   // životy pod hrdinou
