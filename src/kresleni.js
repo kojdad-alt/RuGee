@@ -1,7 +1,8 @@
 import { sprity } from './sprity.js';
 import { staty } from './hra.js';
+import { dlazdiceLouky, ozdobyLouky } from './louka.js';
 
-const VELIKOST = 24;
+const MERITKO = 3;
 const DLAZDICE = 48;
 
 function hash(x, y) {
@@ -11,8 +12,6 @@ function hash(x, y) {
 }
 
 function podlaha(ctx, kx, ky, sirka, vyska) {
-  ctx.fillStyle = '#14121a';
-  ctx.fillRect(0, 0, sirka, vyska);
   const x0 = Math.floor(kx / DLAZDICE) - 1;
   const y0 = Math.floor(ky / DLAZDICE) - 1;
   for (let ty = y0; ty < y0 + vyska / DLAZDICE + 3; ty++) {
@@ -20,16 +19,18 @@ function podlaha(ctx, kx, ky, sirka, vyska) {
       const px = Math.round(tx * DLAZDICE - kx);
       const py = Math.round(ty * DLAZDICE - ky);
       const h = hash(tx, ty);
-      ctx.fillStyle = h % 5 === 0 ? '#1a1721' : '#16141c';
-      ctx.fillRect(px + 1, py + 1, DLAZDICE - 2, DLAZDICE - 2);
-      ctx.fillStyle = '#211d29';
-      ctx.fillRect(px + 6 + (h % 30), py + 8 + ((h >>> 5) % 28), 3, 3);
-      if (h % 4 === 0) ctx.fillRect(px + 10 + ((h >>> 9) % 26), py + 6 + ((h >>> 13) % 30), 3, 3);
+      // Obyčejná tráva je nejčastější, květiny, kameny a hlína jen občas.
+      const druh = h % 100 < 82 ? h % 6 : 6 + (h >>> 8) % (dlazdiceLouky.length - 6);
+      ctx.drawImage(dlazdiceLouky[druh], px, py, DLAZDICE, DLAZDICE);
+      if ((h >>> 16) % 100 < 3) {
+        const ozd = ozdobyLouky[(h >>> 20) % ozdobyLouky.length];
+        ctx.drawImage(ozd, px, py, DLAZDICE, DLAZDICE);
+      }
     }
   }
 }
 
-function sprite(ctx, obr, x, y, otoceny = 1, bila = false, velikost = VELIKOST) {
+function sprite(ctx, obr, x, y, otoceny = 1, bila = false, velikost = obr.width * MERITKO) {
   ctx.save();
   ctx.translate(Math.round(x), Math.round(y));
   if (otoceny < 0) ctx.scale(-1, 1);
@@ -66,20 +67,21 @@ export function kresli(ctx, hra) {
 
   for (const kr of hra.krystaly) {
     const p = naObrazovce(kr);
-    ctx.drawImage(sprity.krystal, Math.round(p.x - 8), Math.round(p.y - 8), 16, 16);
+    ctx.drawImage(sprity.krystal, Math.round(p.x - 10), Math.round(p.y - 10), 20, 20);
   }
 
   for (const pr of hra.predmety) {
     const p = naObrazovce(pr);
     const houpani = Math.sin(hra.cas * 4 + pr.x) * 2;
-    ctx.drawImage(sprity[pr.druh], Math.round(p.x - 10), Math.round(p.y - 10 + houpani), 20, 20);
+    ctx.drawImage(sprity[pr.druh], Math.round(p.x - 13), Math.round(p.y - 13 + houpani), 26, 26);
   }
 
   for (const n of hra.nepratele) {
     const p = naObrazovce(n);
     if (p.x < -40 || p.y < -40 || p.x > sirka + 40 || p.y > vyska + 40) continue;
-    const velikost = n.boss ? VELIKOST * 2 : VELIKOST;
-    sprite(ctx, sprity[n.druh], p.x, p.y, n.x > hrdina.x ? -1 : 1, n.zasazen > 0, velikost);
+    const obr = sprity[n.druh];
+    const velikost = obr.width * MERITKO * (n.boss ? 2 : 1);
+    sprite(ctx, obr, p.x, p.y, n.x > hrdina.x ? -1 : 1, n.zasazen > 0, velikost);
     if (n.boss) {
       ctx.fillStyle = '#2a0f14';
       ctx.fillRect(Math.round(p.x - 24), Math.round(p.y - 34), 48, 5);
@@ -100,7 +102,8 @@ export function kresli(ctx, hra) {
       ctx.save();
       ctx.translate(stred.x + Math.cos(uhel) * s.krumpace.polomer, stred.y + Math.sin(uhel) * s.krumpace.polomer);
       ctx.rotate(uhel * 2);
-      ctx.drawImage(sprity.krumpac, -VELIKOST / 2, -VELIKOST / 2, VELIKOST, VELIKOST);
+      const v = sprity.krumpac.width * MERITKO;
+      ctx.drawImage(sprity.krumpac, -v / 2, -v / 2, v, v);
       ctx.restore();
     }
   }
@@ -110,9 +113,9 @@ export function kresli(ctx, hra) {
 
   // životy pod hrdinou
   ctx.fillStyle = '#2a0f14';
-  ctx.fillRect(Math.round(stred.x - 14), Math.round(stred.y + 16), 28, 4);
+  ctx.fillRect(Math.round(stred.x - 14), Math.round(stred.y + 18), 28, 4);
   ctx.fillStyle = '#e5484d';
-  ctx.fillRect(Math.round(stred.x - 14), Math.round(stred.y + 16), Math.round(28 * Math.max(0, hrdina.hp) / hrdina.maxHp), 4);
+  ctx.fillRect(Math.round(stred.x - 14), Math.round(stred.y + 18), Math.round(28 * Math.max(0, hrdina.hp) / hrdina.maxHp), 4);
 
   ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
   ctx.textAlign = 'center';
@@ -143,10 +146,10 @@ export function kresli(ctx, hra) {
     ctx.restore();
   }
 
-  // tma okolo, jako v jeskyni
-  const tma = ctx.createRadialGradient(sirka / 2, vyska / 2, Math.min(sirka, vyska) * 0.3, sirka / 2, vyska / 2, Math.max(sirka, vyska) * 0.75);
+  // ztmavení u okrajů, ať je hrdina uprostřed vidět nejlíp
+  const tma = ctx.createRadialGradient(sirka / 2, vyska / 2, Math.min(sirka, vyska) * 0.4, sirka / 2, vyska / 2, Math.max(sirka, vyska) * 0.8);
   tma.addColorStop(0, 'rgba(0,0,0,0)');
-  tma.addColorStop(1, 'rgba(0,0,0,0.75)');
+  tma.addColorStop(1, 'rgba(0,0,0,0.45)');
   ctx.fillStyle = tma;
   ctx.fillRect(0, 0, sirka, vyska);
 

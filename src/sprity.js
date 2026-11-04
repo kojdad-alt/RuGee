@@ -112,18 +112,33 @@ const SPRITY = {
   ],
 };
 
+// Kolem každého spritu přidá tmavý obrys 1 pixel, aby postavy byly vidět i na trávě.
 function nakresli(radky) {
-  const c = document.createElement('canvas');
-  c.width = 8;
-  c.height = 8;
-  const g = c.getContext('2d');
+  const zaklad = document.createElement('canvas');
+  zaklad.width = 8;
+  zaklad.height = 8;
+  const g = zaklad.getContext('2d');
+  const plne = new Set();
   radky.forEach((radek, y) => {
     [...radek].forEach((znak, x) => {
       if (znak === '.') return;
       g.fillStyle = PALETA[znak];
       g.fillRect(x, y, 1, 1);
+      plne.add(`${x},${y}`);
     });
   });
+  const c = document.createElement('canvas');
+  c.width = 10;
+  c.height = 10;
+  const o = c.getContext('2d');
+  o.fillStyle = '#0b0a0f';
+  for (const bod of plne) {
+    const [x, y] = bod.split(',').map(Number);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      if (!plne.has(`${x + dx},${y + dy}`)) o.fillRect(x + dx + 1, y + dy + 1, 1, 1);
+    }
+  }
+  o.drawImage(zaklad, 1, 1);
   return c;
 }
 
