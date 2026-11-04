@@ -214,6 +214,22 @@ const SPRITY = {
     '.SSSSSS.',
     '..ssss..',
   ],
+  // Lucerna, která se vznáší vedle hrdiny, když má zbraň Lucerna (menší než 8×8). Dva snímky: plamen
+  // uvnitř skla poskakuje nahoru a dolů.
+  lucernaHrdiny: [
+    '.s.',
+    'SSS',
+    'oYo',
+    'oyo',
+    'sSs',
+  ],
+  lucernaHrdiny2: [
+    '.s.',
+    'SSS',
+    'oyo',
+    'oYo',
+    'sSs',
+  ],
   blesk: [
     '....uUu.',
     '...uUu..',
@@ -267,10 +283,13 @@ const SPRITY = {
 };
 
 // Kolem každého spritu přidá tmavý obrys 1 pixel, aby postavy byly vidět i na trávě.
+// Velikost je podle textu (skoro všechny jsou 8×8), obrázek je o 2 pixely větší kvůli obrysu.
 function nakresli(radky) {
+  const sirka = radky[0].length;
+  const vyska = radky.length;
   const zaklad = document.createElement('canvas');
-  zaklad.width = 8;
-  zaklad.height = 8;
+  zaklad.width = sirka;
+  zaklad.height = vyska;
   const g = zaklad.getContext('2d');
   const plne = new Set();
   radky.forEach((radek, y) => {
@@ -282,8 +301,8 @@ function nakresli(radky) {
     });
   });
   const c = document.createElement('canvas');
-  c.width = 10;
-  c.height = 10;
+  c.width = sirka + 2;
+  c.height = vyska + 2;
   const o = c.getContext('2d');
   o.fillStyle = '#0b0a0f';
   for (const bod of plne) {

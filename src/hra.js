@@ -79,6 +79,8 @@ const BOSS_KAZDYCH = 180;
 const MAX_CASTIC = 400;
 const ZIVOT_CASTICE = 0.45;
 export const TRVANI_TRESU = 0.15;
+// Koho spálí žár lucerny, ten se na chvíli rozzáří teplým světlem (místo bílého bliknutí jako u ostatních zbraní).
+export const TRVANI_ZARU = 0.2;
 // Pavouk zalepí hrdinu sítí: na chvíli zpomalí. Opakovaný zásah síť obnoví, nesčítá se.
 export const OD_PAVOUKU = 240;
 export const TRVANI_SITE = 1.5;
@@ -184,10 +186,12 @@ function vzdalenost(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-function zasah(hra, n, kolik) {
+// zar = zásah žárem lucerny: nepřítel se rozzáří, jinak krátce zbělá.
+function zasah(hra, n, kolik, zar = false) {
   const poskozeni = Math.round(kolik * hra.hrdina.sila);
   n.hp -= poskozeni;
-  n.zasazen = 0.1;
+  if (zar) n.zar = TRVANI_ZARU;
+  else n.zasazen = 0.1;
   hra.cisla.push({ x: n.x, y: n.y - 10, text: String(poskozeni), zivot: 0.6 });
 }
 
@@ -259,7 +263,7 @@ function zamir(n, hrdina) {
 export function pridejNepritele(hra, druh, x, y) {
   const vzor = NEPRATELE[druh];
   const hp = Math.round(vzor.hp * (1 + hra.cas / (vzor.boss ? 300 : 150)));
-  const n = { druh, ...vzor, hp, maxHp: hp, zasazen: 0, zasahKrumpacem: 0, x, y };
+  const n = { druh, ...vzor, hp, maxHp: hp, zasazen: 0, zar: 0, zasahKrumpacem: 0, x, y };
   if (n.duch) {
     n.skryty = false;
     n.duchCas = VIDITELNY_DUCH;
@@ -406,6 +410,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       n.y += ((hrdina.y - n.y) / d) * n.rychlost * dt;
     }
     n.zasazen = Math.max(0, n.zasazen - dt);
+    n.zar = Math.max(0, (n.zar || 0) - dt);
     n.zasahKrumpacem = Math.max(0, n.zasahKrumpacem - dt);
     if (d < n.polomer + 8 && hrdina.nezranitelny <= 0 && viditelny(n)) {
       if (n.sit) hrdina.sit = TRVANI_SITE;
@@ -457,7 +462,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     luc.tik = (luc.tik ?? 0) - dt;
     if (luc.tik <= 0) {
       for (const n of hra.nepratele) {
-        if (viditelny(n) && vzdalenost(n, hrdina) < s.lucerna.dosah) zasah(hra, n, s.lucerna.zar * 0.3);
+        if (viditelny(n) && vzdalenost(n, hrdina) < s.lucerna.dosah) zasah(hra, n, s.lucerna.zar * 0.3, true);
       }
       luc.tik = s.lucerna.tik;
     }

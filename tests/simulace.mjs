@@ -14,6 +14,7 @@
 // Vlci chodí jen ve smečkách po 4–6 a jsou rychlejší než ostatní nepřátelé.
 // Přehled výbavy v rohu: sedí s tím, co hrdina má (pořadí, úrovně, maximum, ikony se sprity) a po každém
 // výběru zbraně nebo pasivy se změní, po Odpočinku ne.
+// Žár lucerny: zasažený nepřítel v dosahu se krátce rozzáří (místo bílého bliknutí), za dosahem ne, a zase zhasne.
 import { readFileSync } from 'node:fs';
 import { vytvorRng } from '../src/rng.js';
 import {
@@ -21,7 +22,7 @@ import {
   ZIVOTY_PO_OZIVENI, NEZRANITELNY_PO_OZIVENI, ODHOZENI_PRI_OZIVENI,
   ZBRANE, RARITY, PORADI_RARIT, MAX_UROVEN, SILA_ZA_PREBYTEK, LECENI_ODPOCINKU, CAS_PLNYCH_RARIT, sanceRarit, nabidka, karta,
   OD_DUCHU, VIDITELNY_DUCH, SKRYTY_DUCH, OD_HOUBAKU, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU, JED_OBLAKU,
-  OD_VLKU, SMECKA_OD, SMECKA_DO, RYCHLOST_NEPRATEL, MAX_DUCHU, pridejNepritele, PASIVY, seznamVybavy,
+  OD_VLKU, SMECKA_OD, SMECKA_DO, RYCHLOST_NEPRATEL, MAX_DUCHU, pridejNepritele, PASIVY, seznamVybavy, TRVANI_ZARU,
 } from '../src/hra.js';
 import {
   VYLEPSENI, DUSE_ZA, dusZaHru, cenaVylepseni, kupVylepseni, vratDuse, utraceno,
@@ -493,6 +494,23 @@ if (maxDuchu > MAX_DUCHU) chybyNepratel.push(`duchů najednou ${maxDuchu}`);
 if (smecky.length !== hra.smecek) chybyNepratel.push(`smeček ${smecky.length}, hra jich hlásí ${hra.smecek}`);
 if (prvni.houbak !== null && hra.cas > OD_HOUBAKU + 120 && oblaku === 0) chybyNepratel.push('houbáci umírali, ale žádný oblak');
 
+// Žár lucerny: Světlonoš stojí, jeden slizák je kousek uvnitř dosahu, druhý kousek za ním.
+const chybyLucerny = [];
+const luc = novaHra(vytvorRng(seminko), 'svetlonos');
+luc.doSpawnu = Infinity;
+const dosahLucerny = staty(luc).lucerna.dosah;
+const vDosahu = pridejNepritele(luc, 'slizak', dosahLucerny - 10, 0);
+const zaDosahem = pridejNepritele(luc, 'slizak', -(dosahLucerny + 30), 0);
+vDosahu.rychlost = 0;
+zaDosahem.rychlost = 0;
+aktualizuj(luc, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+if (!(vDosahu.hp < vDosahu.maxHp) || vDosahu.zar !== TRVANI_ZARU) chybyLucerny.push(`žár nerozzářil nepřítele v dosahu (zar ${vDosahu.zar})`);
+if (vDosahu.zasazen !== 0) chybyLucerny.push('po žáru nepřítel zbělal jako od jiné zbraně');
+if (zaDosahem.zar !== 0 || zaDosahem.hp !== zaDosahem.maxHp) chybyLucerny.push('žár zasáhl nepřítele za dosahem');
+// další žár přijde až po 0,3 s, rozzáření (0,2 s) do té doby zhasne
+for (let t = 0; t < TRVANI_ZARU + 0.05; t += DT) aktualizuj(luc, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+if (vDosahu.zar !== 0) chybyLucerny.push(`rozzáření nezhaslo (zar ${vDosahu.zar})`);
+
 const zaokrouhli = (s) => Object.fromEntries(Object.entries(s).map(([id, p]) => [id, Math.round(p * 1000) / 10]));
 
 const vysledek = {
@@ -535,7 +553,7 @@ const vysledek = {
 };
 console.log(JSON.stringify(vysledek, null, 2));
 
-const chyby = [...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel), ...chybyVybavy];
+const chyby = [...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel), ...chybyVybavy, ...chybyLucerny];
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);
 if (hra.zabito === 0) chyby.push('nikdo nezemřel, zbraně asi nestřílí');
 if (hra.hrdina.uroven < 3) chyby.push('hrdina skoro nepostoupil, krystaly se asi nesbírají');
