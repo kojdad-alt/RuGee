@@ -49,3 +49,16 @@ export function zvukNakupu() {
 export function zvukOdmitnuti() {
   ton(147, 0, 0.12, 0.03);
 }
+
+// Okno nové úrovně: stoupající znělka, čím vzácnější nejlepší karta (0 běžná … 3 legendární), tím delší.
+export function zvukVolby(stupen = 0) {
+  const tony = [523, 659, 784, 1047, 1319];
+  const kolik = 2 + Math.max(0, Math.min(3, stupen));
+  for (let i = 0; i < kolik; i++) ton(tony[i], i * 0.07, i === kolik - 1 ? 0.18 : 0.08, 0.03);
+}
+
+// Karta vybrána: krátké cinknutí.
+export function zvukVyberu() {
+  ton(988, 0, 0.06, 0.03);
+  ton(1319, 0.05, 0.1, 0.03);
+}

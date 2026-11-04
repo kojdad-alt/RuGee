@@ -1,31 +1,47 @@
 // Pravidla hry: pohyb, zbraně, nepřátelé, krystaly zkušeností a vylepšení.
 import { pouzijVylepseni } from './duse.js';
 
+// ikona = jméno spritu, který se ukáže na kartě vylepšení
 export const ZBRANE = {
   jiskra: {
-    nazev: 'Jiskra',
+    nazev: 'Jiskra', ikona: 'jiskra',
     popis: ['Střílí jiskry na nejbližšího nepřítele.', '+1 jiskra', 'Rychlejší střelba', '+1 jiskra', 'Větší poškození'],
   },
   lucerna: {
-    nazev: 'Lucerna',
+    nazev: 'Lucerna', ikona: 'lucerna',
     popis: ['Žár lucerny pálí nepřátele kolem tebe.', 'Větší dosah', 'Silnější žár', 'Větší dosah', 'Silnější žár'],
   },
   krumpace: {
-    nazev: 'Krumpáče',
+    nazev: 'Krumpáče', ikona: 'krumpac',
     popis: ['Krumpáč krouží kolem tebe.', '+1 krumpáč', 'Rychlejší otáčení', '+1 krumpáč', 'Větší poškození'],
   },
   blesk: {
-    nazev: 'Blesk',
+    nazev: 'Blesk', ikona: 'blesk',
     popis: ['Blesk udeří do nepřítele a přeskočí na další.', '+1 přeskok', 'Častější údery', '+2 přeskoky', 'Větší poškození'],
   },
 };
 
 export const PASIVY = {
-  srdce: { nazev: 'Srdce', popis: '+20 max. životů a doléčení' },
-  boty: { nazev: 'Boty', popis: '+12 % rychlost pohybu' },
-  magnet: { nazev: 'Magnet', popis: '+40 % dosah sběru krystalů' },
-  sila: { nazev: 'Síla', popis: '+15 % poškození všech zbraní' },
+  srdce: { nazev: 'Srdce', ikona: 'srdce', popis: '+20 max. životů a doléčení' },
+  boty: { nazev: 'Boty', ikona: 'boty', popis: '+12 % rychlost pohybu' },
+  magnet: { nazev: 'Magnet', ikona: 'magnet', popis: '+40 % dosah sběru krystalů' },
+  sila: { nazev: 'Síla', ikona: 'sila', popis: '+15 % poškození všech zbraní' },
 };
+
+// Rarita karty při nové úrovni: kolik úrovní karta přidá a jaký bonus dá navíc.
+// vaha = jak často padá na začátku hry; vzácnějších rarit časem přibývá (v 15. minutě 2×) a Štěstí je násobí dál.
+// Úroveň, která se do zbraně nebo pasivy už nevejde (je na maximu), se promění v +3 % poškození.
+// Váhy a bonusy jsou nízko schválně: s dvojnásobnými rozjel bot v simulaci sněhovou kouli a přežil přes 20 minut.
+export const RARITY = {
+  bezna: { nazev: 'Běžná', urovni: 1, sila: 0, doleceni: false, vaha: 100 },
+  vzacna: { nazev: 'Vzácná', urovni: 2, sila: 0, doleceni: false, vaha: 12 },
+  epicka: { nazev: 'Epická', urovni: 2, sila: 0.05, doleceni: false, vaha: 3.5 },
+  legendarni: { nazev: 'Legendární', urovni: 3, sila: 0.1, doleceni: true, vaha: 1 },
+};
+export const PORADI_RARIT = Object.keys(RARITY);
+export const SILA_ZA_PREBYTEK = 0.03;
+export const CAS_PLNYCH_RARIT = 900;
+export const LECENI_ODPOCINKU = 30;
 
 // Třídy hrdiny: každá začíná s jinou zbraní a má jednu výhodu. Výhoda násobí vlastnost hrdiny
 // (nabijeni < 1 = zbraně se nabíjí rychleji). Sprite má stejné jméno jako třída.
@@ -53,7 +69,7 @@ export function platnaTrida(id) {
   return typeof id === 'string' && Object.hasOwn(TRIDY, id) ? id : VYCHOZI_TRIDA;
 }
 
-const MAX_UROVEN = 5;
+export const MAX_UROVEN = 5;
 const MAX_NEPRATEL = 350;
 const MAX_KRYSTALU = 300;
 const SANCE_SRDCE = 0.012;
@@ -102,6 +118,7 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}) {
     zablesk: 0,
     konec: false,
     volby: null,
+    zTruhly: false,
     hrdina,
     zbrane: { [TRIDY[trida].zbran]: { uroven: 1, nabiti: 0 } },
     pasivy: {},
@@ -401,7 +418,9 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     if (vzdalenost(p, hrdina) < 16) {
       p.sebran = true;
       if (p.druh === 'truhla') {
-        hra.volby = nabidka(hra);
+        // Truhla Strážce dá aspoň vzácnou kartu.
+        hra.volby = nabidka(hra, 'vzacna');
+        hra.zTruhly = true;
         hra.oznameni = { text: 'Truhla Strážce: vylepšení zdarma', zivot: 2 };
       } else if (p.druh === 'srdce') {
         const pred = hrdina.hp;
@@ -433,7 +452,8 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     const [a, b] = hra.krystaly.splice(0, 2);
     hra.krystaly.push({ x: b.x, y: b.y, xp: a.xp + b.xp });
   }
-  if (hrdina.xp >= hrdina.potreba) {
+  // Když je zrovna otevřená truhla, nová úroveň počká na další snímek (jinak by truhlu přepsala).
+  if (hrdina.xp >= hrdina.potreba && !hra.volby) {
     hrdina.xp -= hrdina.potreba;
     hrdina.uroven += 1;
     hrdina.potreba = potrebaNaUroven(hrdina.uroven);
@@ -458,40 +478,95 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   hra.cisla = hra.cisla.filter((c) => c.zivot > 0);
 }
 
-function nabidka(hra) {
-  const moznosti = [];
-  for (const [id, z] of Object.entries(ZBRANE)) {
-    const uroven = hra.zbrane[id]?.uroven ?? 0;
-    if (uroven < MAX_UROVEN) {
-      moznosti.push({ druh: 'zbran', id, nazev: z.nazev, popis: z.popis[uroven], uroven: uroven + 1 });
-    }
+// Šance na každou raritu (součet 1). minimum: horší rarity než tahle nepadnou (truhla Strážce).
+export function sanceRarit(hra, minimum = 'bezna') {
+  const cas = Math.min(Math.max(0, hra.cas), CAS_PLNYCH_RARIT);
+  const nasobek = (1 + cas / CAS_PLNYCH_RARIT) * Math.max(1, hra.hrdina.stesti ?? 1);
+  const od = Math.max(0, PORADI_RARIT.indexOf(minimum));
+  const vahy = PORADI_RARIT.map((id, i) => (i < od ? 0 : RARITY[id].vaha * (i > 0 ? nasobek : 1)));
+  const soucet = vahy.reduce((a, b) => a + b, 0);
+  return Object.fromEntries(PORADI_RARIT.map((id, i) => [id, vahy[i] / soucet]));
+}
+
+// Jeden los z rng na kartu, ať je počet losů pořád stejný (Štěstí nesmí posunout náhodu vln).
+function losujRaritu(hra, minimum) {
+  const sance = sanceRarit(hra, minimum);
+  let los = hra.rng.dalsi();
+  for (const id of PORADI_RARIT) {
+    los -= sance[id];
+    if (los < 0) return id;
   }
-  for (const [id, p] of Object.entries(PASIVY)) {
-    const uroven = hra.pasivy[id] ?? 0;
-    if (uroven < MAX_UROVEN) {
-      moznosti.push({ druh: 'pasiva', id, nazev: p.nazev, popis: p.popis, uroven: uroven + 1 });
-    }
+  return PORADI_RARIT[PORADI_RARIT.length - 1];
+}
+
+// Karta vylepšení pro současný stav: od které úrovně, na kterou (kroku = kolik úrovní přidá),
+// řádky popisu za každou novou úroveň a bonus rarity (poškození navíc, doléčení).
+export function karta(hra, druh, id, rarita = 'bezna') {
+  if (!Object.hasOwn(RARITY, rarita)) rarita = 'bezna';
+  const r = RARITY[rarita];
+  const bonusy = (kroku) => {
+    const sila = r.sila + (r.urovni - kroku) * SILA_ZA_PREBYTEK;
+    const radky = [];
+    if (sila > 0) radky.push(`+${Math.round(sila * 100)} % poškození všech zbraní`);
+    if (r.doleceni) radky.push('Doléčí všechny životy');
+    return { bonus: { sila, doleceni: r.doleceni }, bonusy: radky };
+  };
+  if (druh === 'zbran' || druh === 'pasiva') {
+    const vzor = druh === 'zbran' ? ZBRANE[id] : PASIVY[id];
+    const od = (druh === 'zbran' ? hra.zbrane[id]?.uroven : hra.pasivy[id]) ?? 0;
+    const kroku = Math.max(0, Math.min(r.urovni, MAX_UROVEN - od));
+    // U nové zbraně je první řádek, co zbraň dělá (že je nová, ukáže karta u úrovní).
+    const popis = druh === 'zbran' ? vzor.popis.slice(od, od + kroku) : [kroku > 1 ? `${kroku}× ${vzor.popis}` : vzor.popis];
+    return { druh, id, nazev: vzor.nazev, ikona: vzor.ikona, rarita, od, uroven: od + kroku, kroku, popis, ...bonusy(kroku) };
+  }
+  // Všechno na maximu: odpočinek jen léčí, čím vzácnější, tím víc. Poškození nepřidá, jinak by po
+  // vylepšení všeho rostlo bez konce a pozdní hra by přestala být těžká.
+  const kroku = r.urovni;
+  return {
+    druh: 'leceni', id: 'leceni', nazev: 'Odpočinek', ikona: 'odpocinek', rarita, od: 0, uroven: 0, kroku,
+    popis: [r.doleceni ? 'Doléčí všechny životy' : `Doléčí ${LECENI_ODPOCINKU * kroku} životů`],
+    bonus: { sila: 0, doleceni: r.doleceni }, bonusy: [],
+  };
+}
+
+export function nabidka(hra, minimum = 'bezna') {
+  const moznosti = [];
+  for (const id of Object.keys(ZBRANE)) {
+    if ((hra.zbrane[id]?.uroven ?? 0) < MAX_UROVEN) moznosti.push(['zbran', id]);
+  }
+  for (const id of Object.keys(PASIVY)) {
+    if ((hra.pasivy[id] ?? 0) < MAX_UROVEN) moznosti.push(['pasiva', id]);
   }
   const vybrane = [];
   while (vybrane.length < 3 && moznosti.length) {
-    vybrane.push(moznosti.splice(Math.floor(hra.rng.dalsi() * moznosti.length), 1)[0]);
+    const [druh, id] = moznosti.splice(Math.floor(hra.rng.dalsi() * moznosti.length), 1)[0];
+    vybrane.push(karta(hra, druh, id, losujRaritu(hra, minimum)));
   }
-  if (!vybrane.length) vybrane.push({ druh: 'leceni', id: 'leceni', nazev: 'Odpočinek', popis: 'Doléčí 30 životů', uroven: 0 });
+  if (!vybrane.length) vybrane.push(karta(hra, 'leceni', 'leceni', losujRaritu(hra, minimum)));
   return vybrane;
 }
 
+function pridejPasivu(hrdina, id) {
+  if (id === 'srdce') { hrdina.maxHp += 20; hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + 20); }
+  if (id === 'boty') hrdina.rychlost *= 1.12;
+  if (id === 'magnet') hrdina.magnet *= 1.4;
+  if (id === 'sila') hrdina.sila *= 1.15;
+}
+
+// Použije kartu: zbraň nebo pasiva vyskočí o kroku úrovní (nikdy přes maximum), pak bonus rarity.
 export function vyber(hra, volba) {
   const { hrdina } = hra;
+  const cil = Math.min(MAX_UROVEN, volba.uroven ?? 0);
   if (volba.druh === 'zbran') {
-    hra.zbrane[volba.id] = { ...(hra.zbrane[volba.id] ?? { nabiti: 0 }), uroven: volba.uroven };
+    hra.zbrane[volba.id] = { ...(hra.zbrane[volba.id] ?? { nabiti: 0 }), uroven: Math.max(cil, hra.zbrane[volba.id]?.uroven ?? 0) };
   } else if (volba.druh === 'pasiva') {
-    hra.pasivy[volba.id] = volba.uroven;
-    if (volba.id === 'srdce') { hrdina.maxHp += 20; hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + 20); }
-    if (volba.id === 'boty') hrdina.rychlost *= 1.12;
-    if (volba.id === 'magnet') hrdina.magnet *= 1.4;
-    if (volba.id === 'sila') hrdina.sila *= 1.15;
+    for (let u = hra.pasivy[volba.id] ?? 0; u < cil; u++) pridejPasivu(hrdina, volba.id);
+    hra.pasivy[volba.id] = Math.max(cil, hra.pasivy[volba.id] ?? 0);
   } else {
-    hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + 30);
+    hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + LECENI_ODPOCINKU * (volba.kroku ?? 1));
   }
+  if (volba.bonus?.sila > 0) hrdina.sila *= 1 + volba.bonus.sila;
+  if (volba.bonus?.doleceni) hrdina.hp = hrdina.maxHp;
   hra.volby = null;
+  hra.zTruhly = false;
 }

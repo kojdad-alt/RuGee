@@ -4,7 +4,8 @@ import { kresli, kresliMenu } from './kresleni.js';
 import { dusZaHru } from './duse.js';
 import { vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, obrazekSpritu, pocetDusi } from './menu.js';
 import { zapisVysledek, nactiDuse, pripisDuse } from './ulozeni.js';
-import { odemkniZvuk, zvukStartu } from './zvuk.js';
+import { odemkniZvuk, zvukStartu, zvukVolby, zvukVyberu } from './zvuk.js';
+import { ukazVolby } from './volba.js';
 
 const platno = document.getElementById('platno');
 const ctx = platno.getContext('2d');
@@ -14,6 +15,9 @@ const stisknute = new Set();
 let hra = null;
 let vMenu = true;
 let posledni = 0;
+// Kdy se otevřelo okno výběru. Chvíli potom se nevybírá, ať klik nebo klávesa z běhu nic nevybere náhodou.
+let volbyOd = 0;
+const POJISTKA_VOLBY = 300;
 
 function zmenVelikost() {
   platno.width = innerWidth;
@@ -92,26 +96,18 @@ function kresliJoystick() {
   ctx.restore();
 }
 
-function ukazVolby() {
-  el('karty').replaceChildren(...hra.volby.map((v, i) => {
-    const karta = document.createElement('button');
-    karta.type = 'button';
-    karta.className = 'karta';
-    const nazev = document.createElement('b');
-    nazev.textContent = `${i + 1}. ${v.nazev}${v.uroven > 1 ? ` ${v.uroven}` : ''}`;
-    const popis = document.createElement('small');
-    popis.textContent = v.uroven === 1 && v.druh === 'zbran' ? `Nová zbraň: ${v.popis}` : v.popis;
-    karta.append(nazev, popis);
-    karta.addEventListener('click', () => zvol(i));
-    return karta;
-  }));
-  el('volba').hidden = false;
+function otevriVolby() {
+  const stupen = ukazVolby(el('volba'), hra, zvol);
+  volbyOd = performance.now();
+  zvukVolby(stupen);
 }
 
 function zvol(i) {
-  if (!hra.volby?.[i]) return;
+  if (!hra?.volby?.[i] || performance.now() - volbyOd < POJISTKA_VOLBY) return;
   vyber(hra, hra.volby[i]);
+  zvukVyberu();
   el('volba').hidden = true;
+  document.activeElement?.blur?.();
 }
 
 // Rekord se drží jen v tomhle prohlížeči (ulozeni.js), v menu ho ukazuje záložka Rekordy.
@@ -162,7 +158,7 @@ function smycka(t) {
   }
   const melVolby = Boolean(hra.volby);
   aktualizuj(hra, dt, vstup(), platno.width, platno.height);
-  if (!melVolby && hra.volby) ukazVolby();
+  if (!melVolby && hra.volby) otevriVolby();
   if (hra.konec && el('konec').hidden) {
     zapisKonec();
     el('konec').hidden = false;
@@ -190,6 +186,8 @@ addEventListener('keydown', (e) => {
   }
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
   if (hra.volby && ['1', '2', '3'].includes(k)) zvol(Number(k) - 1);
+  // Šipky vybírají kartu, Enter nebo mezerník ji vezme (jen když už je nějaká vybraná, ne naslepo první).
+  else if (hra.volby && (!['enter', ' '].includes(k) || el('karty').querySelector('.vybrano'))) ovladejTlacitka(el('karty'), e);
   if (k === 'p' && !hra.volby) hra.pauza = !hra.pauza;
 });
 addEventListener('keyup', (e) => stisknute.delete(e.key.toLowerCase()));

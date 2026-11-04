@@ -7,10 +7,13 @@
 // Třídy: hlavní hra je za výchozí třídu, každá třída pak hraje krátce sama (svoje zbraň, svoje výhoda).
 // Duše a trvalá vylepšení: hlavní hra je bez vylepšení (stejná jako před nimi), prázdná nebo rozbitá vylepšení
 // hrají úplně stejně, každé vylepšení změní svou vlastnost, Oživení vrátí hrdinu jednou, obchod a úložiště sedí.
+// Rarity karet: šance sedí s losováním, s časem a Štěstím přibývá vzácnějších, truhla nedá běžnou, karta nikdy
+// nepřeleze maximální úroveň a dá přesně to, co slibuje (úrovně, poškození, doléčení).
 import { vytvorRng } from '../src/rng.js';
 import {
   novaHra, aktualizuj, vyber, staty, TRVANI_TRESU, OD_PAVOUKU, TRVANI_SITE, ZPOMALENI_SITI, TRIDY, VYCHOZI_TRIDA,
   ZIVOTY_PO_OZIVENI, NEZRANITELNY_PO_OZIVENI, ODHOZENI_PRI_OZIVENI,
+  ZBRANE, RARITY, PORADI_RARIT, MAX_UROVEN, SILA_ZA_PREBYTEK, LECENI_ODPOCINKU, CAS_PLNYCH_RARIT, sanceRarit, nabidka, karta,
 } from '../src/hra.js';
 import {
   VYLEPSENI, DUSE_ZA, dusZaHru, cenaVylepseni, kupVylepseni, vratDuse, utraceno,
@@ -35,6 +38,25 @@ let prvniPavouk = null;
 let maxPavouku = 0;
 let siti = 0;
 let krokuVSiti = 0;
+const nabidnuto = Object.fromEntries(PORADI_RARIT.map((id) => [id, 0]));
+let truhel = 0;
+const chybyRarit = [];
+
+// Každá nabídnutá karta: známá rarita, úrovně v mezích, popis a ikona.
+function zkontrolujKarty(h) {
+  for (const v of h.volby) {
+    if (!Object.hasOwn(RARITY, v.rarita)) chybyRarit.push(`karta s neznámou raritou ${v.rarita}`);
+    else nabidnuto[v.rarita] += 1;
+    if (v.druh !== 'leceni' && (v.uroven > MAX_UROVEN || v.uroven - v.od !== v.kroku || v.kroku < 1 || v.kroku > RARITY[v.rarita]?.urovni)) {
+      chybyRarit.push(`karta ${v.id} ${v.rarita} má úrovně ${v.od} → ${v.uroven}`);
+    }
+    if (!v.popis?.length || !v.popis.every((r) => typeof r === 'string' && r) || typeof v.ikona !== 'string') chybyRarit.push(`karta ${v.id} bez popisu nebo ikony`);
+  }
+  if (h.zTruhly) {
+    truhel += 1;
+    if (h.volby.some((v) => v.rarita === 'bezna')) chybyRarit.push('truhla nabídla běžnou kartu');
+  }
+}
 
 // Jednoduchý hráč: utíká od nepřátel v blízkosti a jinak jde pro nejbližší krystal.
 // Bez zbraně na dálku (jen krumpáče nebo lucerna) pustí nepřátele blíž, jinak by je nikdy nezasáhl.
@@ -96,7 +118,9 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
   }
   if (hra.volby) {
     volby += 1;
+    zkontrolujKarty(hra);
     vyber(hra, zvol(hra.volby));
+    if (hra.zTruhly) chybyRarit.push('po výběru zůstala truhla otevřená');
   }
   maxNepratel = Math.max(maxNepratel, hra.nepratele.length);
   const { x, y, hp } = hra.hrdina;
@@ -243,6 +267,82 @@ if (vraceno.duse !== 100000 || Object.keys(vraceno.vylepseni).length) chybyDusi.
 if (kupVylepseni({ duse: cenaVylepseni('sila', 0) - 1, vylepseni: {} }, 'sila') !== null) chybyDusi.push('nákup bez dost duší prošel');
 if (kupVylepseni({ duse: 999, vylepseni: {} }, 'drak') !== null) chybyDusi.push('koupilo se neznámé vylepšení');
 
+// Rarity: šance dávají dohromady 1, s časem a se Štěstím je vzácnějších víc, truhla nedá běžnou.
+const naZacatku = novaHra(vytvorRng(seminko));
+const pozde = novaHra(vytvorRng(seminko));
+pozde.cas = CAS_PLNYCH_RARIT;
+const stastny = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, { stesti: VYLEPSENI.stesti.max });
+const sZacatek = sanceRarit(naZacatku);
+const sPozde = sanceRarit(pozde);
+const sStesti = sanceRarit(stastny);
+const sTruhla = sanceRarit(naZacatku, 'vzacna');
+const vzacnejsi = (s) => 1 - s.bezna;
+for (const [popis, s] of [['začátek', sZacatek], ['15. minuta', sPozde], ['Štěstí', sStesti], ['truhla', sTruhla]]) {
+  const soucet = Object.values(s).reduce((a, b) => a + b, 0);
+  if (Math.abs(soucet - 1) > 1e-9 || Object.values(s).some((p) => !(p >= 0))) chybyRarit.push(`šance rarit (${popis}) nedávají 1`);
+}
+if (!PORADI_RARIT.every((id, i) => i === 0 || sZacatek[id] < sZacatek[PORADI_RARIT[i - 1]])) chybyRarit.push('vzácnější rarita není vzácnější');
+if (!(vzacnejsi(sPozde) > vzacnejsi(sZacatek))) chybyRarit.push('s časem nepřibylo vzácnějších karet');
+if (!(vzacnejsi(sStesti) > vzacnejsi(sZacatek))) chybyRarit.push('Štěstí nepřidalo vzácnější karty');
+if (sTruhla.bezna !== 0) chybyRarit.push('truhla má šanci na běžnou kartu');
+// Losování sedí se šancemi: 3000 nabídek po 3 kartách na začátku hry.
+const losovano = Object.fromEntries(PORADI_RARIT.map((id) => [id, 0]));
+let karet = 0;
+for (let i = 0; i < 3000; i++) {
+  for (const v of nabidka(naZacatku)) { losovano[v.rarita] += 1; karet += 1; }
+}
+for (const id of PORADI_RARIT) {
+  if (Math.abs(losovano[id] / karet - sZacatek[id]) > 0.02) chybyRarit.push(`${id} padá ${(losovano[id] / karet).toFixed(3)} místo ${sZacatek[id].toFixed(3)}`);
+}
+for (let i = 0; i < 500; i++) {
+  if (nabidka(naZacatku, 'vzacna').some((v) => v.rarita === 'bezna')) { chybyRarit.push('nabídka s minimem vzácná dala běžnou'); break; }
+}
+if (JSON.stringify(nabidka(novaHra(vytvorRng(seminko)))) !== JSON.stringify(nabidka(novaHra(vytvorRng(seminko))))) chybyRarit.push('stejné semínko dalo jiné karty');
+// Karty podle rarity dají přesně to, co slibují. Lovec začíná s Jiskrou na 1.
+const k = novaHra(vytvorRng(seminko));
+const blizko = (a, b) => Math.abs(a - b) < 1e-9;
+const legBlesk = karta(k, 'zbran', 'blesk', 'legendarni');
+if (legBlesk.od !== 0 || legBlesk.uroven !== 3 || legBlesk.popis.length !== 3 || legBlesk.popis[0] !== ZBRANE.blesk.popis[0]) chybyRarit.push('legendární nová zbraň nemá 3 úrovně');
+k.hrdina.hp = 10;
+vyber(k, legBlesk);
+if (k.zbrane.blesk?.uroven !== 3 || !blizko(k.hrdina.sila, 1 + RARITY.legendarni.sila) || k.hrdina.hp !== k.hrdina.maxHp) chybyRarit.push('legendární karta nedala úrovně, poškození nebo doléčení');
+k.zbrane.jiskra.uroven = MAX_UROVEN - 1;
+const prebytek = karta(k, 'zbran', 'jiskra', 'legendarni');
+if (prebytek.kroku !== 1 || prebytek.uroven !== MAX_UROVEN || !blizko(prebytek.bonus.sila, RARITY.legendarni.sila + 2 * SILA_ZA_PREBYTEK)) chybyRarit.push('přebytek úrovní se nepromění v poškození');
+vyber(k, prebytek);
+if (k.zbrane.jiskra.uroven !== MAX_UROVEN) chybyRarit.push(`jiskra po legendární kartě na ${k.zbrane.jiskra.uroven}`);
+const silaPred = k.hrdina.sila;
+const rychlostPred = k.hrdina.rychlost;
+vyber(k, karta(k, 'pasiva', 'boty', 'vzacna'));
+if (k.pasivy.boty !== 2 || !blizko(k.hrdina.rychlost, rychlostPred * 1.12 ** 2) || k.hrdina.sila !== silaPred) chybyRarit.push('vzácné boty nedaly 2 úrovně');
+const maxHpPred = k.hrdina.maxHp;
+vyber(k, karta(k, 'pasiva', 'srdce', 'epicka'));
+if (k.pasivy.srdce !== 2 || k.hrdina.maxHp !== maxHpPred + 40 || !blizko(k.hrdina.sila, silaPred * (1 + RARITY.epicka.sila))) chybyRarit.push('epické srdce nesedí');
+k.pasivy.magnet = MAX_UROVEN;
+if (karta(k, 'pasiva', 'magnet', 'vzacna').kroku !== 0) chybyRarit.push('pasiva na maximu jde ještě zvýšit');
+for (const id of PORADI_RARIT) {
+  const odpocinek = karta(k, 'leceni', 'leceni', id);
+  if (odpocinek.bonus.sila !== 0) chybyRarit.push(`odpočinek ${id} přidává poškození`);
+}
+k.hrdina.hp = 1;
+vyber(k, karta(k, 'leceni', 'leceni', 'vzacna'));
+if (k.hrdina.hp !== 1 + 2 * LECENI_ODPOCINKU) chybyRarit.push(`vzácný odpočinek doléčil na ${k.hrdina.hp}`);
+if (karta(k, 'zbran', 'lucerna', 'drak').rarita !== 'bezna') chybyRarit.push('neznámá rarita není běžná');
+// Truhla a nová úroveň ve stejném snímku: nejdřív truhla, úroveň počká na další snímek.
+const tr = novaHra(vytvorRng(seminko));
+tr.predmety.push({ druh: 'truhla', x: 0, y: 0 });
+tr.krystaly.push({ x: 0, y: 0, xp: 100 });
+aktualizuj(tr, 0.001, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+if (!tr.zTruhly || !tr.volby || tr.hrdina.uroven !== 1) chybyRarit.push('truhla se přepsala novou úrovní');
+else {
+  vyber(tr, tr.volby[0]);
+  aktualizuj(tr, 0.001, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  if (tr.hrdina.uroven !== 2 || !tr.volby || tr.zTruhly) chybyRarit.push('úroveň po truhle nepřišla');
+}
+for (const [id, z] of Object.entries(hra.zbrane)) if (z.uroven > MAX_UROVEN) chybyRarit.push(`${id} přes maximum`);
+for (const [id, u] of Object.entries(hra.pasivy)) if (u > MAX_UROVEN) chybyRarit.push(`${id} přes maximum`);
+const zaokrouhli = (s) => Object.fromEntries(Object.entries(s).map(([id, p]) => [id, Math.round(p * 1000) / 10]));
+
 const vysledek = {
   seminko,
   trida: hra.trida,
@@ -269,10 +369,13 @@ const vysledek = {
     ozivil_v_s: oziveni && Math.round(oziveni.cas), konec_s: Math.round(sOzivenim.cas), bez_oziveni_konec_s: Math.round(bezOziveni.cas),
   },
   cena_vseho: zaplaceno,
+  rarity_nabidnutych: nabidnuto,
+  truhel,
+  sance_rarit_procenta: { zacatek: zaokrouhli(sZacatek), minuta_15: zaokrouhli(sPozde), stesti_max: zaokrouhli(sStesti) },
 };
 console.log(JSON.stringify(vysledek, null, 2));
 
-const chyby = [...chybyTrid, ...chybyDusi];
+const chyby = [...chybyTrid, ...chybyDusi, ...chybyRarit];
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);
 if (hra.zabito === 0) chyby.push('nikdo nezemřel, zbraně asi nestřílí');
 if (hra.hrdina.uroven < 3) chyby.push('hrdina skoro nepostoupil, krystaly se asi nesbírají');

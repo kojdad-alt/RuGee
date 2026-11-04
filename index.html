@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hlubiny</title>
-<link rel="stylesheet" href="style.css?v=41f9396f">
+<link rel="stylesheet" href="style.css?v=d3ceb2a4">
 </head>
 <body class="v-menu">
 <canvas id="platno" aria-label="Hlubiny"></canvas>
@@ -32,10 +32,14 @@
   <p class="menu-pata">Šipky a Enter, klik nebo dotyk</p>
 </section>
 
-<section id="volba" class="okno" hidden>
-  <h2>Nová úroveň</h2>
-  <p class="podtitul">Vyber jedno vylepšení (klávesy 1–3)</p>
-  <div id="karty" class="karty"></div>
+<section id="volba" class="vyber" hidden>
+  <div class="vyber-panel">
+    <p id="volba-stitek" class="vyber-stitek">Úroveň 2</p>
+    <h2 id="volba-nadpis">Nová úroveň</h2>
+    <p class="podtitul"><span class="jen-klavesnice">Vyber jedno vylepšení (klávesy 1–3 nebo šipky a Enter)</span><span class="jen-dotyk">Klepni na jedno vylepšení</span></p>
+    <div id="karty" class="karty"></div>
+    <p id="volba-sance" class="vyber-sance"></p>
+  </div>
 </section>
 
 <section id="konec" class="okno" hidden>
@@ -52,19 +56,20 @@
 <script type="importmap">
 {
   "imports": {
-    "./src/duse.js": "./src/duse.js?v=c70bdb39",
-    "./src/hra.js": "./src/hra.js?v=af2c9f0d",
+    "./src/duse.js": "./src/duse.js?v=ed689294",
+    "./src/hra.js": "./src/hra.js?v=d62c2c6f",
     "./src/kresleni.js": "./src/kresleni.js?v=0b6b513d",
     "./src/louka.js": "./src/louka.js?v=8acc2579",
-    "./src/main.js": "./src/main.js?v=f34f1ac6",
-    "./src/menu.js": "./src/menu.js?v=0b164c71",
+    "./src/main.js": "./src/main.js?v=5916b1b8",
+    "./src/menu.js": "./src/menu.js?v=e560d0a2",
     "./src/rng.js": "./src/rng.js?v=60bdabbe",
-    "./src/sprity.js": "./src/sprity.js?v=38a3d4d0",
+    "./src/sprity.js": "./src/sprity.js?v=5cfcb14c",
     "./src/ulozeni.js": "./src/ulozeni.js?v=161e6baf",
-    "./src/zvuk.js": "./src/zvuk.js?v=d62319a2"
+    "./src/volba.js": "./src/volba.js?v=6e91c3cd",
+    "./src/zvuk.js": "./src/zvuk.js?v=3fb3b026"
   }
 }
 </script>
-<script type="module" src="src/main.js?v=f34f1ac6"></script>
+<script type="module" src="src/main.js?v=5916b1b8"></script>
 </body>
 </html>
