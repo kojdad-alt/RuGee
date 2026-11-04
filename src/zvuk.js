@@ -38,3 +38,14 @@ export function zvukStartu() {
   ton(659, 0.08);
   ton(784, 0.16, 0.14);
 }
+
+// Nákup v obchodě: dva rychlé jasné tóny.
+export function zvukNakupu() {
+  ton(784, 0);
+  ton(1047, 0.06, 0.12);
+}
+
+// Na nákup chybí duše: krátké hluboké zabzučení.
+export function zvukOdmitnuti() {
+  ton(147, 0, 0.12, 0.03);
+}

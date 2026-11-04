@@ -1,9 +1,11 @@
-// Co si hra pamatuje v tomhle prohlížeči: rekord a zvolenou třídu, později trvalá vylepšení.
+// Co si hra pamatuje v tomhle prohlížeči: rekord, zvolenou třídu a duše s trvalými vylepšeními.
 // V anonymním okně nebo se zablokovaným úložištěm se nic neuloží a hra kvůli tomu nespadne.
 import { platnaTrida } from './hra.js';
+import { platnyStav } from './duse.js';
 
 const KLIC_REKORDU = 'hlubiny.rekord';
 const KLIC_TRIDY = 'hlubiny.trida';
+const KLIC_DUSI = 'hlubiny.duse';
 
 function nacti(klic) {
   try {
@@ -43,4 +45,21 @@ export function nactiTridu() {
 
 export function ulozTridu(id) {
   uloz(KLIC_TRIDY, platnaTrida(id));
+}
+
+// Duše a koupená vylepšení: { duse, vylepseni: { id: úroveň } }. Rozbitý záznam = nic nekoupeno.
+export function nactiDuse() {
+  return platnyStav(nacti(KLIC_DUSI));
+}
+
+export function ulozDuse(stav) {
+  uloz(KLIC_DUSI, platnyStav(stav));
+}
+
+// Připíše duše z dohrané hry a vrátí nový stav.
+export function pripisDuse(kolik) {
+  const stav = nactiDuse();
+  const novy = { ...stav, duse: stav.duse + Math.max(0, Math.floor(kolik) || 0) };
+  ulozDuse(novy);
+  return novy;
 }

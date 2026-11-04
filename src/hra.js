@@ -1,4 +1,5 @@
 // Pravidla hry: pohyb, zbraně, nepřátelé, krystaly zkušeností a vylepšení.
+import { pouzijVylepseni } from './duse.js';
 
 export const ZBRANE = {
   jiskra: {
@@ -66,6 +67,11 @@ export const TRVANI_TRESU = 0.15;
 export const OD_PAVOUKU = 240;
 export const TRVANI_SITE = 1.5;
 export const ZPOMALENI_SITI = 0.6;
+// Oživení (trvalé vylepšení): hrdina vstane s půlkou životů, chvíli je nezranitelný a duše odhodí nepřátele kolem.
+export const ZIVOTY_PO_OZIVENI = 0.5;
+export const NEZRANITELNY_PO_OZIVENI = 2;
+export const ODHOZENI_PRI_OZIVENI = 160;
+export const TRVANI_ZABLESKU = 0.8;
 
 const NEPRATELE = {
   netopyr: { hp: 10, rychlost: 72, poskozeni: 5, xp: 1, polomer: 10 },
@@ -75,13 +81,16 @@ const NEPRATELE = {
   strazce: { hp: 320, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
 };
 
-export function novaHra(rng, idTridy = VYCHOZI_TRIDA) {
+// vylepseni: trvalá vylepšení z menu ({ id: úroveň }), bez nich je hra stejná jako dřív.
+export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}) {
   const trida = platnaTrida(idTridy);
   const hrdina = {
     x: 0, y: 0, hp: 100, maxHp: 100, rychlost: 110, magnet: 64, nabijeni: 1,
     sila: 1, uroven: 1, xp: 0, potreba: potrebaNaUroven(1), nezranitelny: 0, otoceny: 1, sit: 0,
+    stesti: 1, zkusenosti: 1, oziveni: 0,
   };
   for (const [vlastnost, nasobek] of Object.entries(TRIDY[trida].nasobky)) hrdina[vlastnost] *= nasobek;
+  pouzijVylepseni(hrdina, vylepseni);
   hrdina.hp = hrdina.maxHp;
   return {
     rng,
@@ -89,6 +98,8 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA) {
     cas: 0,
     zabito: 0,
     zabitoBossu: 0,
+    oziveno: 0,
+    zablesk: 0,
     konec: false,
     volby: null,
     hrdina,
@@ -140,6 +151,25 @@ function rozlet(hra, n) {
     });
   }
   if (hra.castice.length > MAX_CASTIC) hra.castice.splice(0, hra.castice.length - MAX_CASTIC);
+}
+
+// Duše vrátí hrdinu do hry: půlka životů, chvíle bez zranění a nepřátelé kolem odletí kus dál.
+function oziv(hra) {
+  const { hrdina } = hra;
+  hrdina.oziveni -= 1;
+  hra.oziveno += 1;
+  hrdina.hp = Math.round(hrdina.maxHp * ZIVOTY_PO_OZIVENI);
+  hrdina.nezranitelny = NEZRANITELNY_PO_OZIVENI;
+  hrdina.sit = 0;
+  hra.zablesk = TRVANI_ZABLESKU;
+  for (const n of hra.nepratele) {
+    const d = vzdalenost(n, hrdina);
+    if (d >= ODHOZENI_PRI_OZIVENI) continue;
+    const uhel = d > 0 ? Math.atan2(n.y - hrdina.y, n.x - hrdina.x) : 0;
+    n.x = hrdina.x + Math.cos(uhel) * ODHOZENI_PRI_OZIVENI;
+    n.y = hrdina.y + Math.sin(uhel) * ODHOZENI_PRI_OZIVENI;
+  }
+  hra.oznameni = { text: 'Duše tě vrátily z hlubin', zivot: 3 };
 }
 
 function polomerSpawnu(sirka, vyska) {
@@ -213,6 +243,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   hrdina.nezranitelny = Math.max(0, hrdina.nezranitelny - dt);
   hrdina.sit = Math.max(0, hrdina.sit - dt);
   hra.tres = Math.max(0, hra.tres - dt);
+  hra.zablesk = Math.max(0, hra.zablesk - dt);
 
   // nepřátelé
   hra.doSpawnu -= dt;
@@ -251,7 +282,10 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       hrdina.nezranitelny = 0.5;
       hra.tres = TRVANI_TRESU;
       if (n.sit) hrdina.sit = TRVANI_SITE;
-      if (hrdina.hp <= 0) hra.konec = true;
+      if (hrdina.hp <= 0) {
+        if (hrdina.oziveni > 0) oziv(hra);
+        else hra.konec = true;
+      }
     }
   }
 
@@ -353,9 +387,11 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
         hra.predmety.push({ druh: 'truhla', x: n.x, y: n.y });
         continue;
       }
+      // Štěstí z trvalých vylepšení zvětší obě šance, los z rng je pořád jeden (náhoda vln se neposune).
       const los = hra.rng.dalsi();
-      if (los < SANCE_MAGNET) hra.predmety.push({ druh: 'magnet', x: n.x, y: n.y });
-      else if (los < SANCE_MAGNET + SANCE_SRDCE) hra.predmety.push({ druh: 'srdce', x: n.x, y: n.y });
+      const stesti = hrdina.stesti;
+      if (los < SANCE_MAGNET * stesti) hra.predmety.push({ druh: 'magnet', x: n.x, y: n.y });
+      else if (los < (SANCE_MAGNET + SANCE_SRDCE) * stesti) hra.predmety.push({ druh: 'srdce', x: n.x, y: n.y });
     }
   }
   hra.nepratele = hra.nepratele.filter((n) => n.hp > 0);
@@ -388,7 +424,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     }
     if (d < 12) {
       kr.sebran = true;
-      hrdina.xp += kr.xp;
+      hrdina.xp += kr.xp * hrdina.zkusenosti;
     }
   }
   hra.krystaly = hra.krystaly.filter((kr) => !kr.sebran);

@@ -6,6 +6,7 @@
   --text-tlumeny: #a39cae;
   --zlata: #e9c46a;
   --xp: #4fd6c9;
+  --duse: #9db8ff;
 }
 
 * { box-sizing: border-box; }
@@ -237,39 +238,6 @@ body.v-menu .hud, body.v-menu .napoveda { display: none; }
   text-shadow: 0 2px 0 #000;
 }
 
-.mrizka {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.slot {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  min-height: 116px;
-  padding: 10px 6px;
-  background: #221f2b;
-  border: 2px solid var(--okraj);
-}
-
-.slot b { color: var(--zlata); }
-.slot small { color: var(--text-tlumeny); }
-
-.slot.zamceny {
-  border-style: dashed;
-  background: #1a1820;
-}
-
-.otaznik {
-  font-size: 30px;
-  font-weight: bold;
-  color: var(--okraj);
-}
-
 .tabulka {
   display: grid;
   grid-template-columns: auto auto;
@@ -397,3 +365,109 @@ kbd {
 }
 
 .trida.zvolena .trida-stitek { display: block; }
+
+/* Obchod s trvalými vylepšeními: karta = tlačítko, úrovně jako čtverečky, cena v duších. */
+.duse-stav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 4px 14px 4px 10px;
+  font-size: 18px;
+  background: #221f2b;
+  border: 2px solid var(--okraj);
+}
+
+.duse-stav b { color: var(--duse); }
+
+.mrizka-vylepseni {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.vylepseni {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  background: #221f2b;
+  border: 2px solid var(--okraj);
+  box-shadow: inset 0 -3px 0 #15131b;
+  padding: 10px 10px 12px;
+  cursor: pointer;
+}
+
+/* Oživení má jen jednu úroveň a je nejdražší: přes celou šířku pod ostatními. */
+.vylepseni.jednou { grid-column: 1 / -1; }
+
+.vylepseni-hlava {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.vylepseni b { color: var(--zlata); font-size: 15px; }
+.vylepseni-uroven { color: var(--text-tlumeny); font-size: 12px; }
+.vylepseni small { flex: 1; color: var(--text-tlumeny); font-size: 12px; line-height: 1.35; }
+
+.ctverecky { display: flex; gap: 3px; }
+
+.ctverecky i {
+  width: 12px;
+  height: 8px;
+  background: #15131b;
+  border: 1px solid var(--okraj);
+}
+
+.ctverecky i.plny {
+  background: var(--duse);
+  border-color: #dfe8ff;
+}
+
+.cena {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: bold;
+  color: var(--duse);
+}
+
+.vylepseni.drahe .cena { color: #b0707a; }
+.vylepseni.hotovo { background: #1c2230; border-color: #3d4b70; }
+.vylepseni.hotovo .cena { color: var(--text-tlumeny); }
+
+.vylepseni.vybrano, .vylepseni:focus-visible {
+  outline: none;
+  border-color: var(--zlata);
+}
+
+.vylepseni.zatrast { animation: zatrast 0.25s steps(4); }
+
+@keyframes zatrast {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.vratit-radek { margin-bottom: 12px; }
+.menu-tlacitko.vratit { font-size: 14px; padding: 8px 28px 10px; }
+.menu-tlacitko.vratit.potvrdit { border-color: #b0707a; color: #f0b4bc; }
+
+/* Duše na obrazovce konce hry */
+.konec-duse {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 10px;
+  margin: -4px 0 16px;
+}
+
+.konec-duse:empty { display: none; }
+.konec-duse b { color: var(--duse); font-size: 18px; }
+.konec-duse small { flex-basis: 100%; color: var(--text-tlumeny); }
