@@ -1,13 +1,17 @@
 import { vytvorRng } from './rng.js';
 import { novaHra, aktualizuj, vyber } from './hra.js';
-import { kresli } from './kresleni.js';
+import { kresli, kresliMenu } from './kresleni.js';
+import { vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas } from './menu.js';
+import { zapisVysledek } from './ulozeni.js';
+import { odemkniZvuk, zvukStartu } from './zvuk.js';
 
 const platno = document.getElementById('platno');
 const ctx = platno.getContext('2d');
 const el = (id) => document.getElementById(id);
 
 const stisknute = new Set();
-let hra;
+let hra = null;
+let vMenu = true;
 let posledni = 0;
 
 function zmenVelikost() {
@@ -19,9 +23,33 @@ function start() {
   // ?seed=123 v adrese dá pořád stejné vlny (hodí se na hledání chyb).
   const seminko = Number(new URLSearchParams(location.search).get('seed')) || (Date.now() >>> 0);
   hra = novaHra(vytvorRng(seminko));
+  vMenu = false;
+  menu.skryj();
+  document.body.classList.remove('v-menu');
   el('konec').hidden = true;
   el('volba').hidden = true;
+  // Zaměřené tlačítko schovaného okna by jinak Enterem spustilo něco uprostřed hry.
+  document.activeElement?.blur?.();
 }
+
+function doMenu() {
+  vMenu = true;
+  el('konec').hidden = true;
+  el('volba').hidden = true;
+  document.body.classList.add('v-menu');
+  stisknute.clear();
+  dotyk.aktivni = false;
+  menu.ukaz();
+}
+
+// Hra začne až po Hrát. Stisk tlačítka zároveň odemkne zvuk (prohlížeč ho jinak nepustí).
+const menu = vytvorMenu({
+  hrat() {
+    odemkniZvuk();
+    zvukStartu();
+    start();
+  },
+});
 
 // Dotyk: kde prst dosedne, tam je střed joysticku; tah od středu = směr pohybu.
 const dotyk = { aktivni: false, id: null, sx: 0, sy: 0, x: 0, y: 0 };
@@ -85,40 +113,15 @@ function zvol(i) {
   el('volba').hidden = true;
 }
 
-// Rekord se drží jen v tomhle prohlížeči. V anonymním okně nebo se zablokovaným úložištěm
-// se prostě neuloží, hra kvůli tomu nespadne.
-const KLIC_REKORDU = 'hlubiny.rekord';
-
-function nactiRekord() {
-  try {
-    return JSON.parse(localStorage.getItem(KLIC_REKORDU)) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function ulozRekord(rekord) {
-  try {
-    localStorage.setItem(KLIC_REKORDU, JSON.stringify(rekord));
-  } catch {
-    // úložiště nejde, rekord se neuloží
-  }
-}
-
+// Rekord se drží jen v tomhle prohlížeči (ulozeni.js), v menu ho ukazuje záložka Rekordy.
 function zapisKonec() {
-  const vysledek = { cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito };
-  const rekord = nactiRekord();
-  const novy = !rekord || vysledek.cas > rekord.cas;
-  if (novy) ulozRekord(vysledek);
+  const vysledek = { cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito, datum: new Date().toISOString() };
+  const { novy, rekord } = zapisVysledek(vysledek);
   const text = `Přežil jsi ${formatCas(hra.cas)}, úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}, Strážců ${hra.zabitoBossu}.`;
   const radekRekordu = novy
     ? 'Nový rekord!'
     : `Rekord: ${formatCas(rekord.cas)}, úroveň ${rekord.uroven}, zabito ${rekord.zabito}.`;
   el('konec-text').textContent = `${text} ${radekRekordu}`;
-}
-
-function formatCas(s) {
-  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
 
 function hud() {
@@ -132,12 +135,18 @@ function hud() {
 function smycka(t) {
   const dt = Math.min(0.05, (t - posledni) / 1000 || 0);
   posledni = t;
+  if (vMenu) {
+    kresliMenu(ctx, t / 1000);
+    requestAnimationFrame(smycka);
+    return;
+  }
   const melVolby = Boolean(hra.volby);
   aktualizuj(hra, dt, vstup(), platno.width, platno.height);
   if (!melVolby && hra.volby) ukazVolby();
   if (hra.konec && el('konec').hidden) {
     zapisKonec();
     el('konec').hidden = false;
+    vyberTlacitko(el('znovu'));
   }
   kresli(ctx, hra);
   kresliJoystick();
@@ -147,11 +156,21 @@ function smycka(t) {
 
 addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
-  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+  if (vMenu) {
+    menu.klavesa(e);
+    return;
+  }
   stisknute.add(k);
+  // Po prohře: R znovu, M nebo Esc do menu, šipky a Enter mezi tlačítky Znovu a Menu.
+  if (hra.konec) {
+    if (k === 'r') start();
+    else if (k === 'm' || k === 'escape') doMenu();
+    else ovladejTlacitka(el('konec'), e);
+    return;
+  }
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
   if (hra.volby && ['1', '2', '3'].includes(k)) zvol(Number(k) - 1);
-  if (k === 'p' && !hra.konec && !hra.volby) hra.pauza = !hra.pauza;
-  if (k === 'r' && hra.konec) start();
+  if (k === 'p' && !hra.volby) hra.pauza = !hra.pauza;
 });
 addEventListener('keyup', (e) => stisknute.delete(e.key.toLowerCase()));
 platno.addEventListener('touchstart', (e) => {
@@ -175,8 +194,9 @@ platno.addEventListener('touchend', pustDotyk);
 platno.addEventListener('touchcancel', pustDotyk);
 addEventListener('blur', () => stisknute.clear());
 addEventListener('resize', zmenVelikost);
-el('znovu').addEventListener('click', start);
+el('znovu').addEventListener('click', () => { if (hra?.konec) start(); });
+el('do-menu').addEventListener('click', () => { if (hra?.konec) doMenu(); });
 
 zmenVelikost();
-start();
+doMenu();
 requestAnimationFrame(smycka);

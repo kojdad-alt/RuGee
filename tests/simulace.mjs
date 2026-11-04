@@ -3,8 +3,10 @@
 // rozumná (žádné NaN, nepřátel nepřibývá donekonečna) a že se hra dá hrát a prohrát.
 // Hlídá i ozdoby: úlomky po zabití a třes obrazovky po zásahu hrdiny.
 // Pavouci: nesmí přijít před 4. minutou, jejich zásah zalepí hrdinu sítí a v síti chodí pomaleji.
+// Rekord pro menu: výsledek se uloží jen když je delší, rozbitý záznam ani chybějící úložiště hru neshodí.
 import { vytvorRng } from '../src/rng.js';
 import { novaHra, aktualizuj, vyber, TRVANI_TRESU, OD_PAVOUKU, TRVANI_SITE, ZPOMALENI_SITI } from '../src/hra.js';
+import { nactiRekord, zapisVysledek } from '../src/ulozeni.js';
 
 const seminko = Number(process.argv[2] ?? 1);
 const delka = Number(process.argv[3] ?? 600);
@@ -121,6 +123,23 @@ if (tresu !== zasahu) chyby.push(`třes obrazovky jen u ${tresu} z ${zasahu} zá
 if (prvniPavouk !== null && prvniPavouk < OD_PAVOUKU) chyby.push(`pavouk přišel moc brzy (${prvniPavouk.toFixed(1)} s)`);
 if (hra.cas > OD_PAVOUKU + 30 && prvniPavouk === null) chyby.push('po 4. minutě nepřišel žádný pavouk');
 if (siti > 0 && krokuVSiti === 0) chyby.push('síť zásahem vznikla, ale hrdina nikdy nebyl zpomalen');
+
+// Rekord: úložiště prohlížeče tu nahrazuje obyčejná mapa.
+function nahradUloziste(uloziste) {
+  Object.defineProperty(globalThis, 'localStorage', { value: uloziste, configurable: true, writable: true });
+}
+const mapa = new Map();
+nahradUloziste({ getItem: (k) => mapa.get(k) ?? null, setItem: (k, v) => mapa.set(k, String(v)) });
+const vysledekHry = { cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito };
+if (nactiRekord() !== null) chyby.push('prázdné úložiště má mít žádný rekord');
+if (!zapisVysledek(vysledekHry).novy) chyby.push('první hra nebyla rekord');
+if (nactiRekord()?.cas !== vysledekHry.cas) chyby.push('rekord se neuložil');
+if (zapisVysledek({ ...vysledekHry, cas: vysledekHry.cas - 1 }).novy) chyby.push('kratší hra přepsala rekord');
+if (!zapisVysledek({ ...vysledekHry, cas: vysledekHry.cas + 1 }).novy) chyby.push('delší hra nebyla nový rekord');
+mapa.set('hlubiny.rekord', '{rozbité');
+if (nactiRekord() !== null) chyby.push('rozbitý rekord se nenačetl jako žádný');
+nahradUloziste({ getItem() { throw new Error('zakázáno'); }, setItem() { throw new Error('zakázáno'); } });
+if (nactiRekord() !== null || !zapisVysledek(vysledekHry).novy) chyby.push('zakázané úložiště se nechová jako prázdné');
 if (chyby.length) {
   console.error('CHYBA:', chyby.join('; '));
   process.exit(1);

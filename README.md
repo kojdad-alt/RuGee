@@ -6,7 +6,9 @@ Survivors hra v prohlížeči: ty se jen pohybuješ, zbraně střílí samy a na
 
 Stačí kliknout na odkaz výš, nic se neinstaluje. Jde to i na mobilu (tah prstem).
 
-Ovládání: WASD nebo šipky, na mobilu tah prstem. P pauza, R nová hra po prohře.
+Hra začíná v hlavním menu (Hrát, Postavy, Vylepšení, Rekordy, Ovládání), vybírá se šipkami a Enterem, klikem nebo dotykem. Rekordy ukazují nejdelší přežití v tomhle prohlížeči.
+
+Ovládání: WASD nebo šipky, na mobilu tah prstem. P pauza, po prohře R znovu a M menu.
 
 ## Pro vývoj
 
@@ -26,7 +28,7 @@ Simulace hry bez prohlížeče (Node 18+):
 node tests/simulace.mjs 1 600
 ```
 
-Jednoduchý hráč utíká od nepřátel, sbírá krystaly a na úrovni bere nejdřív zbraně. Test spadne, když se objeví NaN, nikdo nezemře, nepřátel přibývá bez konce, po zabití nevyletí úlomky, po zásahu hrdiny se neotřese obrazovka, pavouk přijde před 4. minutou nebo hrdina v síti nezpomalí.
+Jednoduchý hráč utíká od nepřátel, sbírá krystaly a na úrovni bere nejdřív zbraně. Test spadne, když se objeví NaN, nikdo nezemře, nepřátel přibývá bez konce, po zabití nevyletí úlomky, po zásahu hrdiny se neotřese obrazovka, pavouk přijde před 4. minutou, hrdina v síti nezpomalí nebo se špatně ukládá rekord (kratší hra ho přepíše, rozbitý záznam nebo zakázané úložiště spadne).
 
 ## Nová verze
 

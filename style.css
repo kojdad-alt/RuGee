@@ -91,7 +91,7 @@ html, body {
   gap: 12px;
 }
 
-.karta, #znovu {
+.karta {
   font: inherit;
   color: var(--text);
   background: #221f2b;
@@ -101,7 +101,7 @@ html, body {
   text-align: left;
 }
 
-.karta:hover, .karta:focus-visible, #znovu:hover, #znovu:focus-visible {
+.karta:hover, .karta:focus-visible {
   border-color: var(--zlata);
   outline: none;
 }
@@ -127,3 +127,202 @@ html, body {
   font-size: 12px;
   pointer-events: none;
 }
+
+/* Hlavní menu: přes louku nakreslenou na plátně, tlačítka jako kostky s hranou dole. */
+body.v-menu .hud, body.v-menu .napoveda { display: none; }
+
+.menu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 12px;
+  overflow-y: auto;
+}
+
+.menu[hidden], .menu-volby[hidden], .menu-zalozka[hidden] { display: none; }
+
+.menu-obsah {
+  margin: auto 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pixel { image-rendering: pixelated; }
+
+.logo { display: block; }
+
+.menu-podtitul {
+  margin: 12px 0 0;
+  color: var(--text-tlumeny);
+  text-shadow: 0 2px 0 #000;
+  letter-spacing: 0.04em;
+}
+
+.menu-volby {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(300px, 100%);
+  margin-top: 24px;
+}
+
+.menu-tlacitko {
+  position: relative;
+  font: inherit;
+  font-weight: bold;
+  font-size: 17px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: #221f2b;
+  border: 3px solid var(--okraj);
+  box-shadow: inset 0 -4px 0 #15131b, 0 4px 0 #000;
+  padding: 10px 32px 12px;
+  cursor: pointer;
+}
+
+.menu-tlacitko.hlavni {
+  background: #3a2c17;
+  color: var(--zlata);
+}
+
+.menu-tlacitko.vybrano, .menu-tlacitko:focus-visible {
+  outline: none;
+  border-color: var(--zlata);
+  color: var(--zlata);
+}
+
+/* šipka u vybraného tlačítka, kreslená okraji, ať je všude stejná */
+.menu-tlacitko.vybrano::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  margin-top: -7px;
+  border-left: 8px solid var(--zlata);
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.menu-tlacitko:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 -2px 0 #15131b, 0 2px 0 #000;
+}
+
+.menu-zalozka {
+  width: min(560px, 100%);
+  margin-top: 24px;
+  background: var(--panel);
+  border: 3px solid var(--okraj);
+  box-shadow: 0 4px 0 #000;
+  padding: 16px;
+  text-align: center;
+}
+
+.menu-zalozka h2 {
+  margin: 0;
+  color: var(--zlata);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.menu-pata {
+  margin: 16px 0 0;
+  color: var(--text-tlumeny);
+  font-size: 12px;
+  text-shadow: 0 2px 0 #000;
+}
+
+.mrizka {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 116px;
+  padding: 10px 6px;
+  background: #221f2b;
+  border: 2px solid var(--okraj);
+}
+
+.slot b { color: var(--zlata); }
+.slot small { color: var(--text-tlumeny); }
+
+.slot.zamceny {
+  border-style: dashed;
+  background: #1a1820;
+}
+
+.otaznik {
+  font-size: 30px;
+  font-weight: bold;
+  color: var(--okraj);
+}
+
+.tabulka {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 6px 20px;
+  justify-content: center;
+  text-align: left;
+  margin: 0 0 16px;
+}
+
+.tabulka dt { color: var(--text-tlumeny); }
+.tabulka dd { margin: 0; color: var(--zlata); font-weight: bold; }
+
+.ovladani {
+  display: grid;
+  gap: 8px;
+  margin: 0 auto 16px;
+  width: fit-content;
+  max-width: 100%;
+  text-align: left;
+}
+
+.ovladani-radek {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.klavesy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 26px;
+  padding: 1px 6px;
+  font: inherit;
+  font-size: 13px;
+  text-align: center;
+  color: var(--zlata);
+  background: #221f2b;
+  border: 2px solid var(--okraj);
+  border-bottom-width: 4px;
+}
+
+.radek-tlacitek {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.radek-tlacitek .menu-tlacitko { min-width: 170px; }
