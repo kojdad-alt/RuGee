@@ -1,4 +1,4 @@
-# Hlubiny
+# RuGee
 
 ## ▶ [Hrát v prohlížeči](https://kojdad-alt.github.io/hlubiny/)
 
