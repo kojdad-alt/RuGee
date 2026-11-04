@@ -1,10 +1,16 @@
 # Hlubiny
 
-Tahová roguelike hra v prohlížeči. Sestupuješ do Hlubin, každé patro je vygenerované znovu.
+## ▶ [Hrát v prohlížeči](https://kojdad-alt.github.io/hlubiny/)
 
-Hraje se na GitHub Pages, nic se neinstaluje. Čistý HTML, CSS a JavaScript bez build kroku.
+Survivors hra v prohlížeči: ty se jen pohybuješ, zbraně střílí samy a na louku se valí hordy. Z krystalů roste úroveň a na každé si vybereš vylepšení. Každé 3 minuty přijde Strážce hlubin.
 
-## Spuštění u sebe
+Stačí kliknout na odkaz výš, nic se neinstaluje. Jde to i na mobilu (tah prstem).
+
+Ovládání: WASD nebo šipky, na mobilu tah prstem. P pauza, R nová hra po prohře.
+
+## Pro vývoj
+
+Čistý HTML, CSS a JavaScript bez build kroku. Spuštění u sebe:
 
 ```bash
 python3 -m http.server 8000
