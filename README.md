@@ -1,6 +1,6 @@
-# Hlubiny
+# RuGee
 
-## ▶ [Hrát v prohlížeči](https://kojdad-alt.github.io/hlubiny/)
+## ▶ [Hrát v prohlížeči](https://kojdad-alt.github.io/RuGee/)
 
 Survivors hra v prohlížeči: ty se jen pohybuješ, zbraně střílí samy a na louku se valí hordy. Z krystalů roste úroveň a na každé si vybereš vylepšení. Každé 3 minuty přijde boss, pokaždé jiný: Strážce hlubin dupne a od něj vyběhne vlna (dokud se napřahuje, je na zemi vidět kruh, odkud utéct), Matka pavouků klade pavoučky, Kamenný obr hází kameny tam, kam běžíš (místo dopadu je vidět), a Bludička se přenáší kolem tebe a střílí vějíř střel. Pak to jde zase od Strážce. Každý živý boss má nahoře svůj pruh životů. Od 1,5 minuty bloudí průsvitní duchové, kteří letí rovně skrz tebe a občas na chvíli zmizí (schovaného ducha zbraně netrefí, ale ani on tebe). Od 2. minuty lezou pomalí houbáci, po kterých zůstane na 3 s fialový jedový oblak, ze kterého je lepší hned vylézt. Od 3. minuty chodí smečky 4–6 rychlých vlků a od 4. minuty pavouci, jejichž síť tě na chvíli zpomalí.
 
