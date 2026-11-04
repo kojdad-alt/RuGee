@@ -1,7 +1,8 @@
 import { sprity } from './sprity.js';
 import {
   staty, TRVANI_TRESU, VYCHOZI_TRIDA, TRVANI_ZABLESKU, ODHOZENI_PRI_OZIVENI, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU,
-  TRVANI_ZARU, TRVANI_VYBUCHU,
+  TRVANI_ZARU, TRVANI_VYBUCHU, bossBary, POLOMER_DUPNUTI, NAPRAH_DUPNUTI, LET_KAMENE, POLOMER_KAMENE,
+  NABITI_BLUDICKY, ZJEVENI_BLUDICKY, POLOMER_STRELY_BOSSU,
 } from './hra.js';
 import { dlazdiceLouky, ozdobyLouky } from './louka.js';
 
@@ -14,6 +15,11 @@ const BARVY_CASTIC = {
   slizak: ['#5fae4e', '#9be08a', '#5fae4e'],
   kostlivec: ['#e8e2d0', '#b9c2cc', '#e8e2d0'],
   strazce: ['#6e6577', '#8f86a0', '#ffb347'],
+  matka: ['#3b2a4a', '#6b4c8a', '#ff5a5a'],
+  obr: ['#8d9098', '#53565e', '#3f8a3c'],
+  bludicka: ['#7f9cf0', '#dfe8ff', '#fff3b0'],
+  pavoucek: ['#3b2a4a', '#6b4c8a', '#ff5a5a'],
+  kamen: ['#8d9098', '#53565e', '#c9ccd2'],
   pavouk: ['#4a3530', '#a07e5c', '#ffb347'],
   duch: ['#e4f6f3', '#9fc8c6', '#e4f6f3'],
   houbak: ['#9b59c9', '#d6a9f2', '#f1d2a8'],
@@ -26,6 +32,24 @@ const BARVA_SITE = 'rgba(236,236,244,0.8)';
 const PRUHLEDNOST_DUCHA = 0.62;
 const PRUHLEDNOST_SCHOVANEHO = 0.1;
 const PRECHOD_DUCHA = 0.25;
+// Každý boss má svou barvu: pruh životů nahoře, malý pruh nad ním a šipka, když je mimo obrazovku.
+// pruh = výplň, tmava = rámeček a podklad portrétu, text = jméno.
+const BARVY_BOSSU = {
+  strazce: { pruh: '#ffb347', tmava: '#7a4214', text: '#ffd27a' },
+  matka: { pruh: '#e5484d', tmava: '#6e1f2b', text: '#ffc2c2' },
+  obr: { pruh: '#7fc46a', tmava: '#2f5a2a', text: '#c8f0b0' },
+  bludicka: { pruh: '#8fb4ff', tmava: '#2c3f7a', text: '#dfe8ff' },
+};
+// Pruhy bossů nahoře: začínají pod horní lištou (úroveň, čas), každý další o VYSKA_BARU níž.
+const HORNI_BARY = 66;
+const VYSKA_BARU = 48;
+const PORTRET = 40;
+// Úbytek životů v pruhu se chvíli drží světlý a pak doběhne (ať je vidět, kolik rána vzala).
+const DRZENI_UBYTKU = 0.35;
+const RYCHLOST_UBYTKU = 0.8;
+// Výška oblouku, kterým letí kámen Kamenného obra.
+const VYSKA_HODU = 90;
+
 // Světlo lucerny se kreslí po čtverečcích stejně velkých jako pixel spritu, ať nevypadá rozmazaně.
 // Jednou za PULZ_LUCERNY sekund vyjde od hrdiny vlna světla, na okraji dosahu prstenec zjasní.
 const PULZ_LUCERNY = 1.2;
@@ -234,6 +258,158 @@ function oblak(ctx, x, y, o, cas) {
   ctx.restore();
 }
 
+// Pixelový kruh o poloměru r (v pixelech obrazovky) kolem (x, y): jen obvod, nebo plný (radky).
+function kruhNaZemi(ctx, x, y, r, plny = false) {
+  const m = MERITKO;
+  const cx = Math.round(x) - Math.floor(m / 2);
+  const cy = Math.round(y) - Math.floor(m / 2);
+  const kruh = pixelovyKruh(Math.max(1, Math.round(r / m)));
+  if (plny) for (const [b, sirka] of kruh.radky) ctx.fillRect(cx - sirka * m, cy + b * m, (2 * sirka + 1) * m, m);
+  else for (const [a, b] of kruh.obvod) ctx.fillRect(cx + a * m, cy + b * m, m, m);
+}
+
+// Útoky bossů na zemi (pod nepřáteli): kam Strážce dupne, vlny dupnutí a kam dopadne kámen.
+function utokyNaZemi(ctx, hra, naObrazovce) {
+  for (const n of hra.nepratele) {
+    if (n.druh !== 'strazce' || !(n.naprah > 0)) continue;
+    // Napřahování: kruh dosahu na zemi rudne a bliká čím dál rychleji.
+    const p = naObrazovce(n);
+    const t = 1 - n.naprah / NAPRAH_DUPNUTI;
+    ctx.save();
+    ctx.fillStyle = `rgba(229,72,77,${(0.06 + 0.12 * t).toFixed(3)})`;
+    kruhNaZemi(ctx, p.x, p.y, POLOMER_DUPNUTI, true);
+    ctx.globalAlpha = Math.floor(hra.cas * (6 + 14 * t)) % 2 ? 0.55 : 0.95;
+    ctx.fillStyle = '#e5484d';
+    kruhNaZemi(ctx, p.x, p.y, POLOMER_DUPNUTI);
+    ctx.restore();
+  }
+  for (const v of hra.vlny) {
+    const p = naObrazovce(v);
+    const t = v.r / v.max;
+    ctx.save();
+    ctx.globalAlpha = 1 - t * t * 0.7;
+    ctx.fillStyle = '#7a4214';
+    kruhNaZemi(ctx, p.x, p.y, Math.max(3, v.r - 3));
+    ctx.fillStyle = '#ffb347';
+    kruhNaZemi(ctx, p.x, p.y, v.r);
+    ctx.fillStyle = '#fff3b0';
+    kruhNaZemi(ctx, p.x, p.y, v.r + 3);
+    ctx.restore();
+  }
+  for (const k of hra.kameny) {
+    // Místo dopadu: stín roste, jak kámen padá, a rudý kroužek kolem.
+    const p = naObrazovce(k);
+    const t = Math.min(1, k.let / LET_KAMENE);
+    ctx.save();
+    ctx.fillStyle = `rgba(11,10,15,${(0.15 + 0.3 * t).toFixed(3)})`;
+    kruhNaZemi(ctx, p.x, p.y, 6 + (POLOMER_KAMENE - 10) * t, true);
+    ctx.globalAlpha = 0.5 + 0.5 * t;
+    ctx.fillStyle = '#e5484d';
+    kruhNaZemi(ctx, p.x, p.y, POLOMER_KAMENE);
+    ctx.restore();
+  }
+}
+
+// Kameny v letu (nad nepřáteli, po oblouku) a střely Bludičky.
+function utokyVeVzduchu(ctx, hra, naObrazovce) {
+  for (const k of hra.kameny) {
+    const t = Math.min(1, k.let / LET_KAMENE);
+    const od = naObrazovce({ x: k.odX, y: k.odY });
+    const kam = naObrazovce(k);
+    const x = od.x + (kam.x - od.x) * t;
+    const y = od.y + (kam.y - od.y) * t - Math.sin(Math.PI * t) * VYSKA_HODU;
+    sprite(ctx, sprity.kamen, x, y);
+  }
+  for (const st of hra.strelyBossu) {
+    const p = naObrazovce(st);
+    const x = Math.round(p.x);
+    const y = Math.round(p.y);
+    const r = POLOMER_STRELY_BOSSU;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(127,156,240,0.25)';
+    ctx.fillRect(x - r - 4, y - r - 4, 2 * r + 8, 2 * r + 8);
+    ctx.restore();
+    ctx.fillStyle = '#0b0a0f';
+    ctx.fillRect(x - r - 1, y - r - 1, 2 * r + 2, 2 * r + 2);
+    ctx.fillStyle = '#7f9cf0';
+    ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
+    ctx.fillStyle = '#dfe8ff';
+    ctx.fillRect(x - 2, y - 2, 4, 4);
+  }
+}
+
+// Kolik životů ukazuje světlý úbytek v pruhu bosse. Počítá se z času hry, takže v pauze stojí.
+const ubytky = new WeakMap();
+function ubytek(n, cas) {
+  let u = ubytky.get(n);
+  if (!u) {
+    u = { hp: n.hp, posledni: n.hp, zasah: cas, cas };
+    ubytky.set(n, u);
+  }
+  const hp = Math.max(0, n.hp);
+  if (hp < u.posledni) u.zasah = cas;
+  u.posledni = hp;
+  if (hp > u.hp) u.hp = hp;
+  else if (cas - u.zasah > DRZENI_UBYTKU) u.hp = Math.max(hp, u.hp - n.maxHp * RYCHLOST_UBYTKU * Math.max(0, cas - u.cas));
+  u.cas = cas;
+  return u.hp;
+}
+
+// Text se stínem pod sebou (jako nápisy při příchodu).
+function napis(ctx, text, x, y, barva) {
+  ctx.fillStyle = '#000';
+  ctx.fillText(text, x + 1, y + 2);
+  ctx.fillStyle = barva;
+  ctx.fillText(text, x, y);
+}
+
+// Velký pruh bosse: vlevo portrét se spritem, nad pruhem jméno a životy, pruh s dílky po desetinách.
+function bossBar(ctx, bar, x, y, sirka, cas) {
+  const barvy = BARVY_BOSSU[bar.druh] ?? BARVY_BOSSU.strazce;
+  // portrét: tmavý obrys, rámeček v barvě bosse, uvnitř sprite dvakrát zvětšený
+  ctx.fillStyle = '#0b0a0f';
+  ctx.fillRect(x, y, PORTRET, PORTRET);
+  ctx.fillStyle = barvy.tmava;
+  ctx.fillRect(x + 2, y + 2, PORTRET - 4, PORTRET - 4);
+  ctx.fillStyle = '#17151d';
+  ctx.fillRect(x + 4, y + 4, PORTRET - 8, PORTRET - 8);
+  const obr = sprity[bar.druh] ?? sprity.strazce;
+  const v = Math.min(PORTRET - 6, obr.width * 2);
+  ctx.drawImage(obr, Math.round(x + (PORTRET - v) / 2), Math.round(y + (PORTRET - v) / 2), v, v);
+
+  const px = x + PORTRET + 8;
+  const ps = sirka - PORTRET - 8;
+  ctx.font = 'bold 14px ui-monospace, Menlo, monospace';
+  ctx.textAlign = 'left';
+  napis(ctx, bar.nazev.toUpperCase(), px, y + 13, barvy.text);
+  ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
+  ctx.textAlign = 'right';
+  napis(ctx, `${Math.ceil(bar.hp)} / ${bar.maxHp}`, x + sirka, y + 13, '#ece6da');
+
+  const py = y + 20;
+  const pv = 18;
+  ctx.fillStyle = '#0b0a0f';
+  ctx.fillRect(px, py, ps, pv);
+  ctx.fillStyle = barvy.tmava;
+  ctx.fillRect(px + 2, py + 2, ps - 4, pv - 4);
+  ctx.fillStyle = '#1d1b24';
+  ctx.fillRect(px + 4, py + 4, ps - 8, pv - 8);
+  const vnitrek = ps - 8;
+  const zbyva = Math.round(vnitrek * Math.max(0, Math.min(1, bar.hp / bar.maxHp)));
+  const drzi = Math.round(vnitrek * Math.max(0, Math.min(1, ubytek(bar.nepritel, cas) / bar.maxHp)));
+  if (drzi > zbyva) {
+    ctx.fillStyle = '#f3efe6';
+    ctx.fillRect(px + 4 + zbyva, py + 4, drzi - zbyva, pv - 8);
+  }
+  ctx.fillStyle = barvy.pruh;
+  ctx.fillRect(px + 4, py + 4, zbyva, pv - 8);
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.fillRect(px + 4, py + 4, zbyva, 3);
+  ctx.fillStyle = 'rgba(11,10,15,0.45)';
+  for (let i = 1; i < 10; i++) ctx.fillRect(px + 4 + Math.round((vnitrek * i) / 10), py + 4, 1, pv - 8);
+}
+
 export function kresli(ctx, hra) {
   const { width: sirka, height: vyska } = ctx.canvas;
   const { hrdina } = hra;
@@ -285,12 +461,13 @@ export function kresli(ctx, hra) {
     if (p.x < -60 || p.y < -60 || p.x > sirka + 60 || p.y > vyska + 60) continue;
     oblak(ctx, p.x, p.y, o, hra.cas);
   }
+  utokyNaZemi(ctx, hra, naObrazovce);
 
   for (const n of hra.nepratele) {
     const p = naObrazovce(n);
     if (p.x < -40 || p.y < -40 || p.x > sirka + 40 || p.y > vyska + 40) continue;
     const obr = sprity[n.druh];
-    const velikost = obr.width * MERITKO * (n.boss ? 2 : 1);
+    const velikost = obr.width * MERITKO;
     if (n.duch) {
       // duch se vznáší a kouká tam, kam letí (ne na hrdinu, letí kolem něj)
       ctx.globalAlpha = pruhlednostDucha(n);
@@ -300,13 +477,32 @@ export function kresli(ctx, hra) {
       ctx.globalAlpha = 1;
       continue;
     }
-    sprite(ctx, obr, p.x, p.y, n.x > hrdina.x ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : null, velikost);
-    if (n.zar > 0) rozzar(ctx, obr, p.x, p.y, n.x > hrdina.x ? -1 : 1, velikost, n.zar / TRVANI_ZARU);
+    let { x, y } = p;
+    if (n.druh === 'strazce' && n.naprah > 0) x += Math.floor(hra.cas * 30) % 2 ? 1 : -1;
+    if (n.druh === 'bludicka') {
+      // Bludička se vznáší, mihotá a po přenesení se teprve zhmotní. Při nabíjení kolem ní roste záře.
+      y += Math.round(Math.sin(hra.cas * 3) * 3);
+      ctx.globalAlpha = (0.82 + 0.18 * Math.sin(hra.cas * 17)) * (1 - n.zjeveni / ZJEVENI_BLUDICKY);
+      if (n.nabiji > 0) {
+        const t = 1 - n.nabiji / NABITI_BLUDICKY;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = `rgba(127,156,240,${(0.12 + 0.25 * t).toFixed(3)})`;
+        kruhNaZemi(ctx, x, y, 18 + 16 * t, true);
+        ctx.restore();
+      }
+    }
+    sprite(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : null, velikost);
+    if (n.zar > 0) rozzar(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, velikost, n.zar / TRVANI_ZARU);
+    ctx.globalAlpha = 1;
     if (n.boss) {
+      const nad = Math.round(y - velikost / 2 - 7);
+      ctx.fillStyle = '#0b0a0f';
+      ctx.fillRect(Math.round(x - 25), nad - 1, 50, 7);
       ctx.fillStyle = '#2a0f14';
-      ctx.fillRect(Math.round(p.x - 24), Math.round(p.y - 34), 48, 5);
-      ctx.fillStyle = '#e9c46a';
-      ctx.fillRect(Math.round(p.x - 24), Math.round(p.y - 34), Math.round(48 * Math.max(0, n.hp) / n.maxHp), 5);
+      ctx.fillRect(Math.round(x - 24), nad, 48, 5);
+      ctx.fillStyle = (BARVY_BOSSU[n.druh] ?? BARVY_BOSSU.strazce).pruh;
+      ctx.fillRect(Math.round(x - 24), nad, Math.round(48 * Math.max(0, n.hp) / n.maxHp), 5);
     }
   }
 
@@ -324,6 +520,8 @@ export function kresli(ctx, hra) {
     ctx.fillRect(x, y, MERITKO, MERITKO);
   }
   ctx.globalAlpha = 1;
+
+  utokyVeVzduchu(ctx, hra, naObrazovce);
 
   ctx.fillStyle = '#ffd27a';
   for (const st of hra.strely) {
@@ -437,7 +635,7 @@ export function kresli(ctx, hra) {
     ctx.save();
     ctx.translate(sirka / 2 + Math.cos(uhel) * r, vyska / 2 + Math.sin(uhel) * r);
     ctx.rotate(uhel);
-    ctx.fillStyle = '#e9c46a';
+    ctx.fillStyle = (BARVY_BOSSU[n.druh] ?? BARVY_BOSSU.strazce).pruh;
     ctx.beginPath();
     ctx.moveTo(12, 0);
     ctx.lineTo(-8, -8);
@@ -454,15 +652,25 @@ export function kresli(ctx, hra) {
   ctx.fillStyle = tma;
   ctx.fillRect(0, 0, sirka, vyska);
 
+  // pruhy bossů nahoře, pod sebou v pořadí, jak přišli
+  const bary = bossBary(hra);
+  const sirkaBaru = Math.min(640, sirka - 32);
+  bary.forEach((bar, i) => bossBar(ctx, bar, Math.round((sirka - sirkaBaru) / 2), HORNI_BARY + i * VYSKA_BARU, sirkaBaru, hra.cas));
+
   if (hra.oznameni) {
+    // nápis je pod pruhy bossů, ať je nepřekryje
+    const yNapisu = Math.max(90, HORNI_BARY + bary.length * VYSKA_BARU + 26);
     ctx.save();
     ctx.globalAlpha = Math.min(1, hra.oznameni.zivot);
+    // na úzké obrazovce se písmo zmenší, ať se nápis vejde celý
     ctx.font = 'bold 22px ui-monospace, Menlo, monospace';
+    const sirkaNapisu = ctx.measureText(hra.oznameni.text).width;
+    if (sirkaNapisu > sirka - 24) ctx.font = `bold ${Math.max(11, Math.floor((22 * (sirka - 24)) / sirkaNapisu))}px ui-monospace, Menlo, monospace`;
     ctx.textAlign = 'center';
     ctx.fillStyle = '#000';
-    ctx.fillText(hra.oznameni.text, sirka / 2 + 2, 92);
+    ctx.fillText(hra.oznameni.text, sirka / 2 + 2, yNapisu + 2);
     ctx.fillStyle = '#e9c46a';
-    ctx.fillText(hra.oznameni.text, sirka / 2, 90);
+    ctx.fillText(hra.oznameni.text, sirka / 2, yNapisu);
     ctx.restore();
   }
 }

@@ -125,9 +125,58 @@ const PASMO_BEDEN = 220;
 // Jiskra míří na bednu, jen když je blíž než všichni nepřátelé a nanejvýš takhle daleko.
 export const JISKRA_NA_BEDNU = 260;
 // Co z bedny vypadne a jak často (součet 1). Zlaťák je po hře duše navíc. Bomba je vzácná: složí všechny
-// nepřátele na obrazovce kromě Strážce hlubin (a schovaného ducha, toho nevidí nic).
+// nepřátele na obrazovce kromě bossů (a schovaného ducha, toho nevidí nic).
 export const KORIST_BEDEN = { krystal: 0.42, zlatak: 0.3, srdce: 0.15, magnet: 0.08, bomba: 0.05 };
 export const TRVANI_VYBUCHU = 0.6;
+
+// Bossové: každé 3 minuty přijde další v tomhle pořadí, po posledním zase první. Každý má vlastní útok,
+// vlastní nápis při příchodu a nahoře na obrazovce svůj pruh životů (víc bossů naráz = víc pruhů, bossBary).
+export const PORADI_BOSSU = ['strazce', 'matka', 'obr', 'bludicka'];
+export const BOSSOVE = {
+  strazce: { nazev: 'Strážce hlubin', prichod: 'Země se třese, přichází Strážce hlubin', porazen: 'Strážce hlubin poražen' },
+  matka: { nazev: 'Matka pavouků', prichod: 'Ze tmy se spouští Matka pavouků', porazen: 'Matka pavouků poražena' },
+  obr: { nazev: 'Kamenný obr', prichod: 'Louka duní pod kroky Kamenného obra', porazen: 'Kamenný obr poražen' },
+  bludicka: { nazev: 'Bludička', prichod: 'Ve tmě bliká Bludička. Nechoď za ní', porazen: 'Bludička poražena' },
+};
+// První útok přijde chvíli po příchodu, ať si hráč bosse stihne všimnout.
+const PRVNI_UTOK = 2.5;
+// Strážce hlubin dupne: chvíli se napřahuje (na zemi je vidět kruh, kam dosáhne), pak od něj vyběhne vlna.
+// Kdo je při průchodu vlny uvnitř kruhu, dostane ránu. Utéct se dá jen během napřahování.
+export const POLOMER_DUPNUTI = 190;
+export const NAPRAH_DUPNUTI = 0.8;
+export const DUPNUTI = 18;
+const DUPNUTI_KAZDYCH = 4.5;
+const DOSAH_DUPNUTI = POLOMER_DUPNUTI + 80;
+export const RYCHLOST_VLNY = 380;
+// Matka pavouků pouští pavoučky: SNUSKA kousků naráz kolem sebe, nejvýš MAX_PAVOUCKU živých. Čerstvě
+// vypuštění pavoučci chvíli běží mnohem rychleji (vyrazí k hrdinovi) a kousnutím ho zalepí sítí jako pavouk.
+export const SNUSKA = 6;
+export const VYRAZENI_PAVOUCKU = 0.6;
+export const RYCHLOST_VYRAZENI = 2.4;
+export const MAX_PAVOUCKU = 24;
+const SNUSKA_KAZDYCH = 4;
+const DOSAH_SNUSKY = 600;
+// Kamenný obr hází kameny tam, kam hrdina běží: kámen dopadne tam, kde by hrdina byl, kdyby běžel dál
+// stejně (stojícímu pod nohy). Místo dopadu je na zemi vidět hned po hodu, takže stačí změnit směr.
+export const LET_KAMENE = 1.1;
+export const POLOMER_KAMENE = 32;
+export const KAMEN = 16;
+export const PREDSTIH_KAMENE = 1;
+const KAMEN_KAZDYCH = 2.8;
+const DOSAH_HODU = 560;
+// Bludička se přenese kousek od hrdiny (aby byla na obrazovce), chvíli se nabíjí a vystřelí vějíř střel
+// tam, kde hrdina zrovna je, a za chvíli ještě jeden (znovu namířený). Během nabíjení a střelby stojí.
+export const NABITI_BLUDICKY = 0.7;
+export const SALV_BLUDICKY = 2;
+export const MEZI_SALVAMI = 0.4;
+export const STREL_BLUDICKY = 5;
+export const STRELA_BLUDICKY = 8;
+export const ZJEVENI_BLUDICKY = 0.3;
+const TELEPORT_KAZDYCH = 4.2;
+const ROZESTUP_STREL = 0.22;
+const RYCHLOST_STREL_BOSSU = 160;
+const ZIVOT_STREL_BOSSU = 3.5;
+export const POLOMER_STRELY_BOSSU = 5;
 
 const NEPRATELE = {
   netopyr: { hp: 10, rychlost: 72, poskozeni: 5, xp: 1, polomer: 10 },
@@ -137,7 +186,11 @@ const NEPRATELE = {
   duch: { hp: 18, rychlost: 80, poskozeni: 7, xp: 2, polomer: 10, duch: true },
   houbak: { hp: 32, rychlost: 30, poskozeni: 8, xp: 3, polomer: 12, jed: true },
   vlk: { hp: 16, rychlost: 104, poskozeni: 6, xp: 2, polomer: 10 },
+  pavoucek: { hp: 8, rychlost: 92, poskozeni: 3, xp: 1, polomer: 7, sit: true },
   strazce: { hp: 320, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
+  matka: { hp: 280, rychlost: 54, poskozeni: 16, xp: 25, polomer: 22, boss: true },
+  obr: { hp: 420, rychlost: 34, poskozeni: 26, xp: 30, polomer: 24, boss: true },
+  bludicka: { hp: 240, rychlost: 40, poskozeni: 12, xp: 25, polomer: 18, boss: true },
 };
 export const RYCHLOST_NEPRATEL = Object.fromEntries(Object.entries(NEPRATELE).map(([id, v]) => [id, v.rychlost]));
 
@@ -155,7 +208,7 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}) {
   const hrdina = {
     x: 0, y: 0, hp: 100, maxHp: 100, rychlost: 110, magnet: 64, nabijeni: 1,
     sila: 1, uroven: 1, xp: 0, potreba: potrebaNaUroven(1), nezranitelny: 0, otoceny: 1, sit: 0,
-    stesti: 1, zkusenosti: 1, oziveni: 0,
+    stesti: 1, zkusenosti: 1, oziveni: 0, vx: 0, vy: 0,
   };
   for (const [vlastnost, nasobek] of Object.entries(TRIDY[trida].nasobky)) hrdina[vlastnost] *= nasobek;
   pouzijVylepseni(hrdina, vylepseni);
@@ -171,6 +224,7 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}) {
     konec: false,
     volby: null,
     zTruhly: false,
+    truhlaOd: null,
     hrdina,
     zbrane: { [TRIDY[trida].zbran]: { uroven: 1, nabiti: 0 } },
     pasivy: {},
@@ -182,6 +236,10 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}) {
     blesky: [],
     castice: [],
     oblaky: [],
+    vlny: [],
+    kameny: [],
+    strelyBossu: [],
+    zasahyBossu: { dupnuti: 0, kamen: 0, strela: 0, pavoucek: 0 },
     bedny: [],
     doBedny: PRVNI_BEDNA,
     beden: 0,
@@ -194,6 +252,8 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}) {
     uhelKrumpacu: 0,
     doSpawnu: 0,
     dalsiBoss: BOSS_KAZDYCH,
+    bossu: 0,
+    rozprsku: 0,
     dalsiSmecka: PRVNI_SMECKA,
     smecek: 0,
     dalsiPrichod: 0,
@@ -293,6 +353,9 @@ export function pridejNepritele(hra, druh, x, y) {
     n.duchCas = VIDITELNY_DUCH;
     zamir(n, hra.hrdina);
   }
+  // doUtoku = kolik zbývá do dalšího útoku, naprah = Strážce se napřahuje k dupnutí, nabiji = Bludička
+  // se nabíjí ke střelbě, zjeveni = Bludička se právě objevila na novém místě (jen pro kreslení).
+  if (n.boss) Object.assign(n, { doUtoku: PRVNI_UTOK, naprah: 0, nabiji: 0, salv: 0, zjeveni: 0 });
   hra.nepratele.push(n);
   return n;
 }
@@ -376,6 +439,18 @@ function trisky(hra, b) {
   if (hra.castice.length > MAX_CASTIC) hra.castice.splice(0, hra.castice.length - MAX_CASTIC);
 }
 
+// Pár úlomků bez zabití (Bludička se přenese, kámen dopadne). Směry z počítadla, ne z rng.
+function rozprsk(hra, x, y, druh, pocet = 8) {
+  hra.rozprsku += 1;
+  const posun = hra.rozprsku * 1.3;
+  for (let i = 0; i < pocet; i++) {
+    const uhel = posun + (i / pocet) * Math.PI * 2;
+    const rychlost = 60 + ((i * 31 + hra.rozprsku * 17) % 70);
+    hra.castice.push({ x, y, vx: Math.cos(uhel) * rychlost, vy: Math.sin(uhel) * rychlost, zivot: ZIVOT_CASTICE, druh, odstin: i });
+  }
+  if (hra.castice.length > MAX_CASTIC) hra.castice.splice(0, hra.castice.length - MAX_CASTIC);
+}
+
 // Zásah zbraní bednu rozbije: rozletí se na třísky a na jejím místě zůstane jedna věc.
 function rozbij(hra, b) {
   if (b.rozbita) return;
@@ -399,7 +474,7 @@ function nejblizsiBedna(hra, dosah) {
 }
 
 // Bomba: všichni viditelní nepřátelé na obrazovce padnou naráz (krystaly z nich vypadnou jako jindy).
-// Strážce hlubin vydrží a schovaného ducha bomba nenajde.
+// Bossové vydrží a schovaného ducha bomba nenajde.
 function vybuch(hra, sirka, vyska) {
   const { hrdina } = hra;
   for (const n of hra.nepratele) {
@@ -440,6 +515,123 @@ function dalsiCilBlesku(hra, od, skok, zasazeni) {
   return dalsi;
 }
 
+// Útoky bossů, každý jinak. Noví pavoučci se přidají až po projití všech nepřátel.
+function utokyBossu(hra, dt, sirka, vyska) {
+  const { hrdina, rng } = hra;
+  let pavoucku = hra.nepratele.filter((n) => n.druh === 'pavoucek').length;
+  const snusky = [];
+  for (const n of hra.nepratele) {
+    if (!n.boss) continue;
+    n.doUtoku -= dt;
+    n.zjeveni = Math.max(0, n.zjeveni - dt);
+    const d = vzdalenost(n, hrdina);
+    if (n.druh === 'strazce') {
+      if (n.naprah > 0) {
+        n.naprah -= dt;
+        if (n.naprah <= 0) {
+          n.naprah = 0;
+          n.doUtoku = DUPNUTI_KAZDYCH;
+          hra.vlny.push({ x: n.x, y: n.y, r: 0, max: POLOMER_DUPNUTI, zasahla: false });
+          hra.tres = TRVANI_TRESU;
+        }
+      } else if (n.doUtoku <= 0 && d < DOSAH_DUPNUTI) {
+        n.naprah = NAPRAH_DUPNUTI;
+      }
+    } else if (n.druh === 'matka') {
+      if (n.doUtoku <= 0 && d < DOSAH_SNUSKY) {
+        const kolik = Math.min(SNUSKA, MAX_PAVOUCKU - pavoucku);
+        for (let i = 0; i < kolik; i++) {
+          const uhel = (i / SNUSKA) * Math.PI * 2 + hra.cas;
+          snusky.push([n.x + Math.cos(uhel) * (n.polomer + 6), n.y + Math.sin(uhel) * (n.polomer + 6)]);
+        }
+        pavoucku += kolik;
+        n.doUtoku = SNUSKA_KAZDYCH;
+      }
+    } else if (n.druh === 'obr') {
+      if (n.doUtoku <= 0 && d < DOSAH_HODU) {
+        const predstih = LET_KAMENE * PREDSTIH_KAMENE;
+        hra.kameny.push({ odX: n.x, odY: n.y - 18, x: hrdina.x + hrdina.vx * predstih, y: hrdina.y + hrdina.vy * predstih, let: 0 });
+        n.doUtoku = KAMEN_KAZDYCH;
+      }
+    } else if (n.druh === 'bludicka') {
+      if (n.nabiji > 0) {
+        n.nabiji -= dt;
+        if (n.nabiji <= 0) {
+          n.salv -= 1;
+          n.nabiji = n.salv > 0 ? MEZI_SALVAMI : 0;
+          const zaklad = Math.atan2(hrdina.y - n.y, hrdina.x - n.x);
+          for (let i = 0; i < STREL_BLUDICKY; i++) {
+            const uhel = zaklad + (i - (STREL_BLUDICKY - 1) / 2) * ROZESTUP_STREL;
+            hra.strelyBossu.push({ x: n.x, y: n.y, vx: Math.cos(uhel) * RYCHLOST_STREL_BOSSU, vy: Math.sin(uhel) * RYCHLOST_STREL_BOSSU, zivot: ZIVOT_STREL_BOSSU });
+          }
+        }
+      } else if (n.doUtoku <= 0) {
+        // Přenese se na náhodné místo kolem hrdiny, na menší obrazovce blíž.
+        rozprsk(hra, n.x, n.y, 'bludicka');
+        const uhel = rng.dalsi() * Math.PI * 2;
+        const r = Math.max(120, Math.min(220, Math.min(sirka, vyska) / 2 - 40));
+        n.x = hrdina.x + Math.cos(uhel) * r;
+        n.y = hrdina.y + Math.sin(uhel) * r;
+        rozprsk(hra, n.x, n.y, 'bludicka');
+        n.zjeveni = ZJEVENI_BLUDICKY;
+        n.nabiji = NABITI_BLUDICKY;
+        n.salv = SALV_BLUDICKY;
+        n.doUtoku = TELEPORT_KAZDYCH;
+      }
+    }
+  }
+  for (const [x, y] of snusky) pridejNepritele(hra, 'pavoucek', x, y).vyrazi = VYRAZENI_PAVOUCKU;
+}
+
+// Vlny dupnutí, padající kameny a střely Bludičky: pohyb a zásah hrdiny.
+function strelyBossu(hra, dt) {
+  const { hrdina } = hra;
+  const muzeDostat = () => hrdina.nezranitelny <= 0 && !hra.konec;
+  for (const v of hra.vlny) {
+    const pred = v.r;
+    v.r = Math.min(v.max, v.r + RYCHLOST_VLNY * dt);
+    const d = vzdalenost(v, hrdina);
+    if (!v.zasahla && d >= pred - 10 && d <= v.r + 10 && muzeDostat()) {
+      v.zasahla = true;
+      hra.zasahyBossu.dupnuti += 1;
+      zran(hra, DUPNUTI);
+    }
+    if (v.r >= v.max) v.konec = true;
+  }
+  hra.vlny = hra.vlny.filter((v) => !v.konec);
+  for (const k of hra.kameny) {
+    k.let += dt;
+    if (k.let < LET_KAMENE) continue;
+    k.dopadl = true;
+    rozprsk(hra, k.x, k.y, 'kamen', 6);
+    if (vzdalenost(k, hrdina) < POLOMER_KAMENE && muzeDostat()) {
+      hra.zasahyBossu.kamen += 1;
+      zran(hra, KAMEN);
+    }
+  }
+  hra.kameny = hra.kameny.filter((k) => !k.dopadl);
+  for (const st of hra.strelyBossu) {
+    st.x += st.vx * dt;
+    st.y += st.vy * dt;
+    st.zivot -= dt;
+    if (vzdalenost(st, hrdina) < POLOMER_STRELY_BOSSU + 8) {
+      st.zivot = 0;
+      if (muzeDostat()) {
+        hra.zasahyBossu.strela += 1;
+        zran(hra, STRELA_BLUDICKY);
+      }
+    }
+  }
+  hra.strelyBossu = hra.strelyBossu.filter((st) => st.zivot > 0);
+}
+
+// Pruhy životů nahoře na obrazovce: jeden za každého živého bosse, v pořadí, jak přišli. Kreslí je kresleni.js.
+export function bossBary(hra) {
+  return hra.nepratele
+    .filter((n) => n.boss)
+    .map((n) => ({ druh: n.druh, nazev: BOSSOVE[n.druh]?.nazev ?? n.druh, hp: Math.max(0, n.hp), maxHp: n.maxHp, nepritel: n }));
+}
+
 export function staty(hra) {
   const u = (id) => hra.zbrane[id]?.uroven ?? 0;
   const j = u('jiskra');
@@ -471,6 +663,12 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     hrdina.x += dx * rychlost * dt;
     hrdina.y += dy * rychlost * dt;
     if (dx !== 0) hrdina.otoceny = Math.sign(dx);
+    // Kam a jak rychle hrdina běží (podle toho míří Kamenný obr).
+    hrdina.vx = dx * rychlost;
+    hrdina.vy = dy * rychlost;
+  } else {
+    hrdina.vx = 0;
+    hrdina.vy = 0;
   }
   hrdina.nezranitelny = Math.max(0, hrdina.nezranitelny - dt);
   hrdina.sit = Math.max(0, hrdina.sit - dt);
@@ -501,10 +699,12 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     hra.doBedny = BEDNA_KAZDYCH;
   }
   if (hra.cas >= hra.dalsiBoss) {
+    const druh = PORADI_BOSSU[hra.bossu % PORADI_BOSSU.length];
     const { x, y } = naOkraji(hra, sirka, vyska);
-    pridejNepritele(hra, 'strazce', x, y);
+    pridejNepritele(hra, druh, x, y);
+    hra.bossu += 1;
     hra.dalsiBoss += BOSS_KAZDYCH;
-    hra.oznameni = { text: 'Přichází Strážce hlubin', zivot: 3 };
+    hra.oznameni = { text: BOSSOVE[druh].prichod, zivot: 3 };
   }
   if (hra.cas >= hra.dalsiSmecka) {
     smecka(hra, sirka, vyska);
@@ -519,9 +719,12 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     hra.oznameni.zivot -= dt;
     if (hra.oznameni.zivot <= 0) hra.oznameni = null;
   }
+  utokyBossu(hra, dt, sirka, vyska);
   for (const n of hra.nepratele) {
     const d = vzdalenost(n, hrdina) || 1;
-    if (n.duch) {
+    if (n.naprah > 0 || n.nabiji > 0) {
+      // Strážce při napřahování a Bludička při nabíjení stojí na místě.
+    } else if (n.duch) {
       // Duch letí pořád rovně. Střídá se: chvíli vidět, chvíli schovaný, po vynoření zamíří znovu.
       n.duchCas -= dt;
       if (n.duchCas <= 0) {
@@ -532,17 +735,21 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       n.x += n.smerX * n.rychlost * dt;
       n.y += n.smerY * n.rychlost * dt;
     } else {
-      n.x += ((hrdina.x - n.x) / d) * n.rychlost * dt;
-      n.y += ((hrdina.y - n.y) / d) * n.rychlost * dt;
+      const rychlost = n.rychlost * (n.vyrazi > 0 ? RYCHLOST_VYRAZENI : 1);
+      n.x += ((hrdina.x - n.x) / d) * rychlost * dt;
+      n.y += ((hrdina.y - n.y) / d) * rychlost * dt;
+      if (n.vyrazi > 0) n.vyrazi -= dt;
     }
     n.zasazen = Math.max(0, n.zasazen - dt);
     n.zar = Math.max(0, (n.zar || 0) - dt);
     n.zasahKrumpacem = Math.max(0, n.zasahKrumpacem - dt);
     if (d < n.polomer + 8 && hrdina.nezranitelny <= 0 && viditelny(n)) {
       if (n.sit) hrdina.sit = TRVANI_SITE;
+      if (n.druh === 'pavoucek') hra.zasahyBossu.pavoucek += 1;
       zran(hra, n.poskozeni);
     }
   }
+  strelyBossu(hra, dt);
   // Jedový oblak po houbákovi pálí hrdinu, dokud v něm stojí (stejně jako dotyk, po zásahu chvíle klidu).
   for (const o of hra.oblaky) {
     const pali = TRVANI_OBLAKU - o.zivot >= NAFUKOVANI_OBLAKU;
@@ -668,10 +875,11 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     if (vzdalenost(p, hrdina) < 16) {
       p.sebran = true;
       if (p.druh === 'truhla') {
-        // Truhla Strážce dá aspoň vzácnou kartu.
+        // Truhla bosse dá aspoň vzácnou kartu. Okno výběru ukáže, kdo ji nechal.
         hra.volby = nabidka(hra, 'vzacna');
         hra.zTruhly = true;
-        hra.oznameni = { text: 'Truhla Strážce: vylepšení zdarma', zivot: 2 };
+        hra.truhlaOd = Object.hasOwn(BOSSOVE, p.od) ? p.od : 'strazce';
+        hra.oznameni = { text: 'Truhla bosse: vylepšení zdarma', zivot: 2 };
       } else if (p.druh === 'srdce') {
         const pred = hrdina.hp;
         hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + LECENI_SRDCE);
@@ -739,7 +947,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   hra.cisla = hra.cisla.filter((c) => c.zivot > 0);
 }
 
-// Smrt nepřátel → krystaly, oblaky po houbácích, truhla po Strážci a občas srdce nebo magnet.
+// Smrt nepřátel → krystaly, oblaky po houbácích, truhla po bossovi a občas srdce nebo magnet.
 function pohrbi(hra) {
   const { hrdina } = hra;
   for (const n of hra.nepratele) {
@@ -753,7 +961,7 @@ function pohrbi(hra) {
       }
       if (n.boss) {
         hra.zabitoBossu += 1;
-        hra.predmety.push({ druh: 'truhla', x: n.x, y: n.y });
+        hra.predmety.push({ druh: 'truhla', x: n.x, y: n.y, od: n.druh });
         continue;
       }
       // Štěstí z trvalých vylepšení zvětší obě šance, los z rng je pořád jeden (náhoda vln se neposune).
@@ -766,7 +974,7 @@ function pohrbi(hra) {
   hra.nepratele = hra.nepratele.filter((n) => n.hp > 0);
 }
 
-// Šance na každou raritu (součet 1). minimum: horší rarity než tahle nepadnou (truhla Strážce).
+// Šance na každou raritu (součet 1). minimum: horší rarity než tahle nepadnou (truhla bosse).
 export function sanceRarit(hra, minimum = 'bezna') {
   const cas = Math.min(Math.max(0, hra.cas), CAS_PLNYCH_RARIT);
   const nasobek = (1 + cas / CAS_PLNYCH_RARIT) * Math.max(1, hra.hrdina.stesti ?? 1);

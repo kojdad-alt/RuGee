@@ -1,7 +1,7 @@
-// Okno výběru vylepšení při nové úrovni a z truhly Strážce. Karta má raritu (barevný pixelový rámeček,
+// Okno výběru vylepšení při nové úrovni a z truhly bosse. Karta má raritu (barevný pixelový rámeček,
 // u vyšších záře), ikonu zbraně nebo pasivy, úrovně jako čtverečky a bonus rarity. Jen DOM:
 // co karta dá a jak často která rarita padá, je v hra.js. Animace příchodu karet je v style.css.
-import { RARITY, PORADI_RARIT, MAX_UROVEN, sanceRarit } from './hra.js';
+import { RARITY, PORADI_RARIT, MAX_UROVEN, sanceRarit, BOSSOVE } from './hra.js';
 import { obrazekSpritu, vyberTlacitko } from './menu.js';
 
 function prvek(znacka, trida = '', text = null) {
@@ -55,8 +55,9 @@ export function vytvorKartu(volba, i) {
 export function ukazVolby(okno, hra, zvol) {
   const truhla = hra.zTruhly;
   okno.classList.toggle('z-truhly', truhla);
-  okno.querySelector('#volba-stitek').textContent = truhla ? 'Strážce poražen' : `Úroveň ${hra.hrdina.uroven}`;
-  okno.querySelector('#volba-nadpis').textContent = truhla ? 'Truhla Strážce' : 'Nová úroveň';
+  const porazen = BOSSOVE[hra.truhlaOd]?.porazen ?? 'Boss poražen';
+  okno.querySelector('#volba-stitek').textContent = truhla ? porazen : `Úroveň ${hra.hrdina.uroven}`;
+  okno.querySelector('#volba-nadpis').textContent = truhla ? 'Truhla bosse' : 'Nová úroveň';
 
   const karty = hra.volby.map((v, i) => {
     const karta = vytvorKartu(v, i);
