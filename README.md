@@ -21,3 +21,7 @@ node tests/simulace.mjs 1 600
 ```
 
 Jednoduchý hráč utíká od nepřátel, sbírá krystaly a na úrovni bere nejdřív zbraně. Test spadne, když se objeví NaN, nikdo nezemře nebo nepřátel přibývá bez konce.
+
+## Nová verze
+
+Po každé změně kódu spusť `node nastroje/verze.mjs`. Do `index.html` zapíše otisky souborů (`?v=…`), aby hráči po nasazení nedostali z cache starý modul.
