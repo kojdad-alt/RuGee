@@ -1,13 +1,13 @@
 import { vytvorRng } from './rng.js';
-import { novaHra, aktualizuj, vyber, TRIDY } from './hra.js';
+import { novaHra, aktualizuj, vyber, rozhodniKus, TRIDY } from './hra.js';
 import { kresli, kresliMenu } from './kresleni.js';
 import { dusZaHru } from './duse.js';
 import {
   vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, obrazekSpritu, pocetDusi, cislaPoskozeni, prepinacNastaveni,
 } from './menu.js';
-import { zapisVysledek, nactiDuse, pripisDuse } from './ulozeni.js';
+import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez } from './ulozeni.js';
 import { odemkniZvuk, zvukStartu, zvukVolby, zvukVyberu } from './zvuk.js';
-import { ukazVolby } from './volba.js';
+import { ukazVolby, ukazPorovnani } from './volba.js';
 import { ukazVybavu } from './vybava.js';
 
 const platno = document.getElementById('platno');
@@ -21,7 +21,10 @@ let vMenu = true;
 let posledni = 0;
 // Kdy se otevřelo okno výběru. Chvíli potom se nevybírá, ať klik nebo klávesa z běhu nic nevybere náhodou.
 let volbyOd = 0;
+let porovnaniOd = 0;
 const POJISTKA_VOLBY = 300;
+// Kolik kusů výbavy z téhle hry už je zapsaných ve Sbírce (zapisuje se hned po nálezu).
+let zapsanoNalezu = 0;
 
 function zmenVelikost() {
   platno.width = innerWidth;
@@ -32,11 +35,13 @@ function start() {
   // ?seed=123 v adrese dá pořád stejné vlny (hodí se na hledání chyb).
   const seminko = Number(new URLSearchParams(location.search).get('seed')) || (Date.now() >>> 0);
   hra = novaHra(vytvorRng(seminko), zvolenaTrida(), nactiDuse().vylepseni);
+  zapsanoNalezu = 0;
   vMenu = false;
   menu.skryj();
   document.body.classList.remove('v-menu');
   el('konec').hidden = true;
   el('volba').hidden = true;
+  el('porovnani').hidden = true;
   el('pauza').hidden = true;
   // Zaměřené tlačítko schovaného okna by jinak Enterem spustilo něco uprostřed hry.
   document.activeElement?.blur?.();
@@ -46,6 +51,7 @@ function doMenu() {
   vMenu = true;
   el('konec').hidden = true;
   el('volba').hidden = true;
+  el('porovnani').hidden = true;
   el('pauza').hidden = true;
   document.body.classList.add('v-menu');
   stisknute.clear();
@@ -137,11 +143,31 @@ function otevriVolby() {
 }
 
 function zvol(i) {
-  if (!hra?.volby?.[i] || performance.now() - volbyOd < POJISTKA_VOLBY) return;
+  if (!hra?.volby?.[i] || hra.porovnani || performance.now() - volbyOd < POJISTKA_VOLBY) return;
   vyber(hra, hra.volby[i]);
   zvukVyberu();
   el('volba').hidden = true;
   document.activeElement?.blur?.();
+}
+
+// Nový kus výbavy do obsazeného slotu: okno porovnání. Po rozhodnutí přijde okno karet z truhly.
+function otevriPorovnani() {
+  const stupen = ukazPorovnani(el('porovnani'), hra, rozhodniVybavu);
+  porovnaniOd = performance.now();
+  zvukVolby(stupen);
+}
+
+function rozhodniVybavu(vzit) {
+  if (!hra?.porovnani || performance.now() - porovnaniOd < POJISTKA_VOLBY) return;
+  rozhodniKus(hra, vzit);
+  zvukVyberu();
+  el('porovnani').hidden = true;
+  document.activeElement?.blur?.();
+}
+
+// Každý nový kus výbavy se hned zapíše do Sbírky v menu.
+function zapisNalezy() {
+  while (zapsanoNalezu < hra.nalezy.length) zapisNalez(hra.nalezy[zapsanoNalezu++]);
 }
 
 // Rekord se drží jen v tomhle prohlížeči (ulozeni.js), v menu ho ukazuje záložka Rekordy.
@@ -155,7 +181,9 @@ function zapisKonec() {
     ? 'Nový rekord!'
     : `Rekord: ${formatCas(rekord.cas)}, úroveň ${rekord.uroven}, zabito ${rekord.zabito}.`;
   const oziveni = hra.oziveno ? ' Duše tě jednou vrátily.' : '';
-  el('konec-text').textContent = `${text}${oziveni} ${radekRekordu}`;
+  const kusu = hra.nalezy.length;
+  const vystroj = kusu ? ` Výbava bossů: ${kusu} ${kusu === 1 ? 'kus' : kusu <= 4 ? 'kusy' : 'kusů'}.` : '';
+  el('konec-text').textContent = `${text}${oziveni}${vystroj} ${radekRekordu}`;
 
   // Duše za hru se připíšou hned, utratit se dají v menu Vylepšení.
   const duse = dusZaHru(hra);
@@ -208,9 +236,12 @@ function smycka(t) {
     requestAnimationFrame(smycka);
     return;
   }
-  const melVolby = Boolean(hra.volby);
   aktualizuj(hra, dt, vstup(), platno.width, platno.height);
-  if (!melVolby && hra.volby) otevriVolby();
+  // Po truhle nejdřív porovnání výbavy (když je slot obsazený), pak karty. Okno se otevře, jakmile na něj
+  // přijde řada, a zavře ho až volba.
+  if (hra.porovnani && el('porovnani').hidden) otevriPorovnani();
+  else if (hra.volby && !hra.porovnani && el('volba').hidden) otevriVolby();
+  zapisNalezy();
   if (hra.konec && el('konec').hidden) {
     zapisKonec();
     el('konec').hidden = false;
@@ -237,7 +268,7 @@ addEventListener('keydown', (e) => {
     else ovladejTlacitka(el('konec'), e);
     return;
   }
-  if ((k === 'p' || k === 'escape') && !hra.volby) {
+  if ((k === 'p' || k === 'escape') && !hra.volby && !hra.porovnani) {
     if (!e.repeat) nastavPauzu(!hra.pauza);
     return;
   }
@@ -246,6 +277,12 @@ addEventListener('keydown', (e) => {
     return;
   }
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+  // Porovnání výbavy: 1 vezme nový kus, 2 nechá nasazený, šipky a Enter jako u karet.
+  if (hra.porovnani) {
+    if (k === '1' || k === '2') rozhodniVybavu(k === '1');
+    else if (!['enter', ' '].includes(k) || el('porovnani-kusy').querySelector('.vybrano')) ovladejTlacitka(el('porovnani-kusy'), e);
+    return;
+  }
   if (hra.volby && ['1', '2', '3'].includes(k)) zvol(Number(k) - 1);
   // Šipky vybírají kartu, Enter nebo mezerník ji vezme (jen když už je nějaká vybraná, ne naslepo první).
   else if (hra.volby && (!['enter', ' '].includes(k) || el('karty').querySelector('.vybrano'))) ovladejTlacitka(el('karty'), e);

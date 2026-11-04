@@ -426,6 +426,58 @@ html, body {
   .karta-klavesa { display: none; }
 }
 
+/* Kus výbavy, který se z truhly rovnou nasadil: řádek nad kartami v barvě jeho rarity. */
+.volba-kus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  margin: -6px auto 16px;
+  padding: 6px 14px 6px 8px;
+  text-align: left;
+  background: var(--c-pozadi);
+  box-shadow: 0 -2px 0 var(--c), 0 2px 0 var(--c), -2px 0 0 var(--c), 2px 0 0 var(--c), 0 0 10px var(--c-zar);
+}
+
+.volba-kus[hidden] { display: none; }
+.volba-kus canvas { flex: none; }
+.volba-kus-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.volba-kus b { color: var(--c-svetla); }
+.volba-kus small { color: var(--text-tlumeny); font-size: 12px; }
+
+/* Porovnání výbavy: dvě karty kusů vedle sebe, nový vlevo (Vzít), nasazený vpravo (Nechat). */
+.porovnani-napoveda { margin-top: -10px; font-size: 12px; }
+@media (min-width: 601px) { .karta.kus { flex-basis: 280px; } }
+.kus-stat { color: var(--text) !important; }
+
+.kus-rozdil {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kus-rozdil small { font-size: 12px; font-weight: bold; }
+.kus-rozdil .lepsi { color: #7cf08a; }
+.kus-rozdil .lepsi::before { content: '▲ '; }
+.kus-rozdil .horsi { color: #f08a8d; }
+.kus-rozdil .horsi::before { content: '▼ '; }
+
+.kus-akce {
+  margin-top: 4px;
+  padding: 4px 10px 5px;
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--zlata);
+  background: #221f2b;
+  border: 2px solid var(--okraj);
+}
+
+.karta.kus:hover .kus-akce, .karta.kus.vybrano .kus-akce, .karta.kus:focus-visible .kus-akce { border-color: var(--zlata); }
+
 @media (prefers-reduced-motion: reduce) {
   .vyber, .vyber-panel, .karta, .karta::before, .karta::after, .karta-ikona canvas, .karta-ctverecky i.novy {
     animation: none !important;
@@ -455,13 +507,35 @@ html, body {
   left: 16px;
   bottom: 34px;
   display: flex;
-  flex-direction: column;
-  gap: var(--mezera);
+  align-items: flex-end;
+  gap: calc(var(--mezera) * 3);
   pointer-events: none;
   transition: opacity 0.15s;
 }
 
 .vybava.u-joysticku { opacity: 0.2; }
+
+.vybava-zbrane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mezera);
+}
+
+/* Sloty výbavy bossů vedle zbraní: 2×2 (Hlava, Tělo / Amulet, Prsten), rámeček v barvě rarity kusu
+   (proměnné --c a --c-pozadi dávají třídy rarita-*), prázdný slot ukazuje stín kusu. */
+.vybava-vystroj {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: var(--mezera);
+}
+
+.vybava-policko.vystroj-policko:not(.prazdne) {
+  --barva: var(--c);
+  background: var(--c-pozadi);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 2px 0 #000, 0 0 6px var(--c-zar);
+}
+
+canvas.stin { filter: brightness(0); opacity: 0.35; }
 
 .vybava-radek {
   display: flex;
@@ -897,3 +971,56 @@ kbd {
 /* Pauza: menší okno uprostřed, hra pod ním stojí. */
 .okno.pauza { width: min(420px, calc(100% - 32px)); }
 .pauza .radek-tlacitek { flex-direction: column; align-items: stretch; }
+
+/* Sbírka výbavy bossů v menu: sada po sadě, dlaždice s kusem (rámeček v barvě nejlepší nalezené rarity),
+   neobjevený kus je jen stín a ???. */
+.sbirka-stav {
+  margin: -6px 0 14px;
+  color: var(--zlata);
+  font-weight: bold;
+}
+
+.sbirka-sada {
+  margin: 0 0 16px;
+  padding: 10px 10px 12px;
+  text-align: left;
+  background: #1c1a23;
+  border: 2px solid var(--okraj);
+}
+
+.sbirka-hlava {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.sbirka-hlava b { color: var(--zlata); }
+.sbirka-hlava span { color: var(--text-tlumeny); font-size: 12px; }
+.sbirka-efekt, .sbirka-bonus { display: block; color: var(--text-tlumeny); font-size: 12px; line-height: 1.35; }
+.sbirka-efekt { margin: 2px 0 8px; color: var(--duse); }
+.sbirka-bonus { margin-top: 8px; }
+
+.sbirka-mrizka {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 8px;
+}
+
+.sbirka-kus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px 10px;
+  text-align: center;
+  background: var(--c-pozadi, #15131b);
+  box-shadow: 0 -2px 0 var(--c, var(--okraj)), 0 2px 0 var(--c, var(--okraj)), -2px 0 0 var(--c, var(--okraj)), 2px 0 0 var(--c, var(--okraj));
+}
+
+.sbirka-kus.neznamy { --c: #2c2836; --c-pozadi: #131118; }
+.sbirka-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sbirka-text b { color: var(--c-svetla, var(--text-tlumeny)); font-size: 13px; }
+.sbirka-kus.neznamy .sbirka-text b { color: var(--text-tlumeny); }
+.sbirka-text small { color: var(--text-tlumeny); font-size: 11px; line-height: 1.3; }
+.sbirka-text .sbirka-staty { color: var(--text); }

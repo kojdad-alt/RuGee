@@ -1,12 +1,15 @@
-// Co si hra pamatuje v tomhle prohlížeči: rekord, zvolenou třídu, duše s trvalými vylepšeními a nastavení.
-// V anonymním okně nebo se zablokovaným úložištěm se nic neuloží a hra kvůli tomu nespadne.
+// Co si hra pamatuje v tomhle prohlížeči: rekord, zvolenou třídu, duše s trvalými vylepšeními, nastavení
+// a sbírku nalezené výbavy bossů. V anonymním okně nebo se zablokovaným úložištěm se nic neuloží a hra kvůli
+// tomu nespadne.
 import { platnaTrida } from './hra.js';
 import { platnyStav } from './duse.js';
+import { platnaSbirka, pridejDoSbirky } from './vystroj.js';
 
 const KLIC_REKORDU = 'hlubiny.rekord';
 const KLIC_TRIDY = 'hlubiny.trida';
 const KLIC_DUSI = 'hlubiny.duse';
 const KLIC_NASTAVENI = 'hlubiny.nastaveni';
+const KLIC_SBIRKY = 'hlubiny.sbirka';
 // Přepínače v Ovládání a v pauze. Co v záznamu chybí nebo není ano/ne, platí výchozí.
 export const VYCHOZI_NASTAVENI = { cislaPoskozeni: true };
 
@@ -82,4 +85,16 @@ export function pripisDuse(kolik) {
   const novy = { ...stav, duse: stav.duse + Math.max(0, Math.floor(kolik) || 0) };
   ulozDuse(novy);
   return novy;
+}
+
+// Sbírka výbavy: { id kusu: nejlepší nalezená rarita }. Rozbitý záznam = nic nenalezeno.
+export function nactiSbirku() {
+  return platnaSbirka(nacti(KLIC_SBIRKY));
+}
+
+// Zapíše kus nalezený ve hře (lepší rarita přepíše horší, horší nic nezmění). Vrací novou sbírku.
+export function zapisNalez(kus) {
+  const sbirka = pridejDoSbirky(nactiSbirku(), kus);
+  uloz(KLIC_SBIRKY, sbirka);
+  return sbirka;
 }

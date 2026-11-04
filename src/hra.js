@@ -1,5 +1,6 @@
 // Pravidla hry: pohyb, zbraně, nepřátelé, krystaly zkušeností a vylepšení.
 import { pouzijVylepseni } from './duse.js';
+import { PORADI_SLOTU, ucinekVystroje, losujKus, zlatakyZaKus } from './vystroj.js';
 
 // ikona = jméno spritu, který se ukáže na kartě vylepšení. popis = řádek za každou z úrovní 1–5.
 // dal = jak zbraň roste nad 5. úrovní (bonusZaUroven): poradi = co přidá každá třetí úroveň (dokola) a která
@@ -151,8 +152,8 @@ export function platnaTrida(id) {
 //   elita: od elitaOd šance elitaSance na každého z vlny, od castejiOd navíc + elitaRust · (min − castejiOd), nanejvýš elitaMax
 // Exponenty od narustOd jsou pojistka, že nikdo nevydrží donekonečna: zbraně bez stropu úrovní by jinak lineární
 // růst přerostly, rychlý hrdina by nepřátelům utíkal napořád a srdce ze zabitých by doléčila každou ránu.
-// Vyváženo simulací (tests/simulace.mjs, hrozba.preziti_min): bot bez trvalých vylepšení vydrží zhruba 7–15 min,
-// se všemi na maximu 15–20 min. Brzký růst rychlosti je citlivý: už 0,015 místo 0,01 složí slabého bota v 6. minutě.
+// Vyváženo simulací (tests/simulace.mjs, hrozba.preziti_min): bot bez trvalých vylepšení vydrží zhruba 4–15 min,
+// se všemi na maximu (a s výbavou bossů z truhel) 19–21 min. Brzký růst rychlosti je citlivý: už 0,015 místo 0,01 složí slabého bota v 6. minutě.
 export const HROZBA = {
   zivoty: 0.1, narustOd: 8, narustZivotu: 1.25, bossZivoty: 0.2, bossNavic: 0.3,
   poskozeni: 0.05, narustPoskozeni: 1.1,
@@ -364,6 +365,14 @@ export const ZRYCHLENI_ODRAZU = 1.3;
 const ZIVOT_ODRAZU = 2;
 export const TRVANI_ODLESKU = 0.25;
 
+// Výbava bossů (data a staty v vystroj.js). Truhla bosse se po dotyku TRVANI_OTEVRENI s otevírá a svět mezitím
+// stojí, pak dá kus výbavy a kartu. Efekty sad: rázová vlna běží RYCHLOST_VLNY_HRDINY px/s a první vyběhne
+// PRVNI_VLNA_HRDINY s po nasazení. Zapředený nepřítel stojí, boss v síti jde ZPOMALENI_SITE_BOSSE.
+export const TRVANI_OTEVRENI = 1;
+export const RYCHLOST_VLNY_HRDINY = 420;
+export const PRVNI_VLNA_HRDINY = 1;
+export const ZPOMALENI_SITE_BOSSE = 0.5;
+
 const NEPRATELE = {
   netopyr: { hp: 10, rychlost: 72, poskozeni: 5, xp: 1, polomer: 10 },
   slizak: { hp: 32, rychlost: 42, poskozeni: 10, xp: 2, polomer: 12 },
@@ -395,6 +404,9 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}) {
     x: 0, y: 0, hp: 100, maxHp: 100, rychlost: 110, magnet: 64, nabijeni: 1,
     sila: 1, uroven: 1, xp: 0, potreba: potrebaNaUroven(1), nezranitelny: 0, otoceny: 1, sit: 0,
     stesti: 1, zkusenosti: 1, oziveni: 0, vx: 0, vy: 0, odhozen: 0, odhozVx: 0, odhozVy: 0,
+    // zbroj = kolik ubere z každé rány (jen z výbavy), neviditelny = jak dlouho ještě je zmizelý (Bludný plamen),
+    // doZmizeni = za jak dlouho může zmizet znovu, zmizelX/Y = kde ho nepřátelé viděli naposledy
+    zbroj: 0, neviditelny: 0, doZmizeni: 0, zmizelX: 0, zmizelY: 0,
   };
   for (const [vlastnost, nasobek] of Object.entries(TRIDY[trida].nasobky)) hrdina[vlastnost] *= nasobek;
   pouzijVylepseni(hrdina, vylepseni);
@@ -459,6 +471,22 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}) {
     hlaseniHrozby: null,
     doElity: 0,
     elit: 0,
+    // Výbava bossů: vystroj = co má hrdina v kterém slotu, ucinekVystroje = co mu to právě dává (už promítnuté
+    // do vlastností hrdiny), nalezy = kusy z truhel v pořadí nálezu, otevira = truhla, která se právě otevírá,
+    // porovnani = nový kus do obsazeného slotu čeká na Vzít / Nechat, truhlaKus = kus z poslední truhly, který
+    // se rovnou nasadil (ukáže ho okno karet). vlnyHrdiny a doSite patří efektům sad.
+    vystroj: Object.fromEntries(PORADI_SLOTU.map((slot) => [slot, null])),
+    ucinekVystroje: ucinekVystroje({}),
+    nalezy: [],
+    otevira: null,
+    porovnani: null,
+    truhlaKus: null,
+    rozlozeno: 0,
+    zlatakyZVybavy: 0,
+    vlnyHrdiny: [],
+    doVlnyHrdiny: 0,
+    doSite: 0,
+    efektyPouzito: { vlna: 0, sit: 0, kuze: 0, zmizeni: 0 },
   };
 }
 
@@ -506,12 +534,23 @@ function cisloZasahu(hra, n, poskozeni) {
 }
 
 // zar = zásah žárem lucerny: nepřítel se rozzáří, jinak krátce zbělá.
+// S Pavučinou (výbava Matky) se šance ze zásahů sčítá a zásah, na který připadne celá, nepřítele zapřede
+// (bez losu z rng, ať se náhoda vln neposune). Kdo už v síti je, šanci nebere.
 export function zasah(hra, n, kolik, zar = false) {
   const poskozeni = Math.round(kolik * hra.hrdina.sila);
   n.hp -= poskozeni;
   if (zar) n.zar = TRVANI_ZARU;
   else n.zasazen = 0.1;
   if (poskozeni > 0) cisloZasahu(hra, n, poskozeni);
+  const sit = hra.ucinekVystroje?.efekty.sit;
+  if (sit && poskozeni > 0 && n.hp > 0 && !(n.zapreden > 0)) {
+    hra.doSite += sit.sance;
+    if (hra.doSite >= 1) {
+      hra.doSite -= 1;
+      n.zapreden = sit.trvani;
+      hra.efektyPouzito.sit += 1;
+    }
+  }
 }
 
 // Zelené +N nad hrdinou, když se opravdu léčil.
@@ -558,8 +597,10 @@ function oziv(hra) {
 
 // Zranění hrdiny (dotyk nepřítele, útok bosse nebo jedový oblak): červené číslo nad ním, chvíle bez zranění,
 // třes, případně konec nebo Oživení. barva 'jed' = rána z oblaku (kreslí se stejně, jen se pozná).
+// Zbroj z výbavy ubere z rány svůj díl (aspoň 1 projde vždy). S Bludným plamenem hrdina po ráně zmizí.
 function zran(hra, kolik, barva = 'zraneni') {
   const { hrdina } = hra;
+  if (hrdina.zbroj > 0 && kolik > 0) kolik = Math.max(1, Math.round(kolik * (1 - hrdina.zbroj)));
   if (kolik > 0) pridejCislo(hra, { x: hrdina.x, y: hrdina.y - 18, text: `-${kolik}`, hodnota: kolik, barva });
   hrdina.hp -= kolik;
   hrdina.nezranitelny = 0.5;
@@ -567,6 +608,16 @@ function zran(hra, kolik, barva = 'zraneni') {
   if (hrdina.hp <= 0) {
     if (hrdina.oziveni > 0) oziv(hra);
     else hra.konec = true;
+  }
+  const zmizeni = hra.ucinekVystroje?.efekty.zmizeni;
+  if (zmizeni && !hra.konec && hrdina.doZmizeni <= 0) {
+    hrdina.neviditelny = zmizeni.trvani;
+    hrdina.nezranitelny = Math.max(hrdina.nezranitelny, zmizeni.trvani);
+    hrdina.doZmizeni = zmizeni.pauza;
+    hrdina.zmizelX = hrdina.x;
+    hrdina.zmizelY = hrdina.y;
+    hra.efektyPouzito.zmizeni += 1;
+    rozprsk(hra, hrdina.x, hrdina.y, 'bludicka', 8);
   }
 }
 
@@ -1232,8 +1283,156 @@ function zrcadla(hra, s) {
   if (hra.odlesky.length > 40) hra.odlesky.splice(0, hra.odlesky.length - 40);
 }
 
+// Výbava bossů. Po každé změně výbavy se spočítá znovu, co celá dává (ucinekVystroje), a do vlastností hrdiny
+// se promítne jen rozdíl proti minulému stavu: životy přičíst (přibyté i doléčí), násobky vydělit starým
+// a vynásobit novým, zbroj nastavit. Sundaný kus tak vrátí hrdinu přesně tam, kde byl.
+function prepocitejVystroj(hra) {
+  const { hrdina } = hra;
+  const stary = hra.ucinekVystroje;
+  const novy = ucinekVystroje(hra.vystroj);
+  const navic = novy.nasobky.maxHp - stary.nasobky.maxHp;
+  hrdina.maxHp += navic;
+  hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + Math.max(0, navic));
+  for (const vlastnost of ['sila', 'nabijeni', 'rychlost', 'magnet']) {
+    hrdina[vlastnost] *= novy.nasobky[vlastnost] / stary.nasobky[vlastnost];
+  }
+  hrdina.zbroj = novy.nasobky.zbroj;
+  // Rázová vlna vyběhne poprvé hned po nasazení, ať je vidět, co kus umí.
+  if (novy.efekty.vlna && !stary.efekty.vlna) hra.doVlnyHrdiny = PRVNI_VLNA_HRDINY;
+  hra.ucinekVystroje = novy;
+}
+
+// Kus do slotu (co tam bylo, zmizí). Exportované kvůli simulaci.
+export function nasadKus(hra, kus) {
+  hra.vystroj[kus.slot] = kus;
+  prepocitejVystroj(hra);
+}
+
+export function sundejKus(hra, slot) {
+  hra.vystroj[slot] = null;
+  prepocitejVystroj(hra);
+}
+
+// Kus z truhly: do volného slotu se rovnou nasadí, u obsazeného čeká na rozhodnutí (rozhodniKus).
+export function ziskejKus(hra, kus) {
+  hra.nalezy.push(kus);
+  const nasazeny = hra.vystroj[kus.slot];
+  if (!nasazeny) {
+    nasadKus(hra, kus);
+    hra.truhlaKus = kus;
+    return;
+  }
+  hra.truhlaKus = null;
+  hra.porovnani = { novy: kus, nasazeny };
+}
+
+// Vzít (vzit = true) nasadí nový kus, Nechat nechá ten starý. Kus, který hrdina nenechal, se rozloží na zlaťáky.
+export function rozhodniKus(hra, vzit) {
+  const p = hra.porovnani;
+  if (!p) return;
+  const nechany = vzit ? p.nasazeny : p.novy;
+  if (vzit) nasadKus(hra, p.novy);
+  const zlata = zlatakyZaKus(nechany);
+  hra.zlataky += zlata;
+  hra.zlatakyZVybavy += zlata;
+  hra.rozlozeno += 1;
+  if (zlata > 0) pridejCislo(hra, { x: hra.hrdina.x, y: hra.hrdina.y - 18, text: `+${zlata}`, hodnota: zlata, zivot: TRVANI_CISLA_LECENI, barva: 'zlato' });
+  hra.porovnani = null;
+}
+
+// Dotyk truhly: kus se vylosuje hned (animace otevření ho ukáže), svět stojí, dokud se truhla neotevře.
+function otevriTruhlu(hra, p) {
+  const od = Object.hasOwn(BOSSOVE, p.od) ? p.od : 'strazce';
+  const kus = losujKus(od, hra.rng.dalsi(), hra.rng.dalsi(), hra.hrozba, hra.hrdina.stesti);
+  hra.otevira = { x: p.x, y: p.y, od, kus, cas: 0 };
+}
+
+// Truhla je otevřená: kus výbavy (nasadí se, nebo čeká na porovnání) a k tomu karta aspoň vzácná jako dřív.
+function dokonciTruhlu(hra) {
+  const { od, kus } = hra.otevira;
+  hra.otevira = null;
+  ziskejKus(hra, kus);
+  hra.volby = nabidka(hra, 'vzacna');
+  hra.zTruhly = true;
+  hra.truhlaOd = od;
+  hra.oznameni = { text: `Výbava bosse: ${kus.nazev}`, zivot: 2 };
+}
+
+// Odhodí nepřítele od bodu (x, y) o kolik px (bosse ne, ti jsou moc těžcí).
+function odhodNepritele(n, od, kolik) {
+  if (n.boss) return;
+  const d = vzdalenost(n, od);
+  const ux = d > 0 ? (n.x - od.x) / d : 1;
+  const uy = d > 0 ? (n.y - od.y) / d : 0;
+  n.odhozen = TRVANI_ODHOZENI;
+  n.odhozVx = (ux * kolik) / TRVANI_ODHOZENI;
+  n.odhozVy = (uy * kolik) / TRVANI_ODHOZENI;
+}
+
+// Rázová vlna (výbava Strážce): každých pár sekund vyběhne od hrdiny kruh, každého zasáhne jednou, odhodí ho
+// a rozbije bedny, přes které přejde.
+function razoveVlny(hra, dt) {
+  const { hrdina } = hra;
+  const vlna = hra.ucinekVystroje.efekty.vlna;
+  if (vlna) {
+    hra.doVlnyHrdiny -= dt;
+    if (hra.doVlnyHrdiny <= 0) {
+      hra.vlnyHrdiny.push({ x: hrdina.x, y: hrdina.y, r: 0, max: vlna.polomer, poskozeni: vlna.poskozeni, odhozeni: vlna.odhozeni, zasazeni: new Set() });
+      hra.doVlnyHrdiny = vlna.kazdych;
+      hra.efektyPouzito.vlna += 1;
+      hra.tres = Math.max(hra.tres, TRVANI_TRESU / 2);
+    }
+  }
+  for (const v of hra.vlnyHrdiny) {
+    const pred = v.r;
+    v.r = Math.min(v.max, v.r + RYCHLOST_VLNY_HRDINY * dt);
+    for (const n of hra.nepratele) {
+      if (n.hp <= 0 || !viditelny(n) || v.zasazeni.has(n)) continue;
+      const d = vzdalenost(n, v);
+      if (d > v.r + n.polomer || d < pred - n.polomer) continue;
+      v.zasazeni.add(n);
+      zasah(hra, n, v.poskozeni);
+      odhodNepritele(n, v, v.odhozeni);
+    }
+    for (const b of hra.bedny) {
+      if (vzdalenost(b, v) <= v.r + POLOMER_BEDNY) rozbij(hra, b);
+    }
+    if (v.r >= v.max) v.konec = true;
+  }
+  hra.vlnyHrdiny = hra.vlnyHrdiny.filter((v) => !v.konec);
+}
+
+// Kamenná kůže (výbava Obra): dotyk nepřítele bolí míň a nepřítel odletí (boss jen bolí míň).
+function ranaDotykem(hra, n) {
+  const kuze = hra.ucinekVystroje.efekty.kuze;
+  if (!kuze) return n.poskozeni;
+  hra.efektyPouzito.kuze += 1;
+  if (!n.boss) {
+    odhodNepritele(n, hra.hrdina, kuze.odhozeni);
+    rozprsk(hra, (n.x + hra.hrdina.x) / 2, (n.y + hra.hrdina.y) / 2, 'kamen', 4);
+  }
+  return Math.max(1, Math.round(n.poskozeni * (1 - kuze.snizeni)));
+}
+
+// Zapředený nepřítel stojí, boss v síti jde napůl. 1 = bez sítě.
+function brzdaSite(n) {
+  if (!(n.zapreden > 0)) return 1;
+  return n.boss ? ZPOMALENI_SITE_BOSSE : 0;
+}
+
+// Sloty výbavy pro HUD a menu: v pořadí slotů, prázdný slot je null.
+export function seznamVystroje(hra) {
+  return PORADI_SLOTU.map((slot) => ({ slot, kus: hra.vystroj?.[slot] ?? null }));
+}
+
 export function aktualizuj(hra, dt, vstup, sirka, vyska) {
-  if (hra.konec || hra.volby || hra.pauza) return;
+  if (hra.konec || hra.volby || hra.porovnani || hra.pauza) return;
+  // Otevírání truhly: svět stojí, běží jen animace.
+  if (hra.otevira) {
+    hra.otevira.cas += dt;
+    if (hra.otevira.cas >= TRVANI_OTEVRENI) dokonciTruhlu(hra);
+    return;
+  }
   const { hrdina } = hra;
   hra.cas += dt;
 
@@ -1262,6 +1461,8 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     hrdina.vy = 0;
   }
   hrdina.nezranitelny = Math.max(0, hrdina.nezranitelny - dt);
+  hrdina.neviditelny = Math.max(0, hrdina.neviditelny - dt);
+  hrdina.doZmizeni = Math.max(0, hrdina.doZmizeni - dt);
   hrdina.sit = Math.max(0, hrdina.sit - dt);
   hra.tres = Math.max(0, hra.tres - dt);
   hra.zablesk = Math.max(0, hra.zablesk - dt);
@@ -1321,9 +1522,12 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     if (hra.oznameni.zivot <= 0) hra.oznameni = null;
   }
   schopnostiBossu(hra, dt, sirka, vyska);
+  // Zmizelého hrdinu (Bludný plamen) nepřátelé nevidí a jdou tam, kde ho viděli naposledy. Bossové ho najdou.
+  const zmizel = hrdina.neviditelny > 0;
+  const naposledy = { x: hrdina.zmizelX, y: hrdina.zmizelY };
   for (const n of hra.nepratele) {
     const d = vzdalenost(n, hrdina) || 1;
-    const brzda = brzdaTrnu(n);
+    const brzda = brzdaTrnu(n) * brzdaSite(n);
     if (n.odhozen > 0) {
       // Odhozený zrcadlem letí od hrdiny a mezitím po něm nejde (uletí přesně o odhození, ne o kus víc).
       const kus = Math.min(dt, n.odhozen);
@@ -1344,10 +1548,16 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       n.y += n.smerY * n.rychlost * brzda * dt;
     } else {
       const rychlost = n.rychlost * brzda * (n.vyrazi > 0 ? RYCHLOST_VYRAZENI : 1);
-      n.x += ((hrdina.x - n.x) / d) * rychlost * dt;
-      n.y += ((hrdina.y - n.y) / d) * rychlost * dt;
+      const cil = zmizel && !n.boss ? naposledy : hrdina;
+      const k = cil === hrdina ? d : vzdalenost(n, cil);
+      // U místa, kde hrdina zmizel, nepřítel zůstane stát (jinak by kolem něj poskakoval).
+      if (cil === hrdina || k > rychlost * dt) {
+        n.x += ((cil.x - n.x) / k) * rychlost * dt;
+        n.y += ((cil.y - n.y) / k) * rychlost * dt;
+      }
       if (n.vyrazi > 0) n.vyrazi -= dt;
     }
+    n.zapreden = Math.max(0, (n.zapreden || 0) - dt);
     n.zasazen = Math.max(0, n.zasazen - dt);
     n.zar = Math.max(0, (n.zar || 0) - dt);
     n.zasahKrumpacem = Math.max(0, n.zasahKrumpacem - dt);
@@ -1356,7 +1566,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     if (d < n.polomer + 8 && hrdina.nezranitelny <= 0 && viditelny(n)) {
       if (n.sit) hrdina.sit = TRVANI_SITE;
       if (n.pan) hra.zasahyBossu.pomocnik += 1;
-      zran(hra, n.poskozeni);
+      zran(hra, ranaDotykem(hra, n));
     }
   }
   strelyBossu(hra, dt);
@@ -1490,22 +1700,25 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   }
   for (const o of hra.odlesky) o.zivot -= dt;
   hra.odlesky = hra.odlesky.filter((o) => o.zivot > 0);
+  // Rázová vlna z výbavy Strážce
+  razoveVlny(hra, dt);
   hra.bedny = hra.bedny.filter((b) => !b.rozbita);
 
   pohrbi(hra);
 
-  // srdce, magnet, zlaťák a bomba se seberou dotykem
+  // srdce, magnet, zlaťák a bomba se seberou dotykem, truhla bosse se začne otevírat (jen jedna naráz,
+  // další se otevře hned po ní)
   let bouchlo = false;
   for (const p of hra.predmety) {
     if (vzdalenost(p, hrdina) < 16) {
-      p.sebran = true;
       if (p.druh === 'truhla') {
-        // Truhla bosse dá aspoň vzácnou kartu. Okno výběru ukáže, kdo ji nechal.
-        hra.volby = nabidka(hra, 'vzacna');
-        hra.zTruhly = true;
-        hra.truhlaOd = Object.hasOwn(BOSSOVE, p.od) ? p.od : 'strazce';
-        hra.oznameni = { text: 'Truhla bosse: vylepšení zdarma', zivot: 2 };
-      } else if (p.druh === 'srdce') {
+        if (hra.otevira) continue;
+        p.sebran = true;
+        otevriTruhlu(hra, p);
+        continue;
+      }
+      p.sebran = true;
+      if (p.druh === 'srdce') {
         const pred = hrdina.hp;
         hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + LECENI_SRDCE);
         cisloLeceni(hra, hrdina.hp - pred);
@@ -1543,8 +1756,8 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     const [a, b] = hra.krystaly.splice(0, 2);
     hra.krystaly.push({ x: b.x, y: b.y, xp: a.xp + b.xp });
   }
-  // Když je zrovna otevřená truhla, nová úroveň počká na další snímek (jinak by truhlu přepsala).
-  if (hrdina.xp >= hrdina.potreba && !hra.volby) {
+  // Když se zrovna otevírá truhla, nová úroveň počká, až bude otevřená a vybraná (jinak by truhlu přepsala).
+  if (hrdina.xp >= hrdina.potreba && !hra.volby && !hra.otevira) {
     hrdina.xp -= hrdina.potreba;
     hrdina.uroven += 1;
     hrdina.potreba = potrebaNaUroven(hrdina.uroven);
@@ -1750,6 +1963,7 @@ export function vyber(hra, volba) {
   if (volba.druh === 'leceni' || volba.bonus?.doleceni) cisloLeceni(hra, hrdina.hp - predLecenim);
   hra.volby = null;
   hra.zTruhly = false;
+  hra.truhlaKus = null;
 }
 
 // Co hrdina právě má, v pořadí, jak to dostal (zbraně, pak pasivy): pro přehled výbavy v rohu obrazovky.

@@ -40,6 +40,12 @@
 // Čísla poškození: zásahy do stejného nepřítele se do SLUCOVANI_CISEL sečtou, jiný nepřítel má své číslo, silná rána
 // zežloutne a obyčejná ne, naráz je nejvýš MAX_CISEL čísel (i se zbraněmi na 60. úrovni), každá rána hrdinovi
 // má nad ním červené číslo, léčení zelené, a za TRVANI_CISLA číslo zmizí. Přepínač v nastavení se uloží.
+// Výbava bossů: každý boss má sadu 4 kusů (Hlava, Tělo, Amulet, Prsten) se jménem, spritem 8×8 a staty, truhla
+// má sprite podle bosse. Truhla se 1 s otevírá a svět mezitím stojí, pak dá kus od toho bosse (do volného slotu
+// ho rovnou nasadí, u obsazeného čeká porovnání Vzít / Nechat a nechaný kus dá zlaťáky) a kartu aspoň vzácnou.
+// Staty sedí s raritou, sundaný kus vrátí hrdinu přesně zpátky, bonusy sad platí od 2 a 4 kusů a každý efekt
+// dělá, co slibuje (rázová vlna, síť, kamenná kůže, zmizení). Sbírka v úložišti drží nejlepší raritu každého kusu.
+// Bot jde pro truhlu a z porovnání bere kus s lepšími staty.
 import { readFileSync } from 'node:fs';
 import { vytvorRng } from '../src/rng.js';
 import {
@@ -56,12 +62,19 @@ import {
   RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, MAX_TRNU, TRVANI_ODHOZENI, ZRYCHLENI_ODRAZU, poziceZrcadla,
   HROZBA, ELITA, silaHrozby, textHrozby, POLOMER_OBLAKU,
   zasah, kratkeCislo, TRVANI_CISLA, SLUCOVANI_CISEL, MAX_CISEL, NAD_PRAHEM,
+  TRVANI_OTEVRENI, PRVNI_VLNA_HRDINY, ZPOMALENI_SITE_BOSSE, nasadKus, sundejKus, ziskejKus, rozhodniKus, seznamVystroje,
 } from '../src/hra.js';
+import {
+  VYBAVA, PORADI_SLOTU, VSECHNY_KUSY, RARITY_VYBAVY, PORADI_RARIT_VYBAVY, EFEKTY_VYBAVY, STATY_VYBAVY, STROPY_VYBAVY,
+  sanceRaritVybavy, rarituKusuZLosu, vytvorKus, zlatakyZaKus, hodnotaKusu, ucinekVystroje, popisEfektu, popisSady,
+  radkyStatu, rozdilStatu, platnaSbirka,
+} from '../src/vystroj.js';
 import {
   VYLEPSENI, DUSE_ZA, dusZaHru, cenaVylepseni, kupVylepseni, vratDuse, utraceno,
 } from '../src/duse.js';
 import {
   nactiRekord, zapisVysledek, nactiTridu, ulozTridu, nactiDuse, ulozDuse, pripisDuse, nactiNastaveni, ulozNastaveni,
+  nactiSbirku, zapisNalez,
 } from '../src/ulozeni.js';
 
 const seminko = Number(process.argv[2] ?? 1);
@@ -112,6 +125,10 @@ const videnaCisla = new Set();
 let maxCisel = 0;
 let cervenychCisel = 0;
 const chybyCisel = [];
+const chybyVystroje = [];
+let snimkuOtevirani = 0;
+let otevrenoTruhel = 0;
+const rozhodnuti = [];
 // Bedna je celá mimo obrazovku, když její sprite (30 px) nezasahuje do výřezu kolem hrdiny.
 const mimoObrazovku = (b, h) => Math.abs(b.x - h.x) > SIRKA / 2 + 15 || Math.abs(b.y - h.y) > VYSKA / 2 + 15;
 
@@ -182,6 +199,13 @@ function rozhodni(hra, t, uhyba = true) {
     }
   };
   for (const o of hra.oblaky) utec(o, o.polomer + 20, 4);
+  // Truhla bosse kousek od něj: skočí pro ni, i když kolem někdo je (jako člověk). Vzdálenou sebere, až bude klid.
+  const truhla = nejblizsiTruhla(hra, 220);
+  if (truhla) {
+    const d = Math.hypot(truhla.x - hrdina.x, truhla.y - hrdina.y) || 1;
+    dx += ((truhla.x - hrdina.x) / d) * 400;
+    dy += ((truhla.y - hrdina.y) / d) * 400;
+  }
   if (!uhyba) return smer(hra, t, dx, dy);
   // Schopnosti bossů jsou vidět dopředu: stín dopadu kamene, rudý kruh dupnutí a čára výpadu.
   for (const k of hra.kameny) utec(k, k.polomer + 16, 4);
@@ -217,10 +241,22 @@ function rozhodni(hra, t, uhyba = true) {
   return smer(hra, t, dx, dy);
 }
 
+function nejblizsiTruhla(hra, dosah) {
+  let nej = null;
+  let nejD = dosah;
+  for (const p of hra.predmety) {
+    const d = Math.hypot(p.x - hra.hrdina.x, p.y - hra.hrdina.y);
+    if (p.druh === 'truhla' && d < nejD) { nej = p; nejD = d; }
+  }
+  return nej;
+}
+
 // Když nemá před čím utíkat, jde pro nejbližší krystal, a když žádný není, chodí v kruhu.
 function smer(hra, t, dx, dy) {
   const { hrdina } = hra;
   if (Math.hypot(dx, dy) < 1) {
+    const truhla = nejblizsiTruhla(hra, 900);
+    if (truhla) return { dx: truhla.x - hrdina.x, dy: truhla.y - hrdina.y };
     let nej = null;
     let nejD = Infinity;
     for (const k of hra.krystaly) {
@@ -241,6 +277,15 @@ function zvol(volby) {
     ?? volby.find((v) => v.druh === 'zbran') ?? volby[0];
 }
 
+// Z porovnání kusů bere ten s lepšími staty (hodnotaKusu), při shodě nechá nasazený.
+const lepsiKus = (p) => hodnotaKusu(p.novy) > hodnotaKusu(p.nasazeny);
+
+// Okna po truhle a nové úrovni jako ve hře: nejdřív porovnání kusů, pak karty.
+function obsluz(h) {
+  if (h.porovnani) rozhodniKus(h, lepsiKus(h.porovnani));
+  if (h.volby) vyber(h, zvol(h.volby));
+}
+
 for (let t = 0; t < delka && !hra.konec; t += DT) {
   const hpPred = hra.hrdina.hp;
   const sitPred = hra.hrdina.sit;
@@ -248,7 +293,24 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
   const { x: xPred, y: yPred } = hra.hrdina;
   const schovani = hra.nepratele.filter((n) => n.skryty).map((n) => [n, n.hp]);
   const hrozbaPred = hra.hrozba;
+  const casPred = hra.cas;
+  const oteviraPred = hra.otevira;
+  const polohyPred = oteviraPred ? hra.nepratele.map((n) => [n, n.x, n.y, n.hp]) : null;
   aktualizuj(hra, DT, rozhodni(hra, t), SIRKA, VYSKA);
+  // Otevírání truhly: svět stojí (čas, nepřátelé i hrdina), na konci kus od toho bosse, který truhlu nechal.
+  if (oteviraPred) {
+    snimkuOtevirani += 1;
+    // (Životy se smí změnit jen v posledním snímku, kdy se nasadí kus se životy.)
+    if (hra.cas !== casPred || (hra.otevira && hra.hrdina.hp !== hpPred) || polohyPred.some(([n, nx, ny, nhp]) => n.x !== nx || n.y !== ny || n.hp !== nhp)) {
+      chybyVystroje.push(`při otevírání truhly se hrálo dál v čase ${hra.cas.toFixed(1)} s`);
+    }
+    if (!hra.otevira) {
+      otevrenoTruhel += 1;
+      const kus = hra.nalezy.at(-1);
+      if (kus !== oteviraPred.kus || kus.boss !== oteviraPred.od || !hra.zTruhly || hra.truhlaOd !== kus.boss || !hra.volby) chybyVystroje.push('otevřená truhla nedala kus a kartu');
+      if (!hra.porovnani && hra.vystroj[kus.slot] !== kus) chybyVystroje.push(`kus ${kus.id} do volného slotu se nenasadil`);
+    }
+  }
   // Hrozba = 1 + celé minuty, každé zvýšení s ohlášením.
   if (hra.hrozba !== 1 + Math.floor(hra.cas / 60)) chybyHrozby.push(`hrozba ${hra.hrozba} v čase ${hra.cas.toFixed(1)} s`);
   if (hra.hrozba > hrozbaPred) {
@@ -337,6 +399,17 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
   if (hra.castice.some((c) => !Number.isFinite(c.x) || !Number.isFinite(c.y))) {
     throw new Error(`NaN u úlomku v čase ${t.toFixed(1)} s`);
   }
+  if (hra.porovnani) {
+    const { novy, nasazeny } = hra.porovnani;
+    const vzit = lepsiKus(hra.porovnani);
+    const zlatoPred = hra.zlataky;
+    if (novy.slot !== nasazeny.slot || hra.vystroj[novy.slot] !== nasazeny) chybyVystroje.push(`porovnání ${novy.id} nesedí se slotem`);
+    rozhodniKus(hra, vzit);
+    if (hra.porovnani || hra.vystroj[novy.slot] !== (vzit ? novy : nasazeny) || hra.zlataky - zlatoPred !== zlatakyZaKus(vzit ? nasazeny : novy)) {
+      chybyVystroje.push(`rozhodnutí o ${novy.id} nesedí`);
+    }
+    rozhodnuti.push(`${vzit ? 'vzal' : 'nechal'} ${novy.nazev} (${novy.rarita}) za ${nasazeny.nazev} (${nasazeny.rarita})`);
+  }
   if (hra.volby) {
     volby += 1;
     zkontrolujKarty(hra);
@@ -375,7 +448,7 @@ for (const [id, t] of Object.entries(TRIDY)) {
   if (h.hrdina.hp !== h.hrdina.maxHp) chybyTrid.push(`${id} nezačíná s plnými životy`);
   for (let t2 = 0; t2 < 180 && !h.konec; t2 += DT) {
     aktualizuj(h, DT, rozhodni(h, t2), SIRKA, VYSKA);
-    if (h.volby) vyber(h, zvol(h.volby));
+    obsluz(h);
     if (![h.hrdina.x, h.hrdina.y, h.hrdina.hp].every(Number.isFinite)) throw new Error(`NaN u třídy ${id}`);
   }
   if (h.zabito === 0 || h.hrdina.uroven < 3) chybyTrid.push(`${id} za 3 minuty skoro nic (úroveň ${h.hrdina.uroven}, zabito ${h.zabito})`);
@@ -397,7 +470,7 @@ function hrajKratce(vylepseni, sekund, ridic = rozhodni, kazdyKrok = () => {}) {
   const h = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, vylepseni);
   for (let t = 0; t < sekund && !h.konec; t += DT) {
     aktualizuj(h, DT, ridic(h, t), SIRKA, VYSKA);
-    if (h.volby) vyber(h, zvol(h.volby));
+    obsluz(h);
     if (![h.hrdina.x, h.hrdina.y, h.hrdina.hp, h.hrdina.xp].every(Number.isFinite)) throw new Error('NaN ve hře s vylepšeními');
     kazdyKrok(h);
   }
@@ -564,11 +637,13 @@ k.hrdina.hp = 1;
 vyber(k, karta(k, 'leceni', 'leceni', 'vzacna'));
 if (k.hrdina.hp !== 1 + 2 * LECENI_ODPOCINKU) chybyRarit.push(`vzácný odpočinek doléčil na ${k.hrdina.hp}`);
 if (karta(k, 'zbran', 'lucerna', 'drak').rarita !== 'bezna') chybyRarit.push('neznámá rarita není běžná');
-// Truhla a nová úroveň ve stejném snímku: nejdřív truhla, úroveň počká na další snímek.
+// Truhla a nová úroveň ve stejném snímku: nejdřív se otevře truhla, úroveň počká, až bude vybraná.
 const tr = novaHra(vytvorRng(seminko));
 tr.predmety.push({ druh: 'truhla', x: 0, y: 0 });
 tr.krystaly.push({ x: 0, y: 0, xp: 100 });
 aktualizuj(tr, 0.001, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+if (!tr.otevira || tr.volby) chybyRarit.push('truhla se po dotyku neotevírá');
+for (let t = 0; t < TRVANI_OTEVRENI + 0.1 && tr.otevira; t += DT) aktualizuj(tr, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
 if (!tr.zTruhly || !tr.volby || tr.hrdina.uroven !== 1) chybyRarit.push('truhla se přepsala novou úrovní');
 else {
   vyber(tr, tr.volby[0]);
@@ -1040,6 +1115,8 @@ for (const druh of PORADI_BOSSU) {
   if (truhla?.od !== druhy2.druh) chybyBossu.push(`truhla po ${druhy2.druh} je od ${truhla?.od}`);
   Object.assign(truhla ?? {}, { x: h.hrdina.x, y: h.hrdina.y });
   aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  for (let t = 0; t < TRVANI_OTEVRENI + 0.1 && h.otevira; t += DT) aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  if (h.nalezy.at(-1)?.boss !== druhy2.druh) chybyBossu.push(`truhla po ${druhy2.druh} dala kus od ${h.nalezy.at(-1)?.boss}`);
   if (!h.zTruhly || h.truhlaOd !== druhy2.druh || h.volby?.some((v) => v.rarita === 'bezna')) chybyBossu.push('truhla bosse neotevřela výběr');
   if (h.zabitoBossu !== 1 || dusZaHru(h).strazci !== DUSE_ZA.strazce) chybyBossu.push('zabitý boss nedal duše');
 }
@@ -1070,7 +1147,7 @@ const souboj = (druh, { uhyba = true, vlny = false, sekund = 90 } = {}) => {
   let zurilOd = null;
   for (let t = 0; t < sekund && (vlny || h.nepratele.includes(b)) && !h.konec; t += DT) {
     aktualizuj(h, DT, rozhodni(h, t, uhyba), SIRKA, VYSKA);
-    if (h.volby) vyber(h, zvol(h.volby));
+    obsluz(h);
     if (b.zuri && zurilOd === null) zurilOd = Math.round(h.cas - 180);
   }
   const zasahy = Object.fromEntries(Object.entries(h.zasahyBossu).filter(([, v]) => v));
@@ -1355,7 +1432,7 @@ let silnaMaxCisel = 0;
 for (let t = 0; t < 30 && !silna.konec; t += DT) {
   aktualizuj(silna, DT, rozhodni(silna, t), SIRKA, VYSKA);
   silnaMaxCisel = Math.max(silnaMaxCisel, silna.cisla.length);
-  if (silna.volby) vyber(silna, zvol(silna.volby));
+  obsluz(silna);
   silnaMaxStrel = Math.max(silnaMaxStrel, silna.strely.length);
   silnaMaxTrsu = Math.max(silnaMaxTrsu, silna.trny.length);
   if (![silna.hrdina.x, silna.hrdina.y, silna.hrdina.hp].every(Number.isFinite) || silna.nepratele.some((n) => !Number.isFinite(n.x) || !Number.isFinite(n.hp))) {
@@ -1423,7 +1500,7 @@ let hlaseniNaHodine = null;
 for (let t = 0; t < 10; t += DT) {
   hodina.hrdina.nezranitelny = 1;
   aktualizuj(hodina, DT, rozhodni(hodina, t), SIRKA, VYSKA);
-  if (hodina.volby) vyber(hodina, zvol(hodina.volby));
+  obsluz(hodina);
   hlaseniNaHodine ??= hodina.hlaseniHrozby?.text ?? null;
   maxNaHodine = Math.max(maxNaHodine, hodina.nepratele.length);
 }
@@ -1518,6 +1595,257 @@ const zasahyHry = cislaHry.filter((c) => c.barva === null || c.barva === 'silny'
 const podilSilnych = zasahyHry.length ? zasahyHry.filter((c) => c.barva === 'silny').length / zasahyHry.length : 0;
 if (zasahyHry.length > 1000 && (podilSilnych < 0.01 || podilSilnych > 0.35)) chybyCisel.push(`silných zásahů ${(podilSilnych * 100).toFixed(1)} %`);
 
+// Výbava bossů. Data: každý boss má sadu se 4 kusy (jméno, kladné staty, sprite 8×8), vlastní efekt a truhlu
+// ve svých barvách. Jména kusů a efekty se neopakují.
+const kusyPodleId = new Map(VSECHNY_KUSY.map((k) => [k.id, k]));
+for (const boss of PORADI_BOSSU) {
+  const sada = VYBAVA[boss];
+  if (!sada || !EFEKTY_VYBAVY[sada.efekt]) {
+    chybyVystroje.push(`boss ${boss} nemá sadu s efektem`);
+    continue;
+  }
+  if (popisSady(boss).length !== 2 || !popisEfektu(boss, 1) || popisEfektu(boss, 1) === popisEfektu(boss, 4)) chybyVystroje.push(`sada ${boss} bez popisu`);
+  for (const slot of PORADI_SLOTU) {
+    const id = `${boss}_${slot}`;
+    const kus = sada.kusy[slot];
+    if (!kus?.nazev || !kusyPodleId.has(id)) {
+      chybyVystroje.push(`${boss} nemá kus do slotu ${slot}`);
+      continue;
+    }
+    const staty = Object.entries(kus.staty);
+    if (!staty.length || staty.some(([st, h]) => !Object.hasOwn(STATY_VYBAVY, st) || !(h > 0))) chybyVystroje.push(`kus ${id} má divné staty`);
+    if (radkyStatu(kus.staty).length !== staty.length) chybyVystroje.push(`kus ${id} nemá řádek u každého statu`);
+    const blok = textSpritu.match(new RegExp(`^ {2}${id}: \\[\\n([\\s\\S]*?)\\n {2}\\],`, 'm'));
+    const radky = blok ? [...blok[1].matchAll(/'([^']*)'/g)].map((m) => m[1]) : [];
+    if (radky.length !== 8 || radky.some((r) => r.length !== 8)) chybyVystroje.push(`sprite ${id} není 8×8`);
+  }
+  if (!new RegExp(`^ {2}${boss}: \\{ T: `, 'm').test(textSpritu)) chybyVystroje.push(`truhla ${boss} nemá své barvy`);
+}
+if (VSECHNY_KUSY.length !== PORADI_BOSSU.length * PORADI_SLOTU.length) chybyVystroje.push(`kusů je ${VSECHNY_KUSY.length}`);
+if (new Set(VSECHNY_KUSY.map((k) => k.nazev)).size !== VSECHNY_KUSY.length) chybyVystroje.push('dva kusy mají stejné jméno');
+if (new Set(PORADI_BOSSU.map((b) => VYBAVA[b]?.efekt)).size !== PORADI_BOSSU.length) chybyVystroje.push('dvě sady mají stejný efekt');
+// Rarity kusů: šance dají 1, s hrozbou a se Štěstím je vzácnějších víc, los sedí se šancemi, staty a zlaťáky
+// rostou s raritou a běžný kus má přesně staty z tabulky.
+for (const [hrozba, stesti] of [[1, 1], [4, 1], [20, 1], [4, 2]]) {
+  const sance = sanceRaritVybavy(hrozba, stesti);
+  if (Math.abs(Object.values(sance).reduce((a, b) => a + b, 0) - 1) > 1e-9) chybyVystroje.push(`šance rarit kusů při hrozbě ${hrozba} nedají 1`);
+}
+const vzacnejsiKusy = (sance) => 1 - sance.bezna;
+if (!(vzacnejsiKusy(sanceRaritVybavy(20)) > vzacnejsiKusy(sanceRaritVybavy(4)) && vzacnejsiKusy(sanceRaritVybavy(4, 2)) > vzacnejsiKusy(sanceRaritVybavy(4)))) {
+  chybyVystroje.push('s hrozbou ani Štěstím nepřibývá vzácnějších kusů');
+}
+const losovaneKusy = Object.fromEntries(PORADI_RARIT_VYBAVY.map((id) => [id, 0]));
+for (let i = 0; i < 10000; i++) losovaneKusy[rarituKusuZLosu((i + 0.5) / 10000, 8)] += 1;
+for (const [id, p] of Object.entries(sanceRaritVybavy(8))) {
+  if (Math.abs(losovaneKusy[id] / 10000 - p) > 0.001) chybyVystroje.push(`rarita kusu ${id} padá ${losovaneKusy[id] / 10000} místo ${p}`);
+}
+for (const k of VSECHNY_KUSY) {
+  const bezny = vytvorKus(k.boss, k.slot, 'bezna');
+  const leg = vytvorKus(k.boss, k.slot, 'legendarni');
+  if (bezny.id !== k.id || bezny.nazev !== k.nazev || JSON.stringify(bezny.staty) !== JSON.stringify(k.staty)) chybyVystroje.push(`běžný ${k.id} nemá staty z tabulky`);
+  if (Object.keys(k.staty).some((st) => !(leg.staty[st] > bezny.staty[st])) || !(zlatakyZaKus(leg) > zlatakyZaKus(bezny))) chybyVystroje.push(`legendární ${k.id} není lepší`);
+}
+// Staty na hrdinovi: kus přidá přesně svoje (přibyté životy i doléčí), a když se všechno postupně navleče přes
+// sebe a zase sundá, je hrdina přesně jako předtím. Čtyři kusy jedné sady dají oba bonusy a nejvyšší efekt.
+{
+  const h = novaHra(vytvorRng(seminko));
+  const vlastnosti = ['maxHp', 'sila', 'nabijeni', 'rychlost', 'magnet', 'zbroj'];
+  const pred = Object.fromEntries(vlastnosti.map((v) => [v, h.hrdina[v]]));
+  const hledi = vytvorKus('strazce', 'hlava', 'vzacna');
+  h.hrdina.hp = 50;
+  nasadKus(h, hledi);
+  if (h.hrdina.maxHp !== pred.maxHp + hledi.staty.maxHp || h.hrdina.hp !== 50 + hledi.staty.maxHp || h.hrdina.zbroj !== hledi.staty.zbroj) chybyVystroje.push('hledí nepřidalo životy a zbroj');
+  const oko = vytvorKus('obr', 'amulet', 'epicka');
+  nasadKus(h, oko);
+  if (Math.abs(h.hrdina.sila - pred.sila * (1 + oko.staty.sila)) > 1e-9) chybyVystroje.push('oko nepřidalo poškození');
+  VSECHNY_KUSY.forEach((k, i) => nasadKus(h, vytvorKus(k.boss, k.slot, PORADI_RARIT_VYBAVY[i % PORADI_RARIT_VYBAVY.length])));
+  const u = h.ucinekVystroje;
+  const posledni = PORADI_BOSSU.at(-1);
+  const soucet = (st) => PORADI_SLOTU.reduce((a, slot) => a + (h.vystroj[slot].staty[st] ?? 0), 0) + (VYBAVA[posledni].bonus2[st] ?? 0) + (VYBAVA[posledni].bonus4[st] ?? 0);
+  if (u.sady[posledni] !== 4 || u.efekty[VYBAVA[posledni].efekt]?.stupen !== 3 || Object.keys(u.efekty).length !== 1) chybyVystroje.push('celá sada nedala nejvyšší efekt');
+  if (Object.keys(STATY_VYBAVY).some((st) => Math.abs(u.staty[st] - soucet(st)) > 1e-9)) chybyVystroje.push('celá sada nedala bonusy');
+  if (Math.abs(h.hrdina.rychlost - pred.rychlost * u.nasobky.rychlost) > 1e-9 || Math.abs(h.hrdina.nabijeni - pred.nabijeni * u.nasobky.nabijeni) > 1e-9) chybyVystroje.push('sada nesedí s rychlostí nebo nabíjením');
+  for (const slot of PORADI_SLOTU) sundejKus(h, slot);
+  if (vlastnosti.some((v) => Math.abs(h.hrdina[v] - pred[v]) > 1e-9) || h.hrdina.hp > h.hrdina.maxHp) chybyVystroje.push('po sundání výbavy hrdina není jako dřív');
+}
+// Sady: 1 kus = stupeň 1, 2–3 kusy = 2 a bonus za dva, 4 kusy = 3 a oba bonusy. Čtyři kusy čtyř sad = čtyři efekty
+// na stupni 1 bez bonusů. Zbroj má strop.
+{
+  const sada = (pocet) => Object.fromEntries(PORADI_SLOTU.slice(0, pocet).map((slot) => [slot, vytvorKus('strazce', slot)]));
+  const zivoty = (pocet) => PORADI_SLOTU.slice(0, pocet).reduce((a, slot) => a + (VYBAVA.strazce.kusy[slot].staty.maxHp ?? 0), 0);
+  for (const [pocet, stupen] of [[1, 1], [2, 2], [3, 2], [4, 3]]) {
+    const u = ucinekVystroje(sada(pocet));
+    const bonus = (pocet >= 2 ? VYBAVA.strazce.bonus2.maxHp ?? 0 : 0) + (pocet >= 4 ? VYBAVA.strazce.bonus4.maxHp ?? 0 : 0);
+    if (u.efekty.vlna?.stupen !== stupen || u.staty.maxHp !== zivoty(pocet) + bonus || u.sady.strazce !== pocet) chybyVystroje.push(`${pocet} kusy Strážce: stupeň ${u.efekty.vlna?.stupen}, životy ${u.staty.maxHp}`);
+  }
+  const mix = Object.fromEntries(PORADI_SLOTU.map((slot, i) => [slot, vytvorKus(PORADI_BOSSU[i], slot)]));
+  const u = ucinekVystroje(mix);
+  if (Object.keys(u.efekty).length !== PORADI_BOSSU.length || Object.values(u.efekty).some((e) => e.stupen !== 1)) chybyVystroje.push('kusy čtyř sad nedaly čtyři efekty');
+  const tank = ucinekVystroje(Object.fromEntries(PORADI_SLOTU.map((slot) => [slot, { ...vytvorKus('obr', slot, 'legendarni'), staty: { zbroj: 0.5 } }])));
+  if (tank.nasobky.zbroj !== STROPY_VYBAVY.zbroj) chybyVystroje.push(`zbroj přes strop (${tank.nasobky.zbroj})`);
+  if (rozdilStatu(vytvorKus('strazce', 'hlava', 'vzacna'), vytvorKus('strazce', 'hlava')).some((r) => !(r.rozdil > 0))) chybyVystroje.push('rozdíl vzácného a běžného kusu není kladný');
+}
+// Truhla po bossovi: dotyk ji otevře, svět TRVANI_OTEVRENI stojí, pak kus od toho bosse do volného slotu a karta.
+// Druhý kus do stejného slotu čeká na porovnání (hra stojí), Vzít vymění a starý dá zlaťáky, Nechat nechá starý.
+const tichaVybava = () => {
+  const h = tichaHra({});
+  Object.assign(h, { dalsiBoss: Infinity, dalsiSmecka: Infinity, dalsiPrichod: Infinity });
+  return h;
+};
+{
+  const h = tichaVybava();
+  h.hrdina.nezranitelny = Infinity;
+  const b = pridejNepritele(h, 'matka', 300, 0);
+  b.hp = 0;
+  aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  const truhla = h.predmety.find((p) => p.druh === 'truhla');
+  if (truhla?.od !== 'matka') chybyVystroje.push('po Matce nezůstala její truhla');
+  const n = pridejNepritele(h, 'netopyr', 200, 0);
+  Object.assign(truhla ?? {}, { x: 5, y: 0 });
+  aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  const kus = h.otevira?.kus;
+  if (!kus || kus.boss !== 'matka' || h.volby || h.predmety.some((p) => p.druh === 'truhla')) chybyVystroje.push('truhla se po dotyku neotevírá s kusem Matky');
+  const [cas0, nx] = [h.cas, n.x];
+  let snimku = 0;
+  while (h.otevira && snimku < 200) {
+    aktualizuj(h, DT, { dx: 1, dy: 0 }, SIRKA, VYSKA);
+    snimku += 1;
+  }
+  if (h.cas !== cas0 || n.x !== nx || h.hrdina.x !== 0) chybyVystroje.push('při otevírání truhly se hrálo dál');
+  if (Math.abs(snimku * DT - TRVANI_OTEVRENI) > DT * 1.5) chybyVystroje.push(`truhla se otevírala ${(snimku * DT).toFixed(2)} s`);
+  if (!kus || h.vystroj[kus.slot] !== kus || h.truhlaKus !== kus || h.porovnani || !h.zTruhly || h.truhlaOd !== 'matka' || !h.volby || h.volby.some((v) => v.rarita === 'bezna')) {
+    chybyVystroje.push('otevřená truhla nenasadila kus nebo nedala kartu');
+  }
+  if (h.volby) vyber(h, h.volby[0]);
+  if (kus) {
+    const lepsi = vytvorKus('strazce', kus.slot, 'legendarni');
+    ziskejKus(h, lepsi);
+    if (h.porovnani?.novy !== lepsi || h.porovnani.nasazeny !== kus || h.vystroj[kus.slot] !== kus || h.truhlaKus) chybyVystroje.push('kus do obsazeného slotu nečeká na porovnání');
+    const cas1 = h.cas;
+    aktualizuj(h, DT, { dx: 1, dy: 0 }, SIRKA, VYSKA);
+    if (h.cas !== cas1) chybyVystroje.push('při porovnání se hrálo dál');
+    let zlato = h.zlataky;
+    rozhodniKus(h, true);
+    if (h.vystroj[kus.slot] !== lepsi || h.zlataky !== zlato + zlatakyZaKus(kus) || h.porovnani) chybyVystroje.push('Vzít nevyměnilo kus nebo nedalo zlaťáky za starý');
+    if (!h.cisla.some((c) => c.barva === 'zlato' && c.hodnota === zlatakyZaKus(kus))) chybyVystroje.push('rozložený kus bez zlatého čísla');
+    const horsi = vytvorKus('obr', kus.slot, 'bezna');
+    ziskejKus(h, horsi);
+    zlato = h.zlataky;
+    rozhodniKus(h, false);
+    if (h.vystroj[kus.slot] !== lepsi || h.zlataky !== zlato + zlatakyZaKus(horsi)) chybyVystroje.push('Nechat nenechalo starý kus nebo nedalo zlaťáky za nový');
+    if (h.nalezy.length !== 3 || h.rozlozeno !== 2 || h.zlatakyZVybavy !== zlatakyZaKus(kus) + zlatakyZaKus(horsi)) chybyVystroje.push('nálezy nebo rozložené kusy nesedí');
+    const sloty = seznamVystroje(h);
+    if (sloty.map((p) => p.slot).join() !== PORADI_SLOTU.join() || sloty.find((p) => p.slot === kus.slot).kus !== lepsi || sloty.filter((p) => p.kus).length !== 1) chybyVystroje.push('sloty pro HUD nesedí');
+    if (!lepsiKus({ novy: lepsi, nasazeny: kus }) || lepsiKus({ novy: kus, nasazeny: lepsi })) chybyVystroje.push('bot nepozná lepší kus');
+  }
+}
+// Rázová vlna (Strážce): první chvíli po nasazení, pak každých kazdych s. Zasáhne každého v dosahu jednou,
+// odhodí ho (bosse jen zraní), dál nedosáhne.
+const pokusyVystroje = {};
+{
+  const h = tichaVybava();
+  h.hrdina.nezranitelny = Infinity;
+  const tvrdy = (druh, x, y) => {
+    const n = pridejNepritele(h, druh, x, y);
+    Object.assign(n, { hp: 1e6, maxHp: 1e6, rychlost: 0, doSchopnosti: Infinity });
+    return n;
+  };
+  const kolem = [0, 1, 2, 3, 4, 5].map((i) => tvrdy('kostlivec', Math.cos(i) * 80, Math.sin(i) * 80));
+  const daleko = tvrdy('kostlivec', 400, 0);
+  const boss = tvrdy('strazce', 0, -95);
+  nasadKus(h, vytvorKus('strazce', 'hlava'));
+  const vlna = EFEKTY_VYBAVY.vlna.stupne[0];
+  hraj(h, PRVNI_VLNA_HRDINY - 0.1);
+  if (h.efektyPouzito.vlna !== 0 || kolem.some((n) => n.hp < n.maxHp)) chybyVystroje.push('rázová vlna vyběhla moc brzy');
+  hraj(h, 0.5);
+  if (h.efektyPouzito.vlna !== 1 || kolem.some((n) => n.maxHp - n.hp !== Math.round(vlna.poskozeni * h.hrdina.sila)) || daleko.hp < daleko.maxHp) chybyVystroje.push('rázová vlna nezasáhla, kdo je blízko, nebo zasáhla daleko');
+  if (kolem.some((n) => Math.hypot(n.x, n.y) < 80 + vlna.odhozeni - 1)) chybyVystroje.push('rázová vlna neodhodila');
+  if (!(boss.hp < boss.maxHp) || boss.x !== 0 || boss.y !== -95) chybyVystroje.push('rázová vlna bosse nezranila nebo odhodila');
+  hraj(h, 30);
+  const vln = 1 + Math.floor((PRVNI_VLNA_HRDINY - 0.1 + 0.5 + 30 - PRVNI_VLNA_HRDINY) / vlna.kazdych);
+  if (h.efektyPouzito.vlna !== vln) chybyVystroje.push(`za 31 s vyběhlo ${h.efektyPouzito.vlna} vln místo ${vln}`);
+  pokusyVystroje.vlna = { vln: h.efektyPouzito.vlna, poskozeni: vlna.poskozeni, dosah: vlna.polomer };
+}
+// Pavučina (Matka): ze sta zásahů zapřede zhruba sance · 100 nepřátel, zapředený stojí, boss v síti jde napůl
+// a za trvani s síť povolí.
+{
+  const h = tichaVybava();
+  h.hrdina.nezranitelny = Infinity;
+  nasadKus(h, vytvorKus('matka', 'hlava'));
+  const sit = EFEKTY_VYBAVY.sit.stupne[0];
+  const terce = Array.from({ length: 100 }, (_, i) => {
+    const n = pridejNepritele(h, 'netopyr', 300 + i * 30, 0);
+    Object.assign(n, { hp: 1e6, maxHp: 1e6 });
+    return n;
+  });
+  for (const n of terce) zasah(h, n, 1);
+  const zapredeni = terce.filter((n) => n.zapreden > 0);
+  if (Math.abs(zapredeni.length - 100 * sit.sance) > 1 || zapredeni.some((n) => n.zapreden !== sit.trvani)) chybyVystroje.push(`ze 100 zásahů zapředeno ${zapredeni.length}`);
+  const stoji = zapredeni[0];
+  const volny = terce.find((n) => !(n.zapreden > 0));
+  const b = pridejNepritele(h, 'obr', -300, 0);
+  Object.assign(b, { doSchopnosti: Infinity, zapreden: sit.trvani });
+  const pred = [stoji?.x, volny?.x, b.x];
+  aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  if (!stoji || stoji.x !== pred[0] || !(volny.x < pred[1]) || Math.abs(b.x - pred[2] - b.rychlost * DT * ZPOMALENI_SITE_BOSSE) > 1e-6) chybyVystroje.push('zapředený nestojí nebo boss v síti nejde napůl');
+  hraj(h, sit.trvani + 0.1);
+  if (!stoji || stoji.zapreden > 0 || stoji.x === pred[0]) chybyVystroje.push('síť nepovolila');
+  pokusyVystroje.sit = { ze_100_zasahu: zapredeni.length, trvani_s: sit.trvani };
+}
+// Kamenná kůže (Obr) a zbroj: dotyk bolí o snizeni méně (a pak ještě zbroj), nepřítel odletí, boss ne.
+{
+  const dotyk = (kusy, druh = 'kostlivec') => {
+    const h = tichaVybava();
+    for (const k of kusy) nasadKus(h, k);
+    const n = pridejNepritele(h, druh, 10, 0);
+    Object.assign(n, { hp: 1e6, maxHp: 1e6, rychlost: 0, doSchopnosti: Infinity });
+    const hp = h.hrdina.hp;
+    aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    const ztrata = hp - h.hrdina.hp;
+    hraj(h, TRVANI_ODHOZENI + DT);
+    return { h, n, ztrata };
+  };
+  const kuze = EFEKTY_VYBAVY.kuze.stupne[0];
+  const helma = vytvorKus('obr', 'hlava');
+  const krunyr = vytvorKus('strazce', 'telo');
+  const bez = dotyk([]);
+  const sKuzi = dotyk([helma]);
+  const sKrunyrem = dotyk([krunyr]);
+  const rana = bez.n.poskozeni;
+  const ocekavano = Math.max(1, Math.round(Math.max(1, Math.round(rana * (1 - kuze.snizeni))) * (1 - helma.staty.zbroj)));
+  if (bez.ztrata !== rana || sKuzi.ztrata !== ocekavano || sKrunyrem.ztrata !== Math.round(rana * (1 - krunyr.staty.zbroj))) {
+    chybyVystroje.push(`dotyk za ${rana}: bez výbavy ${bez.ztrata}, s kůží ${sKuzi.ztrata} (má ${ocekavano}), s krunýřem ${sKrunyrem.ztrata}`);
+  }
+  if (Math.hypot(sKuzi.n.x, sKuzi.n.y) < 10 + kuze.odhozeni - 1 || bez.n.x !== 10 || sKuzi.h.efektyPouzito.kuze !== 1) chybyVystroje.push('kamenná kůže neodhodila nepřítele');
+  const boss = dotyk([helma], 'obr');
+  if (boss.n.x !== 10 || !(boss.ztrata < boss.n.poskozeni)) chybyVystroje.push('kamenná kůže odhodila bosse nebo mu nevzala sílu');
+  pokusyVystroje.kuze = { rana_bez: bez.ztrata, rana_s_kuzi: sKuzi.ztrata, rana_s_krunyrem: sKrunyrem.ztrata };
+}
+// Bludný plamen (Bludička): po ráně hrdina zmizí, nic mu neublíží a nepřátelé jdou tam, kde zmizel. Pak ho zase
+// vidí. Další rána do konce pauzy už zmizení nespustí.
+{
+  const h = tichaVybava();
+  nasadKus(h, vytvorKus('bludicka', 'telo'));
+  const z = EFEKTY_VYBAVY.zmizeni.stupne[0];
+  const utocnik = pridejNepritele(h, 'kostlivec', 10, 0);
+  Object.assign(utocnik, { hp: 1e6, maxHp: 1e6, rychlost: 0 });
+  const lovec = pridejNepritele(h, 'netopyr', 0, 150);
+  Object.assign(lovec, { hp: 1e6, maxHp: 1e6 });
+  aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  if (!(h.hrdina.neviditelny > z.trvani - DT * 1.5) || h.hrdina.nezranitelny < h.hrdina.neviditelny || h.efektyPouzito.zmizeni !== 1) chybyVystroje.push('hrdina po ráně nezmizel');
+  for (let t = 0; t < 0.6; t += DT) aktualizuj(h, DT, { dx: 1, dy: 0 }, SIRKA, VYSKA);
+  if (Math.abs(lovec.x) > 1e-6 || !(lovec.y < 150) || !(h.hrdina.x > 50)) chybyVystroje.push(`nepřítel šel za zmizelým hrdinou (${lovec.x.toFixed(1)}, ${lovec.y.toFixed(1)})`);
+  for (let t = 0; t < z.trvani && h.hrdina.neviditelny > 0; t += DT) aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  const xPred = lovec.x;
+  aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  if (h.hrdina.neviditelny > 0 || !(lovec.x > xPred)) chybyVystroje.push('po zmizení hrdinu nepřátelé zase nevidí');
+  Object.assign(utocnik, { x: h.hrdina.x + 5, y: h.hrdina.y });
+  h.hrdina.nezranitelny = 0;
+  aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  if (h.efektyPouzito.zmizeni !== 1 || h.hrdina.neviditelny > 0 || !(h.hrdina.hp < h.hrdina.maxHp - utocnik.poskozeni)) chybyVystroje.push('zmizení přišlo dřív než po pauze');
+  pokusyVystroje.zmizeni = { trvani_s: z.trvani, pauza_s: z.pauza };
+}
+
 const zaokrouhli = (s) => Object.fromEntries(Object.entries(s).map(([id, p]) => [id, Math.round(p * 1000) / 10]));
 
 const vysledek = {
@@ -1606,12 +1934,32 @@ const vysledek = {
     hlavni_hra: { max_trsu_naraz: maxTrsu, odrazeno_strel: hra.odrazeno, odhozeno_nepratel: hra.odhozeno },
     trny: trnovePokusy, zrcadlo: zrcadlovePokusy,
   },
+  vybava_bossu: {
+    otevreno_truhel: otevrenoTruhel,
+    snimku_otevirani: snimkuOtevirani,
+    nalezy: hra.nalezy.map((k) => `${k.nazev} (${RARITY_VYBAVY[k.rarita].nazev})`),
+    rozhodnuti,
+    nasazeno: Object.fromEntries(seznamVystroje(hra).map(({ slot, kus }) => [slot, kus ? `${kus.nazev} (${RARITY_VYBAVY[kus.rarita].nazev})` : null])),
+    sady: hra.ucinekVystroje.sady,
+    staty: Object.fromEntries(Object.entries(hra.ucinekVystroje.staty).filter(([, h]) => h).map(([id, h]) => [id, Math.round(h * 1000) / 1000])),
+    efekty_pouzito: hra.efektyPouzito,
+    zlataky_z_vybavy: hra.zlatakyZVybavy,
+    vse_vylepsene: {
+      preziti_min: Math.round(vydrz.cas / 6) / 10,
+      nalezy: vydrz.nalezy.map((k) => `${k.nazev} (${RARITY_VYBAVY[k.rarita].nazev})`),
+      sady: vydrz.ucinekVystroje.sady,
+      efekty_pouzito: vydrz.efektyPouzito,
+    },
+    sance_rarit_procenta: { hrozba_4: zaokrouhli(sanceRaritVybavy(4)), hrozba_16: zaokrouhli(sanceRaritVybavy(16)) },
+    efekty: pokusyVystroje,
+  },
 };
 console.log(JSON.stringify(vysledek, null, 2));
 
 const chyby = [
   ...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel), ...chybyVybavy, ...chybyLucerny, ...new Set(chybyBeden),
   ...new Set(chybyBossu), ...chybyZbrani, ...new Set(chybyUrovni), ...new Set(chybyHrozby), ...new Set(chybyCisel),
+  ...new Set(chybyVystroje),
 ];
 if (maxTrsu > MAX_TRNU) chyby.push(`trsů trnů naráz ${maxTrsu}`);
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);
@@ -1672,7 +2020,24 @@ for (const spatne of ['{rozbité', '42', '"ne"', '{"cislaPoskozeni":"ne"}', 'nul
   mapa.set('hlubiny.nastaveni', spatne);
   if (nactiNastaveni().cislaPoskozeni !== true) chyby.push(`rozbité nastavení ${spatne} nevrátilo výchozí`);
 }
+// Sbírka výbavy: prázdná = nic, nález se zapíše s raritou, horší rarita lepší nepřepíše, rozbitý záznam dá jen
+// známé kusy se známou raritou.
+if (Object.keys(nactiSbirku()).length) chyby.push('prázdná sbírka není prázdná');
+zapisNalez(vytvorKus('obr', 'prsten', 'vzacna'));
+zapisNalez(vytvorKus('obr', 'prsten', 'bezna'));
+if (nactiSbirku().obr_prsten !== 'vzacna') chyby.push('horší rarita přepsala ve sbírce lepší');
+zapisNalez(vytvorKus('obr', 'prsten', 'legendarni'));
+zapisNalez(vytvorKus('matka', 'telo'));
+if (JSON.stringify(nactiSbirku()) !== '{"matka_telo":"bezna","obr_prsten":"legendarni"}') chyby.push(`sbírka se neuložila: ${JSON.stringify(nactiSbirku())}`);
+for (const spatne of ['{rozbité', '42', '[1,2]', 'null', '{"obr_prsten":"zlatá","drak_hlava":"bezna","matka_telo":"epicka","toString":"bezna"}']) {
+  mapa.set('hlubiny.sbirka', spatne);
+  const sb = nactiSbirku();
+  if (Object.keys(sb).some((id) => !kusyPodleId.has(id) || !Object.hasOwn(RARITY_VYBAVY, sb[id]))) chyby.push(`rozbitá sbírka ${spatne} se načetla jako ${JSON.stringify(sb)}`);
+}
+if (JSON.stringify(nactiSbirku()) !== '{"matka_telo":"epicka"}') chyby.push(`ze smíšené sbírky zůstalo ${JSON.stringify(nactiSbirku())}`);
+if (JSON.stringify(platnaSbirka({ strazce_hlava: 'bezna', strazce_hlava2: 'bezna' })) !== '{"strazce_hlava":"bezna"}') chyby.push('platnaSbirka pustila neznámý kus');
 nahradUloziste({ getItem() { throw new Error('zakázáno'); }, setItem() { throw new Error('zakázáno'); } });
+if (Object.keys(nactiSbirku()).length || Object.keys(zapisNalez(vytvorKus('obr', 'hlava'))).length !== 1) chyby.push('zakázané úložiště u sbírky nefunguje jako prázdné');
 ulozNastaveni({ cislaPoskozeni: false });
 if (nactiNastaveni().cislaPoskozeni !== true) chyby.push('zakázané úložiště nevrátilo výchozí nastavení');
 if (nactiDuse().duse !== 0 || pripisDuse(10).duse !== 10) chyby.push('zakázané úložiště u duší nefunguje jako prázdné');

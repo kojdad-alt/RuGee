@@ -3,8 +3,12 @@
 // Tlačítka, která záložka do panelu přidá, jdou taky vybírat šipkami a Enterem.
 import { sprity } from './sprity.js';
 import { TRIDY, ZBRANE, platnaTrida, silaHrozby } from './hra.js';
-import { nactiRekord, nactiTridu, ulozTridu, nactiDuse, ulozDuse, nactiNastaveni, ulozNastaveni } from './ulozeni.js';
+import { nactiRekord, nactiTridu, ulozTridu, nactiDuse, ulozDuse, nactiNastaveni, ulozNastaveni, nactiSbirku } from './ulozeni.js';
 import { VYLEPSENI, cenaVylepseni, kupVylepseni, vratDuse, utraceno } from './duse.js';
+import {
+  VYBAVA, PORADI_SAD, PORADI_SLOTU, SLOTY, VSECHNY_KUSY, RARITY_VYBAVY, EFEKTY_VYBAVY, idKusu, vytvorKus, radkyStatu,
+  popisEfektu, popisSady,
+} from './vystroj.js';
 import { odemkniZvuk, zvukNakupu, zvukOdmitnuti } from './zvuk.js';
 
 // Zvolená třída hrdiny: načte se z prohlížeče a mění se v záložce Postavy. Hra ji bere při startu.
@@ -153,6 +157,39 @@ function vyplnVylepseni(panel) {
   );
 }
 
+// Sbírka výbavy bossů: co hráč kdy našel (v nejlepší raritě), sada po sadě. Neobjevený kus je jen stín a ???.
+function vyplnSbirku(panel) {
+  const sbirka = nactiSbirku();
+  panel.append(
+    prvek('p', 'podtitul', 'Výbava z truhel bossů platí jen v jedné hře. Tady je všechno, co jsi kdy našel, v nejlepší raritě.'),
+    prvek('p', 'sbirka-stav', `Objeveno ${Object.keys(sbirka).length} z ${VSECHNY_KUSY.length}`),
+  );
+  for (const boss of PORADI_SAD) {
+    const sada = VYBAVA[boss];
+    const blok = prvek('section', 'sbirka-sada');
+    const hlava = prvek('div', 'sbirka-hlava');
+    const nalezeno = PORADI_SLOTU.filter((slot) => sbirka[idKusu(boss, slot)]).length;
+    hlava.append(prvek('b', '', sada.sada), prvek('span', '', `${nalezeno}/${PORADI_SLOTU.length}`));
+    blok.append(hlava, prvek('small', 'sbirka-efekt', `${EFEKTY_VYBAVY[sada.efekt].nazev}: ${popisEfektu(boss, 1)}`));
+    const mrizka = prvek('div', 'sbirka-mrizka');
+    for (const slot of PORADI_SLOTU) {
+      const id = idKusu(boss, slot);
+      const rarita = sbirka[id];
+      const kus = rarita ? vytvorKus(boss, slot, rarita) : null;
+      const dlazdice = prvek('div', `sbirka-kus ${kus ? `rarita-${rarita}` : 'neznamy'}`);
+      const obr = obrazekSpritu(id, 4);
+      if (!kus) obr.classList.add('stin');
+      const text = prvek('span', 'sbirka-text');
+      text.append(prvek('b', '', kus ? kus.nazev : '???'), prvek('small', '', kus ? `${SLOTY[slot].nazev} · ${RARITY_VYBAVY[rarita].nazev}` : SLOTY[slot].nazev));
+      if (kus) text.append(prvek('small', 'sbirka-staty', radkyStatu(kus.staty).join(', ')));
+      dlazdice.append(obr, text);
+      mrizka.append(dlazdice);
+    }
+    blok.append(mrizka, prvek('small', 'sbirka-bonus', popisSady(boss).join(' · ')));
+    panel.append(blok);
+  }
+}
+
 function vyplnRekordy(panel) {
   const rekord = nactiRekord();
   if (!rekord) {
@@ -179,6 +216,7 @@ const OVLADANI = [
   [['šipky'], 'pohyb'],
   [['tah prstem'], 'pohyb na mobilu'],
   [['1', '2', '3'], 'výběr vylepšení (nebo klik, šipky a Enter)'],
+  [['1', '2'], 'výbava z truhly: vzít nový kus, nebo nechat nasazený'],
   [['P', 'Esc'], 'pauza'],
   [['R'], 'znovu po prohře'],
   [['M'], 'menu po prohře'],
@@ -225,6 +263,7 @@ function vyplnOvladani(panel) {
 export const ZALOZKY = {
   postavy: { nazev: 'Postavy', vypln: vyplnPostavy },
   vylepseni: { nazev: 'Vylepšení', vypln: vyplnVylepseni },
+  sbirka: { nazev: 'Sbírka', vypln: vyplnSbirku },
   rekordy: { nazev: 'Rekordy', vypln: vyplnRekordy },
   ovladani: { nazev: 'Ovládání', vypln: vyplnOvladani },
 };
