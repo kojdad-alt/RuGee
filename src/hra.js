@@ -202,6 +202,18 @@ const BOSS_KAZDYCH = 180;
 const MAX_CASTIC = 400;
 const ZIVOT_CASTICE = 0.45;
 export const TRVANI_TRESU = 0.15;
+// Čísla nad hlavami: zásah nepřítele, rána hrdinovi, léčení a zlaťák. Zásahy do stejného nepřítele během
+// SLUCOVANI_CISEL se sečtou do jednoho čísla a naráz jich je nejvýš MAX_CISEL (nejstarší zmizí první).
+export const TRVANI_CISLA = 0.6;
+export const TRVANI_CISLA_LECENI = 0.8;
+export const SLUCOVANI_CISEL = 0.15;
+export const MAX_CISEL = 80;
+// Silný zásah (žluté větší číslo): aspoň NAD_PRAHEM× víc, než dá obvyklá silná rána. Obvyklou silnou ránu si hra
+// průběžně odhaduje jako hranici horních PODIL_SILNYCH všech ran, takže s lepšími zbraněmi roste i ona.
+export const PODIL_SILNYCH = 0.12;
+export const NAD_PRAHEM = 1.25;
+export const PRAH_NA_ZACATKU = 12;
+const UCENI_PRAHU = 0.005;
 // Koho spálí žár lucerny, ten se na chvíli rozzáří teplým světlem (místo bílého bliknutí jako u ostatních zbraní).
 export const TRVANI_ZARU = 0.2;
 // Pavouk zalepí hrdinu sítí: na chvíli zpomalí. Opakovaný zásah síť obnoví, nesčítá se.
@@ -372,6 +384,7 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}) {
     krystaly: [],
     predmety: [],
     cisla: [],
+    prahSilneho: PRAH_NA_ZACATKU,
     blesky: [],
     castice: [],
     oblaky: [],
@@ -420,13 +433,53 @@ function vzdalenost(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+// Velká čísla se zkrátí, ať se vejdou nad nepřítele: 12k, 3M.
+export function kratkeCislo(h) {
+  if (h < 10000) return String(h);
+  if (h < 1e6) return `${Math.floor(h / 1000)}k`;
+  return `${Math.floor(h / 1e6)}M`;
+}
+
+// Nové číslo nad hlavou. barva: null = zásah (bílé), 'silny', 'zraneni', 'jed', 'leceni', 'zlato'.
+// Kreslení si z vek (trvani − zivot) spočítá, jak vysoko je a jak průhledné, smer je mírný úlet do strany.
+function pridejCislo(hra, cislo) {
+  const trvani = cislo.zivot ?? TRVANI_CISLA;
+  const c = { barva: null, ...cislo, zivot: trvani, trvani, od: hra.cas, pridano: 0, smer: (hra.cisla.length % 3) - 1 };
+  hra.cisla.push(c);
+  while (hra.cisla.length > MAX_CISEL) hra.cisla.shift().zivot = 0;
+  return c;
+}
+
+// Číslo zásahu: do stejného nepřítele se během SLUCOVANI_CISEL přičítá, pak vznikne nové.
+// Každá rána posune odhad obvyklé silné rány (prahSilneho) kousek nahoru nebo dolů.
+function cisloZasahu(hra, n, poskozeni) {
+  const prah = hra.prahSilneho;
+  hra.prahSilneho = prah * (poskozeni > prah ? 1 + UCENI_PRAHU * (1 - PODIL_SILNYCH) : 1 - UCENI_PRAHU * PODIL_SILNYCH);
+  let c = n.cislo;
+  if (c && c.zivot > 0 && hra.cas - c.od < SLUCOVANI_CISEL) {
+    c.hodnota += poskozeni;
+    c.pridano = c.trvani - c.zivot;
+  } else {
+    c = pridejCislo(hra, { x: n.x, y: n.y - n.polomer - 4, hodnota: poskozeni });
+    n.cislo = c;
+  }
+  c.text = kratkeCislo(c.hodnota);
+  if (c.hodnota >= hra.prahSilneho * NAD_PRAHEM) c.barva = 'silny';
+}
+
 // zar = zásah žárem lucerny: nepřítel se rozzáří, jinak krátce zbělá.
-function zasah(hra, n, kolik, zar = false) {
+export function zasah(hra, n, kolik, zar = false) {
   const poskozeni = Math.round(kolik * hra.hrdina.sila);
   n.hp -= poskozeni;
   if (zar) n.zar = TRVANI_ZARU;
   else n.zasazen = 0.1;
-  hra.cisla.push({ x: n.x, y: n.y - 10, text: String(poskozeni), zivot: 0.6 });
+  if (poskozeni > 0) cisloZasahu(hra, n, poskozeni);
+}
+
+// Zelené +N nad hrdinou, když se opravdu léčil.
+function cisloLeceni(hra, kolik) {
+  const k = Math.round(kolik);
+  if (k > 0) pridejCislo(hra, { x: hra.hrdina.x, y: hra.hrdina.y - 18, text: `+${k}`, hodnota: k, zivot: TRVANI_CISLA_LECENI, barva: 'leceni' });
 }
 
 // Pár pixelových úlomků rozletí od zabitého nepřítele. Směry se počítají z pořadí zabití, ne z rng,
@@ -462,11 +515,14 @@ function oziv(hra) {
     n.y = hrdina.y + Math.sin(uhel) * ODHOZENI_PRI_OZIVENI;
   }
   hra.oznameni = { text: 'Duše tě vrátily z hlubin', zivot: 3 };
+  cisloLeceni(hra, hrdina.hp);
 }
 
-// Zranění hrdiny (dotyk nepřítele nebo jedový oblak): chvíle bez zranění, třes, případně konec nebo Oživení.
-function zran(hra, kolik) {
+// Zranění hrdiny (dotyk nepřítele, útok bosse nebo jedový oblak): červené číslo nad ním, chvíle bez zranění,
+// třes, případně konec nebo Oživení. barva 'jed' = rána z oblaku (kreslí se stejně, jen se pozná).
+function zran(hra, kolik, barva = 'zraneni') {
   const { hrdina } = hra;
+  if (kolik > 0) pridejCislo(hra, { x: hrdina.x, y: hrdina.y - 18, text: `-${kolik}`, hodnota: kolik, barva });
   hrdina.hp -= kolik;
   hrdina.nezranitelny = 0.5;
   hra.tres = TRVANI_TRESU;
@@ -1124,9 +1180,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   for (const o of hra.oblaky) {
     const pali = TRVANI_OBLAKU - o.zivot >= NAFUKOVANI_OBLAKU;
     if (pali && hrdina.nezranitelny <= 0 && !hra.konec && vzdalenost(o, hrdina) < o.polomer) {
-      const jed = ranaHrozby(hra, JED_OBLAKU);
-      zran(hra, jed);
-      hra.cisla.push({ x: hrdina.x, y: hrdina.y - 18, text: `-${jed}`, zivot: 0.6, barva: 'jed' });
+      zran(hra, ranaHrozby(hra, JED_OBLAKU), 'jed');
     }
   }
 
@@ -1270,10 +1324,10 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       } else if (p.druh === 'srdce') {
         const pred = hrdina.hp;
         hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + LECENI_SRDCE);
-        hra.cisla.push({ x: hrdina.x, y: hrdina.y - 18, text: `+${Math.round(hrdina.hp - pred)}`, zivot: 0.8, barva: 'leceni' });
+        cisloLeceni(hra, hrdina.hp - pred);
       } else if (p.druh === 'zlatak') {
         hra.zlataky += 1;
-        hra.cisla.push({ x: hrdina.x, y: hrdina.y - 18, text: '+1', zivot: 0.8, barva: 'zlato' });
+        pridejCislo(hra, { x: hrdina.x, y: hrdina.y - 18, text: '+1', hodnota: 1, zivot: TRVANI_CISLA_LECENI, barva: 'zlato' });
       } else if (p.druh === 'bomba') {
         vybuch(hra, sirka, vyska);
         bouchlo = true;
@@ -1327,10 +1381,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   for (const o of hra.oblaky) o.zivot -= dt;
   hra.oblaky = hra.oblaky.filter((o) => o.zivot > 0);
 
-  for (const c of hra.cisla) {
-    c.y -= 30 * dt;
-    c.zivot -= dt;
-  }
+  for (const c of hra.cisla) c.zivot -= dt;
   hra.cisla = hra.cisla.filter((c) => c.zivot > 0);
 }
 
@@ -1500,6 +1551,7 @@ function pridejPasivu(hrdina, id, u) {
 // Použije kartu: zbraň nebo pasiva vyskočí o kroku úrovní, pak bonus rarity.
 export function vyber(hra, volba) {
   const { hrdina } = hra;
+  const predLecenim = hrdina.hp;
   const cil = Math.max(0, Math.floor(volba.uroven ?? 0));
   if (volba.druh === 'zbran') {
     hra.zbrane[volba.id] = { ...(hra.zbrane[volba.id] ?? { nabiti: 0 }), uroven: Math.max(cil, hra.zbrane[volba.id]?.uroven ?? 0) };
@@ -1511,6 +1563,7 @@ export function vyber(hra, volba) {
   }
   if (volba.bonus?.sila > 0) hrdina.sila *= 1 + volba.bonus.sila;
   if (volba.bonus?.doleceni) hrdina.hp = hrdina.maxHp;
+  if (volba.druh === 'leceni' || volba.bonus?.doleceni) cisloLeceni(hra, hrdina.hp - predLecenim);
   hra.volby = null;
   hra.zTruhly = false;
 }

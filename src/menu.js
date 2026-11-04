@@ -3,7 +3,7 @@
 // Tlačítka, která záložka do panelu přidá, jdou taky vybírat šipkami a Enterem.
 import { sprity } from './sprity.js';
 import { TRIDY, ZBRANE, platnaTrida, silaHrozby } from './hra.js';
-import { nactiRekord, nactiTridu, ulozTridu, nactiDuse, ulozDuse } from './ulozeni.js';
+import { nactiRekord, nactiTridu, ulozTridu, nactiDuse, ulozDuse, nactiNastaveni, ulozNastaveni } from './ulozeni.js';
 import { VYLEPSENI, cenaVylepseni, kupVylepseni, vratDuse, utraceno } from './duse.js';
 import { odemkniZvuk, zvukNakupu, zvukOdmitnuti } from './zvuk.js';
 
@@ -12,6 +12,13 @@ let trida = nactiTridu();
 
 export function zvolenaTrida() {
   return trida;
+}
+
+// Nastavení (čísla poškození): načte se z prohlížeče, mění ho přepínač v Ovládání nebo v pauze.
+let nastaveni = nactiNastaveni();
+
+export function cislaPoskozeni() {
+  return nastaveni.cislaPoskozeni;
 }
 
 export function formatCas(s) {
@@ -172,12 +179,34 @@ const OVLADANI = [
   [['šipky'], 'pohyb'],
   [['tah prstem'], 'pohyb na mobilu'],
   [['1', '2', '3'], 'výběr vylepšení (nebo klik, šipky a Enter)'],
-  [['P'], 'pauza'],
+  [['P', 'Esc'], 'pauza'],
   [['R'], 'znovu po prohře'],
   [['M'], 'menu po prohře'],
   [['↑', '↓', 'Enter'], 'výběr v menu'],
   [['Esc'], 'zpět v menu'],
 ];
+
+// Přepínač je tlačítko: klik (nebo Enter) volbu otočí a hned uloží. Stejný je v Ovládání i v pauze.
+export function prepinacNastaveni(klic, nazev) {
+  const b = prvek('button', 'menu-tlacitko prepinac');
+  b.type = 'button';
+  b.dataset.nastaveni = klic;
+  const stav = prvek('span', 'prepinac-stav');
+  b.append(prvek('span', '', `${nazev}: `), stav);
+  const ukaz = () => {
+    const zapnuto = nastaveni[klic];
+    stav.textContent = zapnuto ? 'zapnuto' : 'vypnuto';
+    b.classList.toggle('vypnuto', !zapnuto);
+    b.setAttribute('aria-pressed', String(zapnuto));
+  };
+  b.addEventListener('click', () => {
+    nastaveni = { ...nastaveni, [klic]: !nastaveni[klic] };
+    ulozNastaveni(nastaveni);
+    ukaz();
+  });
+  ukaz();
+  return b;
+}
 
 function vyplnOvladani(panel) {
   const seznam = prvek('div', 'ovladani');
@@ -188,7 +217,9 @@ function vyplnOvladani(panel) {
     radek.append(kde, prvek('span', '', co));
     seznam.append(radek);
   }
-  panel.append(prvek('p', 'podtitul', 'Zbraně střílí samy, ty jen uhýbáš a sbíráš krystaly.'), seznam);
+  const radek = prvek('div', 'radek-tlacitek nastaveni-radek');
+  radek.append(prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'));
+  panel.append(prvek('p', 'podtitul', 'Zbraně střílí samy, ty jen uhýbáš a sbíráš krystaly.'), seznam, radek);
 }
 
 export const ZALOZKY = {

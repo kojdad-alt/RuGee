@@ -2,7 +2,9 @@ import { vytvorRng } from './rng.js';
 import { novaHra, aktualizuj, vyber, TRIDY } from './hra.js';
 import { kresli, kresliMenu } from './kresleni.js';
 import { dusZaHru } from './duse.js';
-import { vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, obrazekSpritu, pocetDusi } from './menu.js';
+import {
+  vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, obrazekSpritu, pocetDusi, cislaPoskozeni, prepinacNastaveni,
+} from './menu.js';
 import { zapisVysledek, nactiDuse, pripisDuse } from './ulozeni.js';
 import { odemkniZvuk, zvukStartu, zvukVolby, zvukVyberu } from './zvuk.js';
 import { ukazVolby } from './volba.js';
@@ -35,6 +37,7 @@ function start() {
   document.body.classList.remove('v-menu');
   el('konec').hidden = true;
   el('volba').hidden = true;
+  el('pauza').hidden = true;
   // Zaměřené tlačítko schovaného okna by jinak Enterem spustilo něco uprostřed hry.
   document.activeElement?.blur?.();
 }
@@ -43,6 +46,7 @@ function doMenu() {
   vMenu = true;
   el('konec').hidden = true;
   el('volba').hidden = true;
+  el('pauza').hidden = true;
   document.body.classList.add('v-menu');
   stisknute.clear();
   dotyk.aktivni = false;
@@ -107,6 +111,23 @@ function vybavaUJoysticku() {
     blizko = dotyk.sx > r.left - okraj && dotyk.sx < r.right + okraj && dotyk.sy > r.top - okraj && dotyk.sy < r.bottom + okraj;
   }
   vybava.classList.toggle('u-joysticku', blizko);
+}
+
+// Pauza (P nebo Esc): hra stojí a okno nabídne přepínač čísel poškození a Pokračovat.
+// Přepínač se staví pokaždé znovu, ať ukazuje, co je zrovna uložené (mohlo se změnit v menu).
+function nastavPauzu(zapnout) {
+  hra.pauza = zapnout;
+  el('pauza').hidden = !zapnout;
+  if (!zapnout) {
+    document.activeElement?.blur?.();
+    return;
+  }
+  const pokracovat = textovyPrvek('button', 'Pokračovat (P)');
+  pokracovat.className = 'menu-tlacitko hlavni';
+  pokracovat.type = 'button';
+  pokracovat.addEventListener('click', () => { if (hra?.pauza) nastavPauzu(false); });
+  el('pauza-volby').replaceChildren(pokracovat, prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'));
+  vyberTlacitko(pokracovat);
 }
 
 function otevriVolby() {
@@ -195,7 +216,7 @@ function smycka(t) {
     el('konec').hidden = false;
     vyberTlacitko(el('znovu'));
   }
-  kresli(ctx, hra);
+  kresli(ctx, hra, { cislaPoskozeni: cislaPoskozeni() });
   kresliJoystick();
   vybavaUJoysticku();
   hud();
@@ -216,11 +237,18 @@ addEventListener('keydown', (e) => {
     else ovladejTlacitka(el('konec'), e);
     return;
   }
+  if ((k === 'p' || k === 'escape') && !hra.volby) {
+    if (!e.repeat) nastavPauzu(!hra.pauza);
+    return;
+  }
+  if (hra.pauza) {
+    ovladejTlacitka(el('pauza'), e);
+    return;
+  }
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
   if (hra.volby && ['1', '2', '3'].includes(k)) zvol(Number(k) - 1);
   // Šipky vybírají kartu, Enter nebo mezerník ji vezme (jen když už je nějaká vybraná, ne naslepo první).
   else if (hra.volby && (!['enter', ' '].includes(k) || el('karty').querySelector('.vybrano'))) ovladejTlacitka(el('karty'), e);
-  if (k === 'p' && !hra.volby) hra.pauza = !hra.pauza;
 });
 addEventListener('keyup', (e) => stisknute.delete(e.key.toLowerCase()));
 platno.addEventListener('touchstart', (e) => {
