@@ -330,7 +330,8 @@ function sponaTrnu(ctx, n, x, y, velikost) {
 function zrcadlaHrdiny(ctx, hra, s, stred) {
   const z = s.zrcadlo;
   const obr = sprity.strep;
-  const m = z.velikost > 10 ? MERITKO + 1 : MERITKO;
+  // Na 5. úrovni (velikost 14) o pixel větší, nad ní roste s velikostí (celé násobky, ať zůstane ostrý).
+  const m = z.velikost > 10 ? Math.max(MERITKO + 1, Math.round(((MERITKO + 1) * z.velikost) / 14)) : MERITKO;
   ctx.save();
   ctx.fillStyle = 'rgba(223,232,255,0.12)';
   kruhNaZemi(ctx, stred.x, stred.y, z.polomer);

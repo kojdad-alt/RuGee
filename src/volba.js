@@ -1,7 +1,7 @@
 // Okno výběru vylepšení při nové úrovni a z truhly bosse. Karta má raritu (barevný pixelový rámeček,
 // u vyšších záře), ikonu zbraně nebo pasivy, úrovně jako čtverečky a bonus rarity. Jen DOM:
 // co karta dá a jak často která rarita padá, je v hra.js. Animace příchodu karet je v style.css.
-import { RARITY, PORADI_RARIT, MAX_UROVEN, sanceRarit, BOSSOVE } from './hra.js';
+import { RARITY, PORADI_RARIT, ZAKLAD_UROVNI, sanceRarit, stupenUrovne, BOSSOVE } from './hra.js';
 import { obrazekSpritu, vyberTlacitko } from './menu.js';
 
 function prvek(znacka, trida = '', text = null) {
@@ -33,8 +33,11 @@ export function vytvorKartu(volba, i) {
     const nova = volba.druh === 'zbran' ? 'Nová zbraň' : 'Nové';
     const kam = volba.od === 0 ? `${nova}${volba.uroven > 1 ? ` · úr. ${volba.uroven}` : ''}` : `Úroveň ${volba.od} → ${volba.uroven}`;
     text.append(prvek('span', 'karta-uroven', kam));
-    const ctverecky = prvek('span', 'karta-ctverecky');
-    for (let u = 0; u < MAX_UROVEN; u++) ctverecky.append(prvek('i', u < volba.od ? 'plny' : u < volba.uroven ? 'novy' : ''));
+    // Úrovně nemají strop: čtverečky ukazují pětici, do které nová úroveň padne (1–5, 6–10, …), v barvě
+    // jejího stupně jako rámeček v přehledu výbavy.
+    const blok = Math.floor((volba.uroven - 1) / ZAKLAD_UROVNI) * ZAKLAD_UROVNI;
+    const ctverecky = prvek('span', `karta-ctverecky stupen-${stupenUrovne(blok + 1)}`);
+    for (let u = blok + 1; u <= blok + ZAKLAD_UROVNI; u++) ctverecky.append(prvek('i', u <= volba.od ? 'plny' : u <= volba.uroven ? 'novy' : ''));
     text.append(ctverecky);
   }
   const popis = prvek('span', 'karta-popis');
