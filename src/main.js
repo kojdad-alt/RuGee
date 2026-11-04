@@ -1,7 +1,7 @@
 import { vytvorRng } from './rng.js';
-import { novaHra, aktualizuj, vyber } from './hra.js';
+import { novaHra, aktualizuj, vyber, TRIDY } from './hra.js';
 import { kresli, kresliMenu } from './kresleni.js';
-import { vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas } from './menu.js';
+import { vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida } from './menu.js';
 import { zapisVysledek } from './ulozeni.js';
 import { odemkniZvuk, zvukStartu } from './zvuk.js';
 
@@ -22,7 +22,7 @@ function zmenVelikost() {
 function start() {
   // ?seed=123 v adrese dá pořád stejné vlny (hodí se na hledání chyb).
   const seminko = Number(new URLSearchParams(location.search).get('seed')) || (Date.now() >>> 0);
-  hra = novaHra(vytvorRng(seminko));
+  hra = novaHra(vytvorRng(seminko), zvolenaTrida());
   vMenu = false;
   menu.skryj();
   document.body.classList.remove('v-menu');
@@ -115,9 +115,11 @@ function zvol(i) {
 
 // Rekord se drží jen v tomhle prohlížeči (ulozeni.js), v menu ho ukazuje záložka Rekordy.
 function zapisKonec() {
-  const vysledek = { cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito, datum: new Date().toISOString() };
+  const vysledek = {
+    cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito, trida: hra.trida, datum: new Date().toISOString(),
+  };
   const { novy, rekord } = zapisVysledek(vysledek);
-  const text = `Přežil jsi ${formatCas(hra.cas)}, úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}, Strážců ${hra.zabitoBossu}.`;
+  const text = `${TRIDY[hra.trida].nazev} přežil ${formatCas(hra.cas)}, úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}, Strážců ${hra.zabitoBossu}.`;
   const radekRekordu = novy
     ? 'Nový rekord!'
     : `Rekord: ${formatCas(rekord.cas)}, úroveň ${rekord.uroven}, zabito ${rekord.zabito}.`;
@@ -136,7 +138,7 @@ function smycka(t) {
   const dt = Math.min(0.05, (t - posledni) / 1000 || 0);
   posledni = t;
   if (vMenu) {
-    kresliMenu(ctx, t / 1000);
+    kresliMenu(ctx, t / 1000, zvolenaTrida());
     requestAnimationFrame(smycka);
     return;
   }

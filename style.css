@@ -326,3 +326,74 @@ kbd {
 }
 
 .radek-tlacitek .menu-tlacitko { min-width: 170px; }
+
+/* Výběr třídy v záložce Postavy: karta se spritem vlevo a textem vpravo, zvolená svítí zlatě. */
+.menu-postava {
+  margin: -4px 0 2px;
+  text-align: center;
+  color: var(--text-tlumeny);
+  font-size: 13px;
+  text-shadow: 0 2px 0 #000;
+}
+
+.mrizka-trid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.trida {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  background: #221f2b;
+  border: 2px solid var(--okraj);
+  box-shadow: inset 0 -3px 0 #15131b;
+  padding: 10px 12px 12px;
+  cursor: pointer;
+}
+
+.trida canvas { flex: none; }
+
+.trida-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.trida b { color: var(--zlata); font-size: 16px; }
+.trida small { color: var(--text-tlumeny); font-size: 12px; line-height: 1.35; }
+.trida .trida-zbran { color: var(--text); }
+.trida .trida-vyhoda { color: var(--xp); }
+
+.trida.vybrano, .trida:focus-visible {
+  outline: 2px solid var(--text-tlumeny);
+  outline-offset: 2px;
+}
+
+.trida.zvolena {
+  border-color: var(--zlata);
+  background: #2e2618;
+}
+
+.trida-stitek {
+  display: none;
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1a1408;
+  background: var(--zlata);
+}
+
+.trida.zvolena .trida-stitek { display: block; }
