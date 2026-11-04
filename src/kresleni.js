@@ -3,6 +3,7 @@ import {
   staty, TRVANI_TRESU, VYCHOZI_TRIDA, TRVANI_ZABLESKU, ODHOZENI_PRI_OZIVENI, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU,
   TRVANI_ZARU, TRVANI_VYBUCHU, bossBary, TRVANI_DOPADU, ZJEVENI_BLUDICKY, POLOMER_STRELY_BOSSU,
   RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, TRVANI_ODLESKU, poziceZrcadla, TRVANI_HLASENI_HROZBY, TRVANI_OTEVRENI,
+  KUPEC, CENA_ZAMCENE, POLOMER_ZAMCENE,
 } from './hra.js';
 import { dlazdiceLouky, ozdobyLouky } from './louka.js';
 
@@ -32,6 +33,7 @@ const BARVY_CASTIC = {
   sud: ['#a07e5c', '#6e6577', '#8a5a35'],
   trny: ['#4a3530', '#3f8a3c', '#a07e5c'],
   zrcadlo: ['#dfe8ff', '#b9c2cc', '#7f9cf0'],
+  zamcena: ['#a07e5c', '#8a5a35', '#f2c94c'],
 };
 const BARVA_SITE = 'rgba(236,236,244,0.8)';
 // Duch je i viditelný průsvitný, schovaný je jen tušený obrys. Mezi tím přechází plynule.
@@ -140,6 +142,13 @@ function sprite(ctx, obr, x, y, otoceny = 1, prekryv = null, velikost = obr.widt
   if (otoceny < 0) ctx.scale(-1, 1);
   ctx.drawImage(prekryv ? prebarvi(obr, prekryv) : obr, -velikost / 2, -velikost / 2, velikost, velikost);
   ctx.restore();
+}
+
+// Sprite, který není čtvercový (vůz, zamčená truhla), se středem v (x, y) a se svým poměrem stran.
+function celySprite(ctx, obr, x, y, meritko = MERITKO) {
+  const w = obr.width * meritko;
+  const h = obr.height * meritko;
+  ctx.drawImage(obr, Math.round(x - w / 2), Math.round(y - h / 2), w, h);
 }
 
 // Rudý obrys elity: přebarvený sprite posunutý o pixel na všechny čtyři strany, pod ním pulzující záře.
@@ -636,11 +645,12 @@ const BARVY_CISEL = {
   jed: ['#ff5a5a', '#c8323e'],
   leceni: ['#7cf08a', '#3fb557'],
   zlato: ['#f2c94c', '#c4862f'],
+  utrata: ['#c4862f', '#8a5a35'],
 };
 // Násobek velikosti podle druhu (silný zásah je větší, čísla nad hrdinou o kus větší než zásahy).
-const VELIKOST_CISEL = { silny: 1.5, zraneni: 1.25, jed: 1.25, leceni: 1.25 };
+const VELIKOST_CISEL = { silny: 1.5, zraneni: 1.25, jed: 1.25, leceni: 1.25, zlato: 1.25, utrata: 1.25 };
 // Čísla nad hrdinou se kreslí vždy navrchu. Se zhasnutými čísly poškození zůstane jen léčení a zlaťáky.
-const NAD_HRDINOU = new Set(['zraneni', 'jed', 'leceni', 'zlato']);
+const NAD_HRDINOU = new Set(['zraneni', 'jed', 'leceni', 'zlato', 'utrata']);
 const POSKOZENI = new Set([null, 'silny', 'zraneni', 'jed']);
 // Číslo nejdřív krátce poskočí (i po přičtení další rány), vyletí o VYSKOK pixelů písma a na konci zprůhlední.
 const POSKOK_CISLA = 0.08;
@@ -729,6 +739,75 @@ function truhlaNaZemi(ctx, pr, p, cas) {
   const faze = (cas + pr.x * 0.01) % SKOK_TRUHLY;
   const skok = faze < 0.25 ? Math.round(Math.sin((faze / 0.25) * Math.PI) * 6) : 0;
   sprite(ctx, obr, p.x, p.y - skok);
+}
+
+// Zamčená truhla na zemi: pod ní slabě pulzuje zlatá záře. Když u ní hrdina stojí, nad ní je, čím se otevře
+// (klíč nebo cena), a když nemá čím, cena zčervená.
+function zamcenaNaZemi(ctx, z, p, hra) {
+  const pulz = (hra.cas % 1.6) / 1.6;
+  ctx.save();
+  ctx.globalAlpha = 0.35 * (1 - pulz);
+  ctx.fillStyle = '#f2c94c';
+  kruhNaZemi(ctx, p.x, p.y + 8, 10 + 18 * pulz);
+  ctx.restore();
+  celySprite(ctx, sprity.zamcena, p.x, p.y);
+  if (!z.blizko) return;
+  const muze = hra.klice > 0 || hra.zlataky >= CENA_ZAMCENE;
+  const text = hra.klice > 0 ? 'Otevře klíč' : muze ? `Otevřít: ${CENA_ZAMCENE} zl` : `Zamčeno: klíč nebo ${CENA_ZAMCENE} zl`;
+  ctx.save();
+  ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
+  ctx.textAlign = 'center';
+  napis(ctx, text, p.x, Math.round(p.y - POLOMER_ZAMCENE - 12), muze ? '#ffe08a' : '#f08a8d');
+  ctx.restore();
+}
+
+// Vůz kupce: pod ním pulzuje zlatý kruh (kam dojít pro obchod), nad ním nápis a pruh, kolik času kupci zbývá.
+// Posledních pár sekund vůz bliká, že odjíždí.
+function vuzKupce(ctx, k, p, cas) {
+  const pulz = (cas % 1.2) / 1.2;
+  ctx.save();
+  ctx.globalAlpha = 0.45 * (1 - pulz);
+  ctx.fillStyle = '#f2c94c';
+  kruhNaZemi(ctx, p.x, p.y + 12, KUPEC.dosah + 12 * pulz);
+  ctx.globalAlpha = 0.12;
+  ctx.fillRect(Math.round(p.x) - 4, Math.round(p.y) - 110, 8, 90);
+  ctx.restore();
+  if (k.zbyva < 5 && Math.floor(cas * 6) % 2) ctx.globalAlpha = 0.5;
+  celySprite(ctx, sprity.vuz, p.x, p.y);
+  ctx.globalAlpha = 1;
+  const sirka = 48;
+  const y = Math.round(p.y - 32);
+  const x = Math.round(p.x - sirka / 2);
+  ctx.fillStyle = '#0b0a0f';
+  ctx.fillRect(x - 2, y - 2, sirka + 4, 8);
+  ctx.fillStyle = '#4a3530';
+  ctx.fillRect(x, y, sirka, 4);
+  ctx.fillStyle = '#e9c46a';
+  ctx.fillRect(x, y, Math.round((sirka * Math.max(0, k.zbyva)) / KUPEC.trvani), 4);
+  ctx.save();
+  ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
+  ctx.textAlign = 'center';
+  napis(ctx, 'KUPEC', p.x, y - 6, '#ffe08a');
+  ctx.restore();
+}
+
+// Šipka na okraji obrazovky k věci mimo ni: ikona a malý hrot ve směru věci. r = jak daleko od středu.
+function sipkaKOkraji(ctx, p, sirka, vyska, obr, barva, odsazeni, velikost = 24) {
+  const uhel = Math.atan2(p.y - vyska / 2, p.x - sirka / 2);
+  const r = Math.min(sirka, vyska) / 2 - odsazeni;
+  const x = Math.round(sirka / 2 + Math.cos(uhel) * r);
+  const y = Math.round(vyska / 2 + Math.sin(uhel) * r);
+  const w = Math.round((velikost * obr.width) / Math.max(obr.width, obr.height));
+  const h = Math.round((velikost * obr.height) / Math.max(obr.width, obr.height));
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.drawImage(obr, -Math.round(w / 2), -Math.round(h / 2), w, h);
+  ctx.rotate(uhel);
+  ctx.fillStyle = barva;
+  ctx.fillRect(Math.round(velikost / 2) + 4, -3, 6, 6);
+  ctx.fillRect(Math.round(velikost / 2) + 10, -1, 3, 2);
+  ctx.restore();
+  return { x, y };
 }
 
 // Otevírání truhly (svět stojí): okolí ztmavne, truhla se zatřese a otevře, z ní vyrazí paprsky v barvě rarity
@@ -869,7 +948,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
   const { width: sirka, height: vyska } = ctx.canvas;
   const { hrdina } = hra;
   // Po zásahu hrdiny se celý svět krátce otřese, slábne k nule. V pauze a ve volbě stojí.
-  const bezi = !hra.pauza && !hra.volby && !hra.konec && !hra.otevira && !hra.porovnani;
+  const bezi = !hra.pauza && !hra.volby && !hra.konec && !hra.otevira && !hra.porovnani && !hra.obchod;
   const tres = bezi ? (hra.tres / TRVANI_TRESU) * SILA_TRESU : 0;
   const kx = hrdina.x - sirka / 2 + (tres ? Math.round((Math.random() * 2 - 1) * tres) : 0);
   const ky = hrdina.y - vyska / 2 + (tres ? Math.round((Math.random() * 2 - 1) * tres) : 0);
@@ -899,6 +978,15 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     if (p.x < -30 || p.y < -30 || p.x > sirka + 30 || p.y > vyska + 30) continue;
     sprite(ctx, sprity[b.druh], p.x, p.y);
   }
+  for (const z of hra.zamcene ?? []) {
+    const p = naObrazovce(z);
+    if (p.x < -40 || p.y < -40 || p.x > sirka + 40 || p.y > vyska + 40) continue;
+    zamcenaNaZemi(ctx, z, p, hra);
+  }
+  if (hra.kupec) {
+    const p = naObrazovce(hra.kupec);
+    if (p.x > -60 && p.y > -120 && p.x < sirka + 60 && p.y < vyska + 60) vuzKupce(ctx, hra.kupec, p, hra.cas);
+  }
 
   for (const kr of hra.krystaly) {
     const p = naObrazovce(kr);
@@ -911,8 +999,10 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
       if (p.x > -60 && p.y > -100 && p.x < sirka + 60 && p.y < vyska + 60) truhlaNaZemi(ctx, pr, p, hra.cas);
       continue;
     }
-    const houpani = Math.sin(hra.cas * 4 + pr.x) * 2;
-    ctx.drawImage(sprity[pr.druh], Math.round(p.x - 13), Math.round(p.y - 13 + houpani), 26, 26);
+    const houpani = pr.pritahovan ? 0 : Math.sin(hra.cas * 4 + pr.x) * 2;
+    // Hromádka zlaťáků z elity: tři mince přes sebe.
+    const kde = pr.druh === 'zlatak' && pr.hodnota > 1 ? [[-6, 3], [6, 3], [0, -3]] : [[0, 0]];
+    for (const [dx, dy] of kde) ctx.drawImage(sprity[pr.druh], Math.round(p.x - 13 + dx), Math.round(p.y - 13 + dy + houpani), 26, 26);
   }
 
   for (const o of hra.oblaky) {
@@ -1149,6 +1239,28 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     ctx.fillRect(16, -3, 6, 6);
     ctx.fillRect(22, -1, 3, 2);
     ctx.restore();
+  }
+
+  // zamčené truhly mimo obrazovku: malá průsvitná ikona na okraji
+  for (const z of hra.zamcene ?? []) {
+    const p = naObrazovce(z);
+    if (p.x > 0 && p.y > 0 && p.x < sirka && p.y < vyska) continue;
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    sipkaKOkraji(ctx, p, sirka, vyska, sprity.zamcena, '#c9ccd2', 64, 20);
+    ctx.restore();
+  }
+  // kupec mimo obrazovku: zlatá šipka s vozem a s tím, kolik sekund ještě zůstane
+  if (hra.kupec) {
+    const p = naObrazovce(hra.kupec);
+    if (!(p.x > 0 && p.y > 0 && p.x < sirka && p.y < vyska)) {
+      const kde = sipkaKOkraji(ctx, p, sirka, vyska, sprity.vuz, '#f2c94c', 52, 40);
+      ctx.save();
+      ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
+      ctx.textAlign = 'center';
+      napis(ctx, `${Math.ceil(hra.kupec.zbyva)} s`, kde.x, kde.y + 28, hra.kupec.zbyva < 10 ? '#f08a8d' : '#ffe08a');
+      ctx.restore();
+    }
   }
 
   if (hra.otevira) otevirani(ctx, hra, naObrazovce, sirka, vyska);

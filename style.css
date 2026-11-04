@@ -61,15 +61,25 @@ html, body {
   text-shadow: 0 2px 0 #000;
 }
 
-/* Zlaťáky z bedniček vedle počtu zabitých: ikonka a číslo. */
-.hud-zlato {
+/* Zlaťáky vedle počtu zabitých: ikonka a číslo, při sebrání poskočí. Klíče od kupce za nimi (jen když nějaký je). */
+.hud-zlato, .hud-klice {
+  display: inline-block;
   margin-left: 12px;
   color: var(--zlata);
 }
 
-.hud-zlato canvas {
+.hud-klice[hidden] { display: none; }
+
+.hud-zlato canvas, .hud-klice canvas {
   vertical-align: -5px;
   margin-right: 4px;
+}
+
+.hud-zlato.roste { animation: zlato-roste 0.3s steps(3); }
+
+@keyframes zlato-roste {
+  0% { color: #fff3b0; transform: translateY(-3px) scale(1.15); }
+  100% { color: var(--zlata); transform: none; }
 }
 
 .cas {
@@ -1024,3 +1034,85 @@ kbd {
 .sbirka-kus.neznamy .sbirka-text b { color: var(--text-tlumeny); }
 .sbirka-text small { color: var(--text-tlumeny); font-size: 11px; line-height: 1.3; }
 .sbirka-text .sbirka-staty { color: var(--text); }
+
+/* Přehodit karty: tlačítko pod kartami výběru s cenou (zlaťák) nebo „zdarma ×N“. Na co zlaťáky nestačí, je šedé. */
+.radek-prehodit { margin-top: 16px; }
+
+.menu-tlacitko.prehodit {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  padding: 7px 18px 9px;
+}
+
+.menu-tlacitko.prehodit kbd { font-size: 11px; }
+.menu-tlacitko.prehodit.nejde { color: var(--text-tlumeny); border-color: #4a3f3f; }
+.menu-tlacitko.prehodit.nejde .cena-zlato b { color: #f08a8d; }
+.menu-tlacitko.zatrast { animation: zatrast 0.25s steps(4); }
+.prehodit-zdarma { color: #7cf08a; }
+
+.cena-zlato {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--zlata);
+}
+
+.cena-zlato canvas { flex: none; }
+
+/* Obchod kupce: zlatý panel, nahoře kolik má hrdina zlaťáků (a klíčů), zboží jako karty se zlatým pruhem
+   s cenou. Zboží, které koupit nejde, je bledé a při kliknutí se zatřese. */
+.obchod .vyber-panel { --c: #8a6a2a; width: min(980px, 100%); }
+.obchod .vyber-stitek { background: var(--zlata); }
+
+.obchod-penize {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 16px;
+  margin: -6px 0 16px;
+  font-size: 16px;
+  color: var(--text-tlumeny);
+}
+
+.obchod-penize .cena-zlato b { font-size: 20px; }
+.obchod-klice { display: inline-flex; align-items: center; gap: 5px; color: var(--zlata); font-size: 18px; }
+.obchod-penize small { color: #7cf08a; font-size: 13px; }
+
+.zbozi-karty { flex-wrap: wrap; gap: 16px; }
+.zbozi-karty.bez-prichodu .karta { animation: none; }
+
+.karta.zbozi {
+  --c: #8a6a2a;
+  --c-svetla: #ffe08a;
+  --c-pozadi: #2a2214;
+  --c-zar: rgba(233, 196, 106, 0.25);
+  --zar: 0px;
+  flex: 0 1 168px;
+}
+
+.karta.zbozi .karta-rarita { display: flex; justify-content: center; }
+.karta.zbozi .karta-rarita .cena-zlato { color: #0b0a0f; font-size: 15px; }
+.karta.zbozi.nejde { --c: #4a4238; --c-svetla: #b8ae9c; --c-pozadi: #1d1a16; }
+.karta.zbozi.nejde .karta-ikona canvas { opacity: 0.5; }
+.karta.zbozi.zatrast { animation: zatrast 0.25s steps(4); }
+.zbozi-prekazka { color: #f08a8d; font-size: 12px; font-weight: bold; }
+
+.obchod-nakup {
+  min-height: 1.4em;
+  margin: 16px 0 6px;
+  color: #7cf08a;
+  font-weight: bold;
+}
+
+.obchod .radek-tlacitek { margin-top: 6px; }
+
+@media (max-width: 600px) {
+  .karta.zbozi { min-height: 0; }
+}
+
+/* Konec hry: kolik zlaťáků zbylo a kolik z nich je duší. */
+.konec-duse small.konec-zlato { color: var(--zlata); }
+.konec-zlato canvas { vertical-align: -5px; }

@@ -2,13 +2,15 @@
 // u vyšších záře), ikonu zbraně nebo pasivy, úrovně jako čtverečky a bonus rarity. Jen DOM:
 // co karta dá a jak často která rarita padá, je v hra.js. Animace příchodu karet je v style.css.
 // Tady je i okno porovnání výbavy bossů (nový kus do obsazeného slotu: Vzít / Nechat), karty kusů vypadají
-// stejně jako karty vylepšení. Co kusy dávají, je v vystroj.js.
-import { RARITY, PORADI_RARIT, ZAKLAD_UROVNI, sanceRarit, stupenUrovne, BOSSOVE } from './hra.js';
+// stejně jako karty vylepšení. Co kusy dávají, je v vystroj.js. Pod kartami je tlačítko Přehodit (za zlaťáky
+// nebo zdarma od kupce, cena v hra.js).
+import { RARITY, PORADI_RARIT, ZAKLAD_UROVNI, sanceRarit, stupenUrovne, BOSSOVE, cenaPrehozeni, CENA_ZAMCENE } from './hra.js';
 import {
   RARITY_VYBAVY, PORADI_RARIT_VYBAVY, SLOTY, VYBAVA, EFEKTY_VYBAVY, PORADI_SLOTU, radkyStatu, rozdilStatu, popisEfektu,
   zlatakyZaKus,
 } from './vystroj.js';
 import { obrazekSpritu, vyberTlacitko } from './menu.js';
+import { cenaSMinci } from './obchod.js';
 
 function prvek(znacka, trida = '', text = null) {
   const e = document.createElement(znacka);
@@ -79,13 +81,26 @@ function radekKusu(prvekRadku, kus) {
   prvekRadku.replaceChildren(obrazekSpritu(kus.id, 3), text);
 }
 
+// Tlačítko Přehodit: zdarma (od kupce), nebo cena se zlaťákem. Na co zlaťáky nestačí, je šedé.
+export function ukazPrehozeni(tlacitko, hra) {
+  const cena = cenaPrehozeni(hra);
+  tlacitko.classList.toggle('nejde', cena > hra.zlataky);
+  tlacitko.replaceChildren(prvek('span', '', 'Přehodit karty'), prvek('kbd', '', 'R'));
+  if (cena === 0) tlacitko.append(prvek('b', 'prehodit-zdarma', `zdarma ×${hra.prehozeniZdarma}`));
+  else tlacitko.append(cenaSMinci(cena));
+  tlacitko.setAttribute('aria-label', cena === 0 ? `Přehodit karty zdarma, zbývá ${hra.prehozeniZdarma}` : `Přehodit karty za ${cena} zlaťáků`);
+}
+
 // Vyplní a ukáže okno. zvol(i) se zavolá po kliku na kartu. Vrací stupeň nejvzácnější karty (0 běžná … 3 legendární).
+// Zamčená truhla (truhlaOd = 'zamcena') má vlastní nadpis a štítek, čím se odemkla.
 export function ukazVolby(okno, hra, zvol) {
   const truhla = hra.zTruhly;
+  const zamcena = truhla && hra.truhlaOd === 'zamcena';
   okno.classList.toggle('z-truhly', truhla);
   const porazen = BOSSOVE[hra.truhlaOd]?.porazen ?? 'Boss poražen';
-  okno.querySelector('#volba-stitek').textContent = truhla ? porazen : `Úroveň ${hra.hrdina.uroven}`;
-  okno.querySelector('#volba-nadpis').textContent = truhla ? 'Truhla bosse' : 'Nová úroveň';
+  const odemceno = hra.odemceno === 'klic' ? 'Odemčeno klíčem' : `Odemčeno za ${CENA_ZAMCENE} zlaťáků`;
+  okno.querySelector('#volba-stitek').textContent = zamcena ? odemceno : truhla ? porazen : `Úroveň ${hra.hrdina.uroven}`;
+  okno.querySelector('#volba-nadpis').textContent = zamcena ? 'Zamčená truhla' : truhla ? 'Truhla bosse' : 'Nová úroveň';
   const kus = okno.querySelector('#volba-kus');
   if (kus) radekKusu(kus, truhla ? hra.truhlaKus : null);
 
@@ -99,6 +114,8 @@ export function ukazVolby(okno, hra, zvol) {
 
   // Šance na vzácnější karty právě teď: roste s časem a se Štěstím, truhla dává aspoň vzácnou.
   const sance = sanceRarit(hra, truhla ? 'vzacna' : 'bezna');
+  const prehodit = okno.querySelector('#prehodit');
+  if (prehodit) ukazPrehozeni(prehodit, hra);
   const radek = okno.querySelector('#volba-sance');
   radek.replaceChildren(prvek('span', '', truhla ? 'Truhla dává aspoň vzácnou kartu:' : 'Šance na kartu:'));
   for (const id of PORADI_RARIT.slice(1)) {
@@ -148,7 +165,8 @@ export function vytvorKartuKusu(kus, { stitek, akce, klavesa, rozdil = [], sada 
 // Vrací stupeň rarity nového kusu (0 běžná … 3 legendární) pro znělku.
 export function ukazPorovnani(okno, hra, rozhodni) {
   const { novy, nasazeny } = hra.porovnani;
-  okno.querySelector('#porovnani-stitek').textContent = BOSSOVE[novy.boss]?.porazen ?? 'Boss poražen';
+  // Kus koupený u kupce nepřišel z poraženého bosse.
+  okno.querySelector('#porovnani-stitek').textContent = hra.obchod ? 'Koupeno u kupce' : BOSSOVE[novy.boss]?.porazen ?? 'Boss poražen';
   okno.querySelector('#porovnani-podtitul').textContent = `Slot ${SLOTY[novy.slot].nazev} už je obsazený. Kus, který si nenecháš, se rozloží na zlaťáky.`;
   const karty = [
     vytvorKartuKusu(novy, {

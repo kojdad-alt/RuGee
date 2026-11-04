@@ -1,13 +1,16 @@
 import { vytvorRng } from './rng.js';
-import { novaHra, aktualizuj, vyber, rozhodniKus, TRIDY } from './hra.js';
+import { novaHra, aktualizuj, vyber, rozhodniKus, TRIDY, kup, odejdiOdKupce, prehod, PORADI_ZBOZI } from './hra.js';
 import { kresli, kresliMenu } from './kresleni.js';
-import { dusZaHru } from './duse.js';
+import { dusZaHru, DUSE_ZA } from './duse.js';
 import {
   vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, obrazekSpritu, pocetDusi, cislaPoskozeni, prepinacNastaveni,
 } from './menu.js';
 import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez } from './ulozeni.js';
-import { odemkniZvuk, zvukStartu, zvukVolby, zvukVyberu } from './zvuk.js';
+import {
+  odemkniZvuk, zvukStartu, zvukVolby, zvukVyberu, zvukZlataku, zvukNakupu, zvukOdmitnuti, zvukPrehozeni,
+} from './zvuk.js';
 import { ukazVolby, ukazPorovnani } from './volba.js';
+import { ukazObchod, zatresZbozim, textZlataku } from './obchod.js';
 import { ukazVybavu } from './vybava.js';
 
 const platno = document.getElementById('platno');
@@ -25,6 +28,9 @@ let porovnaniOd = 0;
 const POJISTKA_VOLBY = 300;
 // Kolik kusů výbavy z téhle hry už je zapsaných ve Sbírce (zapisuje se hned po nálezu).
 let zapsanoNalezu = 0;
+// Kolik zlaťáků ukazovala horní lišta minule (přibyly = cinknutí a poskočení) a kdy naposledy cinkly.
+let ukazaneZlato = 0;
+let cinkloOd = 0;
 
 function zmenVelikost() {
   platno.width = innerWidth;
@@ -36,12 +42,14 @@ function start() {
   const seminko = Number(new URLSearchParams(location.search).get('seed')) || (Date.now() >>> 0);
   hra = novaHra(vytvorRng(seminko), zvolenaTrida(), nactiDuse().vylepseni);
   zapsanoNalezu = 0;
+  ukazaneZlato = 0;
   vMenu = false;
   menu.skryj();
   document.body.classList.remove('v-menu');
   el('konec').hidden = true;
   el('volba').hidden = true;
   el('porovnani').hidden = true;
+  el('obchod').hidden = true;
   el('pauza').hidden = true;
   // Zaměřené tlačítko schovaného okna by jinak Enterem spustilo něco uprostřed hry.
   document.activeElement?.blur?.();
@@ -52,6 +60,7 @@ function doMenu() {
   el('konec').hidden = true;
   el('volba').hidden = true;
   el('porovnani').hidden = true;
+  el('obchod').hidden = true;
   el('pauza').hidden = true;
   document.body.classList.add('v-menu');
   stisknute.clear();
@@ -150,6 +159,54 @@ function zvol(i) {
   document.activeElement?.blur?.();
 }
 
+// Přehodit karty (tlačítko nebo R): nové karty přijedou znovu s animací, na chybějící zlaťáky jen zabzučí.
+function prehodKarty() {
+  if (!hra?.volby || hra.porovnani || performance.now() - volbyOd < POJISTKA_VOLBY) return;
+  if (!prehod(hra)) {
+    zvukOdmitnuti();
+    const tlacitko = el('prehodit');
+    tlacitko.classList.remove('zatrast');
+    void tlacitko.offsetWidth;
+    tlacitko.classList.add('zatrast');
+    return;
+  }
+  zvukPrehozeni();
+  ukazVolby(el('volba'), hra, zvol);
+  volbyOd = performance.now();
+}
+
+// Obchod kupce: okno se otevře, když hrdina dojde k vozu, a zavře Odejít nebo Esc.
+let obchodOd = 0;
+function otevriObchod() {
+  ukazObchod(el('obchod'), hra, nakup);
+  obchodOd = performance.now();
+  zvukVolby(0);
+  vyberTlacitko(el('zbozi').querySelector('.zbozi:not(.nejde)') ?? el('odejit'));
+}
+
+function nakup(id) {
+  if (!hra?.obchod || hra.porovnani || hra.volby || performance.now() - obchodOd < POJISTKA_VOLBY) return;
+  if (!kup(hra, id)) {
+    zvukOdmitnuti();
+    zatresZbozim(el('obchod'), id);
+    return;
+  }
+  zvukNakupu();
+  // Kus výbavy do obsazeného slotu: obchod se schová, přijde porovnání a pak se obchod zase ukáže.
+  if (hra.porovnani) {
+    el('obchod').hidden = true;
+    return;
+  }
+  ukazObchod(el('obchod'), hra, nakup, id);
+}
+
+function odejdi() {
+  if (!hra?.obchod || performance.now() - obchodOd < POJISTKA_VOLBY) return;
+  odejdiOdKupce(hra);
+  el('obchod').hidden = true;
+  document.activeElement?.blur?.();
+}
+
 // Nový kus výbavy do obsazeného slotu: okno porovnání. Po rozhodnutí přijde okno karet z truhly.
 function otevriPorovnani() {
   const stupen = ukazPorovnani(el('porovnani'), hra, rozhodniVybavu);
@@ -189,9 +246,19 @@ function zapisKonec() {
   const duse = dusZaHru(hra);
   const { duse: celkem } = pripisDuse(duse.celkem);
   const rozpis = textovyPrvek('small', `čas ${duse.cas} · zabití ${duse.zabiti} · bossové ${duse.strazci} · zlaťáky ${duse.zlataky} · celkem ${celkem}`);
+  // Nevyužité zlaťáky se mění v duše (DUSE_ZA.zlataku za jednu), zbytek propadne.
+  const utraceno = Object.values(hra.utraceno).reduce((a, b) => a + b, 0);
+  const zlato = textovyPrvek('small', '');
+  zlato.className = 'konec-zlato';
+  zlato.append(
+    obrazekSpritu('zlatak', 2),
+    ` ${textZlataku(hra.zlataky)} nevyužito → ${duse.zlataky} ${pocetDusi(duse.zlataky)} (${DUSE_ZA.zlataku} zl = 1 duše)`,
+    utraceno ? ` · utraceno ${utraceno}` : '',
+  );
   el('konec-duse').replaceChildren(
     obrazekSpritu('duse', 3),
     textovyPrvek('b', `+${duse.celkem} ${pocetDusi(duse.celkem)}`),
+    zlato,
     rozpis,
   );
 }
@@ -221,6 +288,20 @@ function hud() {
   el('uroven').textContent = hrdina.uroven;
   el('zabito').textContent = hra.zabito;
   el('zlataky').textContent = hra.zlataky;
+  // Přibyly zlaťáky: cinkne (nejvýš jednou za chvilku, i když jich přiletí víc naráz) a počet poskočí.
+  if (hra.zlataky > ukazaneZlato) {
+    if (performance.now() - cinkloOd > 70) {
+      zvukZlataku();
+      cinkloOd = performance.now();
+    }
+    const stitek = el('hud-zlato');
+    stitek.classList.remove('roste');
+    void stitek.offsetWidth;
+    stitek.classList.add('roste');
+  }
+  ukazaneZlato = hra.zlataky;
+  el('hud-klice').hidden = !(hra.klice > 0);
+  el('klice').textContent = hra.klice;
   el('cas').textContent = formatCas(hra.cas);
   ukazHrozbu(hra.hrozba);
   el('xp-pruh').style.width = `${Math.min(100, (hrdina.xp / hrdina.potreba) * 100)}%`;
@@ -237,10 +318,15 @@ function smycka(t) {
     return;
   }
   aktualizuj(hra, dt, vstup(), platno.width, platno.height);
-  // Po truhle nejdřív porovnání výbavy (když je slot obsazený), pak karty. Okno se otevře, jakmile na něj
-  // přijde řada, a zavře ho až volba.
-  if (hra.porovnani && el('porovnani').hidden) otevriPorovnani();
-  else if (hra.volby && !hra.porovnani && el('volba').hidden) otevriVolby();
+  // Po truhle nejdřív porovnání výbavy (když je slot obsazený), pak karty, nakonec obchod kupce. Okno se otevře,
+  // jakmile na něj přijde řada, a zavře ho až volba (obchod se mezitím schová a pak zase ukáže).
+  if (hra.porovnani && el('porovnani').hidden) {
+    el('obchod').hidden = true;
+    otevriPorovnani();
+  } else if (hra.volby && !hra.porovnani && el('volba').hidden) {
+    el('obchod').hidden = true;
+    otevriVolby();
+  } else if (hra.obchod && !hra.volby && !hra.porovnani && el('obchod').hidden) otevriObchod();
   zapisNalezy();
   if (hra.konec && el('konec').hidden) {
     zapisKonec();
@@ -268,6 +354,15 @@ addEventListener('keydown', (e) => {
     else ovladejTlacitka(el('konec'), e);
     return;
   }
+  // Obchod: 1–5 koupí zboží, Esc (nebo Q) odejde, šipky a Enter vybírají.
+  if (hra.obchod && !hra.volby && !hra.porovnani) {
+    const i = Number(k) - 1;
+    if (Number.isInteger(i) && i >= 0 && i < PORADI_ZBOZI.length) {
+      if (!e.repeat) nakup(PORADI_ZBOZI[i]);
+    } else if (k === 'escape' || k === 'q') odejdi();
+    else ovladejTlacitka(el('obchod'), e);
+    return;
+  }
   if ((k === 'p' || k === 'escape') && !hra.volby && !hra.porovnani) {
     if (!e.repeat) nastavPauzu(!hra.pauza);
     return;
@@ -284,6 +379,9 @@ addEventListener('keydown', (e) => {
     return;
   }
   if (hra.volby && ['1', '2', '3'].includes(k)) zvol(Number(k) - 1);
+  else if (hra.volby && k === 'r') {
+    if (!e.repeat) prehodKarty();
+  }
   // Šipky vybírají kartu, Enter nebo mezerník ji vezme (jen když už je nějaká vybraná, ne naslepo první).
   else if (hra.volby && (!['enter', ' '].includes(k) || el('karty').querySelector('.vybrano'))) ovladejTlacitka(el('karty'), e);
 });
@@ -311,9 +409,12 @@ addEventListener('blur', () => stisknute.clear());
 addEventListener('resize', zmenVelikost);
 el('znovu').addEventListener('click', () => { if (hra?.konec) start(); });
 el('do-menu').addEventListener('click', () => { if (hra?.konec) doMenu(); });
+el('prehodit').addEventListener('click', prehodKarty);
+el('odejit').addEventListener('click', odejdi);
 
-// Ikonka zlaťáku v horní liště (sprite z sprity.js, stejný jako na louce).
+// Ikonka zlaťáku a klíče v horní liště (sprity z sprity.js, stejné jako na louce).
 el('zlato-ikona').replaceWith(obrazekSpritu('zlatak', 2));
+el('klic-ikona').replaceWith(obrazekSpritu('klic', 2));
 zmenVelikost();
 doMenu();
 requestAnimationFrame(smycka);

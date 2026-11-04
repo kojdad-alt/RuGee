@@ -1,6 +1,6 @@
 // Pravidla hry: pohyb, zbraně, nepřátelé, krystaly zkušeností a vylepšení.
 import { pouzijVylepseni } from './duse.js';
-import { PORADI_SLOTU, ucinekVystroje, losujKus, zlatakyZaKus } from './vystroj.js';
+import { PORADI_SLOTU, ucinekVystroje, losujKus, zlatakyZaKus, RARITY_VYBAVY } from './vystroj.js';
 
 // ikona = jméno spritu, který se ukáže na kartě vylepšení. popis = řádek za každou z úrovní 1–5.
 // dal = jak zbraň roste nad 5. úrovní (bonusZaUroven): poradi = co přidá každá třetí úroveň (dokola) a která
@@ -143,19 +143,22 @@ export function platnaTrida(id) {
 
 // Hrozba: hra nemá konec, nepřátelé s časem plynule sílí. min = minuty hry i se zlomky, nahoře se ukazuje
 // Hrozba N = 1 + celé minuty (každou minutu +1 a krátké ohlášení). Celý vzorec je v téhle tabulce (silaHrozby):
-//   životy     × (1 + zivoty · min) · narustZivotu ^ (min − narustOd)   (exponent jen nad narustOd)
+//   životy     × (1 + zivoty · min) · narustZivotu ^ (min − narustOd) · narustPozde ^ (min − pozdeOd)   (exponenty jen nad svým od)
 //   bossové    × (1 + bossZivoty · min + bossNavic · (min − castejiOd)) · stejný nárůst   (bossNavic až od castejiOd)
-//   poškození  × (1 + poskozeni · min) · narustPoskozeni ^ (min − narustOd)   (dotyk, útoky bossů i jedový oblak)
+//   poškození  × (1 + poskozeni · min) · narustPoskozeni ^ (min − narustOd) · narustPozde ^ (min − pozdeOd)   (dotyk, útoky bossů i jedový oblak)
 //   rychlost   × (1 + rychlost · min) · narustRychlosti ^ (min − narustOd), nanejvýš maxRychlost
 //   vlna každých max(nejkratsiVlna, prvniVlna − zkraceniVlny · min) s, v ní 1 + celé(davka · min) nepřátel, nanejvýš maxDavka
 //   na louce nejvýš maxNepratel + navicNepratel · min, nanejvýš stropNepratel
 //   elita: od elitaOd šance elitaSance na každého z vlny, od castejiOd navíc + elitaRust · (min − castejiOd), nanejvýš elitaMax
 // Exponenty od narustOd jsou pojistka, že nikdo nevydrží donekonečna: zbraně bez stropu úrovní by jinak lineární
 // růst přerostly, rychlý hrdina by nepřátelům utíkal napořád a srdce ze zabitých by doléčila každou ránu.
+// Od pozdeOd se životy i poškození (i bossů) násobí ještě narustPozde za minutu: se zlaťáky (vylepšení od kupce,
+// zamčené truhly) vydržel bot se všemi trvalými vylepšeními místo 19–21 min až 30. Bez trvalých vylepšení se tam
+// nikdo nedostane, takže se mu nic nemění.
 // Vyváženo simulací (tests/simulace.mjs, hrozba.preziti_min): bot bez trvalých vylepšení vydrží zhruba 4–15 min,
-// se všemi na maximu (a s výbavou bossů z truhel) 19–21 min. Brzký růst rychlosti je citlivý: už 0,015 místo 0,01 složí slabého bota v 6. minutě.
+// se všemi na maximu (s výbavou bossů z truhel a se zlaťáky) 17–23 min. Brzký růst rychlosti je citlivý: už 0,015 místo 0,01 složí slabého bota v 6. minutě.
 export const HROZBA = {
-  zivoty: 0.1, narustOd: 8, narustZivotu: 1.25, bossZivoty: 0.2, bossNavic: 0.3,
+  zivoty: 0.1, narustOd: 8, narustZivotu: 1.25, bossZivoty: 0.2, bossNavic: 0.3, pozdeOd: 18, narustPozde: 1.15,
   poskozeni: 0.05, narustPoskozeni: 1.1,
   rychlost: 0.01, narustRychlosti: 1.08, maxRychlost: 3,
   prvniVlna: 1.2, zkraceniVlny: 1 / 3, nejkratsiVlna: 0.25, davka: 1, maxDavka: 40,
@@ -163,8 +166,8 @@ export const HROZBA = {
   elitaOd: 5, castejiOd: 10, elitaSance: 0.01, elitaRust: 0.01, elitaMax: 0.15,
 };
 // Elita je obyčejný nepřítel z vlny, jen o třetinu větší (kreslí se 4 px na pixel místo 3), s rudým obrysem
-// a mnohem odolnější. Za to nechá velký krystal.
-export const ELITA = { zivoty: 5, poskozeni: 1.5, velikost: 4 / 3, xp: 6 };
+// a mnohem odolnější. Za to nechá velký krystal a hromádku zlaťáků (zlataky).
+export const ELITA = { zivoty: 5, poskozeni: 1.5, velikost: 4 / 3, xp: 6, zlataky: 3 };
 export const TRVANI_HLASENI_HROZBY = 2.2;
 
 // Síla nepřátel v daném čase hry (sekundy) podle tabulky HROZBA.
@@ -172,14 +175,15 @@ export function silaHrozby(cas) {
   const h = HROZBA;
   const min = Math.max(0, Number(cas) || 0) / 60;
   const nad = Math.max(0, min - h.narustOd);
-  const narust = h.narustZivotu ** nad;
+  const pozde = h.narustPozde ** Math.max(0, min - h.pozdeOd);
+  const narust = h.narustZivotu ** nad * pozde;
   const casteji = Math.max(0, min - h.castejiOd);
   return {
     min,
     uroven: 1 + Math.floor(min),
     zivoty: (1 + h.zivoty * min) * narust,
     bossZivoty: (1 + h.bossZivoty * min + h.bossNavic * casteji) * narust,
-    poskozeni: (1 + h.poskozeni * min) * h.narustPoskozeni ** nad,
+    poskozeni: (1 + h.poskozeni * min) * h.narustPoskozeni ** nad * pozde,
     rychlost: Math.min(h.maxRychlost, (1 + h.rychlost * min) * h.narustRychlosti ** nad),
     vlna: Math.max(h.nejkratsiVlna, h.prvniVlna - h.zkraceniVlny * min),
     davka: Math.min(h.maxDavka, 1 + Math.floor(h.davka * min)),
@@ -260,7 +264,7 @@ export const OKRAJ_BEDEN = 30;
 const PASMO_BEDEN = 220;
 // Jiskra míří na bednu, jen když je blíž než všichni nepřátelé a nanejvýš takhle daleko.
 export const JISKRA_NA_BEDNU = 260;
-// Co z bedny vypadne a jak často (součet 1). Zlaťák je po hře duše navíc. Bomba je vzácná: složí všechny
+// Co z bedny vypadne a jak často (součet 1). Zlaťáky se utrácí u kupce (níž). Bomba je vzácná: složí všechny
 // nepřátele na obrazovce kromě bossů (a schovaného ducha, toho nevidí nic).
 export const KORIST_BEDEN = { krystal: 0.42, zlatak: 0.3, srdce: 0.15, magnet: 0.08, bomba: 0.05 };
 export const TRVANI_VYBUCHU = 0.6;
@@ -372,6 +376,45 @@ export const TRVANI_OTEVRENI = 1;
 export const RYCHLOST_VLNY_HRDINY = 420;
 export const PRVNI_VLNA_HRDINY = 1;
 export const ZPOMALENI_SITE_BOSSE = 0.5;
+
+// Zlaťáky padají z bedniček (KORIST_BEDEN), z elity (hromádka ELITA.zlataky), občas z obyčejného nepřítele
+// (SANCE_ZLATAKU, ze stejného losu jako srdce a magnet, ať se náhoda vln neposune) a z rozloženého kusu výbavy.
+// Zlaťák v dosahu magnetu letí k hrdinovi jako krystal. Utrácí se u kupce, za přehození karet a za zamčené
+// truhly. Co po hře zbude, promění se v duše (DUSE_ZA v duse.js).
+export const SANCE_ZLATAKU = 0.02;
+// Měšec: nepřátelé (i elity) pustí nejvýš tolik zlaťáků, kolik v něm zrovna je. Plní se MESEC.zaMinutu za minutu,
+// nejvýš do MESEC.strop, a na začátku je plný. Bez něj by v pozdní hře, kdy padají stovky elit za minutu, bylo
+// zlaťáků tolik, že by u kupce nic nestálo za nic (bot s plnými vylepšeními pak přežil přes 30 minut).
+export const MESEC = { zaMinutu: 20, strop: 15 };
+// Kupec: od KUPEC.prvni s každých KUPEC.kazdych s přijede na louku vůz, kousek za okraj obrazovky (okraj až
+// okraj + pasmo px), a stojí tam KUPEC.trvani s. Když zrovna žije boss nebo by boss přišel dřív, než kupec
+// odjede, počká. Dotyk vozu (dosah) otevře obchod a svět mezitím stojí. Znovu se obchod otevře, až hrdina
+// odejde dál než odchod px a vrátí se.
+export const KUPEC = { prvni: 125, kazdych: 180, trvani: 45, dosah: 34, odchod: 70, okraj: 60, pasmo: 160 };
+// Zboží kupce: cena = základ × (1 + RUST_CEN) ^ (hrozba − 1), tedy s každým stupněm hrozby o 12 % víc a pořád
+// rychleji (rust: false = cena se nemění), zasoba = kolik kusů má kupec na jednu návštěvu. Co které zboží udělá,
+// je v POUZITI_ZBOZI.
+export const RUST_CEN = 0.12;
+export const ZBOZI = {
+  lektvar: { nazev: 'Lektvar léčení', ikona: 'lektvar', popis: 'Doléčí polovinu životů', cena: 4, zasoba: 2 },
+  prehozeni: { nazev: 'Přehození karet', ikona: 'prehozeni', popis: '2× přehodit karty zdarma', cena: 3, zasoba: 2, kolik: 2 },
+  vylepseni: { nazev: 'Náhodné vylepšení', ikona: 'tajemno', popis: 'Tvoje zbraň nebo pasiva, aspoň vzácná karta', cena: 10, zasoba: 1 },
+  kus: { nazev: 'Kus výbavy bosse', ikona: 'truhla_strazce', popis: 'Náhodný kus sady některého bosse', cena: 40, zasoba: 1 },
+  klic: { nazev: 'Klíč', ikona: 'klic', popis: 'Odemkne zamčenou truhlu', cena: 8, zasoba: 1, rust: false },
+};
+export const PORADI_ZBOZI = Object.keys(ZBOZI);
+export const LECENI_LEKTVARU = 0.5;
+// Přehodit karty v okně výběru: první přehození za zlaťáky stojí PREHOZENI.cena, každé další o PREHOZENI.rust
+// víc. Přehození zdarma od kupce se bere první a cenu nezvedá.
+export const PREHOZENI = { cena: 2, rust: 2 };
+// Zamčené truhly po louce: objevují se jako bedničky mimo obrazovku (první v PRVNI_ZAMCENA s, pak každých
+// ZAMCENA_KAZDYCH s, nejvýš MAX_ZAMCENYCH naráz) a daleko za hrdinou zmizí. Zbraně je nerozbijí. Při dotyku je
+// odemkne Klíč, a když žádný není, zaplatí se CENA_ZAMCENE zlaťáků. Uvnitř je volba karty aspoň vzácné.
+export const MAX_ZAMCENYCH = 2;
+export const ZAMCENA_KAZDYCH = 90;
+export const PRVNI_ZAMCENA = 40;
+export const CENA_ZAMCENE = 15;
+export const POLOMER_ZAMCENE = 14;
 
 const NEPRATELE = {
   netopyr: { hp: 10, rychlost: 72, poskozeni: 5, xp: 1, polomer: 10 },
@@ -487,6 +530,30 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}) {
     doVlnyHrdiny: 0,
     doSite: 0,
     efektyPouzito: { vlna: 0, sit: 0, kuze: 0, zmizeni: 0 },
+    // Zlaťáky: zlatakyZ = odkud přišly (sebrané), mesec = kolik jich ještě můžou pustit nepřátelé (MESEC),
+    // utraceno = za co šly, nakupy = kolik čeho koupil u kupce.
+    // klice = klíče na zamčené truhly, prehozeniZdarma = přehození karet od kupce, prehozeno = kolikrát přehodil
+    // za zlaťáky (podle toho roste cena). kupec = vůz na louce (null = není), obchod = okno obchodu je otevřené
+    // (svět stojí), posledniNakup = co dal poslední nákup (ukáže okno obchodu).
+    zlatakyZ: { bedny: 0, nepratele: 0, elity: 0, vybava: 0 },
+    mesec: MESEC.strop,
+    utraceno: { kupec: 0, prehozeni: 0, zamcene: 0 },
+    nakupy: Object.fromEntries(PORADI_ZBOZI.map((id) => [id, 0])),
+    klice: 0,
+    prehozeniZdarma: 0,
+    prehozeno: 0,
+    prehozeniCelkem: 0,
+    kupec: null,
+    dalsiKupec: KUPEC.prvni,
+    kupcu: 0,
+    obchod: false,
+    posledniNakup: null,
+    // Zamčené truhly na louce, odemceno = čím se otevřela ta, z které je právě volba karet ('klic' / 'zlato').
+    zamcene: [],
+    doZamcene: PRVNI_ZAMCENA,
+    zamcenych: 0,
+    otevrenoZamcenych: { klic: 0, zlato: 0 },
+    odemceno: null,
   };
 }
 
@@ -506,7 +573,7 @@ export function kratkeCislo(h) {
   return `${Math.floor(h / 1e6)}M`;
 }
 
-// Nové číslo nad hlavou. barva: null = zásah (bílé), 'silny', 'zraneni', 'jed', 'leceni', 'zlato'.
+// Nové číslo nad hlavou. barva: null = zásah (bílé), 'silny', 'zraneni', 'jed', 'leceni', 'zlato', 'utrata'.
 // Kreslení si z vek (trvani − zivot) spočítá, jak vysoko je a jak průhledné, smer je mírný úlet do strany.
 function pridejCislo(hra, cislo) {
   const trvani = cislo.zivot ?? TRVANI_CISLA;
@@ -557,6 +624,22 @@ export function zasah(hra, n, kolik, zar = false) {
 function cisloLeceni(hra, kolik) {
   const k = Math.round(kolik);
   if (k > 0) pridejCislo(hra, { x: hra.hrdina.x, y: hra.hrdina.y - 18, text: `+${k}`, hodnota: k, zivot: TRVANI_CISLA_LECENI, barva: 'leceni' });
+}
+
+// Sebrané zlaťáky: přičtou se, zapíše se odkud jsou (zlatakyZ) a nad hrdinou vyskočí zlaté +N.
+function pridejZlataky(hra, kolik, odkud) {
+  if (!(kolik > 0)) return;
+  hra.zlataky += kolik;
+  if (Object.hasOwn(hra.zlatakyZ, odkud)) hra.zlatakyZ[odkud] += kolik;
+  pridejCislo(hra, { x: hra.hrdina.x, y: hra.hrdina.y - 18, text: `+${kolik}`, hodnota: kolik, zivot: TRVANI_CISLA_LECENI, barva: 'zlato' });
+}
+
+// Utracené zlaťáky: odečtou se a zapíšou do utraceno pod za (kupec, prehozeni, zamcene). Nad hrdinou -N, jen
+// když se platí přímo na louce (okna obchodu a karet ukazují cenu samy).
+function zaplat(hra, kolik, za, cislo = false) {
+  hra.zlataky -= kolik;
+  hra.utraceno[za] += kolik;
+  if (cislo && kolik > 0) pridejCislo(hra, { x: hra.hrdina.x, y: hra.hrdina.y - 18, text: `-${kolik}`, hodnota: kolik, zivot: TRVANI_CISLA_LECENI, barva: 'utrata' });
 }
 
 // Pár pixelových úlomků rozletí od zabitého nepřítele. Směry se počítají z pořadí zabití, ne z rng,
@@ -716,18 +799,30 @@ function smecka(hra, sirka, vyska) {
 // Nová bedna kousek za okrajem obrazovky v náhodném směru. Každá třetí je sud (jen jiný vzhled).
 // Na místě, kde už nějaká stojí, se nová neobjeví (zkusí to zase příště).
 function pridejBednu(hra, sirka, vyska) {
+  const { x, y } = zaOkrajem(hra, sirka, vyska, OKRAJ_BEDEN, PASMO_BEDEN);
+  if (hra.bedny.some((b) => Math.hypot(b.x - x, b.y - y) < POLOMER_BEDNY * 3)) return;
+  hra.bedny.push({ druh: hra.beden % 3 === 2 ? 'sud' : 'bedna', x, y, rozbita: false });
+  hra.beden += 1;
+}
+
+// Místo v náhodném směru od hrdiny, okraj až okraj + pasmo px za okrajem obrazovky (dva losy z rng).
+function zaOkrajem(hra, sirka, vyska, okraj, pasmo) {
   const { hrdina, rng } = hra;
   const uhel = rng.dalsi() * Math.PI * 2;
   const cos = Math.cos(uhel);
   const sin = Math.sin(uhel);
   // jak daleko je to od hrdiny (středu obrazovky) k okraji obrazovky v tomhle směru
   const kOkraji = Math.min(sirka / 2 / Math.max(Math.abs(cos), 1e-9), vyska / 2 / Math.max(Math.abs(sin), 1e-9));
-  const r = kOkraji + OKRAJ_BEDEN + rng.dalsi() * PASMO_BEDEN;
-  const x = hrdina.x + cos * r;
-  const y = hrdina.y + sin * r;
-  if (hra.bedny.some((b) => Math.hypot(b.x - x, b.y - y) < POLOMER_BEDNY * 3)) return;
-  hra.bedny.push({ druh: hra.beden % 3 === 2 ? 'sud' : 'bedna', x, y, rozbita: false });
-  hra.beden += 1;
+  const r = kOkraji + okraj + rng.dalsi() * pasmo;
+  return { x: hrdina.x + cos * r, y: hrdina.y + sin * r };
+}
+
+// Zamčená truhla kousek za okrajem obrazovky (ne na bedně ani na jiné zamčené truhle, to zkusí příště).
+function pridejZamcenou(hra, sirka, vyska) {
+  const { x, y } = zaOkrajem(hra, sirka, vyska, OKRAJ_BEDEN, PASMO_BEDEN);
+  if ([...hra.bedny, ...hra.zamcene].some((b) => Math.hypot(b.x - x, b.y - y) < POLOMER_BEDNY * 3)) return;
+  hra.zamcene.push({ x, y, otevrena: false, blizko: false });
+  hra.zamcenych += 1;
 }
 
 // Co z bedny vypadne pro los 0..1 (podle KORIST_BEDEN). Exportované kvůli simulaci.
@@ -779,6 +874,7 @@ function rozbij(hra, b) {
   const vec = losujKorist(hra.rng.dalsi());
   hra.zBeden[vec] += 1;
   if (vec === 'krystal') hra.krystaly.push({ x: b.x, y: b.y, xp: xpZBedny(hra) });
+  else if (vec === 'zlatak') hra.predmety.push({ druh: vec, x: b.x, y: b.y, hodnota: 1, z: 'bedny' });
   else hra.predmety.push({ druh: vec, x: b.x, y: b.y });
 }
 
@@ -1333,10 +1429,9 @@ export function rozhodniKus(hra, vzit) {
   const nechany = vzit ? p.nasazeny : p.novy;
   if (vzit) nasadKus(hra, p.novy);
   const zlata = zlatakyZaKus(nechany);
-  hra.zlataky += zlata;
+  pridejZlataky(hra, zlata, 'vybava');
   hra.zlatakyZVybavy += zlata;
   hra.rozlozeno += 1;
-  if (zlata > 0) pridejCislo(hra, { x: hra.hrdina.x, y: hra.hrdina.y - 18, text: `+${zlata}`, hodnota: zlata, zivot: TRVANI_CISLA_LECENI, barva: 'zlato' });
   hra.porovnani = null;
 }
 
@@ -1425,8 +1520,172 @@ export function seznamVystroje(hra) {
   return PORADI_SLOTU.map((slot) => ({ slot, kus: hra.vystroj?.[slot] ?? null }));
 }
 
+// Kupec: přijede, když je čas a žádný boss nežije ani nepřijde dřív, než by kupec odjel. Na louce stojí
+// KUPEC.trvani s (odpočet běží jen ve hře, ne v otevřeném obchodě). Dotyk vozu otevře obchod.
+function jedeKupec(hra, dt, sirka, vyska) {
+  const { hrdina } = hra;
+  const k = hra.kupec;
+  if (k) {
+    k.zbyva -= dt;
+    if (k.zbyva <= 0) {
+      hra.kupec = null;
+      hra.oznameni = { text: 'Kupec odjel', zivot: 2 };
+      return;
+    }
+    const d = vzdalenost(k, hrdina);
+    if (d > KUPEC.odchod) k.zavreno = false;
+    else if (d < KUPEC.dosah && !k.zavreno) {
+      k.zavreno = true;
+      k.navstev += 1;
+      hra.obchod = true;
+      hra.posledniNakup = null;
+    }
+    return;
+  }
+  if (hra.cas < hra.dalsiKupec || hra.nepratele.some((n) => n.boss) || hra.dalsiBoss - hra.cas < KUPEC.trvani) return;
+  const { x, y } = zaOkrajem(hra, sirka, vyska, KUPEC.okraj, KUPEC.pasmo);
+  hra.kupec = {
+    x, y, zbyva: KUPEC.trvani, prijel: hra.cas, zavreno: false, navstev: 0,
+    zasoba: Object.fromEntries(PORADI_ZBOZI.map((id) => [id, ZBOZI[id].zasoba])),
+  };
+  hra.kupcu += 1;
+  hra.dalsiKupec = hra.cas + KUPEC.kazdych;
+  hra.oznameni = { text: 'Přijel kupec! Šipka ukáže, kde stojí', zivot: 3 };
+}
+
+// Cena zboží teď (roste s hrozbou, klíč ne).
+export function cenaZbozi(hra, id) {
+  const z = ZBOZI[id];
+  if (!z) return null;
+  return z.rust === false ? z.cena : Math.round(z.cena * (1 + RUST_CEN) ** (Math.max(1, hra.hrozba) - 1));
+}
+
+// Proč zboží teď koupit nejde, nebo null, když jde.
+export function prekazkaNakupu(hra, id) {
+  const k = hra.kupec;
+  if (!k || !hra.obchod || !Object.hasOwn(ZBOZI, id)) return 'Kupec tu není';
+  if (!(k.zasoba[id] > 0)) return 'Vyprodáno';
+  if (id === 'lektvar' && hra.hrdina.hp >= hra.hrdina.maxHp) return 'Máš plné životy';
+  if (hra.zlataky < cenaZbozi(hra, id)) return 'Málo zlaťáků';
+  return null;
+}
+
+// Zboží v obchodě pro okno kupce: co to je, za kolik, kolik zbývá a jestli jde koupit.
+export function nabidkaKupce(hra) {
+  return PORADI_ZBOZI.map((id) => ({
+    id, ...ZBOZI[id], cena: cenaZbozi(hra, id), zbyva: hra.kupec?.zasoba[id] ?? 0, prekazka: prekazkaNakupu(hra, id),
+  }));
+}
+
+// Zbraně a pasivy, které hrdina má (z nich vybírá Náhodné vylepšení).
+function mojeVylepseni(hra) {
+  return [
+    ...Object.keys(hra.zbrane).filter((id) => Object.hasOwn(ZBRANE, id)).map((id) => ['zbran', id]),
+    ...Object.keys(hra.pasivy).filter((id) => Object.hasOwn(PASIVY, id)).map((id) => ['pasiva', id]),
+  ];
+}
+
+// Co které zboží udělá. Vrací text pro okno obchodu (co přesně hrdina dostal).
+const POUZITI_ZBOZI = {
+  lektvar(hra) {
+    const { hrdina } = hra;
+    const pred = hrdina.hp;
+    hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + Math.round(hrdina.maxHp * LECENI_LEKTVARU));
+    cisloLeceni(hra, hrdina.hp - pred);
+    return `+${Math.round(hrdina.hp - pred)} životů`;
+  },
+  prehozeni(hra) {
+    hra.prehozeniZdarma += ZBOZI.prehozeni.kolik;
+    return `Přehození zdarma: ${hra.prehozeniZdarma}`;
+  },
+  vylepseni(hra) {
+    const moje = mojeVylepseni(hra);
+    const [druh, id] = moje[Math.min(moje.length - 1, Math.floor(hra.rng.dalsi() * moje.length))];
+    const k = karta(hra, druh, id, losujRaritu(hra, 'vzacna'));
+    pouzijKartu(hra, k);
+    return `${k.nazev} ${k.od} → ${k.uroven} (${RARITY[k.rarita].nazev})`;
+  },
+  kus(hra) {
+    const boss = PORADI_BOSSU[Math.min(PORADI_BOSSU.length - 1, Math.floor(hra.rng.dalsi() * PORADI_BOSSU.length))];
+    const kus = losujKus(boss, hra.rng.dalsi(), hra.rng.dalsi(), hra.hrozba, hra.hrdina.stesti);
+    ziskejKus(hra, kus);
+    hra.truhlaKus = null;
+    return `${kus.nazev} (${RARITY_VYBAVY[kus.rarita].nazev})`;
+  },
+  klic(hra) {
+    hra.klice += 1;
+    return `Klíčů: ${hra.klice}`;
+  },
+};
+
+// Nákup u kupce: zaplatí, ubere ze zásoby a použije zboží. Vrací, jestli se koupilo.
+export function kup(hra, id) {
+  if (prekazkaNakupu(hra, id)) return false;
+  zaplat(hra, cenaZbozi(hra, id), 'kupec');
+  hra.nakupy[id] += 1;
+  hra.kupec.zasoba[id] -= 1;
+  hra.posledniNakup = { id, text: POUZITI_ZBOZI[id](hra) };
+  return true;
+}
+
+// Odejít od kupce: okno se zavře, vůz zůstane (znovu se otevře, až hrdina odejde a vrátí se).
+export function odejdiOdKupce(hra) {
+  hra.obchod = false;
+  hra.posledniNakup = null;
+}
+
+// Kolik teď stojí přehodit karty (0 = zdarma od kupce).
+export function cenaPrehozeni(hra) {
+  return hra.prehozeniZdarma > 0 ? 0 : PREHOZENI.cena + PREHOZENI.rust * hra.prehozeno;
+}
+
+// Přehodit karty v okně výběru: nové tři karty (z truhly zase aspoň vzácné). Nejdřív přehození zdarma, pak
+// za zlaťáky. Vrací, jestli se přehodilo.
+export function prehod(hra) {
+  if (!hra.volby) return false;
+  if (hra.prehozeniZdarma > 0) hra.prehozeniZdarma -= 1;
+  else {
+    const cena = cenaPrehozeni(hra);
+    if (hra.zlataky < cena) return false;
+    zaplat(hra, cena, 'prehozeni');
+    hra.prehozeno += 1;
+  }
+  hra.prehozeniCelkem += 1;
+  hra.volby = nabidka(hra, hra.zTruhly ? 'vzacna' : 'bezna');
+  return true;
+}
+
+// Zamčená truhla pod nohama: klíč, jinak zlaťáky, jinak zůstane zavřená (kreslení ukáže cenu).
+// Otevřená dá volbu karty aspoň vzácné jako truhla bosse.
+function zamceneTruhly(hra) {
+  const { hrdina } = hra;
+  for (const z of hra.zamcene) {
+    const d = vzdalenost(z, hrdina);
+    z.blizko = d < POLOMER_ZAMCENE + 60;
+    if (d >= POLOMER_ZAMCENE + 8 || hra.volby || hra.otevira || hra.obchod) continue;
+    let cim = null;
+    if (hra.klice > 0) {
+      hra.klice -= 1;
+      cim = 'klic';
+    } else if (hra.zlataky >= CENA_ZAMCENE) {
+      zaplat(hra, CENA_ZAMCENE, 'zamcene', true);
+      cim = 'zlato';
+    }
+    if (!cim) continue;
+    z.otevrena = true;
+    hra.otevrenoZamcenych[cim] += 1;
+    rozprsk(hra, z.x, z.y, 'zamcena', 10);
+    hra.volby = nabidka(hra, 'vzacna');
+    hra.zTruhly = true;
+    hra.truhlaOd = 'zamcena';
+    hra.truhlaKus = null;
+    hra.odemceno = cim;
+  }
+  hra.zamcene = hra.zamcene.filter((z) => !z.otevrena);
+}
+
 export function aktualizuj(hra, dt, vstup, sirka, vyska) {
-  if (hra.konec || hra.volby || hra.porovnani || hra.pauza) return;
+  if (hra.konec || hra.volby || hra.porovnani || hra.pauza || hra.obchod) return;
   // Otevírání truhly: svět stojí, běží jen animace.
   if (hra.otevira) {
     hra.otevira.cas += dt;
@@ -1435,6 +1694,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   }
   const { hrdina } = hra;
   hra.cas += dt;
+  hra.mesec = Math.min(MESEC.strop, hra.mesec + (MESEC.zaMinutu / 60) * dt);
 
   // pohyb hrdiny (odhozený hrdina letí, kam ho rána poslala, a řídit nejde)
   let { dx, dy } = vstup;
@@ -1500,6 +1760,13 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     if (hra.bedny.length < MAX_BEDEN) pridejBednu(hra, sirka, vyska);
     hra.doBedny = BEDNA_KAZDYCH;
   }
+  // Zamčené truhly stejně: daleko za hrdinou zmizí, nové přibývají mimo obrazovku.
+  hra.zamcene = hra.zamcene.filter((z) => vzdalenost(z, hrdina) < dalekoBedny);
+  hra.doZamcene -= dt;
+  if (hra.doZamcene <= 0) {
+    if (hra.zamcene.length < MAX_ZAMCENYCH) pridejZamcenou(hra, sirka, vyska);
+    hra.doZamcene = ZAMCENA_KAZDYCH;
+  }
   if (hra.cas >= hra.dalsiBoss) {
     const druh = PORADI_BOSSU[hra.bossu % PORADI_BOSSU.length];
     const { x, y } = naOkraji(hra, sirka, vyska);
@@ -1508,6 +1775,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     hra.dalsiBoss += BOSS_KAZDYCH;
     hra.oznameni = { text: BOSSOVE[druh].prichod, zivot: 3 };
   }
+  jedeKupec(hra, dt, sirka, vyska);
   if (hra.cas >= hra.dalsiSmecka) {
     smecka(hra, sirka, vyska);
     hra.dalsiSmecka += SMECKA_KAZDYCH;
@@ -1707,9 +1975,17 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   pohrbi(hra);
 
   // srdce, magnet, zlaťák a bomba se seberou dotykem, truhla bosse se začne otevírat (jen jedna naráz,
-  // další se otevře hned po ní)
+  // další se otevře hned po ní). Zlaťák v dosahu magnetu (nebo po sebraném magnetu) letí k hrdinovi.
   let bouchlo = false;
   for (const p of hra.predmety) {
+    if (p.druh === 'zlatak') {
+      const d = vzdalenost(p, hrdina) || 1;
+      if (p.pritahovan || d < hrdina.magnet) {
+        const kus = Math.min(d, (p.pritahovan ? 520 : 260) * dt);
+        p.x += ((hrdina.x - p.x) / d) * kus;
+        p.y += ((hrdina.y - p.y) / d) * kus;
+      }
+    }
     if (vzdalenost(p, hrdina) < 16) {
       if (p.druh === 'truhla') {
         if (hra.otevira) continue;
@@ -1723,19 +1999,20 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
         hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + LECENI_SRDCE);
         cisloLeceni(hra, hrdina.hp - pred);
       } else if (p.druh === 'zlatak') {
-        hra.zlataky += 1;
-        pridejCislo(hra, { x: hrdina.x, y: hrdina.y - 18, text: '+1', hodnota: 1, zivot: TRVANI_CISLA_LECENI, barva: 'zlato' });
+        pridejZlataky(hra, p.hodnota ?? 1, p.z ?? 'bedny');
       } else if (p.druh === 'bomba') {
         vybuch(hra, sirka, vyska);
         bouchlo = true;
       } else {
         for (const kr of hra.krystaly) kr.pritahovan = true;
+        for (const q of hra.predmety) if (q.druh === 'zlatak') q.pritahovan = true;
       }
     }
   }
   hra.predmety = hra.predmety.filter((p) => !p.sebran);
   // Kdo padl bombou, umře hned v tomhle snímku (jinak by ještě stihl hrdinu kousnout).
   if (bouchlo) pohrbi(hra);
+  zamceneTruhly(hra);
 
   // sběr krystalů
   for (const kr of hra.krystaly) {
@@ -1782,7 +2059,8 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   hra.cisla = hra.cisla.filter((c) => c.zivot > 0);
 }
 
-// Smrt nepřátel → krystaly, oblaky po houbácích, truhla po bossovi a občas srdce nebo magnet.
+// Smrt nepřátel → krystaly, oblaky po houbácích, truhla po bossovi, zlaťáky po elitě a občas srdce, magnet
+// nebo zlaťák.
 function pohrbi(hra) {
   const { hrdina } = hra;
   for (const n of hra.nepratele) {
@@ -1799,11 +2077,22 @@ function pohrbi(hra) {
         hra.predmety.push({ druh: 'truhla', x: n.x, y: n.y, od: n.druh });
         continue;
       }
-      // Štěstí z trvalých vylepšení zvětší obě šance, los z rng je pořád jeden (náhoda vln se neposune).
+      // Elita nechá hromádku zlaťáků (bez losu), když je v měšci (jinak menší, nebo nic).
+      const hromadka = n.elita ? Math.min(ELITA.zlataky, Math.floor(hra.mesec)) : 0;
+      if (hromadka > 0) {
+        hra.mesec -= hromadka;
+        hra.predmety.push({ druh: 'zlatak', x: n.x, y: n.y, hodnota: hromadka, z: 'elity' });
+      }
+      // Štěstí z trvalých vylepšení zvětší šanci na srdce a magnet, los z rng je pořád jeden (náhoda vln se
+      // neposune). Zlaťák se bere ze stejného losu hned za nimi.
       const los = hra.rng.dalsi();
       const stesti = hrdina.stesti;
       if (los < SANCE_MAGNET * stesti) hra.predmety.push({ druh: 'magnet', x: n.x, y: n.y });
       else if (los < (SANCE_MAGNET + SANCE_SRDCE) * stesti) hra.predmety.push({ druh: 'srdce', x: n.x, y: n.y });
+      else if (!n.elita && los < (SANCE_MAGNET + SANCE_SRDCE) * stesti + SANCE_ZLATAKU && hra.mesec >= 1) {
+        hra.mesec -= 1;
+        hra.predmety.push({ druh: 'zlatak', x: n.x, y: n.y, hodnota: 1, z: 'nepratele' });
+      }
     }
   }
   hra.nepratele = hra.nepratele.filter((n) => n.hp > 0);
@@ -1945,8 +2234,17 @@ function pridejPasivu(hrdina, id, u) {
   }
 }
 
-// Použije kartu: zbraň nebo pasiva vyskočí o kroku úrovní, pak bonus rarity.
+// Použije kartu: zbraň nebo pasiva vyskočí o kroku úrovní, pak bonus rarity. Okno karet zavře.
 export function vyber(hra, volba) {
+  pouzijKartu(hra, volba);
+  hra.volby = null;
+  hra.zTruhly = false;
+  hra.truhlaKus = null;
+  hra.odemceno = null;
+}
+
+// Co karta dá (i bez okna karet: Náhodné vylepšení od kupce).
+function pouzijKartu(hra, volba) {
   const { hrdina } = hra;
   const predLecenim = hrdina.hp;
   const cil = Math.max(0, Math.floor(volba.uroven ?? 0));
@@ -1961,9 +2259,6 @@ export function vyber(hra, volba) {
   if (volba.bonus?.sila > 0) hrdina.sila *= 1 + volba.bonus.sila;
   if (volba.bonus?.doleceni) hrdina.hp = hrdina.maxHp;
   if (volba.druh === 'leceni' || volba.bonus?.doleceni) cisloLeceni(hra, hrdina.hp - predLecenim);
-  hra.volby = null;
-  hra.zTruhly = false;
-  hra.truhlaKus = null;
 }
 
 // Co hrdina právě má, v pořadí, jak to dostal (zbraně, pak pasivy): pro přehled výbavy v rohu obrazovky.

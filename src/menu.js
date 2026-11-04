@@ -217,6 +217,8 @@ const OVLADANI = [
   [['tah prstem'], 'pohyb na mobilu'],
   [['1', '2', '3'], 'výběr vylepšení (nebo klik, šipky a Enter)'],
   [['1', '2'], 'výbava z truhly: vzít nový kus, nebo nechat nasazený'],
+  [['R'], 'přehodit karty za zlaťáky (nebo zdarma od kupce)'],
+  [['1–5'], 'u kupce koupit zboží (Esc nebo Q odejít)'],
   [['P', 'Esc'], 'pauza'],
   [['R'], 'znovu po prohře'],
   [['M'], 'menu po prohře'],
