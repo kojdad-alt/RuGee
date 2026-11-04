@@ -20,6 +20,7 @@ html, body {
 }
 
 #platno {
+  touch-action: none;
   position: fixed;
   inset: 0;
   width: 100%;

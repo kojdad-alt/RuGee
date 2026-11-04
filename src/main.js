@@ -23,12 +23,44 @@ function start() {
   el('volba').hidden = true;
 }
 
+// Dotyk: kde prst dosedne, tam je střed joysticku; tah od středu = směr pohybu.
+const dotyk = { aktivni: false, id: null, sx: 0, sy: 0, x: 0, y: 0 };
+const POLOMER_JOYSTICKU = 50;
+
 function vstup() {
+  if (dotyk.aktivni) {
+    const dx = dotyk.x - dotyk.sx;
+    const dy = dotyk.y - dotyk.sy;
+    const d = Math.hypot(dx, dy);
+    if (d < 8) return { dx: 0, dy: 0 };
+    const sila = Math.min(1, d / POLOMER_JOYSTICKU);
+    return { dx: (dx / d) * sila, dy: (dy / d) * sila };
+  }
   const drzi = (...klavesy) => klavesy.some((k) => stisknute.has(k));
   return {
     dx: (drzi('d', 'arrowright') ? 1 : 0) - (drzi('a', 'arrowleft') ? 1 : 0),
     dy: (drzi('s', 'arrowdown') ? 1 : 0) - (drzi('w', 'arrowup') ? 1 : 0),
   };
+}
+
+function kresliJoystick() {
+  if (!dotyk.aktivni) return;
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.strokeStyle = '#ece6da';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(dotyk.sx, dotyk.sy, POLOMER_JOYSTICKU, 0, Math.PI * 2);
+  ctx.stroke();
+  const dx = dotyk.x - dotyk.sx;
+  const dy = dotyk.y - dotyk.sy;
+  const d = Math.hypot(dx, dy) || 1;
+  const k = Math.min(d, POLOMER_JOYSTICKU) / d;
+  ctx.fillStyle = '#e9c46a';
+  ctx.beginPath();
+  ctx.arc(dotyk.sx + dx * k, dotyk.sy + dy * k, 18, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 function ukazVolby() {
@@ -76,6 +108,7 @@ function smycka(t) {
     el('konec').hidden = false;
   }
   kresli(ctx, hra);
+  kresliJoystick();
   hud();
   requestAnimationFrame(smycka);
 }
@@ -89,6 +122,25 @@ addEventListener('keydown', (e) => {
   if (k === 'r' && hra.konec) start();
 });
 addEventListener('keyup', (e) => stisknute.delete(e.key.toLowerCase()));
+platno.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (dotyk.aktivni) return;
+  const t = e.changedTouches[0];
+  Object.assign(dotyk, { aktivni: true, id: t.identifier, sx: t.clientX, sy: t.clientY, x: t.clientX, y: t.clientY });
+}, { passive: false });
+platno.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier === dotyk.id) Object.assign(dotyk, { x: t.clientX, y: t.clientY });
+  }
+}, { passive: false });
+const pustDotyk = (e) => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === dotyk.id) dotyk.aktivni = false;
+  }
+};
+platno.addEventListener('touchend', pustDotyk);
+platno.addEventListener('touchcancel', pustDotyk);
 addEventListener('blur', () => stisknute.clear());
 addEventListener('resize', zmenVelikost);
 el('znovu').addEventListener('click', start);
