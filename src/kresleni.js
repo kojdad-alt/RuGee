@@ -69,6 +69,12 @@ export function kresli(ctx, hra) {
     ctx.drawImage(sprity.krystal, Math.round(p.x - 8), Math.round(p.y - 8), 16, 16);
   }
 
+  for (const pr of hra.predmety) {
+    const p = naObrazovce(pr);
+    const houpani = Math.sin(hra.cas * 4 + pr.x) * 2;
+    ctx.drawImage(sprity[pr.druh], Math.round(p.x - 10), Math.round(p.y - 10 + houpani), 20, 20);
+  }
+
   for (const n of hra.nepratele) {
     const p = naObrazovce(n);
     if (p.x < -40 || p.y < -40 || p.x > sirka + 40 || p.y > vyska + 40) continue;
@@ -105,7 +111,8 @@ export function kresli(ctx, hra) {
   ctx.textAlign = 'center';
   for (const c of hra.cisla) {
     const p = naObrazovce(c);
-    ctx.fillStyle = `rgba(255,240,200,${Math.min(1, c.zivot * 2)})`;
+    const pruhlednost = Math.min(1, c.zivot * 2);
+    ctx.fillStyle = c.barva === 'leceni' ? `rgba(120,230,140,${pruhlednost})` : `rgba(255,240,200,${pruhlednost})`;
     ctx.fillText(c.text, p.x, p.y);
   }
 
