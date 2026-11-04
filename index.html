@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hlubiny</title>
-<link rel="stylesheet" href="style.css?v=79c74950">
+<link rel="stylesheet" href="style.css?v=e893f3aa">
 </head>
-<body>
+<body class="v-menu">
 <canvas id="platno" aria-label="Hlubiny"></canvas>
 
 <div class="hud" aria-hidden="true">
@@ -18,6 +18,20 @@
   </div>
 </div>
 
+<section id="menu" class="menu">
+  <div class="menu-obsah">
+    <canvas id="logo" class="logo pixel" role="img" aria-label="Hlubiny"></canvas>
+    <p class="menu-podtitul">Přežij v hlubinách co nejdéle</p>
+    <nav id="menu-volby" class="menu-volby" aria-label="Hlavní menu"></nav>
+    <div id="menu-zalozka" class="menu-zalozka" hidden>
+      <h2 id="menu-nadpis"></h2>
+      <div id="menu-panel"></div>
+      <button id="menu-zpet" class="menu-tlacitko" type="button">Zpět (Esc)</button>
+    </div>
+  </div>
+  <p class="menu-pata">Šipky a Enter, klik nebo dotyk</p>
+</section>
+
 <section id="volba" class="okno" hidden>
   <h2>Nová úroveň</h2>
   <p class="podtitul">Vyber jedno vylepšení (klávesy 1–3)</p>
@@ -27,7 +41,10 @@
 <section id="konec" class="okno" hidden>
   <h2>Hlubiny tě pohltily</h2>
   <p id="konec-text" class="podtitul"></p>
-  <button id="znovu" type="button">Znovu (R)</button>
+  <div class="radek-tlacitek">
+    <button id="znovu" class="menu-tlacitko" type="button">Znovu (R)</button>
+    <button id="do-menu" class="menu-tlacitko" type="button">Menu (M)</button>
+  </div>
 </section>
 
 <p class="napoveda">Pohyb: WASD, šipky nebo tah prstem · zbraně střílí samy · P pauza</p>
@@ -35,14 +52,17 @@
 {
   "imports": {
     "./src/hra.js": "./src/hra.js?v=1051d347",
-    "./src/kresleni.js": "./src/kresleni.js?v=93690903",
+    "./src/kresleni.js": "./src/kresleni.js?v=4b2f4be2",
     "./src/louka.js": "./src/louka.js?v=8acc2579",
-    "./src/main.js": "./src/main.js?v=feec5957",
+    "./src/main.js": "./src/main.js?v=c0cbf05a",
+    "./src/menu.js": "./src/menu.js?v=f7c23394",
     "./src/rng.js": "./src/rng.js?v=60bdabbe",
-    "./src/sprity.js": "./src/sprity.js?v=8b95867e"
+    "./src/sprity.js": "./src/sprity.js?v=8b95867e",
+    "./src/ulozeni.js": "./src/ulozeni.js?v=8fe23661",
+    "./src/zvuk.js": "./src/zvuk.js?v=0732305a"
   }
 }
 </script>
-<script type="module" src="src/main.js?v=feec5957"></script>
+<script type="module" src="src/main.js?v=c0cbf05a"></script>
 </body>
 </html>

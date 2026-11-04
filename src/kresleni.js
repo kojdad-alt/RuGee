@@ -261,3 +261,36 @@ export function kresli(ctx, hra) {
     ctx.restore();
   }
 }
+
+// Pozadí hlavního menu: louka pomalu ujíždí, dole přes ni utíká hrdina před hloučkem nepřátel
+// a nahoře přelétají netopýři. Všechno je jen podle času, nic se nepočítá ani neukládá.
+const HONICKA = ['netopyr', 'slizak', 'pavouk', 'kostlivec', 'netopyr', 'slizak'];
+
+export function kresliMenu(ctx, cas) {
+  const { width: sirka, height: vyska } = ctx.canvas;
+  ctx.imageSmoothingEnabled = false;
+  podlaha(ctx, cas * 12, 0, sirka, vyska);
+
+  const draha = sirka + 600;
+  const hx = ((cas * 64) % draha) - 100;
+  const y = vyska * 0.82;
+  sprite(ctx, sprity.hrdina, hx, y + Math.round(Math.sin(cas * 12) * 1.5), 1);
+  HONICKA.forEach((druh, i) => {
+    const letec = druh === 'netopyr';
+    const vlna = Math.sin(cas * (letec ? 9 : 5) + i * 1.7) * (letec ? 6 : 2);
+    sprite(ctx, sprity[druh], hx - 70 - i * 42, y + (i % 2 ? -14 : 12) + vlna, 1);
+  });
+  for (let i = 0; i < 4; i++) {
+    const x = sirka + 60 - ((cas * (50 + i * 9) + i * 330) % (sirka + 120));
+    sprite(ctx, sprity.netopyr, x, vyska * (0.1 + i * 0.07) + Math.sin(cas * 7 + i) * 8, -1);
+  }
+
+  // ztmavení, ať jsou logo a tlačítka dobře čitelné
+  ctx.fillStyle = 'rgba(11,10,15,0.35)';
+  ctx.fillRect(0, 0, sirka, vyska);
+  const tma = ctx.createRadialGradient(sirka / 2, vyska / 2, Math.min(sirka, vyska) * 0.3, sirka / 2, vyska / 2, Math.max(sirka, vyska) * 0.75);
+  tma.addColorStop(0, 'rgba(0,0,0,0)');
+  tma.addColorStop(1, 'rgba(0,0,0,0.5)');
+  ctx.fillStyle = tma;
+  ctx.fillRect(0, 0, sirka, vyska);
+}
