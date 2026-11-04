@@ -485,6 +485,108 @@ function ubytek(n, cas) {
   return u.hp;
 }
 
+// Pixelové písmo čísel nad hlavami: X = pixel, znaky 3×5 (M je širší). Kreslí se s tmavým obrysem 1 pixel
+// (do stran, nahoru a dolů jako u spritů) a spodní dva řádky jsou o odstín tmavší.
+const PISMO_CISEL = {
+  0: ['XXX', 'X.X', 'X.X', 'X.X', 'XXX'],
+  1: ['.X.', 'XX.', '.X.', '.X.', 'XXX'],
+  2: ['XXX', '..X', 'XXX', 'X..', 'XXX'],
+  3: ['XXX', '..X', '.XX', '..X', 'XXX'],
+  4: ['X.X', 'X.X', 'XXX', '..X', '..X'],
+  5: ['XXX', 'X..', 'XXX', '..X', 'XXX'],
+  6: ['XXX', 'X..', 'XXX', 'X.X', 'XXX'],
+  7: ['XXX', '..X', '..X', '.X.', '.X.'],
+  8: ['XXX', 'X.X', 'XXX', 'X.X', 'XXX'],
+  9: ['XXX', 'X.X', 'XXX', '..X', 'XXX'],
+  '+': ['...', '.X.', 'XXX', '.X.', '...'],
+  '-': ['...', '...', 'XXX', '...', '...'],
+  k: ['X..', 'X.X', 'XX.', 'X.X', 'X.X'],
+  M: ['X...X', 'XX.XX', 'X.X.X', 'X...X', 'X...X'],
+};
+const OBRYS_CISEL = '#0b0a0f';
+// [výplň, spodek] podle druhu čísla, null = obyčejný zásah.
+const BARVY_CISEL = {
+  zasah: ['#ffffff', '#cfc9dc'],
+  silny: ['#ffe14d', '#f0a830'],
+  zraneni: ['#ff5a5a', '#c8323e'],
+  jed: ['#ff5a5a', '#c8323e'],
+  leceni: ['#7cf08a', '#3fb557'],
+  zlato: ['#f2c94c', '#c4862f'],
+};
+// Násobek velikosti podle druhu (silný zásah je větší, čísla nad hrdinou o kus větší než zásahy).
+const VELIKOST_CISEL = { silny: 1.5, zraneni: 1.25, jed: 1.25, leceni: 1.25 };
+// Čísla nad hrdinou se kreslí vždy navrchu. Se zhasnutými čísly poškození zůstane jen léčení a zlaťáky.
+const NAD_HRDINOU = new Set(['zraneni', 'jed', 'leceni', 'zlato']);
+const POSKOZENI = new Set([null, 'silny', 'zraneni', 'jed']);
+// Číslo nejdřív krátce poskočí (i po přičtení další rány), vyletí o VYSKOK pixelů písma a na konci zprůhlední.
+const POSKOK_CISLA = 0.08;
+const VYSKOK_CISLA = 9;
+const UNIK_CISLA = 0.2;
+
+// Obrázek celého čísla v jednom pixelu písma (kreslí se zvětšený bez vyhlazení). Každá kombinace jednou.
+const obrazkyCisel = new Map();
+function obrazekCisla(text, druh) {
+  const klic = `${druh}|${text}`;
+  const hotovy = obrazkyCisel.get(klic);
+  if (hotovy) return hotovy;
+  const body = [];
+  let x = 1;
+  for (const znak of text) {
+    const glyf = PISMO_CISEL[znak];
+    if (!glyf) {
+      x += 2;
+      continue;
+    }
+    glyf.forEach((radek, y) => {
+      [...radek].forEach((c, dx) => { if (c === 'X') body.push([x + dx, y + 1]); });
+    });
+    x += glyf[0].length + 1;
+  }
+  const obr = document.createElement('canvas');
+  obr.width = Math.max(1, x);
+  obr.height = 7;
+  const g = obr.getContext('2d');
+  g.fillStyle = OBRYS_CISEL;
+  for (const [bx, by] of body) {
+    g.fillRect(bx - 1, by, 3, 1);
+    g.fillRect(bx, by - 1, 1, 3);
+  }
+  const [vypln, spodek] = BARVY_CISEL[druh] ?? BARVY_CISEL.zasah;
+  for (const [bx, by] of body) {
+    g.fillStyle = by >= 4 ? spodek : vypln;
+    g.fillRect(bx, by, 1, 1);
+  }
+  if (obrazkyCisel.size > 400) obrazkyCisel.clear();
+  obrazkyCisel.set(klic, obr);
+  return obr;
+}
+
+// Velikost pixelu písma podle menší strany obrazovky: na mobilu 3, v 720p 4, ve Full HD 5 a víc.
+export function pixelCisel(sirka, vyska) {
+  return Math.max(3, Math.round(Math.min(sirka, vyska) / 200));
+}
+
+function cisloNadHlavou(ctx, c, p, pixel) {
+  const vek = c.trvani - c.zivot;
+  const t = Math.min(1, vek / c.trvani);
+  const poskok = vek - c.pridano < POSKOK_CISLA ? 1.3 : 1;
+  const velikost = Math.max(1, Math.round(pixel * (VELIKOST_CISEL[c.barva] ?? 1) * poskok));
+  const obr = obrazekCisla(c.text, c.barva ?? 'zasah');
+  const x = p.x + c.smer * pixel * 3 * t;
+  const y = p.y - pixel * VYSKOK_CISLA * (1 - (1 - t) ** 2);
+  ctx.globalAlpha = Math.max(0, Math.min(1, c.zivot / UNIK_CISLA));
+  ctx.drawImage(obr, Math.round(x - (obr.width * velikost) / 2), Math.round(y - obr.height * velikost), obr.width * velikost, obr.height * velikost);
+}
+
+// Čísla nad hlavami: nejdřív zásahy nepřátel, navrch to, co se týká hrdiny.
+function cislaNadHlavami(ctx, hra, naObrazovce, pixel, poskozeni) {
+  const vidim = (c) => poskozeni || !POSKOZENI.has(c.barva ?? null);
+  ctx.save();
+  for (const c of hra.cisla) if (!NAD_HRDINOU.has(c.barva) && vidim(c)) cisloNadHlavou(ctx, c, naObrazovce(c), pixel);
+  for (const c of hra.cisla) if (NAD_HRDINOU.has(c.barva) && vidim(c)) cisloNadHlavou(ctx, c, naObrazovce(c), pixel);
+  ctx.restore();
+}
+
 // Text se stínem pod sebou (jako nápisy při příchodu).
 function napis(ctx, text, x, y, barva) {
   ctx.fillStyle = '#000';
@@ -539,7 +641,8 @@ function bossBar(ctx, bar, x, y, sirka, cas) {
   for (let i = 1; i < 10; i++) ctx.fillRect(px + 4 + Math.round((vnitrek * i) / 10), py + 4, 1, pv - 8);
 }
 
-export function kresli(ctx, hra) {
+// nastaveni.cislaPoskozeni = false schová čísla zásahů a ran (léčení a zlaťáky zůstanou).
+export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
   const { width: sirka, height: vyska } = ctx.canvas;
   const { hrdina } = hra;
   // Po zásahu hrdiny se celý svět krátce otřese, slábne k nule. V pauze a ve volbě stojí.
@@ -765,16 +868,6 @@ export function kresli(ctx, hra) {
   ctx.fillStyle = '#e5484d';
   ctx.fillRect(Math.round(stred.x - 14), Math.round(stred.y + 18), Math.round(28 * Math.max(0, hrdina.hp) / hrdina.maxHp), 4);
 
-  ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
-  ctx.textAlign = 'center';
-  for (const c of hra.cisla) {
-    const p = naObrazovce(c);
-    const pruhlednost = Math.min(1, c.zivot * 2);
-    const barva = { leceni: '120,230,140', jed: '214,169,242', zlato: '242,201,76' }[c.barva] ?? '255,240,200';
-    ctx.fillStyle = `rgba(${barva},${pruhlednost})`;
-    ctx.fillText(c.text, p.x, p.y);
-  }
-
   // šipka k bossovi, když je mimo obrazovku
   for (const n of hra.nepratele) {
     if (!n.boss) continue;
@@ -801,6 +894,9 @@ export function kresli(ctx, hra) {
   tma.addColorStop(1, 'rgba(0,0,0,0.45)');
   ctx.fillStyle = tma;
   ctx.fillRect(0, 0, sirka, vyska);
+
+  // čísla až nad ztmavením, ať jsou čitelná i u okraje
+  cislaNadHlavami(ctx, hra, naObrazovce, pixelCisel(sirka, vyska), cislaPoskozeni);
 
   // pruhy bossů nahoře, pod sebou v pořadí, jak přišli
   const bary = bossBary(hra);

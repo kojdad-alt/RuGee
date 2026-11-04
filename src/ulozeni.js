@@ -1,4 +1,4 @@
-// Co si hra pamatuje v tomhle prohlížeči: rekord, zvolenou třídu a duše s trvalými vylepšeními.
+// Co si hra pamatuje v tomhle prohlížeči: rekord, zvolenou třídu, duše s trvalými vylepšeními a nastavení.
 // V anonymním okně nebo se zablokovaným úložištěm se nic neuloží a hra kvůli tomu nespadne.
 import { platnaTrida } from './hra.js';
 import { platnyStav } from './duse.js';
@@ -6,6 +6,9 @@ import { platnyStav } from './duse.js';
 const KLIC_REKORDU = 'hlubiny.rekord';
 const KLIC_TRIDY = 'hlubiny.trida';
 const KLIC_DUSI = 'hlubiny.duse';
+const KLIC_NASTAVENI = 'hlubiny.nastaveni';
+// Přepínače v Ovládání a v pauze. Co v záznamu chybí nebo není ano/ne, platí výchozí.
+export const VYCHOZI_NASTAVENI = { cislaPoskozeni: true };
 
 function nacti(klic) {
   try {
@@ -54,6 +57,23 @@ export function nactiDuse() {
 
 export function ulozDuse(stav) {
   uloz(KLIC_DUSI, platnyStav(stav));
+}
+
+function platnaNastaveni(zaznam) {
+  const nastaveni = { ...VYCHOZI_NASTAVENI };
+  if (!zaznam || typeof zaznam !== 'object') return nastaveni;
+  for (const klic of Object.keys(VYCHOZI_NASTAVENI)) {
+    if (typeof zaznam[klic] === 'boolean') nastaveni[klic] = zaznam[klic];
+  }
+  return nastaveni;
+}
+
+export function nactiNastaveni() {
+  return platnaNastaveni(nacti(KLIC_NASTAVENI));
+}
+
+export function ulozNastaveni(nastaveni) {
+  uloz(KLIC_NASTAVENI, platnaNastaveni(nastaveni));
 }
 
 // Připíše duše z dohrané hry a vrátí nový stav.

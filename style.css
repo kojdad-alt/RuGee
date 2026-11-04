@@ -887,3 +887,13 @@ kbd {
 .konec-duse:empty { display: none; }
 .konec-duse b { color: var(--duse); font-size: 18px; }
 .konec-duse small { flex-basis: 100%; color: var(--text-tlumeny); }
+
+/* Přepínač nastavení (Ovládání i pauza): stav za dvojtečkou zeleně, vypnutý šedě. */
+.menu-tlacitko.prepinac { font-size: 14px; padding: 8px 28px 10px; }
+.prepinac-stav { color: #7cf08a; }
+.menu-tlacitko.prepinac.vypnuto .prepinac-stav { color: var(--text-tlumeny); }
+.nastaveni-radek { margin-bottom: 12px; }
+
+/* Pauza: menší okno uprostřed, hra pod ním stojí. */
+.okno.pauza { width: min(420px, calc(100% - 32px)); }
+.pauza .radek-tlacitek { flex-direction: column; align-items: stretch; }

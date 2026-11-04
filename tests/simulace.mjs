@@ -34,6 +34,9 @@
 // Hrozba: hra nekončí, každou minutu je hrozba o stupeň výš (s ohlášením) a noví nepřátelé mají životy, poškození
 // a rychlost podle tabulky HROZBA. Elity nechodí před 5. minutou, od 10. přibývají, bossové nejsou nikdy elitou.
 // Na vyvážení hraje plně vylepšený bot až do konce: musí padnout do 30 minut (nikdo nevydrží donekonečna).
+// Čísla poškození: zásahy do stejného nepřítele se do SLUCOVANI_CISEL sečtou, jiný nepřítel má své číslo, silná rána
+// zežloutne a obyčejná ne, naráz je nejvýš MAX_CISEL čísel (i se zbraněmi na 60. úrovni), každá rána hrdinovi
+// má nad ním červené číslo, léčení zelené, a za TRVANI_CISLA číslo zmizí. Přepínač v nastavení se uloží.
 import { readFileSync } from 'node:fs';
 import { vytvorRng } from '../src/rng.js';
 import {
@@ -49,12 +52,13 @@ import {
   VYRAZENI_PAVOUCKU, RYCHLOST_VYRAZENI,
   RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, MAX_TRNU, TRVANI_ODHOZENI, ZRYCHLENI_ODRAZU, poziceZrcadla,
   HROZBA, ELITA, silaHrozby, textHrozby, POLOMER_OBLAKU,
+  zasah, kratkeCislo, TRVANI_CISLA, SLUCOVANI_CISEL, MAX_CISEL, NAD_PRAHEM,
 } from '../src/hra.js';
 import {
   VYLEPSENI, DUSE_ZA, dusZaHru, cenaVylepseni, kupVylepseni, vratDuse, utraceno,
 } from '../src/duse.js';
 import {
-  nactiRekord, zapisVysledek, nactiTridu, ulozTridu, nactiDuse, ulozDuse, pripisDuse,
+  nactiRekord, zapisVysledek, nactiTridu, ulozTridu, nactiDuse, ulozDuse, pripisDuse, nactiNastaveni, ulozNastaveni,
 } from '../src/ulozeni.js';
 
 const seminko = Number(process.argv[2] ?? 1);
@@ -101,6 +105,10 @@ const elityPodleCasu = { pred: [0, 0], stred: [0, 0], pozde: [0, 0] };
 const muzeBytElitou = (n) => !n.boss && !['duch', 'vlk', 'pavoucek'].includes(n.druh);
 let maxPavoucku = 0;
 let maxTrsu = 0;
+const videnaCisla = new Set();
+let maxCisel = 0;
+let cervenychCisel = 0;
+const chybyCisel = [];
 // Bedna je celá mimo obrazovku, když její sprite (30 px) nezasahuje do výřezu kolem hrdiny.
 const mimoObrazovku = (b, h) => Math.abs(b.x - h.x) > SIRKA / 2 + 15 || Math.abs(b.y - h.y) > VYSKA / 2 + 15;
 
@@ -274,8 +282,17 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
     if (!videneOblaky.has(o)) { videneOblaky.add(o); oblaku += 1; }
   }
   if (hra.cisla.some((c) => c.barva === 'jed' && c.zivot > 0.6 - DT * 1.5)) zasahuOblakem += 1;
+  maxCisel = Math.max(maxCisel, hra.cisla.length);
+  for (const c of hra.cisla) {
+    if (videnaCisla.has(c)) continue;
+    videnaCisla.add(c);
+    if (!(c.hodnota > 0) || c.text !== (c.barva === 'zraneni' || c.barva === 'jed' ? `-${c.hodnota}` : c.barva === 'leceni' || c.barva === 'zlato' ? `+${c.hodnota}` : kratkeCislo(c.hodnota))) {
+      chybyCisel.push(`číslo ${c.text} (${c.hodnota}, ${c.barva}) v čase ${t.toFixed(1)} s`);
+    }
+  }
   if (hra.hrdina.hp < hpPred) {
     zasahu += 1;
+    if (hra.cisla.some((c) => (c.barva === 'zraneni' || c.barva === 'jed') && c.od === hra.cas && c.hodnota === hpPred - hra.hrdina.hp)) cervenychCisel += 1;
     if (hra.tres === TRVANI_TRESU) tresu += 1;
     if (hra.hrdina.sit === TRVANI_SITE) siti += 1;
   }
@@ -1152,8 +1169,10 @@ silna.dalsiSmecka = 600 + 2;
 silna.dalsiPrichod = 4;
 let silnaMaxStrel = 0;
 let silnaMaxTrsu = 0;
+let silnaMaxCisel = 0;
 for (let t = 0; t < 30 && !silna.konec; t += DT) {
   aktualizuj(silna, DT, rozhodni(silna, t), SIRKA, VYSKA);
+  silnaMaxCisel = Math.max(silnaMaxCisel, silna.cisla.length);
   if (silna.volby) vyber(silna, zvol(silna.volby));
   silnaMaxStrel = Math.max(silnaMaxStrel, silna.strely.length);
   silnaMaxTrsu = Math.max(silnaMaxTrsu, silna.trny.length);
@@ -1238,6 +1257,84 @@ if (elityPodleCasu.pozde[0] > 500 && !(podil(elityPodleCasu.pozde) > podil(elity
 const vydrz = hrajKratce(plna, 1800);
 if (!vydrz.konec) chybyHrozby.push('plně vylepšený bot přežil 30 minut, hrozba neroste dost');
 
+// Čísla poškození zblízka: hrdina bez zbraní a bez vln (ať do toho nic nestřílí) a nepřátelé, kteří nepadnou.
+const hraBezZbrani = () => {
+  const h = tichaHra({});
+  h.hrdina.sila = 1;
+  return h;
+};
+const vydrzi = (h, x, y) => {
+  const n = pridejNepritele(h, 'kostlivec', x, y);
+  n.hp = n.maxHp = 1e9;
+  return n;
+};
+{
+  const h = hraBezZbrani();
+  const a = vydrzi(h, 300, 0);
+  const b = vydrzi(h, -300, 0);
+  zasah(h, a, 10);
+  zasah(h, a, 5);
+  if (h.cisla.length !== 1 || h.cisla[0].hodnota !== 15 || h.cisla[0].text !== '15') chybyCisel.push(`dvě rány naráz nedaly jedno číslo 15 (${h.cisla.map((c) => c.text)})`);
+  if (!(h.cisla[0].y < a.y)) chybyCisel.push('číslo zásahu není nad nepřítelem');
+  zasah(h, b, 7);
+  if (h.cisla.length !== 2 || h.cisla[1].hodnota !== 7) chybyCisel.push('rána jinému nepříteli se přičetla k cizímu číslu');
+  h.cas += SLUCOVANI_CISEL + 0.01;
+  zasah(h, a, 3);
+  if (h.cisla.length !== 3 || h.cisla[0].hodnota !== 15 || h.cisla[2].hodnota !== 3) chybyCisel.push('rána po SLUCOVANI_CISEL se přičetla ke starému číslu');
+  // Obyčejné rány po 10: práh silné rány se usadí u nich, deset zůstane bílé a trojnásobek zežloutne.
+  for (let i = 0; i < 1000; i++) {
+    h.cas += 1;
+    zasah(h, a, 10);
+  }
+  h.cas += 1;
+  zasah(h, a, 10);
+  if (h.cisla.at(-1).barva !== null) chybyCisel.push(`obyčejná rána 10 je ${h.cisla.at(-1).barva} (práh ${h.prahSilneho.toFixed(1)})`);
+  h.cas += 1;
+  zasah(h, a, 30);
+  if (h.cisla.at(-1).barva !== 'silny') chybyCisel.push(`trojnásobná rána není silná (práh ${h.prahSilneho.toFixed(1)}, ×${NAD_PRAHEM})`);
+  // Rána 1000× silnější posune práh jen o kousek.
+  h.cas += 1;
+  zasah(h, a, 10000);
+  h.cas += 1;
+  zasah(h, a, 10);
+  if (h.cisla.at(-1).barva !== null) chybyCisel.push('jedna obří rána zvedla práh tak, že další obyčejné nejsou bílé');
+  if (h.cisla.at(-2).text !== '10k') chybyCisel.push(`rána 10000 je ${h.cisla.at(-2).text}, má být 10k`);
+  // Strop: dvě stě nepřátel zasažených naráz dá jen MAX_CISEL čísel, vyřazená už nežijí.
+  const vsechna = [];
+  for (let i = 0; i < 200; i++) {
+    zasah(h, vydrzi(h, i * 3, 400), 5);
+    vsechna.push(h.cisla.at(-1));
+  }
+  if (h.cisla.length !== MAX_CISEL) chybyCisel.push(`po 200 zásazích ${h.cisla.length} čísel, má být ${MAX_CISEL}`);
+  if (vsechna.some((c) => !h.cisla.includes(c) && c.zivot > 0)) chybyCisel.push('vyřazené číslo dál žije');
+  // Za TRVANI_CISLA všechna čísla zmizí.
+  h.nepratele = [];
+  for (let t = 0; t < TRVANI_CISLA + DT; t += DT) aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  if (h.cisla.some((c) => vsechna.includes(c))) chybyCisel.push(`čísla nezmizela za ${TRVANI_CISLA} s`);
+}
+{
+  // Nepřítel na hrdinovi: rána je červené -N nad hrdinou. Odpočinek léčí zeleným +N.
+  const h = hraBezZbrani();
+  const n = vydrzi(h, 0, 0);
+  aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  const rana = h.cisla.find((c) => c.barva === 'zraneni');
+  if (!rana || rana.text !== `-${n.poskozeni}` || h.hrdina.hp !== h.hrdina.maxHp - n.poskozeni || !(rana.y < h.hrdina.y)) chybyCisel.push(`rána hrdinovi bez červeného čísla (${rana?.text})`);
+  h.nepratele = [];
+  h.hrdina.hp = 40;
+  vyber(h, karta(h, 'leceni', 'leceni'));
+  const leceni = h.cisla.find((c) => c.barva === 'leceni');
+  if (!leceni || leceni.text !== `+${h.hrdina.hp - 40}`) chybyCisel.push(`odpočinek bez zeleného čísla (${leceni?.text})`);
+}
+for (const [h, ocekavany] of [[9999, '9999'], [12345, '12k'], [999999, '999k'], [2500000, '2M']]) {
+  if (kratkeCislo(h) !== ocekavany) chybyCisel.push(`kratkeCislo(${h}) = ${kratkeCislo(h)}`);
+}
+if (maxCisel > MAX_CISEL || silnaMaxCisel > MAX_CISEL) chybyCisel.push(`naráz ${Math.max(maxCisel, silnaMaxCisel)} čísel`);
+if (cervenychCisel !== zasahu) chybyCisel.push(`červené číslo jen u ${cervenychCisel} z ${zasahu} ran hrdinovi`);
+const cislaHry = [...videnaCisla];
+const zasahyHry = cislaHry.filter((c) => c.barva === null || c.barva === 'silny');
+const podilSilnych = zasahyHry.length ? zasahyHry.filter((c) => c.barva === 'silny').length / zasahyHry.length : 0;
+if (zasahyHry.length > 1000 && (podilSilnych < 0.01 || podilSilnych > 0.35)) chybyCisel.push(`silných zásahů ${(podilSilnych * 100).toFixed(1)} %`);
+
 const zaokrouhli = (s) => Object.fromEntries(Object.entries(s).map(([id, p]) => [id, Math.round(p * 1000) / 10]));
 
 const vysledek = {
@@ -1312,6 +1409,15 @@ const vysledek = {
       return [`${min}_min`, { zivoty: +h.zivoty.toFixed(2), bossove: +h.bossZivoty.toFixed(2), poskozeni: +h.poskozeni.toFixed(2), rychlost: +h.rychlost.toFixed(2), naraz: h.maxNepratel, elita_procent: +(h.elita * 100).toFixed(1) }];
     })),
   },
+  cisla_poskozeni: {
+    cisel: cislaHry.length,
+    max_naraz: maxCisel,
+    max_naraz_na_60: silnaMaxCisel,
+    silnych_procenta: Math.round(podilSilnych * 1000) / 10,
+    cervenych: cervenychCisel,
+    zelenych: cislaHry.filter((c) => c.barva === 'leceni').length,
+    prah_silneho_na_konci: Math.round(hra.prahSilneho * 10) / 10,
+  },
   trny_a_zrcadlo: {
     hlavni_hra: { max_trsu_naraz: maxTrsu, odrazeno_strel: hra.odrazeno, odhozeno_nepratel: hra.odhozeno },
     trny: trnovePokusy, zrcadlo: zrcadlovePokusy,
@@ -1321,7 +1427,7 @@ console.log(JSON.stringify(vysledek, null, 2));
 
 const chyby = [
   ...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel), ...chybyVybavy, ...chybyLucerny, ...new Set(chybyBeden),
-  ...new Set(chybyBossu), ...chybyZbrani, ...new Set(chybyUrovni), ...new Set(chybyHrozby),
+  ...new Set(chybyBossu), ...chybyZbrani, ...new Set(chybyUrovni), ...new Set(chybyHrozby), ...new Set(chybyCisel),
 ];
 if (maxTrsu > MAX_TRNU) chyby.push(`trsů trnů naráz ${maxTrsu}`);
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);
@@ -1374,7 +1480,17 @@ for (const spatne of ['{rozbité', '42', '"duse"', '{"duse":"hodně","vylepseni"
     chyby.push(`rozbité duše ${spatne} se načetly jako ${JSON.stringify(st)}`);
   }
 }
+// Nastavení: bez záznamu čísla poškození zapnutá, vypnutí se uloží, rozbitý záznam = výchozí.
+if (nactiNastaveni().cislaPoskozeni !== true) chyby.push('bez uloženého nastavení mají být čísla poškození zapnutá');
+ulozNastaveni({ cislaPoskozeni: false });
+if (nactiNastaveni().cislaPoskozeni !== false) chyby.push('vypnutá čísla poškození se neuložila');
+for (const spatne of ['{rozbité', '42', '"ne"', '{"cislaPoskozeni":"ne"}', 'null']) {
+  mapa.set('hlubiny.nastaveni', spatne);
+  if (nactiNastaveni().cislaPoskozeni !== true) chyby.push(`rozbité nastavení ${spatne} nevrátilo výchozí`);
+}
 nahradUloziste({ getItem() { throw new Error('zakázáno'); }, setItem() { throw new Error('zakázáno'); } });
+ulozNastaveni({ cislaPoskozeni: false });
+if (nactiNastaveni().cislaPoskozeni !== true) chyby.push('zakázané úložiště nevrátilo výchozí nastavení');
 if (nactiDuse().duse !== 0 || pripisDuse(10).duse !== 10) chyby.push('zakázané úložiště u duší nefunguje jako prázdné');
 ulozDuse({ duse: 5, vylepseni: { sila: 1 } });
 if (nactiRekord() !== null || !zapisVysledek(vysledekHry).novy) chyby.push('zakázané úložiště se nechová jako prázdné');
