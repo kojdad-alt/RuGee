@@ -62,3 +62,16 @@ export function zvukVyberu() {
   ton(988, 0, 0.06, 0.03);
   ton(1319, 0.05, 0.1, 0.03);
 }
+
+// Sebraný zlaťák: krátké vysoké cinknutí mince.
+export function zvukZlataku() {
+  ton(1568, 0, 0.05, 0.02);
+  ton(2093, 0.04, 0.09, 0.02);
+}
+
+// Přehozené karty: rychlé zamíchání (tři tóny nahoru a dolů).
+export function zvukPrehozeni() {
+  ton(659, 0, 0.05, 0.03);
+  ton(880, 0.05, 0.05, 0.03);
+  ton(740, 0.1, 0.08, 0.03);
+}
