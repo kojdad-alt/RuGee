@@ -112,6 +112,22 @@ export const SMECKA_OD = 4;
 export const SMECKA_DO = 6;
 const PRVNI_SMECKA = OD_VLKU + 10;
 const SMECKA_KAZDYCH = 24;
+// Bedničky a sudy po louce: rozbije je jakýkoli zásah zbraní a vypadne z nich jedna věc. Objevují se jen mimo
+// obrazovku (kousek za jejím okrajem), nejvýš MAX_BEDEN naráz. Které zůstaly moc daleko za hrdinou, zmizí,
+// ať se nové objevují tam, kam hrdina zrovna jde.
+export const MAX_BEDEN = 12;
+export const BEDNA_KAZDYCH = 2.5;
+const PRVNI_BEDNA = 1.5;
+export const POLOMER_BEDNY = 12;
+// Nejbližší bedna je OKRAJ_BEDEN px za okrajem obrazovky (sprite má 30 px, celá je tedy mimo), nejdál o PASMO_BEDEN víc.
+export const OKRAJ_BEDEN = 30;
+const PASMO_BEDEN = 220;
+// Jiskra míří na bednu, jen když je blíž než všichni nepřátelé a nanejvýš takhle daleko.
+export const JISKRA_NA_BEDNU = 260;
+// Co z bedny vypadne a jak často (součet 1). Zlaťák je po hře duše navíc. Bomba je vzácná: složí všechny
+// nepřátele na obrazovce kromě Strážce hlubin (a schovaného ducha, toho nevidí nic).
+export const KORIST_BEDEN = { krystal: 0.42, zlatak: 0.3, srdce: 0.15, magnet: 0.08, bomba: 0.05 };
+export const TRVANI_VYBUCHU = 0.6;
 
 const NEPRATELE = {
   netopyr: { hp: 10, rychlost: 72, poskozeni: 5, xp: 1, polomer: 10 },
@@ -166,6 +182,14 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}) {
     blesky: [],
     castice: [],
     oblaky: [],
+    bedny: [],
+    doBedny: PRVNI_BEDNA,
+    beden: 0,
+    rozbitoBeden: 0,
+    zBeden: Object.fromEntries(Object.keys(KORIST_BEDEN).map((id) => [id, 0])),
+    zlataky: 0,
+    bomb: 0,
+    vybuch: 0,
     tres: 0,
     uhelKrumpacu: 0,
     doSpawnu: 0,
@@ -307,6 +331,87 @@ function smecka(hra, sirka, vyska) {
   hra.smecek += 1;
 }
 
+// Nová bedna kousek za okrajem obrazovky v náhodném směru. Každá třetí je sud (jen jiný vzhled).
+// Na místě, kde už nějaká stojí, se nová neobjeví (zkusí to zase příště).
+function pridejBednu(hra, sirka, vyska) {
+  const { hrdina, rng } = hra;
+  const uhel = rng.dalsi() * Math.PI * 2;
+  const cos = Math.cos(uhel);
+  const sin = Math.sin(uhel);
+  // jak daleko je to od hrdiny (středu obrazovky) k okraji obrazovky v tomhle směru
+  const kOkraji = Math.min(sirka / 2 / Math.max(Math.abs(cos), 1e-9), vyska / 2 / Math.max(Math.abs(sin), 1e-9));
+  const r = kOkraji + OKRAJ_BEDEN + rng.dalsi() * PASMO_BEDEN;
+  const x = hrdina.x + cos * r;
+  const y = hrdina.y + sin * r;
+  if (hra.bedny.some((b) => Math.hypot(b.x - x, b.y - y) < POLOMER_BEDNY * 3)) return;
+  hra.bedny.push({ druh: hra.beden % 3 === 2 ? 'sud' : 'bedna', x, y, rozbita: false });
+  hra.beden += 1;
+}
+
+// Co z bedny vypadne pro los 0..1 (podle KORIST_BEDEN). Exportované kvůli simulaci.
+export function losujKorist(los) {
+  for (const [id, sance] of Object.entries(KORIST_BEDEN)) {
+    los -= sance;
+    if (los < 0) return id;
+  }
+  return 'krystal';
+}
+
+// Krystal z bedny je bohatší než z nepřítele a s časem roste.
+export function xpZBedny(hra) {
+  return Math.round(4 + hra.cas / 60);
+}
+
+// Třísky z rozbité bedny: stejné úlomky jako po nepřátelích, jen dřevěné. Směry z počítadla, ne z rng.
+function trisky(hra, b) {
+  const posun = hra.rozbitoBeden * 1.7;
+  for (let i = 0; i < 8; i++) {
+    const uhel = posun + (i / 8) * Math.PI * 2;
+    const rychlost = 70 + ((i * 29 + hra.rozbitoBeden * 13) % 70);
+    hra.castice.push({
+      x: b.x, y: b.y, vx: Math.cos(uhel) * rychlost, vy: Math.sin(uhel) * rychlost,
+      zivot: ZIVOT_CASTICE, druh: b.druh, odstin: i,
+    });
+  }
+  if (hra.castice.length > MAX_CASTIC) hra.castice.splice(0, hra.castice.length - MAX_CASTIC);
+}
+
+// Zásah zbraní bednu rozbije: rozletí se na třísky a na jejím místě zůstane jedna věc.
+function rozbij(hra, b) {
+  if (b.rozbita) return;
+  b.rozbita = true;
+  hra.rozbitoBeden += 1;
+  trisky(hra, b);
+  const vec = losujKorist(hra.rng.dalsi());
+  hra.zBeden[vec] += 1;
+  if (vec === 'krystal') hra.krystaly.push({ x: b.x, y: b.y, xp: xpZBedny(hra) });
+  else hra.predmety.push({ druh: vec, x: b.x, y: b.y });
+}
+
+function nejblizsiBedna(hra, dosah) {
+  let nej = null;
+  let nejD = dosah;
+  for (const b of hra.bedny) {
+    const d = vzdalenost(b, hra.hrdina);
+    if (!b.rozbita && d < nejD) { nej = b; nejD = d; }
+  }
+  return nej;
+}
+
+// Bomba: všichni viditelní nepřátelé na obrazovce padnou naráz (krystaly z nich vypadnou jako jindy).
+// Strážce hlubin vydrží a schovaného ducha bomba nenajde.
+function vybuch(hra, sirka, vyska) {
+  const { hrdina } = hra;
+  for (const n of hra.nepratele) {
+    if (n.boss || !viditelny(n)) continue;
+    if (Math.abs(n.x - hrdina.x) <= sirka / 2 + n.polomer && Math.abs(n.y - hrdina.y) <= vyska / 2 + n.polomer) n.hp = 0;
+  }
+  hra.bomb += 1;
+  hra.vybuch = TRVANI_VYBUCHU;
+  hra.tres = TRVANI_TRESU;
+  hra.oznameni = { text: 'Bomba!', zivot: 1.2 };
+}
+
 // Zbraně neví o duchovi, který je zrovna schovaný.
 function viditelny(n) {
   return !n.skryty;
@@ -321,6 +426,18 @@ function nejblizsi(hra) {
     if (d < nejD) { nej = n; nejD = d; }
   }
   return nej;
+}
+
+// Nejbližší dosud nezasažený viditelný nepřítel od místa úderu blesku (nanejvýš skok daleko).
+function dalsiCilBlesku(hra, od, skok, zasazeni) {
+  let dalsi = null;
+  let nejD = skok;
+  for (const n of hra.nepratele) {
+    if (zasazeni.has(n) || n.hp <= 0 || !viditelny(n)) continue;
+    const d = vzdalenost(n, od);
+    if (d < nejD) { dalsi = n; nejD = d; }
+  }
+  return dalsi;
 }
 
 export function staty(hra) {
@@ -359,6 +476,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   hrdina.sit = Math.max(0, hrdina.sit - dt);
   hra.tres = Math.max(0, hra.tres - dt);
   hra.zablesk = Math.max(0, hra.zablesk - dt);
+  hra.vybuch = Math.max(0, hra.vybuch - dt);
 
   // nepřátelé
   hra.doSpawnu -= dt;
@@ -373,6 +491,14 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       Object.assign(n, naOkraji(hra, sirka, vyska));
       if (n.duch) zamir(n, hrdina);
     }
+  }
+  // Bedny moc daleko za hrdinou zmizí, nové přibývají mimo obrazovku, dokud jich není MAX_BEDEN.
+  const dalekoBedny = polomerSpawnu(sirka, vyska) * 2;
+  hra.bedny = hra.bedny.filter((b) => vzdalenost(b, hrdina) < dalekoBedny);
+  hra.doBedny -= dt;
+  if (hra.doBedny <= 0) {
+    if (hra.bedny.length < MAX_BEDEN) pridejBednu(hra, sirka, vyska);
+    hra.doBedny = BEDNA_KAZDYCH;
   }
   if (hra.cas >= hra.dalsiBoss) {
     const { x, y } = naOkraji(hra, sirka, vyska);
@@ -432,7 +558,10 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   const jiskra = hra.zbrane.jiskra;
   if (jiskra) {
     jiskra.nabiti -= dt;
-    const cil = nejblizsi(hra);
+    // Na bednu míří, jen když je blíž než nejbližší nepřítel (a nanejvýš JISKRA_NA_BEDNU daleko).
+    const nepritel = nejblizsi(hra);
+    const bedna = nejblizsiBedna(hra, nepritel ? Math.min(JISKRA_NA_BEDNU, vzdalenost(nepritel, hrdina)) : JISKRA_NA_BEDNU);
+    const cil = bedna ?? nepritel;
     if (jiskra.nabiti <= 0 && cil) {
       const zaklad = Math.atan2(cil.y - hrdina.y, cil.x - hrdina.x);
       for (let i = 0; i < s.jiskra.pocet; i++) {
@@ -453,6 +582,14 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
         break;
       }
     }
+    if (st.zivot <= 0) continue;
+    for (const b of hra.bedny) {
+      if (!b.rozbita && vzdalenost(st, b) < POLOMER_BEDNY + 4) {
+        rozbij(hra, b);
+        st.zivot = 0;
+        break;
+      }
+    }
   }
   hra.strely = hra.strely.filter((st) => st.zivot > 0);
 
@@ -463,6 +600,9 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     if (luc.tik <= 0) {
       for (const n of hra.nepratele) {
         if (viditelny(n) && vzdalenost(n, hrdina) < s.lucerna.dosah) zasah(hra, n, s.lucerna.zar * 0.3, true);
+      }
+      for (const b of hra.bedny) {
+        if (vzdalenost(b, hrdina) < s.lucerna.dosah) rozbij(hra, b);
       }
       luc.tik = s.lucerna.tik;
     }
@@ -481,30 +621,36 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
           n.zasahKrumpacem = 0.4;
         }
       }
+      for (const b of hra.bedny) {
+        if (Math.hypot(b.x - kx, b.y - ky) < POLOMER_BEDNY + 10) rozbij(hra, b);
+      }
     }
   }
 
-  // Blesk: udeří do náhodného nepřítele v dosahu a přeskakuje na nejbližší dosud nezasažené.
+  // Blesk: udeří do náhodného nepřítele (nebo bedny) v dosahu a přeskakuje na nejbližší dosud nezasažené.
   if (hra.zbrane.blesk) {
     const bl = hra.zbrane.blesk;
     bl.nabiti = (bl.nabiti ?? 0) - dt;
     const vDosahu = hra.nepratele.filter((n) => n.hp > 0 && viditelny(n) && vzdalenost(n, hrdina) < s.blesk.dosah);
-    if (bl.nabiti <= 0 && vDosahu.length) {
-      let cil = hra.rng.vyber(vDosahu);
+    const bednyVDosahu = hra.bedny.filter((b) => !b.rozbita && vzdalenost(b, hrdina) < s.blesk.dosah);
+    const cile = bednyVDosahu.length ? [...vDosahu, ...bednyVDosahu] : vDosahu;
+    if (bl.nabiti <= 0 && cile.length) {
+      let cil = hra.rng.vyber(cile);
       const zasazeni = new Set();
       const body = [{ x: hrdina.x, y: hrdina.y }];
-      for (let i = 0; i <= s.blesk.preskoky && cil; i++) {
+      let preskoku = s.blesk.preskoky;
+      // Bedna je první zásah: rozbije se a blesk skočí dál na nejbližšího nepřítele.
+      if (bednyVDosahu.includes(cil)) {
+        rozbij(hra, cil);
+        body.push({ x: cil.x, y: cil.y });
+        cil = dalsiCilBlesku(hra, cil, s.blesk.skok, zasazeni);
+        preskoku -= 1;
+      }
+      for (let i = 0; i <= preskoku && cil; i++) {
         zasah(hra, cil, s.blesk.poskozeni);
         zasazeni.add(cil);
         body.push({ x: cil.x, y: cil.y });
-        let dalsi = null;
-        let nejD = s.blesk.skok;
-        for (const n of hra.nepratele) {
-          if (zasazeni.has(n) || n.hp <= 0 || !viditelny(n)) continue;
-          const d = vzdalenost(n, cil);
-          if (d < nejD) { dalsi = n; nejD = d; }
-        }
-        cil = dalsi;
+        cil = dalsiCilBlesku(hra, cil, s.blesk.skok, zasazeni);
       }
       hra.blesky.push({ body, zivot: 0.18 });
       bl.nabiti = s.blesk.nabiti;
@@ -512,32 +658,12 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   }
   for (const b of hra.blesky) b.zivot -= dt;
   hra.blesky = hra.blesky.filter((b) => b.zivot > 0);
+  hra.bedny = hra.bedny.filter((b) => !b.rozbita);
 
-  // smrt nepřátel → krystaly
-  for (const n of hra.nepratele) {
-    if (n.hp <= 0) {
-      hra.zabito += 1;
-      rozlet(hra, n);
-      hra.krystaly.push({ x: n.x, y: n.y, xp: n.xp });
-      if (n.jed) {
-        hra.oblaky.push({ x: n.x, y: n.y, zivot: TRVANI_OBLAKU, polomer: POLOMER_OBLAKU });
-        if (hra.oblaky.length > MAX_OBLAKU) hra.oblaky.splice(0, hra.oblaky.length - MAX_OBLAKU);
-      }
-      if (n.boss) {
-        hra.zabitoBossu += 1;
-        hra.predmety.push({ druh: 'truhla', x: n.x, y: n.y });
-        continue;
-      }
-      // Štěstí z trvalých vylepšení zvětší obě šance, los z rng je pořád jeden (náhoda vln se neposune).
-      const los = hra.rng.dalsi();
-      const stesti = hrdina.stesti;
-      if (los < SANCE_MAGNET * stesti) hra.predmety.push({ druh: 'magnet', x: n.x, y: n.y });
-      else if (los < (SANCE_MAGNET + SANCE_SRDCE) * stesti) hra.predmety.push({ druh: 'srdce', x: n.x, y: n.y });
-    }
-  }
-  hra.nepratele = hra.nepratele.filter((n) => n.hp > 0);
+  pohrbi(hra);
 
-  // srdce a magnet se seberou dotykem
+  // srdce, magnet, zlaťák a bomba se seberou dotykem
+  let bouchlo = false;
   for (const p of hra.predmety) {
     if (vzdalenost(p, hrdina) < 16) {
       p.sebran = true;
@@ -550,12 +676,20 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
         const pred = hrdina.hp;
         hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + LECENI_SRDCE);
         hra.cisla.push({ x: hrdina.x, y: hrdina.y - 18, text: `+${Math.round(hrdina.hp - pred)}`, zivot: 0.8, barva: 'leceni' });
+      } else if (p.druh === 'zlatak') {
+        hra.zlataky += 1;
+        hra.cisla.push({ x: hrdina.x, y: hrdina.y - 18, text: '+1', zivot: 0.8, barva: 'zlato' });
+      } else if (p.druh === 'bomba') {
+        vybuch(hra, sirka, vyska);
+        bouchlo = true;
       } else {
         for (const kr of hra.krystaly) kr.pritahovan = true;
       }
     }
   }
   hra.predmety = hra.predmety.filter((p) => !p.sebran);
+  // Kdo padl bombou, umře hned v tomhle snímku (jinak by ještě stihl hrdinu kousnout).
+  if (bouchlo) pohrbi(hra);
 
   // sběr krystalů
   for (const kr of hra.krystaly) {
@@ -603,6 +737,33 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     c.zivot -= dt;
   }
   hra.cisla = hra.cisla.filter((c) => c.zivot > 0);
+}
+
+// Smrt nepřátel → krystaly, oblaky po houbácích, truhla po Strážci a občas srdce nebo magnet.
+function pohrbi(hra) {
+  const { hrdina } = hra;
+  for (const n of hra.nepratele) {
+    if (n.hp <= 0) {
+      hra.zabito += 1;
+      rozlet(hra, n);
+      hra.krystaly.push({ x: n.x, y: n.y, xp: n.xp });
+      if (n.jed) {
+        hra.oblaky.push({ x: n.x, y: n.y, zivot: TRVANI_OBLAKU, polomer: POLOMER_OBLAKU });
+        if (hra.oblaky.length > MAX_OBLAKU) hra.oblaky.splice(0, hra.oblaky.length - MAX_OBLAKU);
+      }
+      if (n.boss) {
+        hra.zabitoBossu += 1;
+        hra.predmety.push({ druh: 'truhla', x: n.x, y: n.y });
+        continue;
+      }
+      // Štěstí z trvalých vylepšení zvětší obě šance, los z rng je pořád jeden (náhoda vln se neposune).
+      const los = hra.rng.dalsi();
+      const stesti = hrdina.stesti;
+      if (los < SANCE_MAGNET * stesti) hra.predmety.push({ druh: 'magnet', x: n.x, y: n.y });
+      else if (los < (SANCE_MAGNET + SANCE_SRDCE) * stesti) hra.predmety.push({ druh: 'srdce', x: n.x, y: n.y });
+    }
+  }
+  hra.nepratele = hra.nepratele.filter((n) => n.hp > 0);
 }
 
 // Šance na každou raritu (součet 1). minimum: horší rarity než tahle nepadnou (truhla Strážce).

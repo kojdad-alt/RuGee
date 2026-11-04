@@ -15,6 +15,7 @@ const PALETA = {
   a: '#e4f6f3', A: '#9fc8c6',
   G: '#8d9098', D: '#53565e', H: '#c9ccd2',
   i: '#9b59c9', I: '#d6a9f2', j: '#5e2f86',
+  O: '#b07a1e', z: '#2e2d3a', Z: '#5c5b70',
 };
 
 const SPRITY = {
@@ -181,6 +182,49 @@ const SPRITY = {
     'hhhhhhhh',
     '.hhhhhh.',
     '........',
+  ],
+  // Bedna a sud po louce: rozbije je zásah zbraní a vypadne z nich krystal, srdce, magnet, zlaťák nebo bomba.
+  bedna: [
+    'NNNNNNNN',
+    'NhnnnnhN',
+    'NnhnnhnN',
+    'NnnhhnnN',
+    'NnnhhnnN',
+    'NnhnnhnN',
+    'NhnnnnhN',
+    'NNNNNNNN',
+  ],
+  sud: [
+    '.NNNNNN.',
+    'NnnhnnhN',
+    'sSSSSSss',
+    'nnnhnnhn',
+    'nnnhnnhn',
+    'sSSSSSss',
+    'NnnhnnhN',
+    '.NNNNNN.',
+  ],
+  // Zlaťák z bedny: po hře se promění v duši navíc.
+  zlatak: [
+    '..OOOO..',
+    '.OYyyyO.',
+    'OYyyyygO',
+    'OyyOOygO',
+    'OyyOOygO',
+    'OyyyyggO',
+    '.OggggO.',
+    '..OOOO..',
+  ],
+  // Bomba z bedny: po sebrání složí všechny nepřátele na obrazovce kromě Strážce.
+  bomba: [
+    '......Yo',
+    '.....h.Y',
+    '....h...',
+    '..zzzz..',
+    '.zZZzzz.',
+    '.zZzzzz.',
+    '.zzzzzz.',
+    '..zzzz..',
   ],
   // Duše: modrobílý plamínek s očima, měna za trvalá vylepšení.
   duse: [

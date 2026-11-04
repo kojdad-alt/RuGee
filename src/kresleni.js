@@ -1,7 +1,7 @@
 import { sprity } from './sprity.js';
 import {
   staty, TRVANI_TRESU, VYCHOZI_TRIDA, TRVANI_ZABLESKU, ODHOZENI_PRI_OZIVENI, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU,
-  TRVANI_ZARU,
+  TRVANI_ZARU, TRVANI_VYBUCHU,
 } from './hra.js';
 import { dlazdiceLouky, ozdobyLouky } from './louka.js';
 
@@ -18,6 +18,8 @@ const BARVY_CASTIC = {
   duch: ['#e4f6f3', '#9fc8c6', '#e4f6f3'],
   houbak: ['#9b59c9', '#d6a9f2', '#f1d2a8'],
   vlk: ['#8d9098', '#53565e', '#c9ccd2'],
+  bedna: ['#a07e5c', '#8a5a35', '#4a3530'],
+  sud: ['#a07e5c', '#6e6577', '#8a5a35'],
 };
 const BARVA_SITE = 'rgba(236,236,244,0.8)';
 // Duch je i viditelný průsvitný, schovaný je jen tušený obrys. Mezi tím přechází plynule.
@@ -260,6 +262,13 @@ export function kresli(ctx, hra) {
     ctx.restore();
   }
 
+  // bedny a sudy stojí na zemi pod krystaly, které z nich vypadnou
+  for (const b of hra.bedny ?? []) {
+    const p = naObrazovce(b);
+    if (p.x < -30 || p.y < -30 || p.x > sirka + 30 || p.y > vyska + 30) continue;
+    sprite(ctx, sprity[b.druh], p.x, p.y);
+  }
+
   for (const kr of hra.krystaly) {
     const p = naObrazovce(kr);
     ctx.drawImage(sprity.krystal, Math.round(p.x - 10), Math.round(p.y - 10), 20, 20);
@@ -375,6 +384,23 @@ export function kresli(ctx, hra) {
     ctx.restore();
   }
 
+  // Bomba: od hrdiny se přes celou obrazovku rozběhne ohnivý kruh a všechno krátce zbělá.
+  if (hra.vybuch > 0) {
+    const t = 1 - hra.vybuch / TRVANI_VYBUCHU;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - t);
+    ctx.fillStyle = 'rgba(255,240,200,0.35)';
+    ctx.fillRect(0, 0, sirka, vyska);
+    for (const [barva, sirkaCary] of [['rgba(255,140,50,0.55)', 14], ['#fff3b0', 4]]) {
+      ctx.strokeStyle = barva;
+      ctx.lineWidth = sirkaCary;
+      ctx.beginPath();
+      ctx.arc(stred.x, stred.y, 20 + t * Math.hypot(sirka, vyska) / 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   const blika = hrdina.nezranitelny > 0 && Math.floor(hrdina.nezranitelny * 20) % 2 === 0;
   const obrHrdiny = sprity[hra.trida] ?? sprity[VYCHOZI_TRIDA];
   if (!blika) sprite(ctx, obrHrdiny, stred.x, stred.y, hrdina.otoceny, hrdina.sit > 0 ? 'rgba(215,222,236,0.5)' : null);
@@ -396,7 +422,7 @@ export function kresli(ctx, hra) {
   for (const c of hra.cisla) {
     const p = naObrazovce(c);
     const pruhlednost = Math.min(1, c.zivot * 2);
-    const barva = { leceni: '120,230,140', jed: '214,169,242' }[c.barva] ?? '255,240,200';
+    const barva = { leceni: '120,230,140', jed: '214,169,242', zlato: '242,201,76' }[c.barva] ?? '255,240,200';
     ctx.fillStyle = `rgba(${barva},${pruhlednost})`;
     ctx.fillText(c.text, p.x, p.y);
   }

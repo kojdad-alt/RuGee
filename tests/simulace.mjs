@@ -15,6 +15,9 @@
 // Přehled výbavy v rohu: sedí s tím, co hrdina má (pořadí, úrovně, maximum, ikony se sprity) a po každém
 // výběru zbraně nebo pasivy se změní, po Odpočinku ne.
 // Žár lucerny: zasažený nepřítel v dosahu se krátce rozzáří (místo bílého bliknutí), za dosahem ne, a zase zhasne.
+// Bedničky a sudy: objevují se jen mimo obrazovku, nejvýš 12 naráz, daleko za hrdinou mizí. Každá zbraň je rozbije,
+// kořist padá podle šancí, zlaťák je po hře duše navíc a bomba složí nepřátele na obrazovce, ale ne Strážce
+// ani schovaného ducha.
 import { readFileSync } from 'node:fs';
 import { vytvorRng } from '../src/rng.js';
 import {
@@ -23,6 +26,7 @@ import {
   ZBRANE, RARITY, PORADI_RARIT, MAX_UROVEN, SILA_ZA_PREBYTEK, LECENI_ODPOCINKU, CAS_PLNYCH_RARIT, sanceRarit, nabidka, karta,
   OD_DUCHU, VIDITELNY_DUCH, SKRYTY_DUCH, OD_HOUBAKU, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU, JED_OBLAKU,
   OD_VLKU, SMECKA_OD, SMECKA_DO, RYCHLOST_NEPRATEL, MAX_DUCHU, pridejNepritele, PASIVY, seznamVybavy, TRVANI_ZARU,
+  MAX_BEDEN, KORIST_BEDEN, losujKorist, xpZBedny, JISKRA_NA_BEDNU, TRVANI_VYBUCHU,
 } from '../src/hra.js';
 import {
   VYLEPSENI, DUSE_ZA, dusZaHru, cenaVylepseni, kupVylepseni, vratDuse, utraceno,
@@ -61,6 +65,11 @@ let duchuSchovanych = 0;
 let maxDuchu = 0;
 const chybyVybavy = [];
 let zmenVybavy = 0;
+const chybyBeden = [];
+const videneBedny = new WeakSet();
+let maxBeden = 0;
+// Bedna je celá mimo obrazovku, když její sprite (30 px) nezasahuje do výřezu kolem hrdiny.
+const mimoObrazovku = (b, h) => Math.abs(b.x - h.x) > SIRKA / 2 + 15 || Math.abs(b.y - h.y) > VYSKA / 2 + 15;
 
 // Přehled výbavy proti skutečnému stavu hrdiny. Sprity se v node kreslit nedají, jejich jména jsou v sprity.js.
 const jmenaSpritu = new Set([...readFileSync(new URL('../src/sprity.js', import.meta.url), 'utf8').matchAll(/^ {2}(\w+): \[/gm)].map((m) => m[1]));
@@ -189,6 +198,12 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
     if (ujito > hra.hrdina.rychlost * ZPOMALENI_SITI * DT + 1e-6) {
       throw new Error(`hrdina v síti nezpomalil v čase ${t.toFixed(1)} s (${ujito.toFixed(2)} px za krok)`);
     }
+  }
+  maxBeden = Math.max(maxBeden, hra.bedny.length);
+  for (const b of hra.bedny) {
+    if (videneBedny.has(b)) continue;
+    videneBedny.add(b);
+    if (!mimoObrazovku(b, hra.hrdina)) chybyBeden.push(`bedna se objevila na obrazovce v čase ${t.toFixed(1)} s`);
   }
   maxCastic = Math.max(maxCastic, hra.castice.length);
   if (hra.castice.some((c) => !Number.isFinite(c.x) || !Number.isFinite(c.y))) {
@@ -325,8 +340,10 @@ else {
 }
 // Duše za hru podle času, zabití a Strážců.
 const duseHry = dusZaHru(hra);
-const ocekavaneDuse = Math.floor(hra.cas / DUSE_ZA.sekund) + Math.floor(hra.zabito / DUSE_ZA.zabitych) + hra.zabitoBossu * DUSE_ZA.strazce;
-if (duseHry.celkem !== ocekavaneDuse || duseHry.celkem !== duseHry.cas + duseHry.zabiti + duseHry.strazci) chybyDusi.push('duše za hru nesedí');
+const ocekavaneDuse = Math.floor(hra.cas / DUSE_ZA.sekund) + Math.floor(hra.zabito / DUSE_ZA.zabitych) + hra.zabitoBossu * DUSE_ZA.strazce
+  + hra.zlataky * DUSE_ZA.zlatak;
+if (duseHry.celkem !== ocekavaneDuse || duseHry.celkem !== duseHry.cas + duseHry.zabiti + duseHry.strazci + duseHry.zlataky) chybyDusi.push('duše za hru nesedí');
+if (dusZaHru({ cas: 0, zabito: 0, zabitoBossu: 0, zlataky: 7 }).celkem !== 7 * DUSE_ZA.zlatak) chybyDusi.push('zlaťáky nedávají duše');
 if (dusZaHru(novaHra(vytvorRng(1))).celkem !== 0) chybyDusi.push('nová hra má mít 0 duší');
 if (dusZaHru({ cas: 0, zabito: 0, zabitoBossu: 2 }).celkem !== 2 * DUSE_ZA.strazce) chybyDusi.push('Strážci nedávají duše');
 // Obchod: ceny rostou, bez duší ani nad maximum se nekoupí, Vrátit duše vrátí přesně utracené.
@@ -511,6 +528,107 @@ if (zaDosahem.zar !== 0 || zaDosahem.hp !== zaDosahem.maxHp) chybyLucerny.push('
 for (let t = 0; t < TRVANI_ZARU + 0.05; t += DT) aktualizuj(luc, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
 if (vDosahu.zar !== 0) chybyLucerny.push(`rozzáření nezhaslo (zar ${vDosahu.zar})`);
 
+// Bedničky. Kořist padá podle šancí (rovnoměrné losy 0..1 dají přesně ty podíly).
+const sanceKoristi = Object.values(KORIST_BEDEN).reduce((a, b) => a + b, 0);
+if (Math.abs(sanceKoristi - 1) > 1e-9) chybyBeden.push(`šance kořisti dávají ${sanceKoristi}`);
+const losovanaKorist = Object.fromEntries(Object.keys(KORIST_BEDEN).map((id) => [id, 0]));
+for (let i = 0; i < 10000; i++) losovanaKorist[losujKorist((i + 0.5) / 10000)] += 1;
+for (const [id, sance] of Object.entries(KORIST_BEDEN)) {
+  if (Math.abs(losovanaKorist[id] / 10000 - sance) > 0.001) chybyBeden.push(`${id} z bedny padá ${losovanaKorist[id] / 10000} místo ${sance}`);
+}
+if (!(KORIST_BEDEN.bomba < Math.min(...Object.entries(KORIST_BEDEN).filter(([id]) => id !== 'bomba').map(([, p]) => p)))) chybyBeden.push('bomba není nejvzácnější');
+// Hrdina stojí sám (bez vln a nových beden) a bedny mu postavíme kolem.
+const tichaHra = (zbrane) => {
+  const h = novaHra(vytvorRng(seminko));
+  h.zbrane = zbrane;
+  h.doSpawnu = Infinity;
+  h.doBedny = Infinity;
+  return h;
+};
+const bedna = (h, x, y, druh = 'bedna') => {
+  const b = { druh, x, y, rozbita: false };
+  h.bedny.push(b);
+  return b;
+};
+const korist = (h) => Object.values(h.zBeden).reduce((a, b) => a + b, 0);
+// Každá zbraň rozbije bednu, na kterou dosáhne. Bedna daleko (500 px) zůstane celá.
+const dosahLucerny1 = staty(novaHra(vytvorRng(seminko), 'svetlonos')).lucerna.dosah;
+const kdeBedna = { jiskra: [150, 0], lucerna: [dosahLucerny1 - 10, 0], krumpace: [64, 0], blesk: [200, 0] };
+const rozbiteZbrani = {};
+for (const id of Object.keys(ZBRANE)) {
+  const h = tichaHra({ [id]: { uroven: 1, nabiti: 0 } });
+  const blizka = bedna(h, ...kdeBedna[id]);
+  const daleka = bedna(h, 0, 500, 'sud');
+  let za = null;
+  for (let t = 0; t < 3 && za === null; t += DT) {
+    aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    if (blizka.rozbita) za = h.cas;
+  }
+  rozbiteZbrani[id] = za === null ? null : Math.round(za * 100) / 100;
+  if (!blizka.rozbita || h.bedny.includes(blizka)) chybyBeden.push(`${id} nerozbila bednu`);
+  if (daleka.rozbita || !h.bedny.includes(daleka)) chybyBeden.push(`${id} rozbila bednu 500 px daleko`);
+  if (h.rozbitoBeden !== 1 || korist(h) !== 1) chybyBeden.push(`${id}: rozbito ${h.rozbitoBeden}, kořisti ${korist(h)}`);
+  const naZemi = h.krystaly.length + h.predmety.length + (h.hrdina.xp > 0 || h.hrdina.uroven > 1 ? 1 : 0);
+  if (naZemi < 1) chybyBeden.push(`${id}: z bedny nic nevypadlo`);
+  if (!h.castice.length) chybyBeden.push(`${id}: bedna se rozbila bez třísek`);
+}
+// Jiskra míří na bednu, jen když není blíž nepřítel: nepřítel blíž než bedna dostane ránu první.
+const prednost = tichaHra({ jiskra: { uroven: 1, nabiti: 0 } });
+const zaNepritelem = bedna(prednost, 200, 0);
+const blizkyNepritel = pridejNepritele(prednost, 'kostlivec', 0, 120);
+blizkyNepritel.rychlost = 0;
+aktualizuj(prednost, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+if (!(prednost.strely[0]?.vy > 0) || zaNepritelem.rozbita) chybyBeden.push('jiskra střílí na bednu, i když je nepřítel blíž');
+const mimoDosah = tichaHra({ jiskra: { uroven: 1, nabiti: 0 } });
+bedna(mimoDosah, JISKRA_NA_BEDNU + 40, 0);
+aktualizuj(mimoDosah, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+if (mimoDosah.strely.length) chybyBeden.push('jiskra střílí na bednu za dosahem');
+// Krystal z bedny je bohatší než z netopýra.
+if (!(xpZBedny(novaHra(vytvorRng(seminko))) > 1)) chybyBeden.push('krystal z bedny nedá víc než netopýr');
+// Bomba pod nohama: nepřátelé na obrazovce padnou hned (s krystaly), Strážce, schovaný duch a nepřítel
+// za okrajem obrazovky zůstanou.
+const bum = tichaHra({});
+bum.hrdina.nezranitelny = 10;
+const naObrazovce = [pridejNepritele(bum, 'netopyr', 300, 100), pridejNepritele(bum, 'kostlivec', -500, -300)];
+const strazce = pridejNepritele(bum, 'strazce', -200, 0);
+const schovany = pridejNepritele(bum, 'duch', 250, -150);
+Object.assign(schovany, { skryty: true, duchCas: SKRYTY_DUCH });
+const zaOkrajem = pridejNepritele(bum, 'netopyr', SIRKA / 2 + 100, 0);
+for (const n of bum.nepratele) n.rychlost = 0;
+bum.predmety.push({ druh: 'bomba', x: 0, y: 0 });
+aktualizuj(bum, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+if (naObrazovce.some((n) => bum.nepratele.includes(n)) || bum.zabito !== 2) chybyBeden.push(`bomba nesložila nepřátele na obrazovce (zabito ${bum.zabito})`);
+if (bum.krystaly.length < 2) chybyBeden.push('z nepřátel po bombě nevypadly krystaly');
+if (!bum.nepratele.includes(strazce) || strazce.hp !== strazce.maxHp) chybyBeden.push('bomba ublížila Strážci');
+if (!bum.nepratele.includes(schovany) || schovany.hp !== schovany.maxHp) chybyBeden.push('bomba našla schovaného ducha');
+if (!bum.nepratele.includes(zaOkrajem)) chybyBeden.push('bomba zabila nepřítele mimo obrazovku');
+if (bum.bomb !== 1 || !(bum.vybuch > 0 && bum.vybuch <= TRVANI_VYBUCHU) || bum.predmety.some((p) => p.druh === 'bomba')) chybyBeden.push('bomba nevybuchla jednou');
+for (let t = 0; t < TRVANI_VYBUCHU + 0.1; t += DT) aktualizuj(bum, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+if (bum.vybuch !== 0) chybyBeden.push('výbuch na obrazovce nezhasl');
+// Zlaťák pod nohama: přičte se a po hře je z něj duše.
+const zlato = tichaHra({});
+zlato.predmety.push({ druh: 'zlatak', x: 0, y: 0 }, { druh: 'zlatak', x: 5, y: 0 });
+aktualizuj(zlato, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+if (zlato.zlataky !== 2 || zlato.predmety.length || dusZaHru(zlato).zlataky !== 2 * DUSE_ZA.zlatak) chybyBeden.push(`zlaťáky: ${zlato.zlataky}`);
+// Hrdina stojí minutu bez nepřátel: bedny přibývají jen mimo obrazovku až do 12. Po skoku daleko staré zmizí.
+const louka = tichaHra({});
+louka.doBedny = 0;
+let nejvic = 0;
+for (let t = 0; t < 60; t += DT) {
+  aktualizuj(louka, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  nejvic = Math.max(nejvic, louka.bedny.length);
+  if (louka.bedny.some((b) => !mimoObrazovku(b, louka.hrdina))) { chybyBeden.push('bedna na obrazovce u stojícího hrdiny'); break; }
+}
+if (nejvic !== MAX_BEDEN || louka.bedny.length !== MAX_BEDEN) chybyBeden.push(`u stojícího hrdiny ${louka.bedny.length} beden (nejvíc ${nejvic})`);
+const stare = [...louka.bedny];
+louka.hrdina.x += 5000;
+aktualizuj(louka, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+if (stare.some((b) => louka.bedny.includes(b))) chybyBeden.push('bedny daleko za hrdinou nezmizely');
+// Hlavní hra: bedny se objevovaly, rozbíjely a kořist sedí s počtem rozbitých.
+if (maxBeden > MAX_BEDEN) chybyBeden.push(`beden naráz ${maxBeden}`);
+if (hra.beden === 0 || (hra.cas > 120 && hra.rozbitoBeden === 0)) chybyBeden.push(`v hlavní hře objeveno ${hra.beden} beden, rozbito ${hra.rozbitoBeden}`);
+if (korist(hra) !== hra.rozbitoBeden) chybyBeden.push(`kořisti ${korist(hra)}, rozbito ${hra.rozbitoBeden}`);
+
 const zaokrouhli = (s) => Object.fromEntries(Object.entries(s).map(([id, p]) => [id, Math.round(p * 1000) / 10]));
 
 const vysledek = {
@@ -550,10 +668,14 @@ const vysledek = {
   zasahu_oblakem: zasahuOblakem,
   max_duchu_najednou: maxDuchu,
   prumer_schovanych_duchu: Math.round((duchuSchovanych / Math.max(1, hra.cas / DT)) * 10) / 10,
+  bedny: {
+    objevilo: hra.beden, rozbito: hra.rozbitoBeden, max_naraz: maxBeden, korist: hra.zBeden, zlataku: hra.zlataky, bomb: hra.bomb,
+    rozbila_zbran_za_s: rozbiteZbrani,
+  },
 };
 console.log(JSON.stringify(vysledek, null, 2));
 
-const chyby = [...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel), ...chybyVybavy, ...chybyLucerny];
+const chyby = [...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel), ...chybyVybavy, ...chybyLucerny, ...new Set(chybyBeden)];
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);
 if (hra.zabito === 0) chyby.push('nikdo nezemřel, zbraně asi nestřílí');
 if (hra.hrdina.uroven < 3) chyby.push('hrdina skoro nepostoupil, krystaly se asi nesbírají');
