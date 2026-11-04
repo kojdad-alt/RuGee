@@ -12,6 +12,9 @@ const PALETA = {
   y: '#f2c94c', Y: '#fff3b0',
   e: '#b8443c', E: '#7a2b2e',
   u: '#7f9cf0', U: '#dfe8ff',
+  a: '#e4f6f3', A: '#9fc8c6',
+  G: '#8d9098', D: '#53565e', H: '#c9ccd2',
+  i: '#9b59c9', I: '#d6a9f2', j: '#5e2f86',
 };
 
 const SPRITY = {
@@ -95,6 +98,39 @@ const SPRITY = {
     '..NNNN..',
     '.n.NN.n.',
     'n......n',
+  ],
+  // Duch: bledý závoj s dírami místo očí a roztřepeným lemem (ve hře je navíc průsvitný).
+  duch: [
+    '..aaaa..',
+    '.aaaaaa.',
+    'aaKaaKaA',
+    'aaKaaKaA',
+    'aaaaaaaA',
+    'aaaKKaAA',
+    'aaaaaaAA',
+    'a.aA.aA.',
+  ],
+  // Houbák: fialová jedovatá houba s nožičkami, po smrti z ní vyletí jedový oblak stejné barvy.
+  houbak: [
+    '..iiii..',
+    '.iIiiIi.',
+    'iiiiiiIi',
+    'iIiiiiij',
+    'jjjjjjjj',
+    '.fKffKf.',
+    '.ffffff.',
+    '.ff..ff.',
+  ],
+  // Vlk z boku, kouká doprava: vztyčené uši, žluté oko, světlé břicho.
+  vlk: [
+    '.....D.D',
+    '.....GGG',
+    'D...GGyG',
+    '.DGGGGGK',
+    '..GHHHG.',
+    '..GG.GG.',
+    '..D...D.',
+    '.DD..DD.',
   ],
   krystal: [
     '........',
