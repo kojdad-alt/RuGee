@@ -13,6 +13,10 @@ export const ZBRANE = {
     nazev: 'Krumpáče',
     popis: ['Krumpáč krouží kolem tebe.', '+1 krumpáč', 'Rychlejší otáčení', '+1 krumpáč', 'Větší poškození'],
   },
+  blesk: {
+    nazev: 'Blesk',
+    popis: ['Blesk udeří do nepřítele a přeskočí na další.', '+1 přeskok', 'Častější údery', '+2 přeskoky', 'Větší poškození'],
+  },
 };
 
 export const PASIVY = {
@@ -56,6 +60,7 @@ export function novaHra(rng) {
     krystaly: [],
     predmety: [],
     cisla: [],
+    blesky: [],
     uhelKrumpacu: 0,
     doSpawnu: 0,
     dalsiBoss: BOSS_KAZDYCH,
@@ -119,10 +124,12 @@ export function staty(hra) {
   const j = u('jiskra');
   const l = u('lucerna');
   const k = u('krumpace');
+  const b = u('blesk');
   return {
     jiskra: { pocet: 1 + (j >= 2) + (j >= 4), nabiti: j >= 3 ? 0.5 : 0.7, poskozeni: j >= 5 ? 16 : 11 },
     lucerna: { dosah: 56 + 22 * ((l >= 2) + (l >= 4)), zar: 14 + 9 * ((l >= 3) + (l >= 5)) },
     krumpace: { pocet: 1 + (k >= 2) + (k >= 4), rychlost: k >= 3 ? 4.5 : 3, poskozeni: k >= 5 ? 18 : 12, polomer: 64 },
+    blesk: { preskoky: 2 + (b >= 2) + 2 * (b >= 4), nabiti: b >= 3 ? 1.5 : 2.2, poskozeni: b >= 5 ? 30 : 20, dosah: 320, skok: 110 },
   };
 }
 
@@ -235,6 +242,35 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       }
     }
   }
+
+  // Blesk: udeří do náhodného nepřítele v dosahu a přeskakuje na nejbližší dosud nezasažené.
+  if (hra.zbrane.blesk) {
+    const bl = hra.zbrane.blesk;
+    bl.nabiti = (bl.nabiti ?? 0) - dt;
+    const vDosahu = hra.nepratele.filter((n) => n.hp > 0 && vzdalenost(n, hrdina) < s.blesk.dosah);
+    if (bl.nabiti <= 0 && vDosahu.length) {
+      let cil = hra.rng.vyber(vDosahu);
+      const zasazeni = new Set();
+      const body = [{ x: hrdina.x, y: hrdina.y }];
+      for (let i = 0; i <= s.blesk.preskoky && cil; i++) {
+        zasah(hra, cil, s.blesk.poskozeni);
+        zasazeni.add(cil);
+        body.push({ x: cil.x, y: cil.y });
+        let dalsi = null;
+        let nejD = s.blesk.skok;
+        for (const n of hra.nepratele) {
+          if (zasazeni.has(n) || n.hp <= 0) continue;
+          const d = vzdalenost(n, cil);
+          if (d < nejD) { dalsi = n; nejD = d; }
+        }
+        cil = dalsi;
+      }
+      hra.blesky.push({ body, zivot: 0.18 });
+      bl.nabiti = s.blesk.nabiti;
+    }
+  }
+  for (const b of hra.blesky) b.zivot -= dt;
+  hra.blesky = hra.blesky.filter((b) => b.zivot > 0);
 
   // smrt nepřátel → krystaly
   for (const n of hra.nepratele) {
