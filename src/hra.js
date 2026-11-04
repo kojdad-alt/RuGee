@@ -41,7 +41,7 @@ export function novaHra(rng) {
     volby: null,
     hrdina: {
       x: 0, y: 0, hp: 100, maxHp: 100, rychlost: 110, magnet: 64,
-      sila: 1, uroven: 1, xp: 0, potreba: 5, nezranitelny: 0, otoceny: 1,
+      sila: 1, uroven: 1, xp: 0, potreba: potrebaNaUroven(1), nezranitelny: 0, otoceny: 1,
     },
     zbrane: { jiskra: { uroven: 1, nabiti: 0 } },
     pasivy: {},
@@ -52,6 +52,11 @@ export function novaHra(rng) {
     uhelKrumpacu: 0,
     doSpawnu: 0,
   };
+}
+
+// Prvních pár úrovní přijde rychle, ať má hráč brzy víc zbraní; pak křivka zvolna roste.
+export function potrebaNaUroven(uroven) {
+  return Math.round(3 + uroven * 1.5 + (uroven * uroven) / 12);
 }
 
 function vzdalenost(a, b) {
@@ -241,7 +246,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   if (hrdina.xp >= hrdina.potreba) {
     hrdina.xp -= hrdina.potreba;
     hrdina.uroven += 1;
-    hrdina.potreba = 5 + hrdina.uroven * 3;
+    hrdina.potreba = potrebaNaUroven(hrdina.uroven);
     hra.volby = nabidka(hra);
   }
 
