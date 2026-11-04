@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hlubiny</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="platno" aria-label="Hlubiny"></canvas>
+
+<div class="hud" aria-hidden="true">
+  <div class="xp"><div id="xp-pruh" class="xp-pruh"></div></div>
+  <div class="hud-radek">
+    <span>Úroveň <b id="uroven">1</b></span>
+    <span id="cas" class="cas">0:00</span>
+    <span>Zabito <b id="zabito">0</b></span>
+  </div>
+</div>
+
+<section id="volba" class="okno" hidden>
+  <h2>Nová úroveň</h2>
+  <p class="podtitul">Vyber jedno vylepšení (klávesy 1–3)</p>
+  <div id="karty" class="karty"></div>
+</section>
+
+<section id="konec" class="okno" hidden>
+  <h2>Hlubiny tě pohltily</h2>
+  <p id="konec-text" class="podtitul"></p>
+  <button id="znovu" type="button">Znovu (R)</button>
+</section>
+
+<p class="napoveda">Pohyb: WASD nebo šipky · zbraně střílí samy · P pauza</p>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

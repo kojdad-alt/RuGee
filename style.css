@@ -1,0 +1,128 @@
+:root {
+  --pozadi: #0b0a0f;
+  --panel: #17151d;
+  --okraj: #3a3446;
+  --text: #ece6da;
+  --text-tlumeny: #a39cae;
+  --zlata: #e9c46a;
+  --xp: #4fd6c9;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--pozadi);
+  color: var(--text);
+  font: 15px/1.4 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+#platno {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.hud {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 16px;
+  pointer-events: none;
+}
+
+.xp {
+  height: 10px;
+  background: #1d1b24;
+  border: 2px solid var(--okraj);
+}
+
+.xp-pruh {
+  height: 100%;
+  width: 0;
+  background: var(--xp);
+}
+
+.hud-radek {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  text-shadow: 0 2px 0 #000;
+}
+
+.cas {
+  font-size: 22px;
+  color: var(--zlata);
+}
+
+.okno {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(720px, calc(100% - 32px));
+  background: var(--panel);
+  border: 3px solid var(--okraj);
+  padding: 20px;
+  text-align: center;
+}
+
+.okno h2 {
+  margin: 0;
+  color: var(--zlata);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.podtitul {
+  margin: 6px 0 16px;
+  color: var(--text-tlumeny);
+}
+
+.karty {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.karta, #znovu {
+  font: inherit;
+  color: var(--text);
+  background: #221f2b;
+  border: 2px solid var(--okraj);
+  padding: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.karta:hover, .karta:focus-visible, #znovu:hover, #znovu:focus-visible {
+  border-color: var(--zlata);
+  outline: none;
+}
+
+.karta b {
+  display: block;
+  color: var(--zlata);
+  margin-bottom: 4px;
+}
+
+.karta small {
+  color: var(--text-tlumeny);
+}
+
+.napoveda {
+  position: fixed;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+  color: var(--text-tlumeny);
+  font-size: 12px;
+  pointer-events: none;
+}
