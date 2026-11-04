@@ -109,6 +109,7 @@ import {
   SANCE_ZLATAKU, MESEC, KUPEC, ZBOZI, PORADI_ZBOZI, RUST_CEN, LECENI_LEKTVARU, PREHOZENI, MAX_ZAMCENYCH, PRVNI_ZAMCENA, CENA_ZAMCENE,
   POLOMER_ZAMCENE, cenaZbozi, prekazkaNakupu, nabidkaKupce, kup, odejdiOdKupce, cenaPrehozeni, prehod,
   POLOMER_HRDINY, SKOK_ZABY, poradiBossu, zakladBosse,
+  pasivyDoZbrane, NASOBEK_KRITU,
 } from '../src/hra.js';
 import {
   VYBAVA, PORADI_SLOTU, VSECHNY_KUSY, RARITY_VYBAVY, PORADI_RARIT_VYBAVY, EFEKTY_VYBAVY, STATY_VYBAVY, STROPY_VYBAVY,
@@ -519,7 +520,9 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
   for (const c of hra.cisla) {
     if (videnaCisla.has(c)) continue;
     videnaCisla.add(c);
-    if (!(c.hodnota > 0) || c.text !== (['zraneni', 'jed', 'utrata'].includes(c.barva) ? `-${c.hodnota}` : c.barva === 'leceni' || c.barva === 'zlato' ? `+${c.hodnota}` : kratkeCislo(c.hodnota))) {
+    const text = ['zraneni', 'jed', 'utrata'].includes(c.barva) ? `-${c.hodnota}` : c.barva === 'leceni' || c.barva === 'zlato' ? `+${c.hodnota}`
+      : c.barva === 'krit' ? `${kratkeCislo(c.hodnota)}!` : kratkeCislo(c.hodnota);
+    if (!(c.hodnota > 0) || c.text !== text) {
       chybyCisel.push(`číslo ${c.text} (${c.hodnota}, ${c.barva}) v čase ${t.toFixed(1)} s`);
     }
   }
@@ -1344,7 +1347,7 @@ const souboj = (druh, { uhyba = true, vlny = false, sekund = 90 } = {}) => {
     zasahy, pouzil: { ...h.schopnostiPouzito },
   };
 };
-const soucet = { samUhyba: 0, samNeuhyba: 0, vlnyUhyba: 0, vlnyNeuhyba: 0 };
+const soucet = { samUhyba: 0, samNeuhyba: 0, vlnyUhyba: 0, vlnyNeuhyba: 0, samUhybaS: 0, samNeuhybaS: 0, vlnyUhybaS: 0, vlnyNeuhybaS: 0 };
 for (const druh of PORADI_BOSSU) {
   const sam = souboj(druh);
   const samNe = souboj(druh, { uhyba: false });
@@ -1354,6 +1357,10 @@ for (const druh of PORADI_BOSSU) {
   soucet.samNeuhyba += samNe.utokem;
   soucet.vlnyUhyba += uhyba.utokem;
   soucet.vlnyNeuhyba += neuhyba.utokem;
+  soucet.samUhybaS += Math.max(1, sam.za_s);
+  soucet.samNeuhybaS += Math.max(1, samNe.za_s);
+  soucet.vlnyUhybaS += Math.max(1, uhyba.za_s);
+  soucet.vlnyNeuhybaS += Math.max(1, neuhyba.za_s);
   const shrn = (v) => ({ porazen: v.porazen, za_s: v.za_s, padl: v.konec, ztraceno_zivotu: v.ztraceno, zasahu_schopnostmi: v.utokem, zasahy: v.zasahy });
   souboje[druh] = {
     sam_porazen_za_s: sam.porazen ? sam.za_s : null,
@@ -1363,8 +1370,11 @@ for (const druh of PORADI_BOSSU) {
   };
   if (!sam.porazen || sam.konec) chybyBossu.push(`${druh} se sám na sám nedal porazit za 90 s (${sam.konec ? 'hrdina padl' : `zbývá ${sam.zbyva}`})`);
 }
-if (!(soucet.samNeuhyba > soucet.samUhyba)) chybyBossu.push(`sám na sám schopnosti trefí neuhýbajícího ${soucet.samNeuhyba}×, uhýbajícího ${soucet.samUhyba}×`);
-if (!(soucet.vlnyNeuhyba > soucet.vlnyUhyba)) chybyBossu.push(`ve vlnách schopnosti trefí neuhýbajícího ${soucet.vlnyNeuhyba}×, uhýbajícího ${soucet.vlnyUhyba}×`);
+// Porovnávají se zásahy za sekundu souboje: kdo neuhýbá, padne nebo bosse složí dřív a na další zásahy už nezbude
+// čas (ve vlnách to při malých počtech přehodilo i jiné složení karet).
+const zaSekundu = (zasahu, sekund) => zasahu / Math.max(1, sekund);
+if (!(zaSekundu(soucet.samNeuhyba, soucet.samNeuhybaS) > zaSekundu(soucet.samUhyba, soucet.samUhybaS))) chybyBossu.push(`sám na sám schopnosti trefí neuhýbajícího ${soucet.samNeuhyba}× za ${soucet.samNeuhybaS} s, uhýbajícího ${soucet.samUhyba}× za ${soucet.samUhybaS} s`);
+if (!(zaSekundu(soucet.vlnyNeuhyba, soucet.vlnyNeuhybaS) > zaSekundu(soucet.vlnyUhyba, soucet.vlnyUhybaS))) chybyBossu.push(`ve vlnách schopnosti trefí neuhýbajícího ${soucet.vlnyNeuhyba}× za ${soucet.vlnyNeuhybaS} s, uhýbajícího ${soucet.vlnyUhyba}× za ${soucet.vlnyUhybaS} s`);
 
 // Trnová past a Zrcadlový štít zblízka. Hrdina stojí sám (bez vln, beden a bossů).
 const chybyZbrani = [];
@@ -2081,6 +2091,142 @@ const prakovePokusy = {};
   if (duch.hp !== duch.maxHp || a.hp === a.maxHp || b.hp === b.maxHp) chybyZbrani.push('kameny našly schovaného ducha nebo minuly');
 }
 
+// Pasivy pro zbraně (Kritický zásah, Rozpětí, Ozvěna, Výdrž, Rychlé ruce, Příval). Data: každá pasiva má ikonu se
+// spritem a každá zbraň říká, co z ní která pasiva čte (čísla, která opravdu má). Bez pasiv jsou čísla zbraní
+// stejná jako dřív a los pasiv se nehne. Rozpětí, Výdrž a Příval změní přesně ta čísla, Rychlé ruce zrychlí každou
+// zbraň, kritický zásah bolí dvakrát se zlatým číslem a padá s danou šancí, Příval se nabízí zřídka a nejvýš 3.
+// Pak každá zbraň sama 15 s v plné hře od 10. minuty se všemi pasivami: ozvěna, kritické zásahy i delší efekty
+// musí být opravdu vidět (ve hře, ne jen v číslech) a nic se nerozbije.
+const chybyPasiv = [];
+const pasivyZbrani = { zbrane: {} };
+{
+  const NOVE = ['krit', 'rozpeti', 'ozvena', 'vydrz', 'rychleRuce', 'prival'];
+  for (const id of NOVE) {
+    const p = PASIVY[id];
+    if (!p || !jmenaSpritu.has(p.ikona) || !p.popis || !p.popisDal || STROPY.pasivy[id] === undefined) chybyPasiv.push(`pasiva ${id}: chybí data, ikona nebo strop`);
+  }
+  for (const p of Object.values(PASIVY)) if (!jmenaSpritu.has(p.ikona)) chybyPasiv.push(`pasiva ${p.nazev} nemá sprite ikony`);
+  const bez = novaHra(vytvorRng(seminko));
+  bez.zbrane = Object.fromEntries(Object.keys(ZBRANE).map((id) => [id, { uroven: ZAKLAD_UROVNI, nabiti: 0 }]));
+  const sBez = staty(bez);
+  const ciste = (id, u = ZAKLAD_UROVNI, n = 1) => statyZbrane(id, u, n);
+  for (const [id, z] of Object.entries(ZBRANE)) {
+    const p = z.pasivy;
+    const c = ciste(id);
+    const pole = [...(p?.rozpeti ?? []), ...(p?.vydrz ?? []), ...Object.keys(p?.vydrzNavic ?? {}), p?.prival];
+    if (!p?.rozpeti?.length || !(p.vydrz?.length || Object.keys(p.vydrzNavic ?? {}).length) || !p.prival) chybyPasiv.push(`${id}: některou pasivu nečte`);
+    for (const f of pole) if (typeof c[f] !== 'number') chybyPasiv.push(`${id}: pasiva čte ${f}, které zbraň nemá`);
+    if (JSON.stringify(sBez[id]) !== JSON.stringify(c)) chybyPasiv.push(`${id}: bez pasiv jiná čísla než dřív`);
+    // Rozpětí 1,5, Výdrž 2 a Příval 2 změní přesně svá čísla.
+    const s2 = pasivyDoZbrane(id, ciste(id), { rozpeti: 1.5, vydrz: 2, prival: 2 });
+    for (const [f, v] of Object.entries(c)) {
+      let cekam = v;
+      if (p.rozpeti.includes(f)) cekam *= 1.5;
+      if (p.vydrz?.includes(f)) cekam *= 2;
+      if (p.vydrzNavic?.[f]) cekam += p.vydrzNavic[f];
+      if (p.prival === f) cekam += 2;
+      if (!(Math.abs(s2[f] - cekam) <= 1e-9 * Math.max(1, Math.abs(cekam)))) chybyPasiv.push(`${id}: ${f} s pasivami ${s2[f]} místo ${cekam}`);
+    }
+    // Rychlé ruce: kratší nabíjení zbraň opravdu zrychlí (něco z jejích čísel se změní správným směrem).
+    const rychle = ciste(id, ZAKLAD_UROVNI, 0.7);
+    const rychlejsi = Object.keys(c).some((f) => rychle[f] !== c[f]);
+    // Co zbraň nabíjí: nabiti (střelba, trsy, semínka …), u lucerny a stopy tik, u krumpáčů, zrcadel a cepu točení.
+    const cadence = 'nabiti' in c ? 'nabiti' : 'tik' in c ? 'tik' : null;
+    const spatne = (cadence && !(rychle[cadence] < c[cadence])) || ['rychlost', 'rozmach'].some((f) => f in c && id !== 'svetlusky' && !(rychle[f] > c[f]));
+    if (!rychlejsi || spatne) chybyPasiv.push(`${id}: Rychlé ruce zbraň nezrychlí`);
+  }
+  if (bez.losuPasiv !== 0) chybyPasiv.push('los pasiv se pohnul bez pasiv');
+
+  // Kritický zásah: s šancí 1 dvojnásobek a zlaté číslo s vykřičníkem, bez něj obyčejná rána, s 0,3 asi každá třetí.
+  const k = novaHra(vytvorRng(seminko));
+  const terc = pridejNepritele(k, 'slizak', 300, 0);
+  terc.hp = terc.maxHp = 1e9;
+  zasah(k, terc, 10);
+  const obycejna = 1e9 - terc.hp;
+  k.hrdina.krit = 1;
+  const pred = terc.hp;
+  zasah(k, terc, 10);
+  const kriticka = pred - terc.hp;
+  const zlate = k.cisla.filter((c) => c.barva === 'krit');
+  if (obycejna !== 10 || kriticka !== 10 * NASOBEK_KRITU || zlate.length !== 1 || zlate[0].text !== `${10 * NASOBEK_KRITU}!` || k.kritu !== 1) {
+    chybyPasiv.push(`kritický zásah: ${obycejna} → ${kriticka}, čísla ${JSON.stringify(zlate.map((c) => c.text))}`);
+  }
+  k.hrdina.krit = 0.3;
+  const krituPred = k.kritu;
+  for (let i = 0; i < 5000; i++) zasah(k, terc, 10);
+  const podilKritu = (k.kritu - krituPred) / 5000;
+  if (Math.abs(podilKritu - 0.3) > 0.03) chybyPasiv.push(`kritický zásah s šancí 0,3 padl v ${podilKritu}`);
+  pasivyZbrani.podil_kritu_pri_sanci_30 = Math.round(podilKritu * 1000) / 1000;
+
+  // Příval se nabízí zřídka: proti průměrné jiné pasivě zhruba v poměru jeho váhy.
+  const nab = novaHra(vytvorRng(seminko));
+  const kolikrat = Object.fromEntries(Object.keys(PASIVY).map((id) => [id, 0]));
+  for (let i = 0; i < 4000; i++) for (const v of nabidka(nab)) if (v.druh === 'pasiva') kolikrat[v.id] += 1;
+  const jine = Object.entries(kolikrat).filter(([id]) => id !== 'prival').map(([, n]) => n);
+  const pomer = kolikrat.prival / (jine.reduce((a, b) => a + b, 0) / jine.length);
+  if (!(pomer > PASIVY.prival.vaha * 0.6 && pomer < PASIVY.prival.vaha * 1.4)) chybyPasiv.push(`Příval se nabízí v poměru ${pomer}`);
+  pasivyZbrani.privalu_proti_jine_pasive = Math.round(pomer * 100) / 100;
+
+  // Výdrž u lucerny: kdo ze světla vyjde, toho žár ještě chvíli pálí, bez Výdrže ne.
+  for (const vydrz of [1, 2]) {
+    const l = novaHra(vytvorRng(seminko));
+    l.zbrane = { lucerna: { uroven: 1, nabiti: 0 } };
+    l.hrdina.vydrz = vydrz;
+    Object.assign(l, { doSpawnu: 999, doBedny: 999, doZamcene: 999 });
+    const n = pridejNepritele(l, 'slizak', 30, 0);
+    n.hp = n.maxHp = 1e6;
+    n.rychlost = 0;
+    aktualizuj(l, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    n.x = 400;
+    const venku = n.hp;
+    for (let t = 0; t < 0.5; t += DT) aktualizuj(l, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    if ((n.hp < venku) !== (vydrz > 1)) chybyPasiv.push(`lucerna s Výdrží ${vydrz}: mimo světlo ${venku - n.hp} poškození`);
+  }
+
+  // Každá zbraň sama se všemi pasivami.
+  const VSE = { krit: 0.25, rozpeti: 1.3, ozvena: 0.5, vydrz: 2, prival: 2 };
+  const zaklad5 = (id) => ciste(id);
+  for (const id of Object.keys(ZBRANE)) {
+    const h = novaHra(vytvorRng(seminko));
+    h.zbrane = { [id]: { uroven: ZAKLAD_UROVNI, nabiti: 0 } };
+    Object.assign(h, { cas: 600, dalsiBoss: 1e9, dalsiSmecka: null, dalsiPrichod: 4 });
+    Object.assign(h.hrdina, VSE);
+    const st = staty(h)[id];
+    const z5 = zaklad5(id);
+    const nejvic = { odhozen: 0, otres: 0, dosvit: 0, drzen: 0, omracen: 0, mraz: 0, hori: 0, blesku: 0, strel: 0, kamen: 0, trs: 0, zona: 0, seminko: 0, plamen: 0, bocnich: 0 };
+    for (let t = 0; t < 15; t += DT) {
+      h.hrdina.nezranitelny = 1;
+      aktualizuj(h, DT, rozhodni(h, t), SIRKA, VYSKA);
+      if (h.porovnani) rozhodniKus(h, false);
+      if (h.volby) vyber(h, { druh: 'leceni', kroku: 1 });
+      if (h.obchod) odejdiOdKupce(h);
+      for (const n of h.nepratele) for (const co of ['odhozen', 'otres', 'dosvit', 'drzen', 'omracen', 'mraz', 'hori']) nejvic[co] = Math.max(nejvic[co], n[co] || 0);
+      nejvic.blesku = Math.max(nejvic.blesku, h.blesky.length);
+      for (const [co, pole, f] of [['strel', 'strely', 'zivot'], ['kamen', 'oblazky', 'zivot'], ['trs', 'trny', 'trvani'], ['zona', 'ledoveZony', 'trvani'], ['seminko', 'seminka', 'trvani'], ['plamen', 'plameny', 'trvani']]) {
+        for (const o of h[pole]) nejvic[co] = Math.max(nejvic[co], o[f]);
+      }
+      for (const pl of h.plameny) nejvic.bocnich = Math.max(nejvic.bocnich, pl.bocni?.length ?? 0);
+      if (id === 'svetlusky' && h.svetlusky.length !== st.pocet) chybyPasiv.push(`světlušek ${h.svetlusky.length} místo ${st.pocet}`);
+      if (id === 'cep' && h.koule.length !== st.pocet) chybyPasiv.push(`koulí ${h.koule.length} místo ${st.pocet}`);
+      if (!Number.isFinite(h.hrdina.x) || h.nepratele.some((n) => !Number.isFinite(n.x) || !Number.isFinite(n.hp))) throw new Error(`NaN se zbraní ${id} a pasivami`);
+    }
+    const ozvena = h.ozvenVystrelu + h.ozvenZasahu;
+    // Co má Výdrž u které zbraně prodloužit (a o kolik nejméně, než bez ní).
+    const delsi = {
+      jiskra: nejvic.strel > z5.zivot, lucerna: nejvic.dosvit > 0, krumpace: h.otreseno > 0, blesk: h.otreseno > 0,
+      trny: nejvic.trs > z5.trvani * 1.5, zrcadlo: nejvic.odhozen > TRVANI_ODHOZENI * 1.5, svetlusky: h.otreseno > 0,
+      mraz: nejvic.zona > z5.trvani * 1.5 && nejvic.mraz > DOZNIVANI_MRAZU, zvon: nejvic.omracen > z5.omraceni * 1.5 && nejvic.odhozen > TRVANI_ODHOZENI * 1.5,
+      cep: nejvic.odhozen > TRVANI_ODHOZENI * 1.5, seminka: nejvic.seminko > z5.trvani * 1.5, korene: nejvic.drzen > z5.trvani * 1.5,
+      stopa: nejvic.plamen > z5.trvani * 1.5 && nejvic.hori > z5.hori * 1.5, prak: nejvic.kamen > ZIVOT_KAMENE,
+    }[id];
+    // Co má Příval u které zbraně přidat i ve hře (u ostatních stačí čísla: kusy čtou přímo ze staty).
+    const vic = { blesk: nejvic.blesku >= 2, lucerna: h.zasahuUhliky > 0, stopa: nejvic.bocnich === VSE.prival }[id] ?? st[ZBRANE[id].pasivy.prival] === z5[ZBRANE[id].pasivy.prival] + VSE.prival;
+    pasivyZbrani.zbrane[id] = { zabito: h.zabito, kritu: h.kritu, ozven: ozvena, otreseno: h.otreseno, uhliky: h.zasahuUhliky, vydrz: delsi, prival: vic };
+    if (!(h.zabito > 0) || !(h.kritu > 0) || !(ozvena > 0) || !delsi || !vic) chybyPasiv.push(`${id} se všemi pasivami: ${JSON.stringify(pasivyZbrani.zbrane[id])}`);
+    if ((id === 'krumpace' || id === 'blesk' || id === 'svetlusky') !== (h.otreseno > 0)) chybyPasiv.push(`${id}: otřes ${h.otreseno}× (má jen u okamžitých zásahů)`);
+  }
+}
+
 // Úrovně bez stropu. Každá zbraň až do 200. úrovně: do 5. bez bonusu (stejně jako dřív), pak každá úroveň víc
 // poškození, každá třetí ještě kus, nabíjení nebo velikost, dokud to jde, a nic přes strop. Řádky karty sedí s tím,
 // co úroveň opravdu přidala. Data růstu (poradi, čísla, texty) musí k sobě pasovat.
@@ -2142,26 +2288,34 @@ for (const [id, p] of Object.entries(PASIVY)) {
   const sila0 = h.hrdina.sila;
   let predHodnota = zaklad;
   let predSila = sila0;
+  // Záporný nasobek (Rychlé ruce) vlastnost zmenšuje, „přidat“ je pak zmenšit.
+  const roste = (p.pricti ?? p.nasobek) > 0;
+  const pridal = (ted, pred) => (roste ? ted > pred : ted < pred);
+  // Příval má strop už na 3. úrovni, karta pak dá poškození i pod 5. úrovní.
+  const naStropuOd = Array.from({ length: 60 }, (_, i) => i + 1).find((u) => hodnotaPasivy(id, u) === hodnotaPasivy(id, u - 1)) ?? Infinity;
   for (let u = 1; u <= 60; u++) {
     const v = karta(h, 'pasiva', id, 'bezna');
     if (v.uroven !== u || v.popis.length !== 1) chybyUrovni.push(`${id}: karta na ${u}. úroveň ${v.uroven} „${v.popis}“`);
+    if (u < naStropuOd && u <= ZAKLAD_UROVNI && v.popis[0] !== p.popis) chybyUrovni.push(`${id}: karta na ${u}. úroveň „${v.popis}“`);
     vyber(h, v);
     const ted = h.hrdina[p.vlastnost];
     const ocekavano = p.pricti ? zaklad + hodnotaPasivy(id, u) : zaklad * hodnotaPasivy(id, u);
     if (!relBlizko(ted, ocekavano)) chybyUrovni.push(`${id} na ${u}: ${p.vlastnost} ${ted} místo ${ocekavano}`);
-    if (u === ZAKLAD_UROVNI && !relBlizko(ted, p.pricti ? zaklad + p.pricti * u : zaklad * (1 + p.nasobek) ** u)) chybyUrovni.push(`${id}: 5. úroveň jinak než dřív`);
-    if (!(ted > predHodnota) && !(h.hrdina.sila > predSila)) chybyUrovni.push(`${id} na ${u}. úrovni nic nepřidal`);
-    if (u > ZAKLAD_UROVNI && ted > predHodnota && !p.pricti && !(ted / predHodnota < 1 + p.nasobek)) chybyUrovni.push(`${id} na ${u}. úrovni nepřidal menší díl`);
+    if (u === Math.min(ZAKLAD_UROVNI, naStropuOd - 1) && !relBlizko(ted, p.pricti ? zaklad + p.pricti * u : zaklad * (1 + p.nasobek) ** u)) chybyUrovni.push(`${id}: ${u}. úroveň jinak než dřív`);
+    if (!pridal(ted, predHodnota) && !(h.hrdina.sila > predSila)) chybyUrovni.push(`${id} na ${u}. úrovni nic nepřidal`);
+    if (u >= naStropuOd && !(h.hrdina.sila > predSila)) chybyUrovni.push(`${id} na ${u}. úrovni na stropu nepřidal poškození`);
+    if (u > ZAKLAD_UROVNI && pridal(ted, predHodnota) && !p.pricti && !(Math.abs(ted / predHodnota - 1) < Math.abs(p.nasobek))) chybyUrovni.push(`${id} na ${u}. úrovni nepřidal menší díl`);
     predHodnota = ted;
     predSila = h.hrdina.sila;
   }
   const nasobek = p.pricti ? null : h.hrdina[p.vlastnost] / zaklad;
   const strop = STROPY.pasivy[id];
-  if (strop && !relBlizko(nasobek, strop)) chybyUrovni.push(`${id} na 60. úrovni ${nasobek}× místo stropu ${strop}×`);
+  const naKonci = p.pricti ? h.hrdina[p.vlastnost] - zaklad : nasobek;
+  if (strop && !relBlizko(naKonci, strop)) chybyUrovni.push(`${id} na 60. úrovni ${naKonci} místo stropu ${strop}`);
   if (strop && !(h.hrdina.sila > sila0)) chybyUrovni.push(`${id} na stropu nepřidává poškození`);
   if (!strop && id !== 'sila' && h.hrdina.sila !== sila0) chybyUrovni.push(`${id} bez stropu změnil poškození`);
   if (strop && popisUrovni('pasiva', id, 59, 60)[0] !== `+${Math.round(SILA_ZA_PREBYTEK * 100)} % poškození všech zbraní`) chybyUrovni.push(`${id}: karta na stropu`);
-  pasivy60[id] = p.pricti ? `+${h.hrdina[p.vlastnost] - zaklad}` : `${Math.round(nasobek * 100) / 100}×`;
+  pasivy60[id] = p.pricti ? `+${Math.round((h.hrdina[p.vlastnost] - zaklad) * 1000) / 1000}` : `${Math.round(nasobek * 100) / 100}×`;
 }
 // Nabídka nikdy nedojde: se vším na 50. úrovni jsou pořád tři různé karty na další úrovně.
 {
@@ -2195,20 +2349,21 @@ let silnaMaxKamenu = 0;
 for (let t = 0; t < 30 && !silna.konec; t += DT) {
   aktualizuj(silna, DT, rozhodni(silna, t), SIRKA, VYSKA);
   silnaMaxCisel = Math.max(silnaMaxCisel, silna.cisla.length);
+  // Koule cepu před výběrem karty (Příval nebo Rozpětí z karty platí až od dalšího snímku).
+  const stCepu = staty(silna).cep;
+  if (silna.koule.length !== stCepu.pocet || silna.koule.some((k, i) => Math.hypot(k.x - silna.hrdina.x, k.y - silna.hrdina.y) > delkaRetezu(stCepu, i) + 1e-6)) {
+    chybyUrovni.push(`na 60. úrovni ${silna.koule.length} koulí cepu nebo koule dál než řetěz`);
+  }
   obsluz(silna);
   silnaMaxStrel = Math.max(silnaMaxStrel, silna.strely.length);
   silnaMaxTrsu = Math.max(silnaMaxTrsu, silna.trny.length);
   silnaMaxZon = Math.max(silnaMaxZon, silna.ledoveZony.length);
-  if (silna.svetlusky.length > STROPY.pocet) chybyUrovni.push(`na 60. úrovni ${silna.svetlusky.length} světlušek`);
+  if (silna.svetlusky.length > STROPY.pocet + silna.hrdina.prival) chybyUrovni.push(`na 60. úrovni ${silna.svetlusky.length} světlušek`);
   silnaMaxSeminek = Math.max(silnaMaxSeminek, silna.seminka.length);
   silnaMaxVlnZvonu = Math.max(silnaMaxVlnZvonu, silna.vlnyZvonu.length);
   silnaMaxKorenu = Math.max(silnaMaxKorenu, silna.korene.length);
   silnaMaxPlamenu = Math.max(silnaMaxPlamenu, silna.plameny.length);
   silnaMaxKamenu = Math.max(silnaMaxKamenu, silna.oblazky.length);
-  const stCepu = staty(silna).cep;
-  if (silna.koule.length !== stCepu.pocet || silna.koule.some((k, i) => Math.hypot(k.x - silna.hrdina.x, k.y - silna.hrdina.y) > delkaRetezu(stCepu, i) + 1e-6)) {
-    chybyUrovni.push(`na 60. úrovni ${silna.koule.length} koulí cepu nebo koule dál než řetěz`);
-  }
   if (![silna.hrdina.x, silna.hrdina.y, silna.hrdina.hp].every(Number.isFinite) || silna.nepratele.some((n) => !Number.isFinite(n.x) || !Number.isFinite(n.hp))) {
     throw new Error(`NaN se zbraněmi na 60. úrovni v čase ${t.toFixed(1)} s`);
   }
@@ -3430,6 +3585,7 @@ const vysledek = {
     silnych_procenta: Math.round(podilSilnych * 1000) / 10,
     cervenych: cervenychCisel,
     zelenych: cislaHry.filter((c) => c.barva === 'leceni').length,
+    kritickych: cislaHry.filter((c) => c.barva === 'krit').length,
     prah_silneho_na_konci: Math.round(hra.prahSilneho * 10) / 10,
   },
   trny_a_zrcadlo: {
@@ -3464,6 +3620,13 @@ const vysledek = {
     se_vsim_na_60_urovni: { max_korenu_naraz: silnaMaxKorenu, max_plamenu_naraz: silnaMaxPlamenu, max_kamenu_naraz: silnaMaxKamenu },
     sami_na_60_urovni: sami60,
     korene: korenovePokusy, stopa: stopovePokusy, prak: prakovePokusy,
+  },
+  pasivy_zbrani: {
+    hlavni_hra: {
+      pasivy: Object.fromEntries(['krit', 'rozpeti', 'ozvena', 'vydrz', 'rychleRuce', 'prival'].map((id) => [id, hra.pasivy[id] ?? 0])),
+      kritu: hra.kritu, ozven_vystrelu: hra.ozvenVystrelu, ozven_zasahu: hra.ozvenZasahu, otreseno: hra.otreseno, zasahu_uhliky: hra.zasahuUhliky,
+    },
+    ...pasivyZbrani,
   },
   vybava_bossu: {
     otevreno_truhel: otevrenoTruhel,
@@ -3505,7 +3668,7 @@ console.log(JSON.stringify(vysledek, null, 2));
 const chyby = [
   ...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel), ...chybyVybavy, ...chybyLucerny, ...new Set(chybyBeden),
   ...new Set(chybyBossu), ...chybyZbrani, ...new Set(chybyUrovni), ...new Set(chybyHrozby), ...new Set(chybyCisel),
-  ...new Set(chybyVystroje), ...new Set(chybyZlata), ...new Set(chybyMap),
+  ...new Set(chybyVystroje), ...new Set(chybyZlata), ...new Set(chybyMap), ...new Set(chybyPasiv),
 ];
 if (maxTrsu > MAX_TRNU) chyby.push(`trsů trnů naráz ${maxTrsu}`);
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);

@@ -10,6 +10,13 @@ import {
 // čísla ze statyZbrane to jsou. poskozeni a velikost se násobí, pocet je jedno číslo (+1 kus), nabiti se
 // násobí (kratší nabíjení). maxPocet = nižší strop kusů než STROPY.pocet. texty = řádek na kartě.
 // Krumpáče a zrcadla se netočí rychleji: při velké rychlosti by mezi dvěma snímky přeskočily nepřítele.
+// pasivy = co ze zbraně čtou pasivy hrdiny (pasivyDoZbrane): rozpeti = čísla, která Rozpětí násobí (velikost
+// a dosah), vydrz = trvání, která Výdrž násobí, vydrzNavic = co Výdrž přičte za každý svůj díl nad 1 (u zbraní,
+// které samy nic dlouho nedrží: dosvit lucerny, otřes po okamžitém zásahu), prival = číslo, kam Příval přidá
+// kusy. Rychlé ruce zkrátí nabíjení přes hrdina.nabijeni (CISLA_ZBRANI), Kritický zásah platí v zasah() a Ozvěna
+// přímo v kódu každé zbraně: u výstřelu (ozvi: jiskra, lucerna, blesk, trny, semínka, kořeny, prak), u zásahu
+// (ozvenaZasahu: krumpáče, zrcadla, cep, stopa, uhlíky) nebo po svém (světluška zaútočí znovu, zvon přidá vlnu,
+// ledová zóna se roztříští dvakrát).
 export const ZBRANE = {
   jiskra: {
     nazev: 'Jiskra', ikona: 'jiskra',
@@ -18,6 +25,7 @@ export const ZBRANE = {
       poradi: ['pocet', 'nabiti'], poskozeni: ['poskozeni'], pocet: 'pocet', nabiti: ['nabiti'],
       texty: { pocet: '+1 jiskra', nabiti: 'Rychlejší střelba' },
     },
+    pasivy: { rozpeti: ['velikost'], vydrz: ['zivot'], prival: 'pocet' },
   },
   lucerna: {
     nazev: 'Lucerna', ikona: 'lucerna',
@@ -26,6 +34,7 @@ export const ZBRANE = {
       poradi: ['velikost', 'nabiti'], poskozeni: ['zar'], nabiti: ['tik'], velikost: ['dosah'],
       texty: { velikost: 'Větší dosah', nabiti: 'Častější žár' },
     },
+    pasivy: { rozpeti: ['dosah'], vydrzNavic: { dosvit: 1 }, prival: 'uhliky' },
   },
   krumpace: {
     nazev: 'Krumpáče', ikona: 'krumpac',
@@ -34,6 +43,7 @@ export const ZBRANE = {
       poradi: ['pocet', 'velikost'], poskozeni: ['poskozeni'], pocet: 'pocet', velikost: ['polomer'],
       texty: { pocet: '+1 krumpáč', velikost: 'Širší kruh' },
     },
+    pasivy: { rozpeti: ['polomer', 'velikost'], vydrzNavic: { otres: 0.8 }, prival: 'pocet' },
   },
   blesk: {
     nazev: 'Blesk', ikona: 'blesk',
@@ -42,6 +52,7 @@ export const ZBRANE = {
       poradi: ['pocet', 'nabiti', 'velikost'], poskozeni: ['poskozeni'], pocet: 'preskoky', nabiti: ['nabiti'], velikost: ['skok'],
       texty: { pocet: '+1 přeskok', nabiti: 'Častější údery', velikost: 'Delší přeskoky' },
     },
+    pasivy: { rozpeti: ['skok', 'dosah'], vydrzNavic: { otres: 1 }, prival: 'blesku' },
   },
   trny: {
     nazev: 'Trnová past', ikona: 'trny',
@@ -51,6 +62,7 @@ export const ZBRANE = {
       poradi: ['pocet', 'velikost'], poskozeni: ['poskozeni'], pocet: 'pocet', velikost: ['polomer'], maxPocet: 8,
       texty: { pocet: '+1 trs trnů', velikost: 'Větší trsy' },
     },
+    pasivy: { rozpeti: ['polomer', 'dosah'], vydrz: ['trvani', 'doznivani'], prival: 'pocet' },
   },
   zrcadlo: {
     nazev: 'Zrcadlový štít', ikona: 'zrcadlo',
@@ -59,6 +71,7 @@ export const ZBRANE = {
       poradi: ['pocet', 'velikost'], poskozeni: ['poskozeni', 'odraz'], pocet: 'pocet', velikost: ['velikost'], maxPocet: 8,
       texty: { pocet: '+1 zrcadlo', velikost: 'Větší zrcadla' },
     },
+    pasivy: { rozpeti: ['velikost', 'polomer'], vydrz: ['let'], prival: 'pocet' },
   },
   svetlusky: {
     nazev: 'Světlušky', ikona: 'svetlusky',
@@ -67,6 +80,7 @@ export const ZBRANE = {
       poradi: ['pocet', 'nabiti', 'velikost'], poskozeni: ['poskozeni'], pocet: 'pocet', nabiti: ['nabiti'], velikost: ['dosah'],
       texty: { pocet: '+1 světluška', nabiti: 'Kratší odpočinek', velikost: 'Delší výlety' },
     },
+    pasivy: { rozpeti: ['dosah'], vydrzNavic: { otres: 0.8 }, prival: 'pocet' },
   },
   mraz: {
     nazev: 'Mrazivý krystal', ikona: 'mraz',
@@ -76,6 +90,7 @@ export const ZBRANE = {
       poradi: ['pocet', 'velikost', 'nabiti'], poskozeni: ['poskozeni'], pocet: 'pocet', velikost: ['polomer'], nabiti: ['nabiti'], maxPocet: 8,
       texty: { pocet: '+1 krystal', velikost: 'Větší ledová zóna', nabiti: 'Častější krystaly' },
     },
+    pasivy: { rozpeti: ['polomer', 'dosah'], vydrz: ['trvani', 'doznivani'], prival: 'pocet' },
   },
   zvon: {
     nazev: 'Zvon hlubin', ikona: 'zvon',
@@ -85,6 +100,7 @@ export const ZBRANE = {
       poradi: ['velikost', 'nabiti', 'pocet'], poskozeni: ['poskozeni'], pocet: 'pocet', nabiti: ['nabiti'], velikost: ['polomer'], maxPocet: 4,
       texty: { velikost: 'Větší dosah vlny', nabiti: 'Častější zvonění', pocet: '+1 ozvěna' },
     },
+    pasivy: { rozpeti: ['polomer'], vydrz: ['omraceni', 'let'], prival: 'pocet' },
   },
   cep: {
     nazev: 'Cep na řetězu', ikona: 'cep',
@@ -95,6 +111,7 @@ export const ZBRANE = {
       poradi: ['velikost', 'pocet'], poskozeni: ['poskozeni'], pocet: 'pocet', velikost: ['retez', 'velikost'], maxPocet: 4,
       texty: { velikost: 'Delší řetěz, větší koule', pocet: '+1 koule' },
     },
+    pasivy: { rozpeti: ['retez', 'velikost'], vydrz: ['let'], prival: 'pocet' },
   },
   seminka: {
     nazev: 'Semínkové bomby', ikona: 'seminka',
@@ -104,6 +121,7 @@ export const ZBRANE = {
       poradi: ['pocet', 'velikost'], poskozeni: ['poskozeni', 'pichnuti'], pocet: 'pocet', velikost: ['polomer'], maxPocet: 6,
       texty: { pocet: '+1 semínko', velikost: 'Větší výbuch a keř' },
     },
+    pasivy: { rozpeti: ['polomer'], vydrz: ['trvani'], prival: 'pocet' },
   },
   korene: {
     nazev: 'Kořeny', ikona: 'korene',
@@ -113,6 +131,7 @@ export const ZBRANE = {
       poradi: ['pocet', 'velikost', 'nabiti'], poskozeni: ['poskozeni', 'svirani'], pocet: 'pocet', velikost: ['polomer'], nabiti: ['nabiti'], maxPocet: 8,
       texty: { pocet: '+1 kořen', velikost: 'Kořeny chytí širší kruh', nabiti: 'Častější kořeny' },
     },
+    pasivy: { rozpeti: ['polomer', 'dosah'], vydrz: ['trvani'], prival: 'pocet' },
   },
   stopa: {
     nazev: 'Ohnivá stopa', ikona: 'stopa',
@@ -122,6 +141,7 @@ export const ZBRANE = {
       poradi: ['velikost', 'nabiti'], poskozeni: ['poskozeni', 'pali'], nabiti: ['tik'], velikost: ['polomer'],
       texty: { velikost: 'Širší plameny', nabiti: 'Oheň pálí častěji' },
     },
+    pasivy: { rozpeti: ['polomer'], vydrz: ['trvani', 'hori'], prival: 'stop' },
   },
   prak: {
     nazev: 'Odrazný kámen', ikona: 'prak',
@@ -130,12 +150,25 @@ export const ZBRANE = {
       poradi: ['pocet', 'nabiti', 'velikost'], poskozeni: ['poskozeni'], pocet: 'odrazy', nabiti: ['nabiti'], velikost: ['skok'],
       texty: { pocet: '+1 odraz', nabiti: 'Rychlejší střelba', velikost: 'Delší odrazy' },
     },
+    pasivy: { rozpeti: ['skok', 'dosah'], vydrz: ['zivot', 'volny'], prival: 'pocet' },
   },
 };
 
-// Pasivy: na úrovních 1–5 dá každá úroveň plný díl (násobí vlastnost hrdiny o nasobek, Srdce přičte pricti),
+// Pasivy: na úrovních 1–5 dá každá úroveň plný díl (násobí vlastnost hrdiny o nasobek, pricti přičte),
 // od 6. jen menší díl dal (přičítá se k násobku z 5. úrovně) a popisDal na kartě. Kde je strop (STROPY.pasivy),
-// tam se pasiva po jeho dosažení promění v +3 % poškození všech zbraní za úroveň (SILA_ZA_PREBYTEK).
+// tam se pasiva po jeho dosažení promění v +3 % poškození všech zbraní za úroveň (SILA_ZA_PREBYTEK). Záporný
+// nasobek vlastnost zmenšuje (Rychlé ruce zkracují nabíjení) a strop je pak spodní mez.
+// vaha = jak často se pasiva nabízí proti ostatním kartám (bez ní 1).
+// Pasivy pro všechny zbraně (co z které zbraně čtou, je u zbraně v ZBRANE.pasivy):
+//   Kritický zásah – šance, že rána bolí dvakrát (zlaté číslo s vykřičníkem), hrdina.krit.
+//   Rozpětí – větší oblasti, kruhy, zrcadla, kořeny i dosah zbraní, hrdina.rozpeti.
+//   Ozvěna – šance, že zbraň po výstřelu za chvilku vystřelí ještě jednou (zbraně, které jen krouží nebo
+//            hoří, zasáhnou podruhé), hrdina.ozvena.
+//   Výdrž – oblasti a efekty (trny, keře, mráz, omráčení, držení, odhození, plameny) trvají déle, okamžité
+//           zásahy nepřítele chvíli brzdí (otřes), hrdina.vydrz.
+//   Rychlé ruce – kratší nabíjení všech zbraní (hrdina.nabijeni, stejné číslo jako u Bouřliváka a výbavy).
+//   Příval – +1 kus všem zbraním (střela, krumpáč, kořen, keř, … lucerně uhlík a stopě další řada plamenů),
+//            nejvýš 3 a nabízí se zřídka.
 export const PASIVY = {
   srdce: {
     nazev: 'Srdce', ikona: 'srdce', popis: '+20 max. životů a doléčení', vlastnost: 'maxHp', pricti: 20,
@@ -153,6 +186,30 @@ export const PASIVY = {
     nazev: 'Síla', ikona: 'sila', popis: '+15 % poškození všech zbraní', vlastnost: 'sila', nasobek: 0.15,
     dal: 0.05, popisDal: '+5 % poškození všech zbraní',
   },
+  krit: {
+    nazev: 'Kritický zásah', ikona: 'krit', popis: '+5 % šance na dvojnásobnou ránu', vlastnost: 'krit', pricti: 0.05,
+    dal: 0.02, popisDal: '+2 % šance na dvojnásobnou ránu',
+  },
+  rozpeti: {
+    nazev: 'Rozpětí', ikona: 'rozpeti', popis: '+8 % velikost oblastí a dosah zbraní', vlastnost: 'rozpeti', nasobek: 0.08,
+    dal: 0.02, popisDal: '+2 % velikost oblastí a dosah zbraní',
+  },
+  ozvena: {
+    nazev: 'Ozvěna', ikona: 'ozvena', popis: '+6 % šance, že zbraň udeří podruhé', vlastnost: 'ozvena', pricti: 0.06,
+    dal: 0.02, popisDal: '+2 % šance, že zbraň udeří podruhé',
+  },
+  vydrz: {
+    nazev: 'Výdrž', ikona: 'vydrz', popis: '+10 % trvání oblastí a efektů', vlastnost: 'vydrz', nasobek: 0.1,
+    dal: 0.03, popisDal: '+3 % trvání oblastí a efektů',
+  },
+  rychleRuce: {
+    nazev: 'Rychlé ruce', ikona: 'rychleRuce', popis: '-6 % nabíjení všech zbraní', vlastnost: 'nabijeni', nasobek: -0.06,
+    dal: -0.015, popisDal: '-1,5 % nabíjení všech zbraní',
+  },
+  prival: {
+    nazev: 'Příval', ikona: 'prival', popis: '+1 střela nebo kus všem zbraním', vlastnost: 'prival', pricti: 1,
+    dal: 1, popisDal: '+1 střela nebo kus všem zbraním', vaha: 0.35,
+  },
 };
 
 // Úrovně nemají strop. Úrovně 1–5 popisuje každá zbraň a pasiva sama (popis), od 6. dál dá každá úroveň menší
@@ -164,11 +221,13 @@ export const RUST_UROVNI = { poskozeni: 0.08, kazda: 3, nabiti: 0.9, velikost: 0
 // Stropy jen tam, kde by se hra rozbila (všechno proti 5. úrovni zbraně). Když je zbraň na stropu všude, roste
 // už jen poškození. pasivy = nejvyšší násobek vlastnosti od pasivy celkem: rychlejšímu hrdinovi by všechno
 // uteklo a osminásobný magnet už sahá přes celou obrazovku.
+// Nové pasivy mají strop všechny: dvojnásobná rána nebo ozvěna u každé druhé rány, oblasti přes celou obrazovku
+// a efekty, které nikdy nepovolí, by hru rozbily. Rychlé ruce nejvýš o 40 % (krumpáče a zrcadla se točí s nimi).
 export const STROPY = {
   pocet: 12,
   nabiti: 0.25,
   velikost: 2.5,
-  pasivy: { boty: 2, magnet: 8 },
+  pasivy: { boty: 2, magnet: 8, krit: 0.5, rozpeti: 1.6, ozvena: 0.5, vydrz: 2, rychleRuce: 0.6, prival: 3 },
 };
 // Od těchto úrovní mění barvu rámeček v přehledu výbavy a čtverečky na kartě (stupenUrovne).
 export const STUPNE_UROVNI = [5, 10, 15];
@@ -227,12 +286,13 @@ export function platnaTrida(id) {
 // Exponenty od narustOd jsou pojistka, že nikdo nevydrží donekonečna: zbraně bez stropu úrovní by jinak lineární
 // růst přerostly, rychlý hrdina by nepřátelům utíkal napořád a srdce ze zabitých by doléčila každou ránu.
 // Od pozdeOd se životy i poškození (i bossů) násobí ještě narustPozde za minutu: se zlaťáky (vylepšení od kupce,
-// zamčené truhly) vydržel bot se všemi trvalými vylepšeními místo 19–21 min až 30. Bez trvalých vylepšení se tam
+// zamčené truhly) vydržel bot se všemi trvalými vylepšeními místo 19–21 min až 30. S pasivami pro zbraně (krit,
+// ozvěna, rychlé ruce, příval …) zase místo 21–24 min 27–30+, proto 1,3 místo 1,15. Bez trvalých vylepšení se tam
 // nikdo nedostane, takže se mu nic nemění.
 // Vyváženo simulací (tests/simulace.mjs, hrozba.preziti_min): bot bez trvalých vylepšení vydrží zhruba 4–15 min,
-// se všemi na maximu (s výbavou bossů z truhel a se zlaťáky) 17–23 min. Brzký růst rychlosti je citlivý: už 0,015 místo 0,01 složí slabého bota v 6. minutě.
+// se všemi na maximu (s výbavou bossů z truhel, se zlaťáky a s pasivami pro zbraně) 21–26 min. Brzký růst rychlosti je citlivý: už 0,015 místo 0,01 složí slabého bota v 6. minutě.
 export const HROZBA = {
-  zivoty: 0.1, narustOd: 8, narustZivotu: 1.25, bossZivoty: 0.2, bossNavic: 0.3, pozdeOd: 18, narustPozde: 1.15,
+  zivoty: 0.1, narustOd: 8, narustZivotu: 1.25, bossZivoty: 0.2, bossNavic: 0.3, pozdeOd: 18, narustPozde: 1.3,
   poskozeni: 0.05, narustPoskozeni: 1.1,
   rychlost: 0.01, narustRychlosti: 1.08, maxRychlost: 3,
   prvniVlna: 1.2, zkraceniVlny: 1 / 3, nejkratsiVlna: 0.25, davka: 1, maxDavka: 40,
@@ -295,6 +355,22 @@ export const PRAH_NA_ZACATKU = 12;
 const UCENI_PRAHU = 0.005;
 // Koho spálí žár lucerny, ten se na chvíli rozzáří teplým světlem (místo bílého bliknutí jako u ostatních zbraní).
 export const TRVANI_ZARU = 0.2;
+// Pasivy zbraní. Kritický zásah bolí NASOBEK_KRITU× a ukáže vlastní zlaté číslo. Ozvěna vystřelí (nebo zasáhne)
+// znovu za ZPOZDENI_OZVENY s, na místě se rozběhne kroužek (TRVANI_DOZVUKU s). Zásahů čekajících na ozvěnu je
+// nejvýš MAX_OZVEN_ZASAHU (lucerna pálí desítky naráz). Otřes (Výdrž u okamžitých zásahů) zpomalí nepřítele na
+// ZPOMALENI_OTRESU (bosse napůl tolik). Uhlíky (Příval u lucerny) krouží po okraji světla OTACENI_UHLIKU rad/s,
+// stejného nepřítele pálí nejdřív za ZASAH_UHLIKEM s ranou RANA_UHLIKU žáru lucerny. Další řady Ohnivé stopy
+// hoří vedle hlavní, ROZESTUP_RAD poloměru plamene od sebe.
+export const NASOBEK_KRITU = 2;
+export const ZPOZDENI_OZVENY = 0.15;
+export const TRVANI_DOZVUKU = 0.3;
+export const MAX_OZVEN_ZASAHU = 200;
+const MAX_DOZVUKU = 40;
+export const ZPOMALENI_OTRESU = 0.5;
+export const OTACENI_UHLIKU = 1.8;
+export const ZASAH_UHLIKEM = 0.5;
+export const RANA_UHLIKU = 0.6;
+export const ROZESTUP_RAD = 1.7;
 // Pavouk zalepí hrdinu sítí: na chvíli zpomalí. Opakovaný zásah síť obnoví, nesčítá se.
 // Kdy který druh přijde, je v datech mapy (mapy.js), OD_* jsou časy na Louce.
 export const OD_PAVOUKU = odKdy(VYCHOZI_MAPA, 'pavouk');
@@ -479,7 +555,8 @@ export function schopnostiBosse(druh) {
 export const RUST_TRNU = 0.25;
 export const VADNUTI_TRNU = 0.35;
 export const DOZNIVANI_TRNU = 0.4;
-export const MAX_TRNU = 30;
+// Limity trsů, semínek a plamenů jsou s rezervou pro Příval a Výdrž (víc kusů, které déle vydrží).
+export const MAX_TRNU = 90;
 // Zrcadlový štít: zrcadla krouží těsně u hrdiny. Střelu bosse, která do zrcadla narazí, pošle zpátky
 // (rychleji a zraní nepřátele, ne hrdinu). Nepřítel, který se zrcadla dotkne, dostane ránu a odletí od hrdiny
 // (bossové jsou moc těžcí, ti jen dostanou ránu).
@@ -536,7 +613,7 @@ export const POMER_KERE = 0.6;
 export const RUST_KERE = 0.15;
 export const VADNUTI_KERE = 0.3;
 export const TRVANI_VYBUCHU_SEMINKA = 0.3;
-export const MAX_SEMINEK = 40;
+export const MAX_SEMINEK = 120;
 const ROZESTUP_SEMINEK = 24;
 // Kořeny: kořen vyběhne od hrdiny pod zemí (RYCHLOST_KORENE px/s) za svým nepřítelem a pod ním vyrazí: rána
 // všem v poloměru a kdo tam stojí, toho kořeny drží (stojí, boss jde ZPOMALENI_DRZENEHO_BOSSE) a každých
@@ -559,7 +636,7 @@ const STOPA_KORENE = 12;
 export const ROZESTUP_STOPY = 0.8;
 export const VZPLANUTI = 0.15;
 export const DOHASINANI = 0.4;
-export const MAX_PLAMENU = 80;
+export const MAX_PLAMENU = 240;
 // Odrazný kámen: prak vystřelí kámen (RYCHLOST_KAMENE px/s) na nejbližší nepřátele, každý kámen na jiného.
 // Kámen svůj cíl dohoní, po zásahu se odrazí na nejbližšího dosud nezasaženého do skok px a každým odrazem
 // zrychlí (ZRYCHLENI_KAMENE, nanejvýš MAX_RYCHLOST_KAMENE) a víc bolí (RUST_RANY_KAMENE za odraz). Když už
@@ -660,6 +737,8 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     // naLedu = stojí teď na ledu (klouže), plocha = na jaké zvláštní ploše stojí ('led', 'lava', 'bahno', null),
     // strana = kudy naposledy obcházel překážku (1 / −1)
     zbroj: 0, neviditelny: 0, doZmizeni: 0, zmizelX: 0, zmizelY: 0, naLedu: false, plocha: null, strana: 1,
+    // Pasivy pro zbraně: krit a ozvena = šance (0–1), rozpeti a vydrz = násobky, prival = kusů navíc.
+    krit: 0, rozpeti: 1, ozvena: 0, vydrz: 1, prival: 0,
   };
   for (const [vlastnost, nasobek] of Object.entries(TRIDY[trida].nasobky)) hrdina[vlastnost] *= nasobek;
   pouzijVylepseni(hrdina, vylepseni);
@@ -744,6 +823,7 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     drzeno: 0,
     plameny: [],
     posledniPlamen: null,
+    smerStopy: null,
     plamenu: 0,
     zapaleno: 0,
     paleniStopou: 0,
@@ -753,6 +833,18 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     zasahuKamenem: 0,
     odrazu: 0,
     odSkal: 0,
+    // Pasivy: losuPasiv = počítadlo losů kritických zásahů a ozvěn (losPasiv), ozvenyZasahu = zásahy, které
+    // ještě jednou dopadnou, dozvuky = kroužky na místě ozvěny (jen na pohled), uhelUhliku = kde krouží uhlíky
+    // lucerny. kritu, zasahuUhliky, ozvenVystrelu, ozvenZasahu a otreseno jsou počítadla pro simulaci.
+    losuPasiv: 0,
+    ozvenyZasahu: [],
+    dozvuky: [],
+    uhelUhliku: 0,
+    kritu: 0,
+    zasahuUhliky: 0,
+    ozvenVystrelu: 0,
+    ozvenZasahu: 0,
+    otreseno: 0,
     doSpawnu: 0,
     dalsiBoss: BOSS_KAZDYCH,
     bossu: 0,
@@ -839,9 +931,14 @@ function pridejCislo(hra, cislo) {
 
 // Číslo zásahu: do stejného nepřítele se během SLUCOVANI_CISEL přičítá, pak vznikne nové.
 // Každá rána posune odhad obvyklé silné rány (prahSilneho) kousek nahoru nebo dolů.
-function cisloZasahu(hra, n, poskozeni) {
+// Kritický zásah má vždy své zlaté číslo s vykřičníkem (nepřičítá se a další rány se k němu nepřičtou).
+function cisloZasahu(hra, n, poskozeni, krit = false) {
   const prah = hra.prahSilneho;
   hra.prahSilneho = prah * (poskozeni > prah ? 1 + UCENI_PRAHU * (1 - PODIL_SILNYCH) : 1 - UCENI_PRAHU * PODIL_SILNYCH);
+  if (krit) {
+    pridejCislo(hra, { x: n.x, y: n.y - n.polomer - 4, hodnota: poskozeni, text: `${kratkeCislo(poskozeni)}!`, barva: 'krit' });
+    return;
+  }
   let c = n.cislo;
   if (c && c.zivot > 0 && hra.cas - c.od < SLUCOVANI_CISEL) {
     c.hodnota += poskozeni;
@@ -857,12 +954,15 @@ function cisloZasahu(hra, n, poskozeni) {
 // zar = zásah žárem lucerny: nepřítel se rozzáří, jinak krátce zbělá.
 // S Pavučinou (výbava Matky) se šance ze zásahů sčítá a zásah, na který připadne celá, nepřítele zapřede
 // (bez losu z rng, ať se náhoda vln neposune). Kdo už v síti je, šanci nebere.
+// Kritický zásah (pasiva) ránu zdvojnásobí, los je z losPasiv.
 export function zasah(hra, n, kolik, zar = false) {
-  const poskozeni = Math.round(kolik * hra.hrdina.sila);
+  const krit = hra.hrdina.krit > 0 && kolik > 0 && losPasiv(hra) < hra.hrdina.krit;
+  const poskozeni = Math.round(kolik * hra.hrdina.sila * (krit ? NASOBEK_KRITU : 1));
   n.hp -= poskozeni;
   if (zar) n.zar = TRVANI_ZARU;
   else n.zasazen = 0.1;
-  if (poskozeni > 0) cisloZasahu(hra, n, poskozeni);
+  if (krit) hra.kritu += 1;
+  if (poskozeni > 0) cisloZasahu(hra, n, poskozeni, krit);
   const sit = hra.ucinekVystroje?.efekty.sit;
   if (sit && poskozeni > 0 && n.hp > 0 && !(n.zapreden > 0)) {
     hra.doSite += sit.sance;
@@ -872,6 +972,79 @@ export function zasah(hra, n, kolik, zar = false) {
       hra.efektyPouzito.sit += 1;
     }
   }
+}
+
+// Los pro kritické zásahy a ozvěny (0 až 1): vlastní řada z počítadla, ne z rng, ať pasivy neposunou náhodu vln
+// (stejné semínko = stejné vlny, ať hrdina zasahuje jakkoli). Promíchání bitů jako ve splitmix32.
+function losPasiv(hra) {
+  hra.losuPasiv = (hra.losuPasiv + 1) | 0;
+  let t = Math.imul(hra.losuPasiv, 0x9e3779b9);
+  t = Math.imul(t ^ (t >>> 16), 0x21f0aaad);
+  t = Math.imul(t ^ (t >>> 15), 0x735a2d97);
+  return ((t ^ (t >>> 15)) >>> 0) / 4294967296;
+}
+
+// Kroužek ozvěny na místě (jen na pohled).
+function dozvuk(hra, x, y, velky = false) {
+  hra.dozvuky.push({ x, y, velky, zivot: TRVANI_DOZVUKU });
+  if (hra.dozvuky.length > MAX_DOZVUKU) hra.dozvuky.splice(0, hra.dozvuky.length - MAX_DOZVUKU);
+}
+
+// Ozvěna u výstřelu: zbraň (z = hra.zbrane[id]) s šancí hrdina.ozvena vystřelí za ZPOZDENI_OZVENY ještě jednou.
+// Volá se po každém opravdovém výstřelu, ne po ozvěně (ozvěna další ozvěnu nemá).
+function ozvi(hra, z) {
+  const sance = hra.hrdina.ozvena;
+  if (sance > 0 && !(z.ozvena > 0) && losPasiv(hra) < sance) z.ozvena = ZPOZDENI_OZVENY;
+}
+
+// Doběhne čekající ozvěna zbraně z: vystrel() vystřelí znovu (bez nabíjení) a vrátí, jestli měl na co.
+function ozvenaVystrelu(hra, z, dt, vystrel) {
+  if (!z || !(z.ozvena > 0)) return;
+  z.ozvena -= dt;
+  if (z.ozvena > 0) return;
+  z.ozvena = 0;
+  if (vystrel()) {
+    hra.ozvenVystrelu += 1;
+    dozvuk(hra, hra.hrdina.x, hra.hrdina.y, true);
+  }
+}
+
+// Ozvěna u zbraní, které nestřílí (krouží, kývají se, hoří): zásah s šancí hrdina.ozvena za ZPOZDENI_OZVENY
+// dopadne ještě jednou stejnou ranou.
+function ozvenaZasahu(hra, n, kolik, zar = false) {
+  const sance = hra.hrdina.ozvena;
+  if (!(sance > 0) || !(kolik > 0) || losPasiv(hra) >= sance) return;
+  hra.ozvenyZasahu.push({ n, kolik, zar, za: ZPOZDENI_OZVENY });
+  if (hra.ozvenyZasahu.length > MAX_OZVEN_ZASAHU) hra.ozvenyZasahu.splice(0, hra.ozvenyZasahu.length - MAX_OZVEN_ZASAHU);
+}
+
+// Čekající ozvěny zásahů dopadnou (na živého a viditelného nepřítele), kroužky dozvuků doznívají.
+function ozvenyAZvuky(hra, dt) {
+  for (const o of hra.ozvenyZasahu) {
+    o.za -= dt;
+    if (o.za > 0) continue;
+    if (o.n.hp > 0 && viditelny(o.n)) {
+      zasah(hra, o.n, o.kolik, o.zar);
+      hra.ozvenZasahu += 1;
+      dozvuk(hra, o.n.x, o.n.y);
+    }
+  }
+  hra.ozvenyZasahu = hra.ozvenyZasahu.filter((o) => o.za > 0);
+  for (const d of hra.dozvuky) d.zivot -= dt;
+  hra.dozvuky = hra.dozvuky.filter((d) => d.zivot > 0);
+}
+
+// Otřes po okamžitém zásahu (Výdrž u krumpáčů, blesku a světlušek): zasažený na trvani s zpomalí.
+function otres(hra, n, trvani) {
+  if (!(trvani > 0) || n.hp <= 0) return;
+  if (!(n.otres > 0)) hra.otreseno += 1;
+  n.otres = Math.max(n.otres || 0, trvani);
+}
+
+// O kolik otřes zpomalí (bosse napůl tolik). 1 = vůbec.
+function brzdaOtresu(n) {
+  if (!(n.otres > 0)) return 1;
+  return n.boss ? 1 - (1 - ZPOMALENI_OTRESU) / 2 : ZPOMALENI_OTRESU;
 }
 
 // Zelené +N nad hrdinou, když se opravdu léčil.
@@ -1543,42 +1716,53 @@ export function bossBary(hra) {
 // otáčení krumpáčů a zrcadel, odpočinek světlušek, krystaly, zvonění, rozmach cepu, semínka, kořeny, pálení
 // ohnivé stopy i prak.
 const CISLA_ZBRANI = {
-  jiskra: (j, n) => ({ pocet: 1 + (j >= 2) + (j >= 4), nabiti: (j >= 3 ? 0.5 : 0.7) * n, poskozeni: j >= 5 ? 16 : 11 }),
-  lucerna: (l, n) => ({ dosah: 56 + 22 * ((l >= 2) + (l >= 4)), zar: 14 + 9 * ((l >= 3) + (l >= 5)), tik: 0.3 * n }),
-  krumpace: (k, n) => ({ pocet: 1 + (k >= 2) + (k >= 4), rychlost: (k >= 3 ? 4.5 : 3) / n, poskozeni: k >= 5 ? 18 : 12, polomer: 64 }),
-  blesk: (b, n) => ({ preskoky: 2 + (b >= 2) + 2 * (b >= 4), nabiti: (b >= 3 ? 1.5 : 2.2) * n, poskozeni: b >= 5 ? 30 : 20, dosah: 320, skok: 110 }),
+  // jiskra: velikost = o kolik px dál než okraj nepřítele jiskra zasáhne (kreslí se 1,5× tak velká), zivot = jak
+  // dlouho letí (s)
+  jiskra: (j, n) => ({ pocet: 1 + (j >= 2) + (j >= 4), nabiti: (j >= 3 ? 0.5 : 0.7) * n, poskozeni: j >= 5 ? 16 : 11, velikost: 4, zivot: 1.2 }),
+  // lucerna: dosvit = jak dlouho žár pálí i nepřítele, který ze světla vyšel (bez Výdrže 0), uhliky = uhlíky
+  // na okraji světla (jen s Přívalem)
+  lucerna: (l, n) => ({ dosah: 56 + 22 * ((l >= 2) + (l >= 4)), zar: 14 + 9 * ((l >= 3) + (l >= 5)), tik: 0.3 * n, dosvit: 0, uhliky: 0 }),
+  // krumpace: velikost = o kolik px dál než okraj nepřítele krumpáč zasáhne (podle ní se i kreslí), otres = jak
+  // dlouho zasažený zpomalí (bez Výdrže 0)
+  krumpace: (k, n) => ({ pocet: 1 + (k >= 2) + (k >= 4), rychlost: (k >= 3 ? 4.5 : 3) / n, poskozeni: k >= 5 ? 18 : 12, polomer: 64, velikost: 10, otres: 0 }),
+  // blesk: blesku = kolik blesků udeří naráz (každý do jiného nepřítele, další jen s Přívalem)
+  blesk: (b, n) => ({
+    preskoky: 2 + (b >= 2) + 2 * (b >= 4), nabiti: (b >= 3 ? 1.5 : 2.2) * n, poskozeni: b >= 5 ? 30 : 20, dosah: 320, skok: 110, otres: 0, blesku: 1,
+  }),
   // trny: pocet trsů naráz, poškození za každý tik, zpomaleni = násobek rychlosti nepřítele v trní
   trny: (t, n) => ({
     pocet: 1 + (t >= 2) + (t >= 4), nabiti: 2 * n, dosah: 300, polomer: t >= 3 ? 34 : 26, trvani: t >= 3 ? 3.4 : 2.4,
-    tik: 0.5, poskozeni: t >= 5 ? 9 : 6, zpomaleni: t >= 5 ? 0.35 : 0.55,
+    tik: 0.5, poskozeni: t >= 5 ? 9 : 6, zpomaleni: t >= 5 ? 0.35 : 0.55, doznivani: DOZNIVANI_TRNU,
   }),
-  // zrcadlo: polomer = jak daleko od hrdiny krouží, velikost = kam až zrcadlo sahá, odhozeni = o kolik px odhodí
+  // zrcadlo: polomer = jak daleko od hrdiny krouží, velikost = kam až zrcadlo sahá, odhozeni = o kolik px odhodí,
+  // let = jak dlouho odhozený letí (stejnou rychlostí, takže s Výdrží doletí dál)
   zrcadlo: (z, n) => ({
     pocet: 1 + (z >= 2) + (z >= 4), rychlost: 2.4 / n, polomer: 34, velikost: z >= 5 ? 14 : 10,
-    poskozeni: z >= 5 ? 12 : 7, odhozeni: z >= 3 ? 110 : 70, odraz: z >= 5 ? 30 : 20,
+    poskozeni: z >= 5 ? 12 : 7, odhozeni: z >= 3 ? 110 : 70, odraz: z >= 5 ? 30 : 20, let: TRVANI_ODHOZENI,
   }),
   // svetlusky: pocet v roji, nabiti = odpočinek u hrdiny po návratu, rychlost letu (px/s), dosah = jak daleko
   // od hrdiny si hledá cíl
   svetlusky: (v, n) => ({
     pocet: 3 + (v >= 2) + (v >= 4), nabiti: (v >= 3 ? 0.5 : 0.8) * n, rychlost: v >= 3 ? 300 : 240, poskozeni: v >= 5 ? 16 : 10, dosah: 260,
+    otres: 0,
   }),
   // mraz: pocet zón naráz, trvani = jak dlouho zóna mrzne před roztříštěním, zpomaleni = násobek rychlosti
   // nepřítele na konci mrznutí, poskozeni = rána při roztříštění
   mraz: (m, n) => ({
     pocet: 1 + (m >= 2) + (m >= 4), nabiti: 3.5 * n, dosah: 300, polomer: m >= 3 ? 56 : 44, trvani: m >= 3 ? 1.5 : 1.8,
-    poskozeni: m >= 5 ? 52 : 34, zpomaleni: m >= 5 ? 0.25 : 0.45,
+    poskozeni: m >= 5 ? 52 : 34, zpomaleni: m >= 5 ? 0.25 : 0.45, doznivani: DOZNIVANI_MRAZU,
   }),
   // zvon: pocet = vln v jednom zvonění (první + ozvěny), polomer = kam až vlna doběhne, odhozeni (px),
   // omraceni = jak dlouho omráčený stojí (s)
   zvon: (z, n) => ({
     pocet: 1 + (z >= 4), nabiti: 2.6 * n, polomer: z >= 2 ? 160 : 130, poskozeni: z >= 5 ? 28 : 18,
-    odhozeni: z >= 3 ? 80 : 55, omraceni: z >= 3 ? 1.1 : 0.8,
+    odhozeni: z >= 3 ? 80 : 55, omraceni: z >= 3 ? 1.1 : 0.8, let: TRVANI_ODHOZENI,
   }),
   // cep: pocet koulí, retez = délka řetězu první koule (px), velikost = poloměr koule, poskozeni = rána při
   // RYCHLOST_RANY_CEPU, rozmach = jak rychle ji hrdina vestoje roztáčí (rad/s), odhozeni (px)
   cep: (c, n) => ({
     pocet: 1 + (c >= 4), retez: c >= 2 ? 76 : 60, velikost: c >= 5 ? 12 : 9, poskozeni: 18 + 6 * (c >= 3) + 6 * (c >= 5),
-    rozmach: (c >= 3 ? 4 : 3.2) / n, odhozeni: 40,
+    rozmach: (c >= 3 ? 4 : 3.2) / n, odhozeni: 40, let: TRVANI_ODHOZENI,
   }),
   // seminka: pocet semínek naráz, polomer = výbuchu (keř má POMER_KERE z něj), poskozeni = rána výbuchem,
   // trvani = jak dlouho keř stojí, pichnuti = rána od trnů keře za každý tik
@@ -1594,15 +1778,18 @@ const CISLA_ZBRANI = {
     poskozeni: k >= 5 ? 22 : 14, svirani: k >= 5 ? 6 : 4,
   }),
   // stopa: polomer jednoho plamene, trvani = jak dlouho hoří, tik = jak často pálí, poskozeni = rána v plameni,
-  // hori = jak dlouho zapálený nepřítel hoří po vylezení (0 = nezapálí), pali = rána za tik, když hoří
+  // hori = jak dlouho zapálený nepřítel hoří po vylezení (0 = nezapálí), pali = rána za tik, když hoří,
+  // stop = kolik řad plamenů hoří vedle sebe (další jen s Přívalem)
   stopa: (o, n) => ({
     polomer: o >= 2 ? 20 : 16, trvani: o >= 3 ? 2.6 : 1.8, tik: 0.4 * n, poskozeni: o >= 5 ? 9 : 6,
-    hori: o >= 4 ? 1.6 : 0, pali: o >= 5 ? 5 : 3,
+    hori: o >= 4 ? 1.6 : 0, pali: o >= 5 ? 5 : 3, stop: 1,
   }),
   // prak: pocet kamenů v jedné ráně, odrazy = na kolik dalších nepřátel se kámen odrazí, dosah = na koho vystřelí,
-  // skok = jak daleko od zásahu hledá dalšího, poskozeni = rána prvního zásahu (každý odraz o RUST_RANY_KAMENE víc)
+  // skok = jak daleko od zásahu hledá dalšího, poskozeni = rána prvního zásahu (každý odraz o RUST_RANY_KAMENE víc),
+  // zivot = jak dlouho kámen nejvýš letí, volny = jak dlouho letí bez cíle, než spadne
   prak: (p, n) => ({
     pocet: 1 + (p >= 4), odrazy: 2 + 2 * (p >= 2), nabiti: (p >= 3 ? 1.1 : 1.5) * n, poskozeni: p >= 5 ? 20 : 13, dosah: 300, skok: 150,
+    zivot: ZIVOT_KAMENE, volny: VOLNY_LET,
   }),
 };
 
@@ -1651,10 +1838,23 @@ export function statyZbrane(id, uroven, n = 1) {
   return cisla;
 }
 
-// Čísla všech zbraní hrdiny. Na mapě s dosahLucerny (jeskyně) svítí lucerna dál.
+// Pasivy hrdiny (h) v číslech jedné zbraně (podle ZBRANE[id].pasivy): Rozpětí násobí velikost a dosah, Výdrž
+// násobí trvání a přičte, co zbraň má ve vydrzNavic, Příval přidá kusy. Mění a vrací cisla.
+export function pasivyDoZbrane(id, cisla, h) {
+  const p = ZBRANE[id].pasivy;
+  const rozpeti = h?.rozpeti ?? 1;
+  const vydrz = h?.vydrz ?? 1;
+  for (const pole of p.rozpeti ?? []) cisla[pole] *= rozpeti;
+  for (const pole of p.vydrz ?? []) cisla[pole] *= vydrz;
+  for (const [pole, za] of Object.entries(p.vydrzNavic ?? {})) cisla[pole] += za * (vydrz - 1);
+  if (p.prival) cisla[p.prival] += Math.max(0, Math.floor(h?.prival ?? 0));
+  return cisla;
+}
+
+// Čísla všech zbraní hrdiny i s pasivami. Na mapě s dosahLucerny (jeskyně) svítí lucerna dál.
 export function staty(hra) {
   const n = hra.hrdina.nabijeni ?? 1;
-  const s = Object.fromEntries(Object.keys(ZBRANE).map((id) => [id, statyZbrane(id, hra.zbrane[id]?.uroven ?? 0, n)]));
+  const s = Object.fromEntries(Object.keys(ZBRANE).map((id) => [id, pasivyDoZbrane(id, statyZbrane(id, hra.zbrane[id]?.uroven ?? 0, n), hra.hrdina)]));
   s.lucerna.dosah *= MAPY[hra.mapa]?.dosahLucerny ?? 1;
   return s;
 }
@@ -1678,33 +1878,36 @@ function brzdaTrnu(n) {
 
 // Nové trsy trnů: pod nejbližšími viditelnými nepřáteli v dosahu, ale každý jinde (kdo stojí v kruhu už
 // vybraného trsu, ten se přeskočí). Na co nezbyl nepřítel, to vyraší pod nejbližší bednou v dosahu.
-function zasadTrny(hra, st) {
+// Ozvěna (ozvena = true) vynechá i místa, kde trsy z minulého výstřelu ještě rostou.
+function zasadTrny(hra, st, ozvena = false) {
   const { hrdina } = hra;
-  const mista = [];
+  const mista = ozvena ? hra.trny.map((p) => ({ x: p.x, y: p.y, stary: true })) : [];
   const volno = (o) => mista.every((m) => vzdalenost(m, o) >= st.polomer);
   const kandidati = hra.nepratele
     .filter((n) => n.hp > 0 && viditelny(n) && vzdalenost(n, hrdina) < st.dosah)
     .sort((a, b) => vzdalenost(a, hrdina) - vzdalenost(b, hrdina));
+  const stare = mista.length;
   for (const n of kandidati) {
-    if (mista.length >= st.pocet) break;
+    if (mista.length - stare >= st.pocet) break;
     if (volno(n)) mista.push({ x: n.x, y: n.y });
   }
   const bedny = hra.bedny
     .filter((b) => !b.rozbita && vzdalenost(b, hrdina) < st.dosah)
     .sort((a, b) => vzdalenost(a, hrdina) - vzdalenost(b, hrdina));
   for (const b of bedny) {
-    if (mista.length >= st.pocet) break;
+    if (mista.length - stare >= st.pocet) break;
     if (volno(b)) mista.push({ x: b.x, y: b.y });
   }
-  for (const m of mista) {
+  const nove = mista.slice(stare);
+  for (const m of nove) {
     hra.trny.push({
       x: m.x, y: m.y, polomer: st.polomer, trvani: st.trvani, zivot: st.trvani, tik: 0,
-      poskozeni: st.poskozeni, zpomaleni: st.zpomaleni,
+      poskozeni: st.poskozeni, zpomaleni: st.zpomaleni, doznivani: st.doznivani,
     });
     rozprsk(hra, m.x, m.y, 'trny', 5);
   }
   if (hra.trny.length > MAX_TRNU) hra.trny.splice(0, hra.trny.length - MAX_TRNU);
-  return mista.length;
+  return nove.length;
 }
 
 // Trsy rostou, zraňují a zpomalí, kdo v nich stojí, rozbijí bedny a nakonec zalezou.
@@ -1720,7 +1923,7 @@ function rostouTrny(hra, dt, s) {
     for (const n of hra.nepratele) {
       if (n.hp <= 0 || !viditelny(n) || vzdalenost(n, p) >= p.polomer + n.polomer / 2) continue;
       n.zpomaleni = Math.min(n.trny > 0 ? n.zpomaleni : 1, p.zpomaleni);
-      n.trny = DOZNIVANI_TRNU;
+      n.trny = Math.max(n.trny || 0, p.doznivani ?? DOZNIVANI_TRNU);
       if (tikne) zasah(hra, n, p.poskozeni);
     }
     if (tikne) {
@@ -1753,13 +1956,15 @@ function zrcadla(hra, s) {
       if (n.zasahZrcadlem > 0 || n.hp <= 0 || !viditelny(n) || vzdalenost(n, p) >= n.polomer + z.velikost) continue;
       zasah(hra, n, z.poskozeni);
       n.zasahZrcadlem = 0.5;
+      ozvenaZasahu(hra, n, z.poskozeni);
       hra.odlesky.push({ x: (n.x + p.x) / 2, y: (n.y + p.y) / 2, zivot: TRVANI_ODLESKU });
       if (n.boss) continue;
-      // Odletí od hrdiny (kdo stojí přímo na něm, tím směrem, kde je zrcadlo).
+      // Odletí od hrdiny (kdo stojí přímo na něm, tím směrem, kde je zrcadlo). S Výdrží letí déle (z.let)
+      // stejnou rychlostí, takže doletí dál.
       const d = vzdalenost(n, hrdina);
       const ux = d > 0 ? (n.x - hrdina.x) / d : Math.cos(p.uhel);
       const uy = d > 0 ? (n.y - hrdina.y) / d : Math.sin(p.uhel);
-      n.odhozen = TRVANI_ODHOZENI;
+      n.odhozen = z.let ?? TRVANI_ODHOZENI;
       n.odhozVx = (ux * z.odhozeni) / TRVANI_ODHOZENI;
       n.odhozVy = (uy * z.odhozeni) / TRVANI_ODHOZENI;
       hra.odhozeno += 1;
@@ -1866,10 +2071,19 @@ function rojSvetlusek(hra, dt, s) {
         if (l.bedna) rozbij(hra, c);
         else {
           zasah(hra, c, st.poskozeni);
+          otres(hra, c, st.otres);
           hra.zasahuSvetluskami += 1;
         }
         rozprsk(hra, l.x, l.y, 'svetluska', 3);
-        Object.assign(l, { stav: 'zpet', cil: null, bedna: false });
+        // Ozvěna: světluška se nevrátí a hned se vrhne na dalšího nepřítele (jednou, pak už letí domů).
+        const dalsi = !l.bedna && !l.ozvenou && hra.hrdina.ozvena > 0 && losPasiv(hra) < hra.hrdina.ozvena
+          ? cilSvetlusky(hra, st, l, new Set([...obsazene, c])) : null;
+        if (dalsi && !dalsi.bedna && dalsi.cil !== c) {
+          Object.assign(l, { cil: dalsi.cil, bedna: false, let: 0, ozvenou: true });
+          obsazene.add(dalsi.cil);
+          hra.ozvenVystrelu += 1;
+          dozvuk(hra, l.x, l.y);
+        } else Object.assign(l, { stav: 'zpet', cil: null, bedna: false, ozvenou: false });
       }
       return;
     }
@@ -1942,7 +2156,9 @@ function hodKrystaly(hra, st) {
     if (mimo(b)) pridej(b);
   }
   for (const m of mista) {
-    hra.ledoveZony.push({ x: m.x, y: m.y, polomer: st.polomer, trvani: st.trvani, stari: 0, poskozeni: st.poskozeni, zpomaleni: st.zpomaleni });
+    hra.ledoveZony.push({
+      x: m.x, y: m.y, polomer: st.polomer, trvani: st.trvani, stari: 0, poskozeni: st.poskozeni, zpomaleni: st.zpomaleni, doznivani: st.doznivani,
+    });
     hra.zon += 1;
   }
   return mista.length;
@@ -1961,7 +2177,8 @@ function roztrist(hra, n, z) {
 }
 
 // Ledové zóny: krystal dopadne (ještě nic nedělá), zóna mrzne a zpomalí, kdo v ní stojí, čím dál víc
-// (hned 60 % zpomalení, plné od 40 % mrznutí). Na konci se roztříští, rozbije i bednu a zmizí.
+// (hned 60 % zpomalení, plné od 40 % mrznutí). Na konci se roztříští, rozbije i bednu a zmizí. S Ozvěnou se
+// občas roztříští dvakrát (nový krystal by do hloučku v zóně stejně nedopadl).
 function mrznouZony(hra, dt) {
   for (const z of hra.ledoveZony) {
     z.stari += dt;
@@ -1972,7 +2189,7 @@ function mrznouZony(hra, dt) {
     for (const n of hra.nepratele) {
       if (n.hp <= 0 || !viditelny(n) || vzdalenost(n, z) >= z.polomer + n.polomer / 2) continue;
       n.zpomaleniMrazem = Math.min(n.mraz > 0 ? n.zpomaleniMrazem : 1, brzda);
-      n.mraz = DOZNIVANI_MRAZU;
+      n.mraz = Math.max(n.mraz || 0, z.doznivani ?? DOZNIVANI_MRAZU);
       if (konec) roztrist(hra, n, z);
     }
     if (!konec) continue;
@@ -1981,6 +2198,14 @@ function mrznouZony(hra, dt) {
     }
     hra.roztristeni.push({ x: z.x, y: z.y, polomer: z.polomer, zivot: TRVANI_TRISTENI });
     rozprsk(hra, z.x, z.y, 'led', 10);
+    // Ozvěna (pasiva): zóna za ZPOZDENI_OZVENY zamrzne a roztříští se ještě jednou (podruhé už bez ozvěny).
+    if (!z.ozvenou && hra.hrdina.ozvena > 0 && losPasiv(hra) < hra.hrdina.ozvena) {
+      z.ozvenou = true;
+      z.stari = DOPAD_KRYSTALU + z.trvani - ZPOZDENI_OZVENY;
+      hra.ozvenVystrelu += 1;
+      dozvuk(hra, z.x, z.y, true);
+      continue;
+    }
     z.hotovo = true;
   }
   hra.ledoveZony = hra.ledoveZony.filter((z) => !z.hotovo);
@@ -2010,7 +2235,7 @@ function zvon(hra, dt, s) {
     const st = s.zvon;
     const uder = () => {
       hra.vlnyZvonu.push({
-        x: hrdina.x, y: hrdina.y, r: 0, max: st.polomer, poskozeni: st.poskozeni, odhozeni: st.odhozeni,
+        x: hrdina.x, y: hrdina.y, r: 0, max: st.polomer, poskozeni: st.poskozeni, odhozeni: st.odhozeni, let: st.let,
         omraceni: st.omraceni, zasazeni: new Set(), ozvena: zv.ozveny > 0,
       });
       hra.zvoneni += 1;
@@ -2028,6 +2253,12 @@ function zvon(hra, dt, s) {
       zv.ozveny = 0;
       uder();
       zv.ozveny = st.pocet - 1;
+      // Ozvěna (pasiva) přidá zvonění jednu vlnu navíc.
+      if (hra.hrdina.ozvena > 0 && losPasiv(hra) < hra.hrdina.ozvena) {
+        zv.ozveny += 1;
+        hra.ozvenVystrelu += 1;
+        dozvuk(hra, hrdina.x, hrdina.y, true);
+      }
       zv.doOzveny = OZVENA_ZVONU;
       zv.nabiti = st.nabiti;
     }
@@ -2042,7 +2273,7 @@ function zvon(hra, dt, s) {
       v.zasazeni.add(n);
       zasah(hra, n, v.poskozeni);
       if (!(n.odolny > 0)) {
-        odhodNepritele(n, v, v.odhozeni);
+        odhodNepritele(n, v, v.odhozeni, v.let);
         n.omracen = v.omraceni;
         n.odolny = v.omraceni + IMUNITA_OMRACENI;
         hra.omraceno += 1;
@@ -2138,7 +2369,8 @@ function cep(hra, dt, s) {
       zasah(hra, n, rana);
       n.zasahCepem = ZASAH_CEPEM;
       hra.zasahuCepem += 1;
-      odhodNepritele(n, { x: n.x - smerX * 10, y: n.y - smerY * 10 }, st.odhozeni);
+      ozvenaZasahu(hra, n, rana);
+      odhodNepritele(n, { x: n.x - smerX * 10, y: n.y - smerY * 10 }, st.odhozeni, st.let);
       rozprsk(hra, (n.x + k.x) / 2, (n.y + k.y) / 2, 'cep', 3);
     }
     for (const b of hra.bedny) {
@@ -2176,7 +2408,12 @@ function rostouSeminka(hra, dt, s) {
     if (sm.nabiti <= 0) {
       zasejSeminka(hra, s.seminka);
       sm.nabiti = s.seminka.nabiti;
+      ozvi(hra, sm);
     }
+    ozvenaVystrelu(hra, sm, dt, () => {
+      zasejSeminka(hra, s.seminka);
+      return true;
+    });
   }
   for (const p of hra.seminka) {
     p.stari += dt;
@@ -2300,7 +2537,11 @@ function rostouKoreny(hra, dt, s) {
   const kr = hra.zbrane.korene;
   if (kr) {
     kr.nabiti = (kr.nabiti ?? 0) - dt;
-    if (kr.nabiti <= 0 && vypustKoreny(hra, s.korene)) kr.nabiti = s.korene.nabiti;
+    if (kr.nabiti <= 0 && vypustKoreny(hra, s.korene)) {
+      kr.nabiti = s.korene.nabiti;
+      ozvi(hra, kr);
+    }
+    ozvenaVystrelu(hra, kr, dt, () => vypustKoreny(hra, s.korene));
   }
   const krok = RYCHLOST_KORENE * dt;
   for (const k of hra.korene) {
@@ -2351,13 +2592,27 @@ function ohnivaStopa(hra, dt, s) {
     const st = s.stopa;
     const posledni = hra.posledniPlamen;
     const cisla = { trvani: st.trvani, polomer: st.polomer, poskozeni: st.poskozeni, pali: st.pali, hori: st.hori };
+    // Kudy hrdina naposledy šel (podle toho leží další řady plamenů z Přívalu napříč).
+    const v = Math.hypot(hrdina.vx, hrdina.vy);
+    if (v >= 1) hra.smerStopy = { x: hrdina.vx / v, y: hrdina.vy / v };
     if (posledni && posledni.zivot > 0 && vzdalenost(posledni, hrdina) < st.polomer * ROZESTUP_STOPY) {
       Object.assign(posledni, cisla, { zivot: st.trvani });
+      for (const b of posledni.bocni ?? []) Object.assign(b, cisla, { zivot: st.trvani });
     } else {
       const novy = { x: hrdina.x, y: hrdina.y, stari: 0, zivot: st.trvani, poradi: hra.plamenu, ...cisla };
       hra.plameny.push(novy);
       hra.posledniPlamen = novy;
       hra.plamenu += 1;
+      // Příval: další řady hoří vedle hlavní, střídavě vpravo a vlevo (1., −1., 2. řada …).
+      const smer = hra.smerStopy ?? { x: 1, y: 0 };
+      novy.bocni = [];
+      for (let i = 1; i < st.stop; i++) {
+        const posun = (i % 2 ? 1 : -1) * Math.ceil(i / 2) * st.polomer * ROZESTUP_RAD;
+        const bocni = { x: hrdina.x - smer.y * posun, y: hrdina.y + smer.x * posun, stari: 0, zivot: st.trvani, poradi: hra.plamenu, ...cisla };
+        hra.plameny.push(bocni);
+        novy.bocni.push(bocni);
+        hra.plamenu += 1;
+      }
       if (hra.plameny.length > MAX_PLAMENU) hra.plameny.splice(0, hra.plameny.length - MAX_PLAMENU);
     }
   }
@@ -2407,7 +2662,9 @@ function ohnivaStopa(hra, dt, s) {
     }
     if ((!plamen && !(n.hori > 0)) || n.tikOhne > 0) continue;
     n.tikOhne = tik;
-    zasah(hra, n, plamen ? plamen.poskozeni : n.pali, true);
+    const rana = plamen ? plamen.poskozeni : n.pali;
+    zasah(hra, n, rana, true);
+    ozvenaZasahu(hra, n, rana, true);
     hra.paleniStopou += 1;
   }
 }
@@ -2439,7 +2696,7 @@ function vystrelKameny(hra, st) {
     hra.oblazky.push({
       x: hrdina.x, y: hrdina.y, vx: ((cil.x - hrdina.x) / d) * RYCHLOST_KAMENE, vy: ((cil.y - hrdina.y) / d) * RYCHLOST_KAMENE,
       cil, naBednu: cil === bedna, zasazeni: new Set(), zasahu: 0, zbyva: 1 + st.odrazy, poskozeni: st.poskozeni, skok: st.skok,
-      zivot: ZIVOT_KAMENE, volny: VOLNY_LET, bezCile: 0, ulet: 0, konec: false,
+      zivot: st.zivot ?? ZIVOT_KAMENE, volny: st.volny ?? VOLNY_LET, volnyLet: st.volny ?? VOLNY_LET, bezCile: 0, ulet: 0, konec: false,
     });
     hra.vystreleno += 1;
   }
@@ -2464,7 +2721,7 @@ function zasahKamenem(hra, k, n) {
   const rychlost = Math.min(MAX_RYCHLOST_KAMENE, Math.hypot(k.vx, k.vy) * ZRYCHLENI_KAMENE);
   k.cil = dalsiCilKamene(hra, k, k.skok);
   k.naBednu = false;
-  k.volny = VOLNY_LET;
+  k.volny = k.volnyLet ?? VOLNY_LET;
   // Bez dalšího cíle se odrazí od zasaženého pryč (kdo stojí přesně na něm, letí dál, kam letěl).
   const od = vzdalenost(k, n);
   const [dx, dy] = k.cil ? [k.cil.x - k.x, k.cil.y - k.y] : od > 1e-6 ? [k.x - n.x, k.y - n.y] : [k.vx, k.vy];
@@ -2480,7 +2737,11 @@ function letiKameny(hra, dt, s) {
   const pr = hra.zbrane.prak;
   if (pr) {
     pr.nabiti = (pr.nabiti ?? 0) - dt;
-    if (pr.nabiti <= 0 && vystrelKameny(hra, s.prak)) pr.nabiti = s.prak.nabiti;
+    if (pr.nabiti <= 0 && vystrelKameny(hra, s.prak)) {
+      pr.nabiti = s.prak.nabiti;
+      ozvi(hra, pr);
+    }
+    ozvenaVystrelu(hra, pr, dt, () => vystrelKameny(hra, s.prak));
   }
   for (const k of hra.oblazky) {
     k.zivot -= dt;
@@ -2616,12 +2877,14 @@ function dokonciTruhlu(hra) {
 }
 
 // Odhodí nepřítele od bodu (x, y) o kolik px (bosse ne, ti jsou moc těžcí).
-function odhodNepritele(n, od, kolik) {
+// Odhození od místa od o kolik px. trvani = jak dlouho letí (rychlost je pořád kolik / TRVANI_ODHOZENI, takže
+// s delším trváním z Výdrže doletí dál).
+function odhodNepritele(n, od, kolik, trvani = TRVANI_ODHOZENI) {
   if (n.boss) return;
   const d = vzdalenost(n, od);
   const ux = d > 0 ? (n.x - od.x) / d : 1;
   const uy = d > 0 ? (n.y - od.y) / d : 0;
-  n.odhozen = TRVANI_ODHOZENI;
+  n.odhozen = trvani;
   n.odhozVx = (ux * kolik) / TRVANI_ODHOZENI;
   n.odhozVy = (uy * kolik) / TRVANI_ODHOZENI;
 }
@@ -3006,7 +3269,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   const naposledy = { x: hrdina.zmizelX, y: hrdina.zmizelY };
   for (const n of hra.nepratele) {
     const d = vzdalenost(n, hrdina) || 1;
-    const brzda = brzdaTrnu(n) * brzdaSite(n) * brzdaMrazu(n) * brzdaZvonu(n) * brzdaKorenu(n);
+    const brzda = brzdaTrnu(n) * brzdaSite(n) * brzdaMrazu(n) * brzdaZvonu(n) * brzdaKorenu(n) * brzdaOtresu(n);
     const nPredX = n.x;
     const nPredY = n.y;
     // Koho drží kořeny, s tím ani odhození nehne (bosse kořeny jen brzdí).
@@ -3056,6 +3319,9 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     n.vyrvan = Math.max(0, (n.vyrvan || 0) - dt);
     n.hori = Math.max(0, (n.hori || 0) - dt);
     n.tikOhne = Math.max(0, (n.tikOhne || 0) - dt);
+    n.otres = Math.max(0, (n.otres || 0) - dt);
+    n.dosvit = Math.max(0, (n.dosvit || 0) - dt);
+    n.zasahUhlikem = Math.max(0, (n.zasahUhlikem || 0) - dt);
     if (d < n.polomer + 8 && hrdina.nezranitelny <= 0 && viditelny(n) && !nekouse(n)) {
       if (n.sit) hrdina.sit = TRVANI_SITE;
       if (n.pan) hra.zasahyBossu.pomocnik += 1;
@@ -3077,25 +3343,19 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   const jiskra = hra.zbrane.jiskra;
   if (jiskra) {
     jiskra.nabiti -= dt;
-    // Na bednu míří, jen když je blíž než nejbližší nepřítel (a nanejvýš JISKRA_NA_BEDNU daleko).
-    const nepritel = nejblizsi(hra);
-    const bedna = nejblizsiBedna(hra, nepritel ? Math.min(JISKRA_NA_BEDNU, vzdalenost(nepritel, hrdina)) : JISKRA_NA_BEDNU);
-    const cil = bedna ?? nepritel;
-    if (jiskra.nabiti <= 0 && cil) {
-      const zaklad = Math.atan2(cil.y - hrdina.y, cil.x - hrdina.x);
-      for (let i = 0; i < s.jiskra.pocet; i++) {
-        const uhel = zaklad + (i - (s.jiskra.pocet - 1) / 2) * 0.18;
-        hra.strely.push({ x: hrdina.x, y: hrdina.y, vx: Math.cos(uhel) * 340, vy: Math.sin(uhel) * 340, zivot: 1.2, poskozeni: s.jiskra.poskozeni });
-      }
+    if (jiskra.nabiti <= 0 && vystrelJiskry(hra, s.jiskra)) {
       jiskra.nabiti = s.jiskra.nabiti;
+      ozvi(hra, jiskra);
     }
+    ozvenaVystrelu(hra, jiskra, dt, () => vystrelJiskry(hra, s.jiskra));
   }
   for (const st of hra.strely) {
     st.x += st.vx * dt;
     st.y += st.vy * dt;
     st.zivot -= dt;
+    const velikost = st.velikost ?? 4;
     for (const n of hra.nepratele) {
-      if (n.hp > 0 && viditelny(n) && vzdalenost(st, n) < n.polomer + 4) {
+      if (n.hp > 0 && viditelny(n) && vzdalenost(st, n) < n.polomer + velikost) {
         zasah(hra, n, st.poskozeni);
         st.zivot = 0;
         break;
@@ -3103,7 +3363,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     }
     if (st.zivot <= 0) continue;
     for (const b of hra.bedny) {
-      if (!b.rozbita && vzdalenost(st, b) < POLOMER_BEDNY + 4) {
+      if (!b.rozbita && vzdalenost(st, b) < POLOMER_BEDNY + velikost) {
         rozbij(hra, b);
         st.zivot = 0;
         break;
@@ -3112,36 +3372,37 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   }
   hra.strely = hra.strely.filter((st) => st.zivot > 0);
 
-  // Lucerna
+  // Lucerna (s Ozvěnou žár občas tikne ještě jednou, s Přívalem kolem světla krouží uhlíky)
   if (hra.zbrane.lucerna) {
     const luc = hra.zbrane.lucerna;
     luc.tik = (luc.tik ?? 0) - dt;
     if (luc.tik <= 0) {
-      for (const n of hra.nepratele) {
-        if (viditelny(n) && vzdalenost(n, hrdina) < s.lucerna.dosah) zasah(hra, n, s.lucerna.zar * 0.3, true);
-      }
-      for (const b of hra.bedny) {
-        if (vzdalenost(b, hrdina) < s.lucerna.dosah) rozbij(hra, b);
-      }
+      zarLucerny(hra, s.lucerna);
       luc.tik = s.lucerna.tik;
+      ozvi(hra, luc);
     }
+    ozvenaVystrelu(hra, luc, dt, () => zarLucerny(hra, s.lucerna));
+    uhlikyLucerny(hra, dt, s);
   }
 
-  // Krumpáče
+  // Krumpáče (s Ozvěnou zásah občas dopadne ještě jednou, s Výdrží zasaženého otřesou)
   if (hra.zbrane.krumpace) {
-    hra.uhelKrumpacu += s.krumpace.rychlost * dt;
-    for (let i = 0; i < s.krumpace.pocet; i++) {
-      const uhel = hra.uhelKrumpacu + (i / s.krumpace.pocet) * Math.PI * 2;
-      const kx = hrdina.x + Math.cos(uhel) * s.krumpace.polomer;
-      const ky = hrdina.y + Math.sin(uhel) * s.krumpace.polomer;
+    const st = s.krumpace;
+    hra.uhelKrumpacu += st.rychlost * dt;
+    for (let i = 0; i < st.pocet; i++) {
+      const uhel = hra.uhelKrumpacu + (i / st.pocet) * Math.PI * 2;
+      const kx = hrdina.x + Math.cos(uhel) * st.polomer;
+      const ky = hrdina.y + Math.sin(uhel) * st.polomer;
       for (const n of hra.nepratele) {
-        if (n.zasahKrumpacem <= 0 && viditelny(n) && Math.hypot(n.x - kx, n.y - ky) < n.polomer + 10) {
-          zasah(hra, n, s.krumpace.poskozeni);
+        if (n.zasahKrumpacem <= 0 && viditelny(n) && Math.hypot(n.x - kx, n.y - ky) < n.polomer + st.velikost) {
+          zasah(hra, n, st.poskozeni);
           n.zasahKrumpacem = 0.4;
+          otres(hra, n, st.otres);
+          ozvenaZasahu(hra, n, st.poskozeni);
         }
       }
       for (const b of hra.bedny) {
-        if (Math.hypot(b.x - kx, b.y - ky) < POLOMER_BEDNY + 10) rozbij(hra, b);
+        if (Math.hypot(b.x - kx, b.y - ky) < POLOMER_BEDNY + st.velikost) rozbij(hra, b);
       }
     }
   }
@@ -3150,30 +3411,11 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   if (hra.zbrane.blesk) {
     const bl = hra.zbrane.blesk;
     bl.nabiti = (bl.nabiti ?? 0) - dt;
-    const vDosahu = hra.nepratele.filter((n) => n.hp > 0 && viditelny(n) && vzdalenost(n, hrdina) < s.blesk.dosah);
-    const bednyVDosahu = hra.bedny.filter((b) => !b.rozbita && vzdalenost(b, hrdina) < s.blesk.dosah);
-    const cile = bednyVDosahu.length ? [...vDosahu, ...bednyVDosahu] : vDosahu;
-    if (bl.nabiti <= 0 && cile.length) {
-      let cil = hra.rng.vyber(cile);
-      const zasazeni = new Set();
-      const body = [{ x: hrdina.x, y: hrdina.y }];
-      let preskoku = s.blesk.preskoky;
-      // Bedna je první zásah: rozbije se a blesk skočí dál na nejbližšího nepřítele.
-      if (bednyVDosahu.includes(cil)) {
-        rozbij(hra, cil);
-        body.push({ x: cil.x, y: cil.y });
-        cil = dalsiCilBlesku(hra, cil, s.blesk.skok, zasazeni);
-        preskoku -= 1;
-      }
-      for (let i = 0; i <= preskoku && cil; i++) {
-        zasah(hra, cil, s.blesk.poskozeni);
-        zasazeni.add(cil);
-        body.push({ x: cil.x, y: cil.y });
-        cil = dalsiCilBlesku(hra, cil, s.blesk.skok, zasazeni);
-      }
-      hra.blesky.push({ body, zivot: 0.18 });
+    if (bl.nabiti <= 0 && uderBlesk(hra, s.blesk)) {
       bl.nabiti = s.blesk.nabiti;
+      ozvi(hra, bl);
     }
+    ozvenaVystrelu(hra, bl, dt, () => uderBlesk(hra, s.blesk, true));
   }
   for (const b of hra.blesky) b.zivot -= dt;
   hra.blesky = hra.blesky.filter((b) => b.zivot > 0);
@@ -3182,7 +3424,11 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   const trn = hra.zbrane.trny;
   if (trn) {
     trn.nabiti = (trn.nabiti ?? 0) - dt;
-    if (trn.nabiti <= 0 && zasadTrny(hra, s.trny)) trn.nabiti = s.trny.nabiti;
+    if (trn.nabiti <= 0 && zasadTrny(hra, s.trny)) {
+      trn.nabiti = s.trny.nabiti;
+      ozvi(hra, trn);
+    }
+    ozvenaVystrelu(hra, trn, dt, () => zasadTrny(hra, s.trny, true));
   }
   rostouTrny(hra, dt, s);
 
@@ -3214,6 +3460,8 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   letiKameny(hra, dt, s);
   // Rázová vlna z výbavy Strážce
   razoveVlny(hra, dt);
+  // Ozvěny zásahů (pasiva Ozvěna)
+  ozvenyAZvuky(hra, dt);
   hra.bedny = hra.bedny.filter((b) => !b.rozbita);
 
   pohrbi(hra);
@@ -3303,6 +3551,105 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   hra.cisla = hra.cisla.filter((c) => c.zivot > 0);
 }
 
+// Žár lucerny: zasáhne každého v dosahu a rozbije bedny. Kdo ze světla vyšel, toho ještě dosvit s pálí
+// (jen s Výdrží). Vrací true (lucerna pálí, i když kolem nikdo není).
+function zarLucerny(hra, st) {
+  const { hrdina } = hra;
+  for (const n of hra.nepratele) {
+    if (!viditelny(n)) continue;
+    if (vzdalenost(n, hrdina) < st.dosah) {
+      zasah(hra, n, st.zar * 0.3, true);
+      if (st.dosvit > 0) n.dosvit = st.dosvit;
+    } else if (n.dosvit > 0) {
+      zasah(hra, n, st.zar * 0.3, true);
+    }
+  }
+  for (const b of hra.bedny) {
+    if (vzdalenost(b, hrdina) < st.dosah) rozbij(hra, b);
+  }
+  return true;
+}
+
+// Kde je i-tý z pocet uhlíků lucerny: na okraji jejího světla, krouží pomalu proti směru krumpáčů.
+export function poziceUhliku(hra, i, s = staty(hra)) {
+  const uhel = -hra.uhelUhliku + (i / s.lucerna.uhliky) * Math.PI * 2;
+  return { x: hra.hrdina.x + Math.cos(uhel) * s.lucerna.dosah, y: hra.hrdina.y + Math.sin(uhel) * s.lucerna.dosah, uhel };
+}
+
+// Uhlíky lucerny (Příval): krouží po okraji světla, koho se dotknou, toho spálí (stejného nejdřív za
+// ZASAH_UHLIKEM s) a rozbijí bednu. Rychlé ruce je točí rychleji, Ozvěna jim přidá druhý zásah.
+function uhlikyLucerny(hra, dt, s) {
+  const st = s.lucerna;
+  if (!(st.uhliky > 0)) return;
+  hra.uhelUhliku += (OTACENI_UHLIKU / (hra.hrdina.nabijeni || 1)) * dt;
+  const rana = st.zar * RANA_UHLIKU;
+  for (let i = 0; i < st.uhliky; i++) {
+    const u = poziceUhliku(hra, i, s);
+    for (const n of hra.nepratele) {
+      if (n.zasahUhlikem > 0 || n.hp <= 0 || !viditelny(n) || vzdalenost(n, u) >= n.polomer + 6) continue;
+      zasah(hra, n, rana, true);
+      n.zasahUhlikem = ZASAH_UHLIKEM;
+      hra.zasahuUhliky += 1;
+      ozvenaZasahu(hra, n, rana, true);
+    }
+    for (const b of hra.bedny) {
+      if (!b.rozbita && vzdalenost(b, u) < POLOMER_BEDNY + 6) rozbij(hra, b);
+    }
+  }
+}
+
+// Blesk (blesku = kolik naráz, s Přívalem víc): první udeří do náhodného cíle v dosahu a přeskakuje na nejbližší
+// dosud nezasažené, každý další začne v jiném, ještě nezasaženém. Bedna je první zásah: rozbije se a blesk skočí
+// dál na nejbližšího nepřítele. S Výdrží zasažené otřese. Losy prvního blesku jsou z rng (jako vždycky), další
+// blesky a ozvěna (ozvena = true) losují z losPasiv, ať pasivy neposunou náhodu vln. Vrací, jestli udeřil.
+function uderBlesk(hra, st, ozvena = false) {
+  const { hrdina } = hra;
+  const vDosahu = hra.nepratele.filter((n) => n.hp > 0 && viditelny(n) && vzdalenost(n, hrdina) < st.dosah);
+  const bednyVDosahu = hra.bedny.filter((b) => !b.rozbita && vzdalenost(b, hrdina) < st.dosah);
+  let cile = bednyVDosahu.length ? [...vDosahu, ...bednyVDosahu] : vDosahu;
+  if (!cile.length) return false;
+  const zasazeni = new Set();
+  for (let k = 0; k < st.blesku && cile.length; k++) {
+    let cil = k === 0 && !ozvena ? hra.rng.vyber(cile) : cile[Math.floor(losPasiv(hra) * cile.length)];
+    const body = [{ x: hrdina.x, y: hrdina.y }];
+    let preskoku = st.preskoky;
+    if (bednyVDosahu.includes(cil)) {
+      rozbij(hra, cil);
+      body.push({ x: cil.x, y: cil.y });
+      cil = dalsiCilBlesku(hra, cil, st.skok, zasazeni);
+      preskoku -= 1;
+    }
+    for (let i = 0; i <= preskoku && cil; i++) {
+      zasah(hra, cil, st.poskozeni);
+      otres(hra, cil, st.otres);
+      zasazeni.add(cil);
+      body.push({ x: cil.x, y: cil.y });
+      cil = dalsiCilBlesku(hra, cil, st.skok, zasazeni);
+    }
+    hra.blesky.push({ body, zivot: 0.18 });
+    cile = cile.filter((c) => !zasazeni.has(c) && !c.rozbita);
+  }
+  return true;
+}
+
+// Jiskry vějířem na nejbližší cíl. Na bednu míří, jen když je blíž než nejbližší nepřítel (a nanejvýš
+// JISKRA_NA_BEDNU daleko). Vrací, jestli bylo na co střílet.
+function vystrelJiskry(hra, st) {
+  const { hrdina } = hra;
+  const nepritel = nejblizsi(hra);
+  const bedna = nejblizsiBedna(hra, nepritel ? Math.min(JISKRA_NA_BEDNU, vzdalenost(nepritel, hrdina)) : JISKRA_NA_BEDNU);
+  const cil = bedna ?? nepritel;
+  if (!cil) return false;
+  const zaklad = Math.atan2(cil.y - hrdina.y, cil.x - hrdina.x);
+  for (let i = 0; i < st.pocet; i++) {
+    const uhel = zaklad + (i - (st.pocet - 1) / 2) * 0.18;
+    hra.strely.push({
+      x: hrdina.x, y: hrdina.y, vx: Math.cos(uhel) * 340, vy: Math.sin(uhel) * 340, zivot: st.zivot, poskozeni: st.poskozeni, velikost: st.velikost,
+    });
+  }
+  return true;
+}
+
 // Smrt nepřátel → krystaly, oblaky po houbácích, truhla po bossovi, zlaťáky po elitě a občas srdce, magnet
 // nebo zlaťák.
 function pohrbi(hra) {
@@ -3363,20 +3710,23 @@ function losujRaritu(hra, minimum) {
   return PORADI_RARIT[PORADI_RARIT.length - 1];
 }
 
-// Kolik dá pasiva celkem na úrovni u: násobek vlastnosti (u Srdce přičtené životy). Úrovně 1–5 se násobí
-// jako dřív, další jen přičtou dal k násobku z 5. úrovně, nanejvýš po strop.
+// Kolik dá pasiva celkem na úrovni u: násobek vlastnosti (u pricti přičtené číslo). Úrovně 1–5 se násobí
+// jako dřív, další jen přičtou dal k násobku z 5. úrovně, nanejvýš po strop (u záporného nasobku nejníž po něj).
 export function hodnotaPasivy(id, uroven) {
   const p = PASIVY[id];
   const u = Math.max(0, Math.floor(uroven));
   const pod = Math.min(u, ZAKLAD_UROVNI);
   const nad = u - pod;
-  if (p.pricti) return p.pricti * pod + p.dal * nad;
-  return Math.min((1 + p.nasobek) ** pod * (1 + p.dal * nad), STROPY.pasivy[id] ?? Infinity);
+  const strop = STROPY.pasivy[id];
+  if (p.pricti) return Math.min(p.pricti * pod + p.dal * nad, strop ?? Infinity);
+  const hodnota = (1 + p.nasobek) ** pod * (1 + p.dal * nad);
+  if (strop === undefined) return hodnota;
+  return p.nasobek < 0 ? Math.max(hodnota, strop) : Math.min(hodnota, strop);
 }
 
-// Na úrovni u (z u - 1) už pasiva nic nepřidá a mění se v poškození.
+// Na úrovni u (z u - 1) už pasiva nic nepřidá a mění se v poškození (Příval už od 4. úrovně).
 function pasivaNaStropu(id, u) {
-  return u > ZAKLAD_UROVNI && hodnotaPasivy(id, u) <= hodnotaPasivy(id, u - 1);
+  return u > 0 && !(Math.abs(hodnotaPasivy(id, u) - hodnotaPasivy(id, u - 1)) > 1e-12);
 }
 
 const procent = (x) => Math.round(x * 100);
@@ -3399,8 +3749,8 @@ export function popisUrovni(druh, id, od, uroven) {
     const p = PASIVY[id];
     const radky = [];
     for (let u = od + 1; u <= uroven; u++) {
-      if (u <= ZAKLAD_UROVNI) radky.push(p.popis);
-      else if (pasivaNaStropu(id, u)) radky.push(`+${procent(SILA_ZA_PREBYTEK)} % poškození všech zbraní`);
+      if (pasivaNaStropu(id, u)) radky.push(`+${procent(SILA_ZA_PREBYTEK)} % poškození všech zbraní`);
+      else if (u <= ZAKLAD_UROVNI) radky.push(p.popis);
       else radky.push(p.popisDal);
     }
     return slij(radky);
@@ -3445,15 +3795,20 @@ export function karta(hra, druh, id, rarita = 'bezna') {
   };
 }
 
-// Tři různé karty ze všech zbraní a pasiv (úrovně nemají strop, takže nabídka nikdy nedojde).
+// Tři různé karty ze všech zbraní a pasiv (úrovně nemají strop, takže nabídka nikdy nedojde). Každá možnost má
+// váhu (pasiva vaha, jinak 1) a na kartu padne jeden los z rng jako dřív (se stejnými vahami vyjde stejná karta).
 export function nabidka(hra, minimum = 'bezna') {
   const moznosti = [
     ...Object.keys(ZBRANE).map((id) => ['zbran', id]),
     ...Object.keys(PASIVY).map((id) => ['pasiva', id]),
   ];
+  const vaha = ([druh, id]) => (druh === 'pasiva' ? PASIVY[id].vaha ?? 1 : 1);
   const vybrane = [];
   while (vybrane.length < 3 && moznosti.length) {
-    const [druh, id] = moznosti.splice(Math.floor(hra.rng.dalsi() * moznosti.length), 1)[0];
+    let los = hra.rng.dalsi() * moznosti.reduce((a, m) => a + vaha(m), 0);
+    let i = 0;
+    while (i < moznosti.length - 1 && (los -= vaha(moznosti[i])) >= 0) i++;
+    const [druh, id] = moznosti.splice(i, 1)[0];
     vybrane.push(karta(hra, druh, id, losujRaritu(hra, minimum)));
   }
   if (!vybrane.length) vybrane.push(karta(hra, 'leceni', 'leceni', losujRaritu(hra, minimum)));
