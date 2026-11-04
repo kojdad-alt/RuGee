@@ -13,7 +13,8 @@ export const VYLEPSENI = {
   oziveni: { nazev: 'Oživení', popis: 'Jednou za hru tě duše vrátí s půlkou životů', vlastnost: 'oziveni', pricti: 1, max: 1, cena: 150 },
 };
 
-// Za kolik se hra promění v duše: čas, zabití, Strážci hlubin a zlaťáky z bedniček.
+// Za kolik se hra promění v duše: čas, zabití, bossové (klíč strazce zůstal z doby, kdy byl boss jen jeden)
+// a zlaťáky z bedniček.
 export const DUSE_ZA = { sekund: 20, zabitych: 20, strazce: 10, zlatak: 1 };
 
 export function dusZaHru(hra) {

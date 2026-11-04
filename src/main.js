@@ -129,7 +129,7 @@ function zapisKonec() {
     cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito, trida: hra.trida, datum: new Date().toISOString(),
   };
   const { novy, rekord } = zapisVysledek(vysledek);
-  const text = `${TRIDY[hra.trida].nazev} přežil ${formatCas(hra.cas)}, úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}, Strážců ${hra.zabitoBossu}.`;
+  const text = `${TRIDY[hra.trida].nazev} přežil ${formatCas(hra.cas)}, úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}, bossů ${hra.zabitoBossu}.`;
   const radekRekordu = novy
     ? 'Nový rekord!'
     : `Rekord: ${formatCas(rekord.cas)}, úroveň ${rekord.uroven}, zabito ${rekord.zabito}.`;
@@ -139,7 +139,7 @@ function zapisKonec() {
   // Duše za hru se připíšou hned, utratit se dají v menu Vylepšení.
   const duse = dusZaHru(hra);
   const { duse: celkem } = pripisDuse(duse.celkem);
-  const rozpis = textovyPrvek('small', `čas ${duse.cas} · zabití ${duse.zabiti} · Strážci ${duse.strazci} · zlaťáky ${duse.zlataky} · celkem ${celkem}`);
+  const rozpis = textovyPrvek('small', `čas ${duse.cas} · zabití ${duse.zabiti} · bossové ${duse.strazci} · zlaťáky ${duse.zlataky} · celkem ${celkem}`);
   el('konec-duse').replaceChildren(
     obrazekSpritu('duse', 3),
     textovyPrvek('b', `+${duse.celkem} ${pocetDusi(duse.celkem)}`),
