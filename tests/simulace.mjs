@@ -59,6 +59,12 @@
 // na ledu klouže (rozjíždí se pomalu a po puštění jede dál) a na sněhu ne, led tvoří plochy a ne šachovnici,
 // v Jeskyni má lucerna větší dosah. Rekordy jsou pro každou mapu zvlášť, další mapa se odemkne 5 minutami na
 // předchozí (i starým rekordem Louky) a zvolená zamčená mapa se načte jako Louka.
+// Mapy II: Sopka (láva pálí, ohniví brouci), Bažina (bahno zpomalí, jedové bubliny prasknou v oblak, žáby skáčou)
+// a Hřbitov za noci (tma, mlha, kostlivci a duchové). Překážky na všech mapách kromě Louky: nikdy u startu, na
+// zvláštní ploše ani vedle sebe, hrdina ani nepřátelé v nich nikdy neskončí, nepřítel za překážkou ji obejde
+// a dojde k hrdinovi, duch proletí, střela přeletí. Každá mapa má hlavního bosse, který přijde první (na Louce
+// pořád Strážce, pořadí beze změny) a jeho truhla dá kus sady bosse, ze kterého vychází. Bot se lávě
+// a bublinám vyhýbá.
 import { readFileSync } from 'node:fs';
 import { vytvorRng } from '../src/rng.js';
 import {
@@ -78,6 +84,7 @@ import {
   TRVANI_OTEVRENI, PRVNI_VLNA_HRDINY, ZPOMALENI_SITE_BOSSE, nasadKus, sundejKus, ziskejKus, rozhodniKus, seznamVystroje,
   SANCE_ZLATAKU, MESEC, KUPEC, ZBOZI, PORADI_ZBOZI, RUST_CEN, LECENI_LEKTVARU, PREHOZENI, MAX_ZAMCENYCH, PRVNI_ZAMCENA, CENA_ZAMCENE,
   POLOMER_ZAMCENE, cenaZbozi, prekazkaNakupu, nabidkaKupce, kup, odejdiOdKupce, cenaPrehozeni, prehod,
+  POLOMER_HRDINY, SKOK_ZABY, poradiBossu, zakladBosse,
 } from '../src/hra.js';
 import {
   VYBAVA, PORADI_SLOTU, VSECHNY_KUSY, RARITY_VYBAVY, PORADI_RARIT_VYBAVY, EFEKTY_VYBAVY, STATY_VYBAVY, STROPY_VYBAVY,
@@ -93,6 +100,7 @@ import {
 } from '../src/ulozeni.js';
 import {
   MAPY, PORADI_MAP, VYCHOZI_MAPA, ODEMKNUTI_MAPY, VELIKOST_DLAZDICE, PRICHODY_MAP, naLedu, ledovaDlazdice, odKdy, platnaMapa,
+  plochaMapy, dlazdicePlochy, naPlose, prekazkaNaDlazdici, kruhPrekazky, hloubkaVPrekazce, VOLNO_U_STARTU,
 } from '../src/mapy.js';
 
 const seminko = Number(process.argv[2] ?? 1);
@@ -221,6 +229,18 @@ function rozhodni(hra, t, uhyba = true) {
     }
   };
   for (const o of hra.oblaky) utec(o, o.polomer + 20, 4);
+  // Jedové bubliny a lávu je vidět, bot se jim vyhne jako oblakům (lávě slaběji, přes kus se dá přeběhnout).
+  for (const b of hra.bubliny ?? []) utec(b, b.polomer + 24, 4);
+  const plocha = plochaMapy(hra.mapa);
+  if (plocha?.druh === 'lava') {
+    const tx0 = Math.floor(hrdina.x / VELIKOST_DLAZDICE);
+    const ty0 = Math.floor(hrdina.y / VELIKOST_DLAZDICE);
+    for (let ty = ty0 - 2; ty <= ty0 + 2; ty++) {
+      for (let tx = tx0 - 2; tx <= tx0 + 2; tx++) {
+        if (dlazdicePlochy(tx, ty, plocha.data)) utec({ x: (tx + 0.5) * VELIKOST_DLAZDICE, y: (ty + 0.5) * VELIKOST_DLAZDICE }, VELIKOST_DLAZDICE * 1.3, 4);
+      }
+    }
+  }
   // Truhla bosse kousek od něj: skočí pro ni, i když kolem někdo je (jako člověk). Vzdálenou sebere, až bude klid.
   const truhla = nejblizsiTruhla(hra, 220);
   if (truhla) {
@@ -2214,20 +2234,29 @@ for (const id of PORADI_MAP) {
   const vide = new WeakSet();
   const prvniDruhu = {};
   const ohlaseno = [];
-  const pohyb = { naLedu: 0, klouze: 0, naSnehu: 0, smyk: 0 };
+  const pohyb = { naLedu: 0, klouze: 0, naSnehu: 0, smyk: 0, vBahne: 0, uPrekazky: 0 };
+  const vPrekazce = { hrdina: 0, nepratele: 0, nejhloub: 0 };
+  let prvniBoss = null;
+  let lavy = 0;
   for (let t = 0; t < delka && !h.konec; t += DT) {
     const vstupBota = rozhodni(h, t);
-    const pred = { x: h.hrdina.x, y: h.hrdina.y, odhozen: h.hrdina.odhozen, sit: h.hrdina.sit, led: naLedu(id, h.hrdina.x, h.hrdina.y), oznameni: h.oznameni };
+    const plochaPred = naPlose(id, h.hrdina.x, h.hrdina.y);
+    const pred = { x: h.hrdina.x, y: h.hrdina.y, odhozen: h.hrdina.odhozen, sit: h.hrdina.sit, led: plochaPred === 'led', oznameni: h.oznameni };
     const bezi = !(h.konec || h.volby || h.porovnani || h.pauza || h.obchod || h.otevira);
     aktualizuj(h, DT, vstupBota, SIRKA, VYSKA);
-    // Kam by hrdinu poslal vstup bez klouzání (stejně jako na Louce).
+    // Kam by hrdinu poslal vstup bez klouzání (stejně jako na Louce, v bahně pomaleji). Kroky u překážky se
+    // nepočítají (tam ho zastaví a sklouzne), ty hlídá zvlášť kontrola překážek.
     if (bezi && !(pred.odhozen > 0)) {
       const d = Math.hypot(vstupBota.dx, vstupBota.dy);
-      const rychlost = h.hrdina.rychlost * (pred.sit > 0 ? ZPOMALENI_SITI : 1);
+      const vBahne = plochaPred === 'bahno' ? m.bahno.zpomaleni : 1;
+      const rychlost = h.hrdina.rychlost * (pred.sit > 0 ? ZPOMALENI_SITI : 1) * vBahne;
       const ox = d > 0 ? pred.x + (vstupBota.dx / d) * rychlost * DT : pred.x;
       const oy = d > 0 ? pred.y + (vstupBota.dy / d) * rychlost * DT : pred.y;
       const odchylka = Math.hypot(h.hrdina.x - ox, h.hrdina.y - oy);
-      if (pred.led) {
+      const uPrekazky = hloubkaVPrekazce(id, ox, oy, POLOMER_HRDINY + 0.5) > 0 || hloubkaVPrekazce(id, pred.x, pred.y, POLOMER_HRDINY + 0.5) > 0;
+      if (plochaPred === 'bahno' && d > 0) pohyb.vBahne += 1;
+      if (uPrekazky) pohyb.uPrekazky += 1;
+      else if (pred.led) {
         pohyb.naLedu += 1;
         if (odchylka > 0.3) pohyb.klouze += 1;
       } else {
@@ -2235,6 +2264,17 @@ for (const id of PORADI_MAP) {
         if (odchylka > 1e-6) pohyb.smyk += 1;
       }
     }
+    // Hrdina ani nepřátelé (kromě duchů) nikdy nezůstanou v překážce.
+    const hloubka = hloubkaVPrekazce(id, h.hrdina.x, h.hrdina.y, POLOMER_HRDINY);
+    if (hloubka > 0.01) vPrekazce.hrdina += 1;
+    vPrekazce.nejhloub = Math.max(vPrekazce.nejhloub, hloubka);
+    for (const n of h.nepratele) {
+      if (n.duch) continue;
+      const hn = hloubkaVPrekazce(id, n.x, n.y, n.polomer);
+      if (hn > 0.5) vPrekazce.nepratele += 1;
+    }
+    if (!prvniBoss) prvniBoss = h.nepratele.find((n) => n.boss)?.druh ?? null;
+    if (naPlose(id, h.hrdina.x, h.hrdina.y) === 'lava') lavy += 1;
     if (h.oznameni && h.oznameni !== pred.oznameni) ohlaseno.push(h.oznameni.text);
     obsluz(h);
     for (const n of h.nepratele) {
@@ -2260,13 +2300,20 @@ for (const id of PORADI_MAP) {
     if (h.cas > p.od + 1 && !ohlaseno.includes(p.text)) chybyMap.push(`na mapě ${id} chybí ohlášení „${p.text}“`);
   }
   if (h.zabito === 0 || h.hrdina.uroven < 3) chybyMap.push(`na mapě ${id} se skoro nehrálo (zabito ${h.zabito}, úroveň ${h.hrdina.uroven})`);
+  if (vPrekazce.hrdina || vPrekazce.nepratele) chybyMap.push(`na mapě ${id} stál v překážce hrdina ${vPrekazce.hrdina}× a nepřítel ${vPrekazce.nepratele}×`);
+  if (h.cas > 181 && prvniBoss !== poradiBossu(id)[0]) chybyMap.push(`na mapě ${id} přišel první ${prvniBoss}, ne hlavní boss ${poradiBossu(id)[0]}`);
+  if (m.bubliny && h.cas > 20 && !h.bublin) chybyMap.push(`v bažině ${id} nevyrostla žádná bublina`);
+  if (m.bahno && !pohyb.vBahne) chybyMap.push(`na mapě ${id} hrdina nikdy nešel bahnem`);
   if (m.led) {
     if (!pohyb.naLedu || pohyb.klouze < pohyb.naLedu * 0.3) chybyMap.push(`na ledu mapy ${id} hrdina neklouže (${pohyb.klouze} z ${pohyb.naLedu} kroků)`);
   } else if (pohyb.naLedu) chybyMap.push(`na mapě ${id} bez ledu je led`);
   if (pohyb.smyk) chybyMap.push(`na mapě ${id} klouže i mimo led (${pohyb.smyk} kroků)`);
   vysledkyMap[id] = {
     preziti_s: Math.round(h.cas), uroven: h.hrdina.uroven, zabito: h.zabito, zabito_bossu: h.zabitoBossu,
-    prvni_druhu_s: prvniDruhu, smecek: h.smecek,
+    prvni_druhu_s: prvniDruhu, smecek: h.smecek, prvni_boss: prvniBoss,
+    ...(m.prekazky ? { kroku_u_prekazky: pohyb.uPrekazky } : {}),
+    ...(m.lava ? { popaleno: h.popaleno, snimku_na_lave: lavy } : {}),
+    ...(m.bahno ? { kroku_v_bahne: pohyb.vBahne, bublin: h.bublin } : {}),
     ...(m.led ? { na_ledu_procent: Math.round((pohyb.naLedu / Math.max(1, pohyb.naLedu + pohyb.naSnehu)) * 100), klouzani_kroku: pohyb.klouze } : {}),
   };
 }
@@ -2343,12 +2390,274 @@ for (const id of PORADI_MAP) {
 // Ledový duch je duch: schovaný a zase vidět, zbraně ho schovaného nevidí.
 if (!pridejNepritele(novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, {}, 'jezero'), 'ledovy_duch', 300, 0).duch) chybyMap.push('ledový duch není duch');
 
+// Mapy II. Hrdina stojí sám (bez vln, beden, bossů, smeček, kupce a bublin), kde ho test postaví.
+const tichaMapa = (id) => {
+  const h = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, {}, id);
+  h.zbrane = {};
+  Object.assign(h, { doSpawnu: Infinity, doBedny: Infinity, doZamcene: Infinity, dalsiBoss: Infinity, dalsiSmecka: null, dalsiKupec: Infinity, doBubliny: Infinity });
+  h.hrdina.nezranitelny = 1e9;
+  return h;
+};
+// Střed nejbližšího čtverce 3×3 dlaždic, kde je všude (nebo nikde) zvláštní plocha mapy a žádná překážka.
+const ctverec = (id, naPlose) => {
+  const p = plochaMapy(id);
+  for (let r = 0; r < 80; r++) {
+    for (let ty = -r; ty <= r; ty++) {
+      for (let tx = -r; tx <= r; tx++) {
+        if (Math.max(Math.abs(tx), Math.abs(ty)) !== r) continue;
+        let vse = true;
+        for (let dy = -1; dy <= 1 && vse; dy++) {
+          for (let dx = -1; dx <= 1 && vse; dx++) {
+            vse = Boolean(p && dlazdicePlochy(tx + dx, ty + dy, p.data)) === naPlose && prekazkaNaDlazdici(id, tx + dx, ty + dy) < 0;
+          }
+        }
+        if (vse) return { x: (tx + 0.5) * VELIKOST_DLAZDICE, y: (ty + 0.5) * VELIKOST_DLAZDICE };
+      }
+    }
+  }
+  return null;
+};
+// Překážky: na všech mapách kromě Louky, u startu žádná, na zvláštní ploše ani vedle sebe (ani úhlopříčně),
+// obrázek 16×16 z palety ozdob a kolizní kruh uvnitř něj.
+for (const id of PORADI_MAP) {
+  const m = MAPY[id];
+  const p = plochaMapy(id);
+  if (id === VYCHOZI_MAPA ? m.prekazky : !m.prekazky?.kusy.length) chybyMap.push(id === VYCHOZI_MAPA ? 'na Louce jsou překážky' : `mapa ${id} nemá překážky`);
+  if (!m.prekazky) continue;
+  for (const [i, kus] of m.prekazky.kusy.entries()) {
+    if (kus.radky.length !== 16 || kus.radky.some((r) => r.length !== 16 || [...r].some((z) => z !== '.' && !m.ozdoby.paleta[z]))) chybyMap.push(`překážka ${i} mapy ${id} není 16×16 z palety`);
+    const [x, y, r] = kus.kruh ?? [];
+    if (!(r > 2 && x - r >= 0 && x + r <= 16 && y - r >= 0 && y + r <= 16)) chybyMap.push(`překážka ${i} mapy ${id} má kruh mimo obrázek`);
+  }
+  let pocet = 0;
+  const N = 80;
+  for (let ty = -N; ty < N; ty++) {
+    for (let tx = -N; tx < N; tx++) {
+      if (prekazkaNaDlazdici(id, tx, ty) < 0) continue;
+      pocet += 1;
+      if (Math.abs(tx) <= VOLNO_U_STARTU && Math.abs(ty) <= VOLNO_U_STARTU) chybyMap.push(`překážka u startu na mapě ${id}`);
+      if (p && dlazdicePlochy(tx, ty, p.data)) chybyMap.push(`překážka na ploše ${p.druh} mapy ${id}`);
+      for (const [dx, dy] of [[1, 0], [1, 1], [0, 1], [-1, 1]]) {
+        if (prekazkaNaDlazdici(id, tx + dx, ty + dy) >= 0) chybyMap.push(`dvě překážky vedle sebe na mapě ${id}`);
+      }
+    }
+  }
+  const procent = (pocet / (2 * N) ** 2) * 100;
+  if (procent < 1 || procent > 5) chybyMap.push(`překážek na mapě ${id} je ${procent.toFixed(1)} %`);
+  vysledkyMap[id].prekazek_procent = Math.round(procent * 10) / 10;
+}
+// U první překážky vpravo od startu: nepřítel přímo za ní (na čáře s hrdinou) ji obejde a dojde k hrdinovi a nikdy
+// v ní nestojí, duch jí proletí, hrdina se o ni zastaví a sklouzne kolem a střela hrdiny i bosse přes ni přeletí.
+const prvniPrekazka = (id) => {
+  for (let tx = VOLNO_U_STARTU + 1; tx < 300; tx++) {
+    for (let ty = -2; ty <= 2; ty++) {
+      const k = kruhPrekazky(id, tx, ty);
+      if (k) return k;
+    }
+  }
+  return null;
+};
+const pokusyPrekazek = {};
+for (const id of PORADI_MAP.filter((m) => MAPY[m].prekazky)) {
+  const k = prvniPrekazka(id);
+  if (!k) {
+    chybyMap.push(`na mapě ${id} není překážka`);
+    continue;
+  }
+  const zaPrekazkou = (druh) => {
+    const h = tichaMapa(id);
+    Object.assign(h.hrdina, { x: k.x + k.r + 30, y: k.y });
+    const n = pridejNepritele(h, druh, k.x - k.r - 30, k.y);
+    let doslo = null;
+    let hloubka = 0;
+    for (let t = 0; t < 8 && doslo === null; t += DT) {
+      aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+      hloubka = Math.max(hloubka, k.r + n.polomer - Math.hypot(n.x - k.x, n.y - k.y));
+      if (Math.hypot(n.x - h.hrdina.x, n.y - h.hrdina.y) < n.polomer + 8) doslo = Math.round(t * 100) / 100;
+    }
+    return { doslo, hloubka };
+  };
+  const kost = zaPrekazkou('kostlivec');
+  if (kost.doslo === null || kost.hloubka > 0.5) chybyMap.push(`na mapě ${id} kostlivec překážku neobešel (došel ${kost.doslo}, v ní ${kost.hloubka.toFixed(1)} px)`);
+  const duch = zaPrekazkou('duch');
+  if (duch.doslo === null || duch.hloubka < 5) chybyMap.push(`na mapě ${id} duch překážkou neproletěl`);
+  // hrdina jde rovně na střed překážky
+  const h = tichaMapa(id);
+  Object.assign(h.hrdina, { x: k.x - k.r - 30, y: k.y });
+  let hloubka = 0;
+  for (let t = 0; t < 4; t += DT) {
+    aktualizuj(h, DT, { dx: 1, dy: 0 }, SIRKA, VYSKA);
+    hloubka = Math.max(hloubka, hloubkaVPrekazce(id, h.hrdina.x, h.hrdina.y, POLOMER_HRDINY));
+  }
+  if (hloubka > 0.01 || h.hrdina.x < k.x + k.r) chybyMap.push(`na mapě ${id} hrdina překážku neobešel (x ${Math.round(h.hrdina.x - k.x)} od ní, v ní ${hloubka.toFixed(2)} px)`);
+  // střela hrdiny a střela bosse letí přes ni
+  const hs = tichaMapa(id);
+  Object.assign(hs.hrdina, { x: k.x - 260, y: k.y });
+  hs.strely.push({ x: k.x - k.r - 30, y: k.y, vx: 340, vy: 0, zivot: 1.2, poskozeni: 1 });
+  hs.strelyBossu.push({ x: k.x - k.r - 30, y: k.y, vx: 160, vy: 0, zivot: 3.5, rana: 5 });
+  hraj(hs, 0.6);
+  if (hs.strely.length !== 1 || hs.strely[0].x < k.x + k.r || hs.strelyBossu.length !== 1 || hs.strelyBossu[0].x < k.x + k.r) chybyMap.push(`na mapě ${id} střela nepřeletěla překážku`);
+  pokusyPrekazek[id] = { kostlivec_dosel_s: kost.doslo, duch_dosel_s: duch.doslo };
+}
+// Láva pálí, dokud v ní hrdina stojí: každou půlsekundu rána ranaHrozby(lava.poskozeni) s oranžovým číslem.
+// Kousek vedle na skále se nic neděje.
+{
+  const id = 'sopka';
+  const lava = ctverec(id, true);
+  const skala = ctverec(id, false);
+  if (!lava || !skala) chybyMap.push('na sopce chybí láva nebo skála 3×3');
+  else {
+    const h = tichaMapa(id);
+    h.hrdina.nezranitelny = 0;
+    Object.assign(h.hrdina, lava);
+    let oranzovych = 0;
+    hraj(h, 2, (x) => { oranzovych = Math.max(oranzovych, x.cisla.filter((c) => c.barva === 'ohen').length); });
+    const rana = Math.round(MAPY[id].lava.poskozeni * silaHrozby(0).poskozeni * MAPY[id].obtiznost.poskozeni);
+    if (h.popaleno < 3 || h.popaleno > 5 || h.hrdina.hp !== h.hrdina.maxHp - rana * h.popaleno || !oranzovych) chybyMap.push(`láva pálila ${h.popaleno}× (životů ${h.hrdina.hp}, rána ${rana})`);
+    const hs = tichaMapa(id);
+    hs.hrdina.nezranitelny = 0;
+    Object.assign(hs.hrdina, skala);
+    hraj(hs, 2);
+    if (hs.popaleno || hs.hrdina.hp !== hs.hrdina.maxHp) chybyMap.push('skála vedle lávy pálí');
+    if (naPlose(id, 0, 0) || plochaMapy(id).druh !== 'lava') chybyMap.push('hrdina na sopce začíná v lávě');
+    vysledkyMap[id].lava = { ran_za_2_s: h.popaleno, rana };
+  }
+}
+// Bahno: hrdina v něm jde rychlostí × bahno.zpomaleni, na trávě normálně. Bubliny rostou v bahně do dosahu,
+// po varování prasknou v zelený jedový oblak, který nejdřív nepálí a pak ano.
+{
+  const id = 'bazina';
+  const { bahno, bubliny } = MAPY[id];
+  const vBahne = ctverec(id, true);
+  const trava = ctverec(id, false);
+  if (!vBahne || !trava) chybyMap.push('v bažině chybí bahno nebo tráva 3×3');
+  else {
+    const krok = (misto) => {
+      const h = tichaMapa(id);
+      Object.assign(h.hrdina, misto);
+      aktualizuj(h, DT, { dx: 1, dy: 0 }, SIRKA, VYSKA);
+      return h.hrdina.x - misto.x;
+    };
+    const plny = novaHra(vytvorRng(seminko)).hrdina.rychlost * DT;
+    if (Math.abs(krok(vBahne) - plny * bahno.zpomaleni) > 1e-9 || Math.abs(krok(trava) - plny) > 1e-9) chybyMap.push(`v bahně krok ${krok(vBahne)}, na trávě ${krok(trava)} (plný ${plny})`);
+    if (naPlose(id, 0, 0)) chybyMap.push('hrdina v bažině začíná v bahně');
+    // bubliny kolem stojícího hrdiny
+    const h = tichaMapa(id);
+    Object.assign(h.hrdina, vBahne);
+    h.doBubliny = bubliny.kazdych;
+    const videne = new WeakSet();
+    const cekaji = [];
+    let prasklo = 0;
+    hraj(h, 20, (x) => {
+      for (const b of x.bubliny) {
+        if (videne.has(b)) continue;
+        videne.add(b);
+        const d = Math.hypot(b.x - x.hrdina.x, b.y - x.hrdina.y);
+        if (naPlose(id, b.x, b.y) !== 'bahno' || d > bubliny.dosah + 1e-6 || d < 40 - 1e-6) chybyMap.push(`bublina mimo bahno nebo dosah (${Math.round(d)} px)`);
+        cekaji.push({ b, kdy: x.cas });
+      }
+      for (const c of cekaji.filter((c) => !c.hotovo && x.cas - c.kdy >= bubliny.varovani + DT)) {
+        c.hotovo = true;
+        if (x.oblaky.some((o) => o.druh === 'bahno' && o.x === c.b.x && o.y === c.b.y)) prasklo += 1;
+      }
+    });
+    if (h.bublin < 5 || prasklo < cekaji.filter((c) => c.hotovo).length || !prasklo) chybyMap.push(`bublin ${h.bublin}, prasklo v oblak ${prasklo}`);
+    // bublina přímo pod hrdinou: varování a nafukování nepálí, pak jed
+    const hj = tichaMapa(id);
+    Object.assign(hj.hrdina, vBahne);
+    hj.hrdina.nezranitelny = 0;
+    hj.bubliny.push({ x: vBahne.x, y: vBahne.y, zivot: bubliny.varovani, varovani: bubliny.varovani, polomer: bubliny.polomer });
+    hraj(hj, bubliny.varovani + NAFUKOVANI_OBLAKU - 2 * DT);
+    const pred = hj.hrdina.hp;
+    let jedu = 0;
+    hraj(hj, 0.3, (x) => { jedu = Math.max(jedu, x.cisla.filter((c) => c.barva === 'jed').length); });
+    const rana = Math.round(bubliny.jed * silaHrozby(0).poskozeni * MAPY[id].obtiznost.poskozeni);
+    if (pred !== hj.hrdina.maxHp || hj.hrdina.hp !== pred - rana || !jedu) chybyMap.push(`bublina pálila při varování nebo nepálila potom (${pred} → ${hj.hrdina.hp})`);
+    vysledkyMap[id].bubliny = { za_20_s: h.bublin, prasklo, rana };
+  }
+}
+// Žába skáče: chvíli sedí, chvíli letí víc než dvakrát rychleji, v průměru jde zhruba svou rychlostí.
+{
+  const h = tichaMapa('bazina');
+  const z = pridejNepritele(h, 'zaba', 180, 0);
+  let sedi = 0;
+  let skace = 0;
+  let ujde = 0;
+  let nejrychleji = 0;
+  let predX = z.x;
+  let predY = z.y;
+  hraj(h, 1.5, () => {
+    const d = Math.hypot(z.x - predX, z.y - predY);
+    predX = z.x;
+    predY = z.y;
+    ujde += d;
+    if (d < 1e-9) sedi += 1;
+    else skace += 1;
+    nejrychleji = Math.max(nejrychleji, d / DT);
+  });
+  const prumer = ujde / 1.5;
+  if (!sedi || !skace || nejrychleji < z.rychlost * 2 || prumer < z.rychlost * 0.7 || prumer > z.rychlost * 1.3) chybyMap.push(`žába neskáče (sedí ${sedi}, skáče ${skace}, nejrychleji ${Math.round(nejrychleji)}, průměr ${Math.round(prumer)})`);
+  vysledkyMap.bazina.zaba = { snimku_sedi: sedi, snimku_skace: skace, prumer_px_s: Math.round(prumer), skok_px_s: Math.round(nejrychleji) };
+  if (!(SKOK_ZABY.pauza > 0 && SKOK_ZABY.skok > 0)) chybyMap.push('SKOK_ZABY nesedí');
+}
+// Hlavní bossové map: na Louce pořadí beze změny, na každé mapě první její hlavní boss a pak zbylí tři základní
+// (každý jen jednou). Noví bossové vychází ze známého bosse, mají 2–3 schopnosti s varováním, vlastní jméno, nápis
+// a sprite aspoň 16×16. Ve hře přijde první opravdu hlavní boss a jeho truhla dá kus sady toho, z koho vychází.
+if (poradiBossu(VYCHOZI_MAPA).join() !== PORADI_BOSSU.join()) chybyMap.push('pořadí bossů na Louce se změnilo');
+const hlavniBossove = [...new Set(PORADI_MAP.map((id) => MAPY[id].boss))].filter((b) => !PORADI_BOSSU.includes(b));
+if (hlavniBossove.length < 3) chybyMap.push(`nových hlavních bossů je ${hlavniBossove.length}`);
+for (const druh of hlavniBossove) {
+  const b = BOSSOVE[druh];
+  const seznam = schopnostiBosse(druh);
+  if (!b || !PORADI_BOSSU.includes(b.zaklad) || !VYBAVA[b.zaklad] || zakladBosse(druh) !== b.zaklad) {
+    chybyMap.push(`${druh} nevychází ze známého bosse`);
+    continue;
+  }
+  if (seznam.length < 2 || seznam.length > 3 || seznam.some((x) => !Object.hasOwn(SCHOPNOSTI, x.id) || !(x.varovani >= 0.7 && x.varovani <= 1))) chybyMap.push(`${druh} má špatné schopnosti`);
+  for (const x of seznam) {
+    if (x.id === 'hod' && !jmenaSpritu.has(x.strela)) chybyMap.push(`${druh} hází ${x.strela} bez spritu`);
+    if (x.id === 'vyvolani' && (!Object.hasOwn(RYCHLOST_NEPRATEL, x.druh) || x.max < x.pocet[1])) chybyMap.push(`${druh} vyvolá ${x.druh}`);
+  }
+  if (Object.values(BOSSOVE).filter((o) => o.prichod === b.prichod || o.nazev === b.nazev).length !== 1) chybyMap.push(`${druh} má stejný nápis nebo jméno jako jiný boss`);
+  const sprite = textSpritu.match(new RegExp(`^ {2}${druh}: \\[\\n([\\s\\S]*?)\\n {2}\\],`, 'm'));
+  const radky = sprite ? [...sprite[1].matchAll(/'([^']*)'/g)].map((x) => x[1]) : [];
+  if (radky.length < 16 || radky.some((r) => r.length !== radky.length)) chybyMap.push(`sprite ${druh} není aspoň 16×16`);
+  if (!(druh in RYCHLOST_NEPRATEL)) chybyMap.push(`${druh} nemá staty`);
+}
+const truhlyMap = {};
+for (const id of PORADI_MAP) {
+  const poradi = poradiBossu(id);
+  if (poradi[0] !== MAPY[id].boss || !Object.hasOwn(BOSSOVE, poradi[0])) chybyMap.push(`mapa ${id} nemá hlavního bosse (${MAPY[id].boss})`);
+  if (poradi.length !== PORADI_BOSSU.length || new Set(poradi.map(zakladBosse)).size !== PORADI_BOSSU.length) chybyMap.push(`bossové na mapě ${id}: ${poradi}`);
+  const h = tichaMapa(id);
+  h.dalsiBoss = DT / 2;
+  aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  const boss = h.nepratele.find((n) => n.boss);
+  if (boss?.druh !== poradi[0] || h.oznameni?.text !== BOSSOVE[poradi[0]].prichod) {
+    chybyMap.push(`na mapě ${id} nepřišel první hlavní boss (${boss?.druh})`);
+    continue;
+  }
+  h.dalsiBoss = Infinity;
+  boss.hp = 0;
+  aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  const truhla = h.predmety.find((p) => p.druh === 'truhla');
+  if (!truhla) {
+    chybyMap.push(`hlavní boss mapy ${id} nenechal truhlu`);
+    continue;
+  }
+  Object.assign(h.hrdina, { x: truhla.x, y: truhla.y });
+  hraj(h, TRVANI_OTEVRENI + 0.2);
+  const kus = h.nalezy[0];
+  if (!kus || kus.boss !== zakladBosse(boss.druh) || h.truhlaOd !== boss.druh || !h.volby) chybyMap.push(`truhla hlavního bosse mapy ${id} dala ${kus?.boss} (od ${h.truhlaOd})`);
+  truhlyMap[id] = { boss: boss.druh, kus: kus ? `${kus.nazev} (${kus.boss})` : null };
+}
+
 const soucetHodnot = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 const zaokrouhli = (s) => Object.fromEntries(Object.entries(s).map(([id, p]) => [id, Math.round(p * 1000) / 10]));
 
 const vysledek = {
   seminko,
-  mapy: vysledkyMap,
+  mapy: { ...vysledkyMap, prekazky: pokusyPrekazek, truhly_hlavnich_bossu: truhlyMap },
   trida: hra.trida,
   preziti_s: Math.round(hra.cas),
   konec: hra.konec,

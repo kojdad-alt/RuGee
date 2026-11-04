@@ -1,7 +1,9 @@
 // Pravidla hry: pohyb, zbraně, nepřátelé, krystaly zkušeností a vylepšení.
 import { pouzijVylepseni } from './duse.js';
 import { PORADI_SLOTU, ucinekVystroje, losujKus, zlatakyZaKus, RARITY_VYBAVY } from './vystroj.js';
-import { MAPY, VYCHOZI_MAPA, PRICHODY_MAP, platnaMapa, naLedu, odKdy } from './mapy.js';
+import {
+  MAPY, PORADI_MAP, VYCHOZI_MAPA, PRICHODY_MAP, platnaMapa, naPlose, odKdy, vytlacZPrekazek,
+} from './mapy.js';
 
 // ikona = jméno spritu, který se ukáže na kartě vylepšení. popis = řádek za každou z úrovní 1–5.
 // dal = jak zbraň roste nad 5. úrovní (bonusZaUroven): poradi = co přidá každá třetí úroveň (dokola) a která
@@ -253,6 +255,13 @@ const MAX_OBLAKU = 40;
 export const OD_VLKU = 180;
 export const SMECKA_OD = 4;
 export const SMECKA_DO = 6;
+// Žába skáče: SKOK_ZABY.pauza s sedí, pak SKOK_ZABY.skok s letí SKOK_ZABY.rychlost× rychleji (v průměru jde zhruba
+// svou rychlostí). Kdy v cyklu je, se počítá z času jejího příchodu, ne z rng.
+export const SKOK_ZABY = { pauza: 0.5, skok: 0.32, rychlost: 2.6 };
+// Hrdina je pro překážky kruh o tomhle poloměru (stejně daleko od něj ho nepřítel kousne, viz polomer + 8).
+export const POLOMER_HRDINY = 9;
+// Bedny, zamčené truhly a vůz kupce stojí aspoň tak daleko od překážek (aby šly sebrat a nestály v kameni).
+const ODSTUP_OD_PREKAZEK = { bedna: 16, vuz: 26 };
 // Bedničky a sudy po louce: rozbije je jakýkoli zásah zbraní a vypadne z nich jedna věc. Objevují se jen mimo
 // obrazovku (kousek za jejím okrajem), nejvýš MAX_BEDEN naráz. Které zůstaly moc daleko za hrdinou, zmizí,
 // ať se nové objevují tam, kam hrdina zrovna jde.
@@ -345,7 +354,45 @@ export const BOSSOVE = {
     nazev: 'Bludička', prichod: 'Ve tmě bliká Bludička. Nechoď za ní', porazen: 'Bludička poražena', pauza: 3,
     schopnosti: [{ id: 'vejir' }, { id: 'vyvolani', druh: 'duch', pocet: [6, 6], max: 8, vzdalenost: 40 }],
   },
+  // Hlavní bossové map (boss v mapy.js) vycházejí z jednoho ze čtyř (zaklad): jiné barvy, jméno a schopnosti,
+  // stejné chování a truhla dá kus sady toho, z koho vycházejí. strely = barva střel vějíře (null = modré).
+  lavovy_obr: {
+    nazev: 'Lávový obr', prichod: 'Sopka se otřásá, z lávy vystupuje Lávový obr', porazen: 'Lávový obr poražen', pauza: 2.6,
+    zaklad: 'obr',
+    schopnosti: [
+      { id: 'hod', strela: 'magma', poskozeni: 16 },
+      { id: 'dupnuti', polomer: 200, dosah: 280, poskozeni: 20, odhozeni: 120 },
+      { id: 'vyvolani', druh: 'ohnivy_brouk', pocet: [6, 8], max: 16, vzdalenost: 50 },
+    ],
+  },
+  bahenni_bludicka: {
+    nazev: 'Bahenní bludička', prichod: 'Nad bahnem se rozsvítila Bahenní bludička', porazen: 'Bahenní bludička poražena', pauza: 3,
+    zaklad: 'bludicka', strely: 'bahno',
+    schopnosti: [{ id: 'vejir', poskozeni: 9 }, { id: 'vyvolani', druh: 'zaba', pocet: [6, 8], max: 14, vzdalenost: 40 }],
+  },
+  kosteny_kral: {
+    nazev: 'Kostěný král', prichod: 'Hroby se otvírají, vstává Kostěný král', porazen: 'Kostěný král poražen', pauza: 2.8,
+    zaklad: 'strazce',
+    schopnosti: [
+      { id: 'vypad', poskozeni: 18 },
+      { id: 'hod', strela: 'lebka', pocet: [3, 4], poskozeni: 12, polomer: 28 },
+      { id: 'vyvolani', druh: 'kostlivec', pocet: [6, 6], max: 12, vzdalenost: 60 },
+    ],
+  },
 };
+// Ze kterého ze čtyř bossů tenhle vychází (u čtyř základních on sám). Podle toho se kreslí a co dá truhla.
+export function zakladBosse(druh) {
+  return BOSSOVE[druh]?.zaklad ?? druh;
+}
+// Pořadí bossů na mapě: první přijde hlavní boss mapy a nahradí v kole toho, ze kterého vychází. Na Louce je to
+// Strážce, takže pořadí je pořád PORADI_BOSSU.
+const PORADI_BOSSU_MAP = Object.fromEntries(PORADI_MAP.map((id) => {
+  const hlavni = Object.hasOwn(BOSSOVE, MAPY[id].boss) ? MAPY[id].boss : PORADI_BOSSU[0];
+  return [id, [hlavni, ...PORADI_BOSSU.filter((d) => d !== zakladBosse(hlavni))]];
+}));
+export function poradiBossu(mapa) {
+  return PORADI_BOSSU_MAP[mapa] ?? PORADI_BOSSU;
+}
 // Schopnosti jednoho bosse v pořadí, jak je střídá: data ze SCHOPNOSTI a přes ně to, co má boss jinak.
 const SEZNAM_SCHOPNOSTI = Object.fromEntries(Object.entries(BOSSOVE).map(([druh, b]) => [
   druh, b.schopnosti.map((s) => ({ ...SCHOPNOSTI[s.id], ...s })),
@@ -426,11 +473,17 @@ const NEPRATELE = {
   houbak: { hp: 32, rychlost: 30, poskozeni: 8, xp: 3, polomer: 12, jed: true },
   vlk: { hp: 16, rychlost: 104, poskozeni: 6, xp: 2, polomer: 10 },
   ledovy_duch: { hp: 24, rychlost: 70, poskozeni: 8, xp: 2, polomer: 10, duch: true },
+  // Ohnivý brouk (Sopka): rychlý a slabý, jeho kousnutí pálí (oranžové číslo). Žába (Bažina) skáče (SKOK_ZABY).
+  ohnivy_brouk: { hp: 12, rychlost: 78, poskozeni: 6, xp: 1, polomer: 9, ohen: true },
+  zaba: { hp: 14, rychlost: 72, poskozeni: 6, xp: 2, polomer: 9, skace: true },
   pavoucek: { hp: 8, rychlost: 92, poskozeni: 3, xp: 1, polomer: 7, sit: true },
   strazce: { hp: 320, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
   matka: { hp: 280, rychlost: 54, poskozeni: 16, xp: 25, polomer: 22, boss: true },
   obr: { hp: 420, rychlost: 34, poskozeni: 26, xp: 30, polomer: 24, boss: true },
   bludicka: { hp: 240, rychlost: 40, poskozeni: 12, xp: 25, polomer: 18, boss: true },
+  lavovy_obr: { hp: 440, rychlost: 34, poskozeni: 28, xp: 30, polomer: 24, boss: true },
+  bahenni_bludicka: { hp: 250, rychlost: 42, poskozeni: 12, xp: 25, polomer: 18, boss: true },
+  kosteny_kral: { hp: 340, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
 };
 export const RYCHLOST_NEPRATEL = Object.fromEntries(Object.entries(NEPRATELE).map(([id, v]) => [id, v.rychlost]));
 
@@ -445,8 +498,9 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     stesti: 1, zkusenosti: 1, oziveni: 0, vx: 0, vy: 0, odhozen: 0, odhozVx: 0, odhozVy: 0,
     // zbroj = kolik ubere z každé rány (jen z výbavy), neviditelny = jak dlouho ještě je zmizelý (Bludný plamen),
     // doZmizeni = za jak dlouho může zmizet znovu, zmizelX/Y = kde ho nepřátelé viděli naposledy,
-    // naLedu = stojí teď na ledu (klouže)
-    zbroj: 0, neviditelny: 0, doZmizeni: 0, zmizelX: 0, zmizelY: 0, naLedu: false,
+    // naLedu = stojí teď na ledu (klouže), plocha = na jaké zvláštní ploše stojí ('led', 'lava', 'bahno', null),
+    // strana = kudy naposledy obcházel překážku (1 / −1)
+    zbroj: 0, neviditelny: 0, doZmizeni: 0, zmizelX: 0, zmizelY: 0, naLedu: false, plocha: null, strana: 1,
   };
   for (const [vlastnost, nasobek] of Object.entries(TRIDY[trida].nasobky)) hrdina[vlastnost] *= nasobek;
   pouzijVylepseni(hrdina, vylepseni);
@@ -476,6 +530,11 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     blesky: [],
     castice: [],
     oblaky: [],
+    // Jedové bubliny v bahně (bažina): rostou varovani s, pak prasknou v oblak. popaleno = kolikrát pálila láva.
+    bubliny: [],
+    doBubliny: MAPY[mapa].bubliny?.kazdych ?? null,
+    bublin: 0,
+    popaleno: 0,
     vlny: [],
     kameny: [],
     strelyBossu: [],
@@ -751,6 +810,11 @@ export function pridejNepritele(hra, druh, x, y, elita = false) {
     n.duchCas = VIDITELNY_DUCH;
     zamir(n, hra.hrdina);
   }
+  // Žáby nevyskočí všechny naráz: každá začne v jiném místě cyklu (podle času a počtu nepřátel).
+  if (n.skace) {
+    n.skokCas = (hra.cas * 1.7 + hra.nepratele.length * 0.37) % (SKOK_ZABY.pauza + SKOK_ZABY.skok);
+    n.vyskok = 0;
+  }
   // doSchopnosti = kolik zbývá do další schopnosti, dalsiSchopnost = kterou v pořadí zkusí, schopnost = co právě
   // dělá (null = chodí), zuri = má pod ZURIVOST životů, zjeveni = Bludička se právě objevila jinde (pro kreslení).
   if (n.boss) Object.assign(n, { doSchopnosti: PRVNI_SCHOPNOST, dalsiSchopnost: 0, schopnost: null, zuri: false, zjeveni: 0 });
@@ -813,7 +877,7 @@ function smecka(hra, sirka, vyska) {
 // Nová bedna kousek za okrajem obrazovky v náhodném směru. Každá třetí je sud (jen jiný vzhled).
 // Na místě, kde už nějaká stojí, se nová neobjeví (zkusí to zase příště).
 function pridejBednu(hra, sirka, vyska) {
-  const { x, y } = zaOkrajem(hra, sirka, vyska, OKRAJ_BEDEN, PASMO_BEDEN);
+  const { x, y } = mimoPrekazky(hra, zaOkrajem(hra, sirka, vyska, OKRAJ_BEDEN, PASMO_BEDEN), ODSTUP_OD_PREKAZEK.bedna);
   if (hra.bedny.some((b) => Math.hypot(b.x - x, b.y - y) < POLOMER_BEDNY * 3)) return;
   hra.bedny.push({ druh: hra.beden % 3 === 2 ? 'sud' : 'bedna', x, y, rozbita: false });
   hra.beden += 1;
@@ -831,9 +895,66 @@ function zaOkrajem(hra, sirka, vyska, okraj, pasmo) {
   return { x: hrdina.x + cos * r, y: hrdina.y + sin * r };
 }
 
+// Místo, které by bylo v překážce, se posune kousek vedle ní (bez losu z rng, ať se náhoda nepohne).
+function mimoPrekazky(hra, misto, odstup) {
+  vytlacZPrekazek(hra.mapa, misto, odstup);
+  return misto;
+}
+
+// Kdo vjel do překážky, vrátí se na její okraj a kus cesty, o který tím přišel, ujde podél ní, takže ji obejde.
+// Na kterou stranu, podle toho, kam šel. Kdo šel přímo na střed, jde na stranu, kterou obcházel naposledy.
+// Vrací směr od překážky (nebo null, když do žádné nevjel).
+function obejdi(hra, o, polomer, predX, predY) {
+  const pohybX = o.x - predX;
+  const pohybY = o.y - predY;
+  const normala = vytlacZPrekazek(hra.mapa, o, polomer);
+  if (!normala) return null;
+  const tlak = -(pohybX * normala.x + pohybY * normala.y);
+  if (tlak > 0) {
+    const tx = -normala.y;
+    const ty = normala.x;
+    const podel = pohybX * tx + pohybY * ty;
+    if (Math.abs(podel) > tlak * 0.05) o.strana = podel > 0 ? 1 : -1;
+    const strana = o.strana ?? 1;
+    o.x += tx * strana * tlak;
+    o.y += ty * strana * tlak;
+    vytlacZPrekazek(hra.mapa, o, polomer);
+  }
+  return normala;
+}
+
+// Jedové bubliny v bahně: každých bubliny.kazdych s se zkusí najít místo v bahně do dosahu od hrdiny (pár losů
+// z rng), tam bublina roste a po varovani s praskne v jedový oblak (nejdřív se nafukuje a nepálí jako po houbákovi).
+function bublinyBahna(hra, dt) {
+  const b = MAPY[hra.mapa].bubliny;
+  if (!b) return;
+  hra.doBubliny -= dt;
+  if (hra.doBubliny <= 0) {
+    hra.doBubliny += b.kazdych;
+    for (let pokus = 0; pokus < 4; pokus++) {
+      const uhel = hra.rng.dalsi() * Math.PI * 2;
+      const r = 40 + hra.rng.dalsi() * (b.dosah - 40);
+      const x = hra.hrdina.x + Math.cos(uhel) * r;
+      const y = hra.hrdina.y + Math.sin(uhel) * r;
+      if (naPlose(hra.mapa, x, y) !== 'bahno') continue;
+      hra.bubliny.push({ x, y, zivot: b.varovani, varovani: b.varovani, polomer: b.polomer });
+      hra.bublin += 1;
+      break;
+    }
+  }
+  for (const bu of hra.bubliny) {
+    bu.zivot -= dt;
+    if (bu.zivot > 0) continue;
+    hra.oblaky.push({ x: bu.x, y: bu.y, zivot: TRVANI_OBLAKU, polomer: bu.polomer, jed: b.jed, druh: 'bahno' });
+    if (hra.oblaky.length > MAX_OBLAKU) hra.oblaky.splice(0, hra.oblaky.length - MAX_OBLAKU);
+    rozprsk(hra, bu.x, bu.y, 'bahno', 6);
+  }
+  hra.bubliny = hra.bubliny.filter((bu) => bu.zivot > 0);
+}
+
 // Zamčená truhla kousek za okrajem obrazovky (ne na bedně ani na jiné zamčené truhle, to zkusí příště).
 function pridejZamcenou(hra, sirka, vyska) {
-  const { x, y } = zaOkrajem(hra, sirka, vyska, OKRAJ_BEDEN, PASMO_BEDEN);
+  const { x, y } = mimoPrekazky(hra, zaOkrajem(hra, sirka, vyska, OKRAJ_BEDEN, PASMO_BEDEN), ODSTUP_OD_PREKAZEK.bedna);
   if ([...hra.bedny, ...hra.zamcene].some((b) => Math.hypot(b.x - x, b.y - y) < POLOMER_BEDNY * 3)) return;
   hra.zamcene.push({ x, y, otevrena: false, blizko: false });
   hra.zamcenych += 1;
@@ -969,7 +1090,10 @@ function vystrelVejir(hra, n, s) {
   const zaklad = Math.atan2(hra.hrdina.y - n.y, hra.hrdina.x - n.x);
   for (let i = 0; i < s.strel; i++) {
     const uhel = zaklad + (i - (s.strel - 1) / 2) * s.rozestup;
-    hra.strelyBossu.push({ x: n.x, y: n.y, vx: Math.cos(uhel) * s.rychlost, vy: Math.sin(uhel) * s.rychlost, zivot: ZIVOT_STREL_BOSSU, rana: s.poskozeni });
+    hra.strelyBossu.push({
+      x: n.x, y: n.y, vx: Math.cos(uhel) * s.rychlost, vy: Math.sin(uhel) * s.rychlost, zivot: ZIVOT_STREL_BOSSU, rana: s.poskozeni,
+      barva: BOSSOVE[n.druh]?.strely ?? null,
+    });
   }
 }
 
@@ -1453,9 +1577,10 @@ export function rozhodniKus(hra, vzit) {
 }
 
 // Dotyk truhly: kus se vylosuje hned (animace otevření ho ukáže), svět stojí, dokud se truhla neotevře.
+// Kus je ze sady bosse, u hlavního bosse mapy ze sady toho, z koho vychází (Lávový obr dá kus Kamenného obra).
 function otevriTruhlu(hra, p) {
   const od = Object.hasOwn(BOSSOVE, p.od) ? p.od : 'strazce';
-  const kus = losujKus(od, hra.rng.dalsi(), hra.rng.dalsi(), hra.hrozba, hra.hrdina.stesti);
+  const kus = losujKus(zakladBosse(od), hra.rng.dalsi(), hra.rng.dalsi(), hra.hrozba, hra.hrdina.stesti);
   hra.otevira = { x: p.x, y: p.y, od, kus, cas: 0 };
 }
 
@@ -1560,7 +1685,7 @@ function jedeKupec(hra, dt, sirka, vyska) {
     return;
   }
   if (hra.cas < hra.dalsiKupec || hra.nepratele.some((n) => n.boss) || hra.dalsiBoss - hra.cas < KUPEC.trvani) return;
-  const { x, y } = zaOkrajem(hra, sirka, vyska, KUPEC.okraj, KUPEC.pasmo);
+  const { x, y } = mimoPrekazky(hra, zaOkrajem(hra, sirka, vyska, KUPEC.okraj, KUPEC.pasmo), ODSTUP_OD_PREKAZEK.vuz);
   hra.kupec = {
     x, y, zbyva: KUPEC.trvani, prijel: hra.cas, zavreno: false, navstev: 0,
     zasoba: Object.fromEntries(PORADI_ZBOZI.map((id) => [id, ZBOZI[id].zasoba])),
@@ -1701,6 +1826,15 @@ function zamceneTruhly(hra) {
   hra.zamcene = hra.zamcene.filter((z) => !z.otevrena);
 }
 
+// Žába sedí a skáče (SKOK_ZABY): násobek rychlosti pro tenhle snímek. vyskok = jak daleko je ve skoku 0..1
+// (0 = sedí), podle toho ji kreslení zvedne nad zem. Ostatní nepřátelé jdou pořád stejně (1).
+function skokZaby(n, dt) {
+  if (!n.skace) return 1;
+  n.skokCas = (n.skokCas + dt) % (SKOK_ZABY.pauza + SKOK_ZABY.skok);
+  n.vyskok = n.skokCas >= SKOK_ZABY.pauza ? (n.skokCas - SKOK_ZABY.pauza) / SKOK_ZABY.skok : 0;
+  return n.vyskok > 0 ? SKOK_ZABY.rychlost : 0;
+}
+
 export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   if (hra.konec || hra.volby || hra.porovnani || hra.pauza || hra.obchod) return;
   // Otevírání truhly: svět stojí, běží jen animace.
@@ -1713,11 +1847,15 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   hra.cas += dt;
   hra.mesec = Math.min(MESEC.strop, hra.mesec + (MESEC.zaMinutu / 60) * dt);
 
-  // pohyb hrdiny (odhozený hrdina letí, kam ho rána poslala, a řídit nejde)
+  // pohyb hrdiny (odhozený hrdina letí, kam ho rána poslala, a řídit nejde). V bahně jde pomaleji.
   let { dx, dy } = vstup;
   const delka = Math.hypot(dx, dy);
   const mapa = MAPY[hra.mapa];
-  hrdina.naLedu = naLedu(hra.mapa, hrdina.x, hrdina.y);
+  hrdina.plocha = naPlose(hra.mapa, hrdina.x, hrdina.y);
+  hrdina.naLedu = hrdina.plocha === 'led';
+  const vBahne = hrdina.plocha === 'bahno' ? mapa.bahno.zpomaleni : 1;
+  const predX = hrdina.x;
+  const predY = hrdina.y;
   if (hrdina.odhozen > 0) {
     const kus = Math.min(dt, hrdina.odhozen);
     hrdina.x += hrdina.odhozVx * kus;
@@ -1740,7 +1878,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   } else if (delka > 0) {
     dx /= delka;
     dy /= delka;
-    const rychlost = hrdina.rychlost * (hrdina.sit > 0 ? ZPOMALENI_SITI : 1);
+    const rychlost = hrdina.rychlost * (hrdina.sit > 0 ? ZPOMALENI_SITI : 1) * vBahne;
     hrdina.x += dx * rychlost * dt;
     hrdina.y += dy * rychlost * dt;
     if (dx !== 0) hrdina.otoceny = Math.sign(dx);
@@ -1751,6 +1889,20 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     hrdina.vx = 0;
     hrdina.vy = 0;
   }
+  // Překážka hrdinu zastaví a nechá ho sklouznout podél ní. Na ledu (i po odhození) se ztratí rychlost do ní.
+  const oPrekazku = obejdi(hra, hrdina, POLOMER_HRDINY, predX, predY);
+  if (oPrekazku) {
+    const doNi = hrdina.vx * oPrekazku.x + hrdina.vy * oPrekazku.y;
+    if (doNi < 0) {
+      hrdina.vx -= doNi * oPrekazku.x;
+      hrdina.vy -= doNi * oPrekazku.y;
+    }
+    const odhozDoNi = hrdina.odhozVx * oPrekazku.x + hrdina.odhozVy * oPrekazku.y;
+    if (hrdina.odhozen > 0 && odhozDoNi < 0) {
+      hrdina.odhozVx -= odhozDoNi * oPrekazku.x;
+      hrdina.odhozVy -= odhozDoNi * oPrekazku.y;
+    }
+  }
   hrdina.nezranitelny = Math.max(0, hrdina.nezranitelny - dt);
   hrdina.neviditelny = Math.max(0, hrdina.neviditelny - dt);
   hrdina.doZmizeni = Math.max(0, hrdina.doZmizeni - dt);
@@ -1758,6 +1910,13 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   hra.tres = Math.max(0, hra.tres - dt);
   hra.zablesk = Math.max(0, hra.zablesk - dt);
   hra.vybuch = Math.max(0, hra.vybuch - dt);
+  // Láva pálí, dokud v ní hrdina stojí (po každé ráně chvíle klidu jako u jedu), rána roste s hrozbou.
+  if (mapa.lava && naPlose(hra.mapa, hrdina.x, hrdina.y) === 'lava' && hrdina.nezranitelny <= 0 && !hra.konec) {
+    hra.popaleno += 1;
+    zran(hra, ranaHrozby(hra, mapa.lava.poskozeni), 'ohen');
+    rozprsk(hra, hrdina.x, hrdina.y + 8, 'lava', 5);
+  }
+  bublinyBahna(hra, dt);
 
   // nepřátelé
   hra.doSpawnu -= dt;
@@ -1799,7 +1958,8 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     hra.doZamcene = ZAMCENA_KAZDYCH;
   }
   if (hra.cas >= hra.dalsiBoss) {
-    const druh = PORADI_BOSSU[hra.bossu % PORADI_BOSSU.length];
+    const poradi = poradiBossu(hra.mapa);
+    const druh = poradi[hra.bossu % poradi.length];
     const { x, y } = naOkraji(hra, sirka, vyska);
     pridejNepritele(hra, druh, x, y);
     hra.bossu += 1;
@@ -1827,6 +1987,8 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   for (const n of hra.nepratele) {
     const d = vzdalenost(n, hrdina) || 1;
     const brzda = brzdaTrnu(n) * brzdaSite(n);
+    const nPredX = n.x;
+    const nPredY = n.y;
     if (n.odhozen > 0) {
       // Odhozený zrcadlem letí od hrdiny a mezitím po něm nejde (uletí přesně o odhození, ne o kus víc).
       const kus = Math.min(dt, n.odhozen);
@@ -1846,7 +2008,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       n.x += n.smerX * n.rychlost * brzda * dt;
       n.y += n.smerY * n.rychlost * brzda * dt;
     } else {
-      const rychlost = n.rychlost * brzda * (n.vyrazi > 0 ? RYCHLOST_VYRAZENI : 1);
+      const rychlost = n.rychlost * brzda * (n.vyrazi > 0 ? RYCHLOST_VYRAZENI : 1) * skokZaby(n, dt);
       const cil = zmizel && !n.boss ? naposledy : hrdina;
       const k = cil === hrdina ? d : vzdalenost(n, cil);
       // U místa, kde hrdina zmizel, nepřítel zůstane stát (jinak by kolem něj poskakoval).
@@ -1856,6 +2018,8 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       }
       if (n.vyrazi > 0) n.vyrazi -= dt;
     }
+    // Překážky obchází každý kromě duchů (proletí jimi), i boss a odhozený nepřítel.
+    if (!n.duch) obejdi(hra, n, n.polomer, nPredX, nPredY);
     n.zapreden = Math.max(0, (n.zapreden || 0) - dt);
     n.zasazen = Math.max(0, n.zasazen - dt);
     n.zar = Math.max(0, (n.zar || 0) - dt);
@@ -1865,7 +2029,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     if (d < n.polomer + 8 && hrdina.nezranitelny <= 0 && viditelny(n)) {
       if (n.sit) hrdina.sit = TRVANI_SITE;
       if (n.pan) hra.zasahyBossu.pomocnik += 1;
-      zran(hra, ranaDotykem(hra, n));
+      zran(hra, ranaDotykem(hra, n), n.ohen ? 'ohen' : 'zraneni');
     }
   }
   strelyBossu(hra, dt);
@@ -1873,7 +2037,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   for (const o of hra.oblaky) {
     const pali = TRVANI_OBLAKU - o.zivot >= NAFUKOVANI_OBLAKU;
     if (pali && hrdina.nezranitelny <= 0 && !hra.konec && vzdalenost(o, hrdina) < o.polomer) {
-      zran(hra, ranaHrozby(hra, JED_OBLAKU), 'jed');
+      zran(hra, ranaHrozby(hra, o.jed ?? JED_OBLAKU), 'jed');
     }
   }
 

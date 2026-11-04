@@ -144,6 +144,28 @@ const SPRITY = {
     'UUUUUUuu',
     'U.Uu.Uu.',
   ],
+  // Ohnivý brouk (Sopka), shora: tykadla, černá hlava se žlutýma očima, krovky se žhnoucími pruhy.
+  ohnivy_brouk: [
+    '.o....o.',
+    '..o..o..',
+    '..KyyK..',
+    'k.EKKE.k',
+    '.EoeeoE.',
+    'kEeooeEk',
+    '.EoeeoE.',
+    'k.EEEE.k',
+  ],
+  // Žába (Bažina): vypoulené oči nahoře, světlé bříško a roztažené nohy. Ve hře skáče.
+  zaba: [
+    '.My..yM.',
+    '.lKllKl.',
+    'llllllll',
+    'lMllllMl',
+    '.lfffflL',
+    'Llffffl.',
+    'lL.ff.Ll',
+    'LL....LL',
+  ],
   // Zámek na zamčené mapě v menu.
   zamek: [
     '..GGGG..',
@@ -262,6 +284,63 @@ const SPRITY = {
     '......u..uu.....',
     '.......u...u....',
   ],
+  // Lávový obr (Sopka): Kamenný obr z černé skály, pukliny žhnou lávou, na hlavě místo mechu oheň.
+  lavovy_obr: [
+    '.....oooooo.....',
+    '...oooyooyooo...',
+    '..zzozzzzzzozz..',
+    '..zZZzzzzzzzZz..',
+    '..zzzYzzzzYzzz..',
+    '..ezzzzeezzzze..',
+    '.zzzezzzzzzezzz.',
+    'zZZzzezzzzezzZZz',
+    'zZzzeezzzzeezzZz',
+    'zzzezzzZZzzzezzz',
+    'ezz.zzzzzzzz.zze',
+    'eee.ezzzzzze.eee',
+    '....zzzeezzz....',
+    '...zzze..ezzz...',
+    '...ezze..ezze...',
+    '..eeee....eeee..',
+  ],
+  // Bahenní bludička (Bažina): zelený plamínek s bledým jádrem.
+  bahenni_bludicka: [
+    '........m.......',
+    '.......mm.......',
+    '......mMm...m...',
+    '.....mMMm..mm...',
+    '....mMMMMmmMm...',
+    '...mMMYYYMMMm...',
+    '..mMMYYYYYYMMm..',
+    '..mMYKKYYKKYMm..',
+    '..mMYKKYYKKYMm..',
+    '..mMYYYYYYYYMm..',
+    '..mMMYYKKYYMMm..',
+    '...mMMYYYYMMm...',
+    '....mMMMMMMm....',
+    '.....mMmmMm.....',
+    '......m..mm.....',
+    '.......m...m....',
+  ],
+  // Kostěný král (Hřbitov): Strážce z kostí se zlatou korunou a tyrkysovou duší v hrudi.
+  kosteny_kral: [
+    '..y..........y..',
+    '..yppppppppppy..',
+    '...pWWWWWWWWp...',
+    '...pWKKKKKKWp...',
+    '...pKccKKccKp...',
+    '...pWKKKKKKWp...',
+    '....pWWWWWWp....',
+    '.pWWppWWWWppWWp.',
+    'pWWWpccccccpWWWp',
+    'pWWppcCCCCcppWWp',
+    'pWp.ppccccpp.pWp',
+    'ppp.pWWWWWWp.ppp',
+    '.HH.ppWWWWpp.HH.',
+    '....ppp..ppp....',
+    '...pWWp..pWWp...',
+    '..KKKK....KKKK..',
+  ],
   // Pavouček od Matky pavouků (menší než pavouk, v jejích barvách).
   pavoucek: [
     'v....v',
@@ -287,6 +366,22 @@ const SPRITY = {
     'aHaaaA',
     '.AaHA.',
     '..AA..',
+  ],
+  // Magma, které hází Lávový obr.
+  magma: [
+    '.eee.',
+    'eYoeE',
+    'eooEE',
+    'eoeEE',
+    '.EEE.',
+  ],
+  // Lebka, kterou hází Kostěný král.
+  lebka: [
+    '.WWW.',
+    'WKWKW',
+    'WWWWW',
+    '.WpW.',
+    '.W.W.',
   ],
   truhla: [
     '........',
@@ -750,6 +845,9 @@ const BARVY_TRUHEL = {
   matka: { T: 'v', t: 'k', X: 'H', Q: 'r', ozdoba: ['..........', 'v.v....v.v'] },
   obr: { T: 'G', t: 'D', X: 'L', Q: 'c', ozdoba: ['..........', '...llll...'] },
   bludicka: { T: 'u', t: 'B', X: 'U', Q: 'Y', ozdoba: ['....u.....', '...uU.....'] },
+  lavovy_obr: { T: 'z', t: 'K', X: 'e', Q: 'o', ozdoba: ['..........', '...oooo...'] },
+  bahenni_bludicka: { T: 'm', t: 'l', X: 'M', Q: 'Y', ozdoba: ['....m.....', '...mM.....'] },
+  kosteny_kral: { T: 'W', t: 'p', X: 'y', Q: 'c', ozdoba: ['..........', '.y......y.'] },
 };
 for (const [boss, b] of Object.entries(BARVY_TRUHEL)) {
   const prebarvi = (radky) => radky.map((r) => r.replace(/[TtXQ]/g, (z) => b[z]));
