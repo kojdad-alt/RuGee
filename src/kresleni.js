@@ -1,5 +1,5 @@
 import { sprity } from './sprity.js';
-import { staty, TRVANI_TRESU } from './hra.js';
+import { staty, TRVANI_TRESU, VYCHOZI_TRIDA } from './hra.js';
 import { dlazdiceLouky, ozdobyLouky } from './louka.js';
 
 const MERITKO = 3;
@@ -204,7 +204,8 @@ export function kresli(ctx, hra) {
   }
 
   const blika = hrdina.nezranitelny > 0 && Math.floor(hrdina.nezranitelny * 20) % 2 === 0;
-  if (!blika) sprite(ctx, sprity.hrdina, stred.x, stred.y, hrdina.otoceny, hrdina.sit > 0 ? 'rgba(215,222,236,0.5)' : null);
+  const obrHrdiny = sprity[hra.trida] ?? sprity[VYCHOZI_TRIDA];
+  if (!blika) sprite(ctx, obrHrdiny, stred.x, stred.y, hrdina.otoceny, hrdina.sit > 0 ? 'rgba(215,222,236,0.5)' : null);
   if (hrdina.sit > 0) sit(ctx, stred.x, stred.y, hrdina.sit);
 
   // životy pod hrdinou
@@ -262,11 +263,11 @@ export function kresli(ctx, hra) {
   }
 }
 
-// Pozadí hlavního menu: louka pomalu ujíždí, dole přes ni utíká hrdina před hloučkem nepřátel
-// a nahoře přelétají netopýři. Všechno je jen podle času, nic se nepočítá ani neukládá.
+// Pozadí hlavního menu: louka pomalu ujíždí, dole přes ni utíká hrdina (zvolená třída) před hloučkem
+// nepřátel a nahoře přelétají netopýři. Všechno je jen podle času, nic se nepočítá ani neukládá.
 const HONICKA = ['netopyr', 'slizak', 'pavouk', 'kostlivec', 'netopyr', 'slizak'];
 
-export function kresliMenu(ctx, cas) {
+export function kresliMenu(ctx, cas, postava = VYCHOZI_TRIDA) {
   const { width: sirka, height: vyska } = ctx.canvas;
   ctx.imageSmoothingEnabled = false;
   podlaha(ctx, cas * 12, 0, sirka, vyska);
@@ -274,7 +275,7 @@ export function kresliMenu(ctx, cas) {
   const draha = sirka + 600;
   const hx = ((cas * 64) % draha) - 100;
   const y = vyska * 0.82;
-  sprite(ctx, sprity.hrdina, hx, y + Math.round(Math.sin(cas * 12) * 1.5), 1);
+  sprite(ctx, sprity[postava] ?? sprity[VYCHOZI_TRIDA], hx, y + Math.round(Math.sin(cas * 12) * 1.5), 1);
   HONICKA.forEach((druh, i) => {
     const letec = druh === 'netopyr';
     const vlna = Math.sin(cas * (letec ? 9 : 5) + i * 1.7) * (letec ? 6 : 2);

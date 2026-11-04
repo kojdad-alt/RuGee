@@ -26,6 +26,32 @@ export const PASIVY = {
   sila: { nazev: 'Síla', popis: '+15 % poškození všech zbraní' },
 };
 
+// Třídy hrdiny: každá začíná s jinou zbraní a má jednu výhodu. Výhoda násobí vlastnost hrdiny
+// (nabijeni < 1 = zbraně se nabíjí rychleji). Sprite má stejné jméno jako třída.
+export const TRIDY = {
+  lovec: {
+    nazev: 'Lovec', zbran: 'jiskra', vyhoda: '+15 % rychlost pohybu', nasobky: { rychlost: 1.15 },
+    popis: 'Stopař z okraje lesa. Uteče skoro všemu.',
+  },
+  havir: {
+    nazev: 'Havíř', zbran: 'krumpace', vyhoda: '+30 % životů', nasobky: { maxHp: 1.3 },
+    popis: 'Zná každou štolu. Vydrží ránu jako skála.',
+  },
+  svetlonos: {
+    nazev: 'Světlonoš', zbran: 'lucerna', vyhoda: '+50 % dosah sběru', nasobky: { magnet: 1.5 },
+    popis: 'Nese světlo do tmy. Krystaly letí k němu samy.',
+  },
+  bourlivak: {
+    nazev: 'Bouřlivák', zbran: 'blesk', vyhoda: '-20 % nabíjení zbraní', nasobky: { nabijeni: 0.8 },
+    popis: 'Volá bouři z hlubin. Udeří dřív než ostatní.',
+  },
+};
+export const VYCHOZI_TRIDA = 'lovec';
+
+export function platnaTrida(id) {
+  return typeof id === 'string' && Object.hasOwn(TRIDY, id) ? id : VYCHOZI_TRIDA;
+}
+
 const MAX_UROVEN = 5;
 const MAX_NEPRATEL = 350;
 const MAX_KRYSTALU = 300;
@@ -49,19 +75,24 @@ const NEPRATELE = {
   strazce: { hp: 320, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
 };
 
-export function novaHra(rng) {
+export function novaHra(rng, idTridy = VYCHOZI_TRIDA) {
+  const trida = platnaTrida(idTridy);
+  const hrdina = {
+    x: 0, y: 0, hp: 100, maxHp: 100, rychlost: 110, magnet: 64, nabijeni: 1,
+    sila: 1, uroven: 1, xp: 0, potreba: potrebaNaUroven(1), nezranitelny: 0, otoceny: 1, sit: 0,
+  };
+  for (const [vlastnost, nasobek] of Object.entries(TRIDY[trida].nasobky)) hrdina[vlastnost] *= nasobek;
+  hrdina.hp = hrdina.maxHp;
   return {
     rng,
+    trida,
     cas: 0,
     zabito: 0,
     zabitoBossu: 0,
     konec: false,
     volby: null,
-    hrdina: {
-      x: 0, y: 0, hp: 100, maxHp: 100, rychlost: 110, magnet: 64,
-      sila: 1, uroven: 1, xp: 0, potreba: potrebaNaUroven(1), nezranitelny: 0, otoceny: 1, sit: 0,
-    },
-    zbrane: { jiskra: { uroven: 1, nabiti: 0 } },
+    hrdina,
+    zbrane: { [TRIDY[trida].zbran]: { uroven: 1, nabiti: 0 } },
     pasivy: {},
     nepratele: [],
     strely: [],
@@ -153,11 +184,13 @@ export function staty(hra) {
   const l = u('lucerna');
   const k = u('krumpace');
   const b = u('blesk');
+  // Kratší nabíjení zrychlí všechny zbraně: střelbu, údery, žár lucerny i otáčení krumpáčů.
+  const n = hra.hrdina.nabijeni ?? 1;
   return {
-    jiskra: { pocet: 1 + (j >= 2) + (j >= 4), nabiti: j >= 3 ? 0.5 : 0.7, poskozeni: j >= 5 ? 16 : 11 },
-    lucerna: { dosah: 56 + 22 * ((l >= 2) + (l >= 4)), zar: 14 + 9 * ((l >= 3) + (l >= 5)) },
-    krumpace: { pocet: 1 + (k >= 2) + (k >= 4), rychlost: k >= 3 ? 4.5 : 3, poskozeni: k >= 5 ? 18 : 12, polomer: 64 },
-    blesk: { preskoky: 2 + (b >= 2) + 2 * (b >= 4), nabiti: b >= 3 ? 1.5 : 2.2, poskozeni: b >= 5 ? 30 : 20, dosah: 320, skok: 110 },
+    jiskra: { pocet: 1 + (j >= 2) + (j >= 4), nabiti: (j >= 3 ? 0.5 : 0.7) * n, poskozeni: j >= 5 ? 16 : 11 },
+    lucerna: { dosah: 56 + 22 * ((l >= 2) + (l >= 4)), zar: 14 + 9 * ((l >= 3) + (l >= 5)), tik: 0.3 * n },
+    krumpace: { pocet: 1 + (k >= 2) + (k >= 4), rychlost: (k >= 3 ? 4.5 : 3) / n, poskozeni: k >= 5 ? 18 : 12, polomer: 64 },
+    blesk: { preskoky: 2 + (b >= 2) + 2 * (b >= 4), nabiti: (b >= 3 ? 1.5 : 2.2) * n, poskozeni: b >= 5 ? 30 : 20, dosah: 320, skok: 110 },
   };
 }
 
@@ -260,7 +293,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       for (const n of hra.nepratele) {
         if (vzdalenost(n, hrdina) < s.lucerna.dosah) zasah(hra, n, s.lucerna.zar * 0.3);
       }
-      luc.tik = 0.3;
+      luc.tik = s.lucerna.tik;
     }
   }
 

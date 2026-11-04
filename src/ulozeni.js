@@ -1,6 +1,9 @@
-// Co si hra pamatuje v tomhle prohlížeči: zatím rekord, později odemčené postavy a trvalá vylepšení.
+// Co si hra pamatuje v tomhle prohlížeči: rekord a zvolenou třídu, později trvalá vylepšení.
 // V anonymním okně nebo se zablokovaným úložištěm se nic neuloží a hra kvůli tomu nespadne.
+import { platnaTrida } from './hra.js';
+
 const KLIC_REKORDU = 'hlubiny.rekord';
+const KLIC_TRIDY = 'hlubiny.trida';
 
 function nacti(klic) {
   try {
@@ -31,4 +34,13 @@ export function zapisVysledek(vysledek) {
   const novy = !rekord || vysledek.cas > rekord.cas;
   if (novy) uloz(KLIC_REKORDU, vysledek);
   return { novy, rekord };
+}
+
+// Neznámá nebo chybějící třída (třeba po přejmenování) se vrátí jako výchozí.
+export function nactiTridu() {
+  return platnaTrida(nacti(KLIC_TRIDY));
+}
+
+export function ulozTridu(id) {
+  uloz(KLIC_TRIDY, platnaTrida(id));
 }

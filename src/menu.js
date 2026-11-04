@@ -2,7 +2,15 @@
 // Novou záložku přidáš do ZALOZKY (nazev + vypln(panel)), tlačítko i ovládání šipkami se udělají samy.
 // Tlačítka, která záložka do panelu přidá, jdou taky vybírat šipkami a Enterem.
 import { sprity } from './sprity.js';
-import { nactiRekord } from './ulozeni.js';
+import { TRIDY, ZBRANE, platnaTrida } from './hra.js';
+import { nactiRekord, nactiTridu, ulozTridu } from './ulozeni.js';
+
+// Zvolená třída hrdiny: načte se z prohlížeče a mění se v záložce Postavy. Hra ji bere při startu.
+let trida = nactiTridu();
+
+export function zvolenaTrida() {
+  return trida;
+}
 
 export function formatCas(s) {
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -35,12 +43,38 @@ function zamceneSloty(pocet) {
   });
 }
 
+// Karta třídy je tlačítko: klik (nebo Enter) třídu zvolí a uloží, zvolená karta svítí zlatě.
 function vyplnPostavy(panel) {
-  const hrdina = prvek('div', 'slot');
-  hrdina.append(obrazekSpritu('hrdina'), prvek('b', '', 'Hrdina'), prvek('small', '', 'Začíná s Jiskrou'));
-  const mrizka = prvek('div', 'mrizka');
-  mrizka.append(hrdina, ...zamceneSloty(3));
-  panel.append(prvek('p', 'podtitul', 'Výběr postavy se připravuje. Zatím hraješ za jednoho hrdinu.'), mrizka);
+  const mrizka = prvek('div', 'mrizka-trid');
+  const karty = Object.entries(TRIDY).map(([id, t]) => {
+    const karta = prvek('button', 'trida');
+    karta.type = 'button';
+    karta.dataset.trida = id;
+    const text = prvek('span', 'trida-text');
+    text.append(
+      prvek('b', '', t.nazev),
+      prvek('small', 'trida-zbran', `Začíná: ${ZBRANE[t.zbran].nazev}`),
+      prvek('small', 'trida-vyhoda', t.vyhoda),
+      prvek('small', '', t.popis),
+    );
+    karta.append(obrazekSpritu(id, 5), text, prvek('span', 'trida-stitek', 'Zvoleno'));
+    karta.addEventListener('click', () => {
+      trida = platnaTrida(id);
+      ulozTridu(trida);
+      oznacZvolenou();
+    });
+    return karta;
+  });
+  function oznacZvolenou() {
+    for (const k of karty) {
+      const zvolena = k.dataset.trida === trida;
+      k.classList.toggle('zvolena', zvolena);
+      k.setAttribute('aria-pressed', String(zvolena));
+    }
+  }
+  oznacZvolenou();
+  mrizka.append(...karty);
+  panel.append(prvek('p', 'podtitul', 'Vyber, za koho půjdeš do hlubin. Volba se zapamatuje.'), mrizka);
 }
 
 function vyplnVylepseni(panel) {
@@ -57,6 +91,7 @@ function vyplnRekordy(panel) {
   }
   const radky = [
     ['Nejdelší přežití', formatCas(rekord.cas)],
+    ...(Object.hasOwn(TRIDY, rekord.trida ?? '') ? [['Postava', TRIDY[rekord.trida].nazev]] : []),
     ['Úroveň', rekord.uroven ?? '–'],
     ['Zabito', rekord.zabito ?? '–'],
   ];
@@ -213,6 +248,9 @@ export function vytvorMenu({ hrat }) {
     { id: 'hrat', nazev: 'Hrát', hlavni: true, akce: hrat },
     ...Object.entries(ZALOZKY).map(([id, z]) => ({ id, nazev: z.nazev, akce: () => otevri(id) })),
   ];
+  const radekPostavy = prvek('p', 'menu-postava');
+  const ukazPostavu = () => { radekPostavy.textContent = `Hraješ za: ${TRIDY[trida].nazev}`; };
+  ukazPostavu();
   volby.replaceChildren(...polozky.map((p) => {
     const b = prvek('button', p.hlavni ? 'menu-tlacitko hlavni' : 'menu-tlacitko', p.nazev);
     b.type = 'button';
@@ -221,6 +259,7 @@ export function vytvorMenu({ hrat }) {
     b.addEventListener('click', () => { if (!koren.hidden) p.akce(); });
     return b;
   }));
+  volby.firstChild.after(radekPostavy);
   document.getElementById('menu-zpet').addEventListener('click', () => zavri());
   koren.addEventListener('pointerover', (e) => {
     const b = e.target.closest('button');
@@ -236,13 +275,14 @@ export function vytvorMenu({ hrat }) {
     z.vypln(panel);
     volby.hidden = true;
     zalozka.hidden = false;
-    vyberTlacitko(zalozka.querySelector('button'));
+    vyberTlacitko(zalozka.querySelector('.zvolena') ?? zalozka.querySelector('button'));
   }
 
   function zavri() {
     const id = otevrena;
     otevrena = null;
     zalozka.hidden = true;
+    ukazPostavu();
     volby.hidden = false;
     vyberTlacitko(volby.querySelector(`[data-id="${id}"]`) ?? volby.querySelector('button'));
   }
