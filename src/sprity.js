@@ -6,6 +6,7 @@ const PALETA = {
   W: '#e8e2d0', K: '#151318',
   c: '#4fd6c9', C: '#b8fff5',
   p: '#b9c2cc', h: '#8a5a35',
+  s: '#6e6577', S: '#8f86a0',
 };
 
 const SPRITY = {
@@ -77,6 +78,26 @@ const SPRITY = {
     'rrr..ppp',
     '.rrrppp.',
     '..rrpp..',
+    '........',
+  ],
+  strazce: [
+    '..ssss..',
+    '.sSSSSs.',
+    '.soSSos.',
+    'ssssssss',
+    'sSssssSs',
+    '.ssssss.',
+    '.ss..ss.',
+    'ss....ss',
+  ],
+  truhla: [
+    '........',
+    '.hhhhhh.',
+    'hhhhhhhh',
+    'hgggoggh',
+    'hhhhhhhh',
+    'hhhhhhhh',
+    '.hhhhhh.',
     '........',
   ],
   krumpac: [
