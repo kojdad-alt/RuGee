@@ -83,11 +83,17 @@
 // a dojde k hrdinovi, duch proletí, střela přeletí. Každá mapa má hlavního bosse, který přijde první (na Louce
 // pořád Strážce, pořadí beze změny) a jeho truhla dá kus sady bosse, ze kterého vychází. Bot se lávě
 // a bublinám vyhýbá.
+// Zvuk: bez AudioContext (Node) nic nedělá a nic nespadne. S náhradním AudioContextem, který jen počítá uzly,
+// omezovač pustí stejný efekt nejvýš jednou za jeho mezeru a běžných efektů nejvýš MAX_EFEKTU_ZA_SEKUNDU za sekundu
+// (důležité projdou vždy), ani zbraně na 60. úrovni nevytvoří moc uzlů za sekundu, hudba po pauze nedohání,
+// ztlumení a 0 % nic nevytvoří, každá mapa má hudbu a hlasitosti se uloží do nastavení. Hra hlásí zvuky jen
+// známými jmény a hlavní události (zásah, smrt, krystal, hrozba, boss, konec) se opravdu ozvou.
 // Pasivy II: Upíří zub vrací život za zabití (s šancí, nejvýš SANI_ZA_SEKUNDU za sekundu, náhodu vln neposune),
 // Trnová zbroj vrací útočníkovi podíl rány, Štít zastaví jednu ránu a dobíjí se, Moudrost dá víc zkušeností
 // a Chamtivost víc duší. Všechny mají ikonu, popis a úrovně bez stropu (kde je strop, dají pak poškození).
 import { readFileSync } from 'node:fs';
 import { vytvorRng } from '../src/rng.js';
+import * as zvuk from '../src/zvuk.js';
 import {
   novaHra, aktualizuj, vyber, staty, TRVANI_TRESU, OD_PAVOUKU, TRVANI_SITE, ZPOMALENI_SITI, TRIDY, VYCHOZI_TRIDA,
   ZIVOTY_PO_OZIVENI, NEZRANITELNY_PO_OZIVENI, ODHOZENI_PRI_OZIVENI,
@@ -2721,6 +2727,7 @@ if (silnaMaxKorenu > MAX_KORENU || silnaMaxPlamenu > MAX_PLAMENU || silnaMaxKame
 // Kořeny, stopa a prak proto ještě každý sám na 60. úrovni 20 s v plné hře od 10. minuty (hrdina nezraněný,
 // bot běhá, jinou zbraň nedostane): pracují, drží se limitů a nic nerozbijí.
 const sami60 = {};
+const zvukySamych = {};
 for (const id of ['korene', 'stopa', 'prak']) {
   const h = novaHra(vytvorRng(seminko));
   h.zbrane = { [id]: { uroven: 60, nabiti: 0 } };
@@ -2737,6 +2744,7 @@ for (const id of ['korene', 'stopa', 'prak']) {
     if (!Number.isFinite(h.hrdina.x) || h.nepratele.some((n) => !Number.isFinite(n.x) || !Number.isFinite(n.hp))) throw new Error(`NaN se samotnou zbraní ${id} na 60. úrovni`);
   }
   const prace = { korene: h.drzeno, stopa: h.paleniStopou, prak: h.odrazu }[id];
+  zvukySamych[id] = h.zvuky;
   sami60[id] = { prace, zapaleno: h.zapaleno, zabito: h.zabito, naraz: nejvic };
   if (!(prace > 0) || !(h.zabito > 0) || nejvic.korene > MAX_KORENU || nejvic.plameny > MAX_PLAMENU || nejvic.oblazky > MAX_KAMENU) chybyUrovni.push(`${id} sám na 60. úrovni: ${JSON.stringify(sami60[id])}`);
 }
@@ -4033,12 +4041,214 @@ const vysledek = {
     pokusy: pokusyZlata,
   },
 };
+// Zvuk. Nejdřív bez AudioContext: všechno potichu projde a nevznikne ani jeden uzel.
+const chybyZvuku = [];
+try {
+  zvuk.odemkniZvuk();
+  for (const id of zvuk.ID_EFEKTU) zvuk.zvukHry(id, 3);
+  zvuk.zvukHry('neznamy');
+  for (const id of PORADI_MAP) {
+    zvuk.hudba(id);
+    zvuk.hudba(id, { boss: true, tlumit: true });
+  }
+  zvuk.hudba(null);
+  zvuk.ukazkaHudby();
+  zvuk.nastavZvuk({ efekty: 'hodně', hudba: NaN });
+  zvuk.zvukStartu();
+  zvuk.zvukVolby(3);
+  zvuk.zvukZvonu(true);
+  zvuk.zvukKamene(4);
+} catch (e) {
+  chybyZvuku.push(`zvuk bez AudioContext spadl: ${e.message}`);
+}
+const bezKontextu = zvuk.statistikaZvuku();
+if (bezKontextu.odemceno || bezKontextu.uzlu || bezKontextu.efektu) chybyZvuku.push(`zvuk bez AudioContext něco hrál: ${JSON.stringify(bezKontextu)}`);
+if (JSON.stringify(zvuk.hlasitostZvuku()) !== JSON.stringify(zvuk.VYCHOZI_HLASITOST)) chybyZvuku.push(`špatná hlasitost změnila nastavení zvuku: ${JSON.stringify(zvuk.hlasitostZvuku())}`);
+if (PORADI_MAP.some((id) => !zvuk.NALADY[id])) chybyZvuku.push('některá mapa nemá hudbu');
+
+// Náhradní AudioContext: uzly jen počítá a hlídá, že dostávají rozumná čísla (jako by je hlídal prohlížeč).
+let spatnychHodnot = 0;
+const hlidej = (v, t) => {
+  if (!Number.isFinite(v) || !Number.isFinite(t) || t < 0) spatnychHodnot += 1;
+};
+class FalesnyParam {
+  constructor(v) { this.value = v; }
+  setValueAtTime(v, t) { hlidej(v, t); }
+  linearRampToValueAtTime(v, t) { hlidej(v, t); }
+  exponentialRampToValueAtTime(v, t) {
+    hlidej(v, t);
+    if (!(v > 0)) spatnychHodnot += 1;
+  }
+  setTargetAtTime(v, t, k) { hlidej(v, t); if (!(k > 0)) spatnychHodnot += 1; }
+  cancelScheduledValues(t) { hlidej(0, t); }
+}
+class FalesnyUzel {
+  constructor(c, druh) {
+    c.uzlu += 1;
+    c.druhy[druh] = (c.druhy[druh] ?? 0) + 1;
+    this.kontext = c;
+    for (const p of ['gain', 'frequency', 'Q', 'threshold', 'knee', 'ratio', 'attack', 'release']) this[p] = new FalesnyParam(1);
+  }
+  connect(cil) {
+    if (!(cil instanceof FalesnyUzel)) spatnychHodnot += 1;
+    return cil;
+  }
+  disconnect() {}
+  start(t = 0) {
+    hlidej(0, t);
+    this.kontext.zacatky.push(t - this.kontext.currentTime);
+  }
+  stop(t = 0) { hlidej(0, t); }
+}
+class FalesnyKontext {
+  constructor() {
+    Object.assign(this, { currentTime: 0, sampleRate: 8000, state: 'running', uzlu: 0, druhy: {}, zacatky: [] });
+    this.destination = new FalesnyUzel(this, 'reproduktor');
+    FalesnyKontext.posledni = this;
+  }
+  createGain() { return new FalesnyUzel(this, 'gain'); }
+  createOscillator() { return new FalesnyUzel(this, 'oscilator'); }
+  createBiquadFilter() { return new FalesnyUzel(this, 'filtr'); }
+  createBufferSource() { return new FalesnyUzel(this, 'sum'); }
+  createDynamicsCompressor() { return new FalesnyUzel(this, 'omezovac'); }
+  createBuffer(kanalu, delka) { return { getChannelData: () => new Float32Array(delka) }; }
+  resume() { return Promise.resolve(); }
+}
+globalThis.AudioContext = FalesnyKontext;
+zvuk.odemkniZvuk();
+const kontextZvuku = FalesnyKontext.posledni;
+if (!kontextZvuku || !zvuk.statistikaZvuku().odemceno || !kontextZvuku.druhy.omezovac) chybyZvuku.push('zvuk se s AudioContext neodemkl nebo nemá omezovač');
+const bezne = zvuk.ID_EFEKTU.filter((id) => !zvuk.POPIS_EFEKTU[id].dulezity);
+const efektu = () => zvuk.statistikaZvuku().efektu;
+let vysledekZvuku = {};
+if (kontextZvuku) {
+  // Stejný efekt 500× v jednom okamžiku zazní jednou.
+  kontextZvuku.currentTime = 10;
+  let pred = efektu();
+  for (let i = 0; i < 500; i++) zvuk.zvukHry('zasah');
+  if (efektu() - pred !== 1) chybyZvuku.push(`500 zásahů naráz zaznělo ${efektu() - pred}×`);
+  // Tisíc běžných efektů během 2 s: v žádné sekundě jich nezazní víc než MAX_EFEKTU_ZA_SEKUNDU.
+  const zaznelo = [];
+  for (let i = 0; i < 2000; i++) {
+    kontextZvuku.currentTime = 20 + i / 1000;
+    if (zvuk.zvukHry(bezne[i % bezne.length])) zaznelo.push(kontextZvuku.currentTime);
+  }
+  const nejvicZaSekundu = Math.max(...zaznelo.map((t) => zaznelo.filter((u) => u <= t && u > t - 1).length));
+  if (nejvicZaSekundu > zvuk.MAX_EFEKTU_ZA_SEKUNDU || zaznelo.length < zvuk.MAX_EFEKTU_ZA_SEKUNDU) chybyZvuku.push(`omezovač pustil ${nejvicZaSekundu} běžných efektů za sekundu (celkem ${zaznelo.length})`);
+  // Při plném limitu projde důležitý efekt (boss) a mezera stejného efektu platí dál.
+  if (!zvuk.zvukHry('boss') || zvuk.zvukHry('boss')) chybyZvuku.push('boss při plném limitu nezazněl, nebo zazněl dvakrát hned po sobě');
+  // Ztlumeno (N) nebo efekty na 0 %: žádný nový uzel, hudba na 0 % taky ne.
+  kontextZvuku.currentTime = 40;
+  zvuk.nastavZvuk({ ztlumeno: true });
+  let uzlu = kontextZvuku.uzlu;
+  zvuk.zvukHry('boss');
+  zvuk.zvukHry('zasah');
+  zvuk.hudba('louka', { boss: true });
+  zvuk.ukazkaHudby();
+  if (kontextZvuku.uzlu !== uzlu) chybyZvuku.push(`ztlumený zvuk vytvořil ${kontextZvuku.uzlu - uzlu} uzlů`);
+  zvuk.nastavZvuk({ ztlumeno: false, efekty: 0, hudba: 0 });
+  kontextZvuku.currentTime = 42;
+  uzlu = kontextZvuku.uzlu;
+  zvuk.zvukHry('boss');
+  for (let k = 0; k < 60; k++) {
+    kontextZvuku.currentTime += 1 / 60;
+    zvuk.hudba('jeskyne');
+  }
+  if (kontextZvuku.uzlu !== uzlu) chybyZvuku.push(`efekty a hudba na 0 % vytvořily ${kontextZvuku.uzlu - uzlu} uzlů`);
+  zvuk.nastavZvuk({ ...zvuk.VYCHOZI_HLASITOST });
+  // Hudba: každá mapa i s bossem hraje noty, plánuje jen kousek dopředu a po pauze (schovaný panel) nedohání.
+  const hudbaMap = {};
+  for (const id of PORADI_MAP) {
+    for (const boss of [false, true]) {
+      const notPred = zvuk.statistikaZvuku().not;
+      kontextZvuku.zacatky = [];
+      for (let k = 0; k < 600; k++) {
+        kontextZvuku.currentTime += 1 / 60;
+        zvuk.hudba(id, { boss });
+      }
+      const not = zvuk.statistikaZvuku().not - notPred;
+      hudbaMap[`${id}${boss ? '_boss' : ''}`] = not;
+      if (!(not > 0) || Math.max(...kontextZvuku.zacatky) > 2) chybyZvuku.push(`hudba ${id}${boss ? ' s bossem' : ''}: ${not} not za 10 s, nejdál dopředu ${Math.max(...kontextZvuku.zacatky).toFixed(2)} s`);
+    }
+    if (!(hudbaMap[`${id}_boss`] > hudbaMap[id])) chybyZvuku.push(`hudba s bossem na mapě ${id} není hustší (${hudbaMap[`${id}_boss`]} proti ${hudbaMap[id]} notám)`);
+  }
+  zvuk.hudba('louka');
+  kontextZvuku.currentTime += 30;
+  uzlu = kontextZvuku.uzlu;
+  zvuk.hudba('louka');
+  if (kontextZvuku.uzlu - uzlu > 40) chybyZvuku.push(`hudba po pauze dohání (${kontextZvuku.uzlu - uzlu} uzlů naráz)`);
+  zvuk.hudba(null);
+
+  // Zbraně na 60. úrovni s plnou loukou: zvuky ze hry snímek po snímku jako v main.js. Uzlů za sekundu musí
+  // zůstat málo, běžných efektů nejvýš MAX_EFEKTU_ZA_SEKUNDU.
+  const hlucna = novaHra(vytvorRng(seminko));
+  hlucna.zbrane = Object.fromEntries(Object.keys(ZBRANE).map((id) => [id, { uroven: 60, nabiti: 0 }]));
+  Object.assign(hlucna, { cas: 600, dalsiBoss: 603, dalsiSmecka: 602, dalsiPrichod: 4 });
+  const zacatek = kontextZvuku.currentTime;
+  const uzlyPodleSekund = [];
+  const efektyPodleSekund = [];
+  let pocetUdalosti = 0;
+  for (let t = 0; t < 20 && !hlucna.konec; t += DT) {
+    hlucna.hrdina.nezranitelny = 1;
+    aktualizuj(hlucna, DT, rozhodni(hlucna, t), SIRKA, VYSKA);
+    obsluz(hlucna);
+    kontextZvuku.currentTime = zacatek + t;
+    const s = Math.floor(t);
+    const uzluPred = kontextZvuku.uzlu;
+    const efektuPred = efektu();
+    for (const [id, z] of Object.entries(hlucna.zvuky)) {
+      pocetUdalosti += z.pocet;
+      zvuk.zvukHry(id, z.sila);
+    }
+    hlucna.zvuky = {};
+    zvuk.hudba(hlucna.mapa, { boss: hlucna.nepratele.some((n) => n.boss) });
+    uzlyPodleSekund[s] = (uzlyPodleSekund[s] ?? 0) + kontextZvuku.uzlu - uzluPred;
+    efektyPodleSekund[s] = (efektyPodleSekund[s] ?? 0) + efektu() - efektuPred;
+  }
+  const nejvicUzlu = Math.max(...uzlyPodleSekund);
+  if (nejvicUzlu > 400 || !(pocetUdalosti > 1000)) chybyZvuku.push(`zbraně na 60. úrovni: ${nejvicUzlu} uzlů za sekundu z ${pocetUdalosti} událostí`);
+  if (spatnychHodnot) chybyZvuku.push(`zvuk dal AudioContextu ${spatnychHodnot}× špatné číslo`);
+  vysledekZvuku = {
+    max_efektu_za_sekundu: zvuk.MAX_EFEKTU_ZA_SEKUNDU, omezovac_nejvic_za_sekundu: nejvicZaSekundu, hudba_not_za_10_s: hudbaMap,
+    zbrane_na_60: { udalosti_za_20_s: pocetUdalosti, nejvic_uzlu_za_sekundu: nejvicUzlu, nejvic_efektu_za_sekundu: Math.max(...efektyPodleSekund) },
+    zahozeno: zvuk.statistikaZvuku().zahozeno,
+  };
+}
+delete globalThis.AudioContext;
+// Hra hlásí zvuky jen známými jmény, hlavní události v hlavní hře se ozvou a každá zbraň má svůj zvuk.
+const zvukyVHrach = {};
+for (const z of [hra.zvuky, silna.zvuky, ...Object.values(zvukySamych)]) {
+  for (const [id, { pocet }] of Object.entries(z)) zvukyVHrach[id] = (zvukyVHrach[id] ?? 0) + pocet;
+}
+const neznameZvuky = Object.keys(zvukyVHrach).filter((id) => !zvuk.ID_EFEKTU.includes(id));
+if (neznameZvuky.length) chybyZvuku.push(`hra hlásí neznámé zvuky: ${neznameZvuky.join(', ')}`);
+const hlavniZvuky = ['zasah', 'smrt', 'krystal', 'hrozba', 'zraneni', ...(hra.bossu > 0 ? ['boss'] : []), ...(hra.konec ? ['smrtHrdiny'] : [])];
+const chybiZvuky = hlavniZvuky.filter((id) => !hra.zvuky[id]);
+if (chybiZvuky.length) chybyZvuku.push(`v hlavní hře se neozvalo: ${chybiZvuky.join(', ')}`);
+const zvukZbrane = (id) => (id === 'prak' ? 'kamen' : id);
+// Zbraň, kterou žádná z her nepoužila (nebo se k ní nikdo nedostal), zkusí krátkou hru sama.
+for (const id of Object.keys(ZBRANE).filter((z) => !zvukyVHrach[zvukZbrane(z)])) {
+  const h = novaHra(vytvorRng(seminko));
+  h.zbrane = { [id]: { uroven: 60, nabiti: 0 } };
+  Object.assign(h, { cas: 600, dalsiBoss: 900, dalsiSmecka: 602, dalsiPrichod: 4 });
+  for (let t = 0; t < 15 && !h.zvuky[zvukZbrane(id)]; t += DT) {
+    h.hrdina.nezranitelny = 1;
+    aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    if (h.porovnani) rozhodniKus(h, false);
+    if (h.volby) vyber(h, { druh: 'leceni', kroku: 1 });
+    if (h.obchod) odejdiOdKupce(h);
+  }
+  zvukyVHrach[zvukZbrane(id)] = h.zvuky[zvukZbrane(id)]?.pocet ?? 0;
+}
+const ticheZbrane = Object.keys(ZBRANE).filter((id) => !zvukyVHrach[zvukZbrane(id)]);
+if (ticheZbrane.length) chybyZvuku.push(`zbraně bez zvuku: ${ticheZbrane.join(', ')}`);
+vysledek.zvuk = { ...vysledekZvuku, udalosti_v_hrach: zvukyVHrach };
 console.log(JSON.stringify(vysledek, null, 2));
 
 const chyby = [
   ...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel), ...chybyVybavy, ...chybyLucerny, ...new Set(chybyBeden),
   ...new Set(chybyBossu), ...chybyZbrani, ...new Set(chybyUrovni), ...new Set(chybyHrozby), ...new Set(chybyCisel),
-  ...new Set(chybyVystroje), ...new Set(chybyZlata), ...new Set(chybyMap), ...new Set(chybyPasiv),
+  ...new Set(chybyVystroje), ...new Set(chybyZlata), ...new Set(chybyMap), ...new Set(chybyPasiv), ...chybyZvuku,
 ];
 if (maxTrsu > MAX_TRNU) chyby.push(`trsů trnů naráz ${maxTrsu}`);
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);
@@ -4098,6 +4308,20 @@ if (nactiNastaveni().cislaPoskozeni !== false) chyby.push('vypnutá čísla poš
 for (const spatne of ['{rozbité', '42', '"ne"', '{"cislaPoskozeni":"ne"}', 'null']) {
   mapa.set('hlubiny.nastaveni', spatne);
   if (nactiNastaveni().cislaPoskozeni !== true) chyby.push(`rozbité nastavení ${spatne} nevrátilo výchozí`);
+}
+// Hlasitost: bez záznamu 60 % efekty a 40 % hudba, neztlumeno. Uložená se načte, procenta se zaokrouhlí do 0–100,
+// špatný druh hodnoty je výchozí a staré nastavení (jen čísla poškození) dostane výchozí hlasitosti.
+const hlasitostZ = (n) => JSON.stringify([n.efekty, n.hudba, n.ztlumeno]);
+mapa.delete('hlubiny.nastaveni');
+if (hlasitostZ(nactiNastaveni()) !== '[60,40,false]') chyby.push(`výchozí hlasitost je ${hlasitostZ(nactiNastaveni())}`);
+ulozNastaveni({ ...nactiNastaveni(), efekty: 35, hudba: 0, ztlumeno: true });
+if (hlasitostZ(nactiNastaveni()) !== '[35,0,true]' || nactiNastaveni().cislaPoskozeni !== true) chyby.push(`hlasitost se neuložila: ${mapa.get('hlubiny.nastaveni')}`);
+for (const [zaznam, cekam] of [
+  ['{"efekty":"hodně","hudba":-20,"ztlumeno":"ano"}', '[60,0,false]'], ['{"efekty":250.6,"hudba":33.4}', '[100,33,false]'],
+  ['{"cislaPoskozeni":false}', '[60,40,false]'], ['{"efekty":null,"hudba":[50],"ztlumeno":1}', '[60,40,false]'],
+]) {
+  mapa.set('hlubiny.nastaveni', zaznam);
+  if (hlasitostZ(nactiNastaveni()) !== cekam) chyby.push(`nastavení ${zaznam} dalo hlasitost ${hlasitostZ(nactiNastaveni())}, čekal jsem ${cekam}`);
 }
 // Sbírka výbavy: prázdná = nic, nález se zapíše s raritou, horší rarita lepší nepřepíše, rozbitý záznam dá jen
 // známé kusy se známou raritou.

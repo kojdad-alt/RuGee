@@ -4,12 +4,12 @@ import { kresli, kresliMenu } from './kresleni.js';
 import { dusZaHru, DUSE_ZA } from './duse.js';
 import {
   vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, zvolenaMapa, obrazekSpritu, pocetDusi, cislaPoskozeni,
-  prepinacNastaveni,
+  prepinacNastaveni, ovladaniZvuku, prepniZtlumeni,
 } from './menu.js';
 import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu } from './ulozeni.js';
 import { MAPY, ODEMKNUTI_MAPY, dalsiMapa } from './mapy.js';
 import {
-  odemkniZvuk, zvukStartu, zvukVolby, zvukVyberu, zvukZlataku, zvukNakupu, zvukOdmitnuti, zvukPrehozeni, zvukZvonu, zvukKamene,
+  odemkniZvuk, zvukHry, hudba, zvukStartu, zvukVolby, zvukVyberu, zvukNakupu, zvukOdmitnuti, zvukPrehozeni,
 } from './zvuk.js';
 import { ukazVolby, ukazPorovnani } from './volba.js';
 import { ukazObchod, zatresZbozim, textZlataku } from './obchod.js';
@@ -30,15 +30,8 @@ let porovnaniOd = 0;
 const POJISTKA_VOLBY = 300;
 // Kolik kusů výbavy z téhle hry už je zapsaných ve Sbírce (zapisuje se hned po nálezu).
 let zapsanoNalezu = 0;
-// Kolik zlaťáků ukazovala horní lišta minule (přibyly = cinknutí a poskočení) a kdy naposledy cinkly.
+// Kolik zlaťáků ukazovala horní lišta minule (přibyly = počet poskočí, cinknutí je ve zvucích hry).
 let ukazaneZlato = 0;
-let cinkloOd = 0;
-// Kolikrát už zvon hlubin zazvonil (každé nové zvonění se ozve).
-let slyseneZvoneni = 0;
-// Kolikrát už kámen praku zasáhl a kdy naposledy ťukl (nejvýš jednou za ODSTUP_TUKNUTI ms, odrazů je hodně).
-let slyseneKameny = 0;
-let tukloOd = 0;
-const ODSTUP_TUKNUTI = 90;
 // Mapa, která se v téhle hře odemkne po ODEMKNUTI_MAPY s (null = další není nebo už je odemčená),
 // a která se v ní opravdu odemkla (ukáže se na konci).
 let mapaKOdemceni = null;
@@ -58,8 +51,6 @@ function start() {
   odemcenaVHre = null;
   zapsanoNalezu = 0;
   ukazaneZlato = 0;
-  slyseneZvoneni = 0;
-  slyseneKameny = 0;
   vMenu = false;
   menu.skryj();
   document.body.classList.remove('v-menu');
@@ -158,7 +149,7 @@ function nastavPauzu(zapnout) {
   pokracovat.className = 'menu-tlacitko hlavni';
   pokracovat.type = 'button';
   pokracovat.addEventListener('click', () => { if (hra?.pauza) nastavPauzu(false); });
-  el('pauza-volby').replaceChildren(pokracovat, prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'));
+  el('pauza-volby').replaceChildren(pokracovat, prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'), ovladaniZvuku());
   vyberTlacitko(pokracovat);
 }
 
@@ -250,6 +241,7 @@ function hlidejOdemceni() {
   if (!mapaKOdemceni || hra.cas < ODEMKNUTI_MAPY) return;
   odemkniMapu(mapaKOdemceni);
   hra.oznameni = { text: `Odemčena mapa: ${MAPY[mapaKOdemceni].nazev}`, zivot: 3 };
+  zvukHry('odemceni');
   odemcenaVHre = mapaKOdemceni;
   mapaKOdemceni = null;
 }
@@ -318,25 +310,14 @@ function hud() {
   el('uroven').textContent = hrdina.uroven;
   el('zabito').textContent = hra.zabito;
   el('zlataky').textContent = hra.zlataky;
-  // Přibyly zlaťáky: cinkne (nejvýš jednou za chvilku, i když jich přiletí víc naráz) a počet poskočí.
+  // Přibyly zlaťáky: počet poskočí.
   if (hra.zlataky > ukazaneZlato) {
-    if (performance.now() - cinkloOd > 70) {
-      zvukZlataku();
-      cinkloOd = performance.now();
-    }
     const stitek = el('hud-zlato');
     stitek.classList.remove('roste');
     void stitek.offsetWidth;
     stitek.classList.add('roste');
   }
   ukazaneZlato = hra.zlataky;
-  if (hra.zvoneni > slyseneZvoneni) zvukZvonu(hra.vlnyZvonu.at(-1)?.ozvena);
-  slyseneZvoneni = hra.zvoneni;
-  if (hra.zasahuKamenem > slyseneKameny && performance.now() - tukloOd > ODSTUP_TUKNUTI) {
-    zvukKamene(hra.oblazky.reduce((nej, k) => Math.max(nej, k.zasahu), 1));
-    tukloOd = performance.now();
-  }
-  slyseneKameny = hra.zasahuKamenem;
   el('hud-klice').hidden = !(hra.klice > 0);
   el('klice').textContent = hra.klice;
   el('cas').textContent = formatCas(hra.cas);
@@ -346,16 +327,39 @@ function hud() {
   ukazVybavu(vybava, hra);
 }
 
+// Zvuky ze hry (hra.zvuky, zapisuje je hra.js): každý druh jednou za snímek, omezovač v zvuk.js pohlídá, ať
+// stovky zásahů nedrnčí. Pak hudba: nálada mapy, s bossem rychlejší, v okně nebo pauze tišší, po prohře ticho.
+function zvukyAHudba() {
+  for (const [id, z] of Object.entries(hra.zvuky)) zvukHry(id, z.sila);
+  hra.zvuky = {};
+  const okno = hra.pauza || hra.volby || hra.porovnani || hra.obchod;
+  hudba(hra.konec ? null : hra.mapa, { boss: hra.nepratele.some((n) => n.boss), tlumit: Boolean(okno) });
+}
+
+// Klávesa N (i v menu): ztlumí nebo zapne všechen zvuk a krátce to ukáže dole.
+let hlaseniZvuku = 0;
+function prepniZvuk() {
+  odemkniZvuk();
+  const ztlumeno = prepniZtlumeni();
+  const hlaseni = el('zvuk-hlaseni');
+  hlaseni.textContent = ztlumeno ? 'Zvuk vypnutý (N)' : 'Zvuk zapnutý (N)';
+  hlaseni.hidden = false;
+  clearTimeout(hlaseniZvuku);
+  hlaseniZvuku = setTimeout(() => { hlaseni.hidden = true; }, 1400);
+}
+
 function smycka(t) {
   const dt = Math.min(0.05, (t - posledni) / 1000 || 0);
   posledni = t;
   if (vMenu) {
+    hudba(null);
     kresliMenu(ctx, t / 1000, zvolenaTrida(), zvolenaMapa());
     requestAnimationFrame(smycka);
     return;
   }
   aktualizuj(hra, dt, vstup(), platno.width, platno.height);
   hlidejOdemceni();
+  zvukyAHudba();
   // Po truhle nejdřív porovnání výbavy (když je slot obsazený), pak karty, nakonec obchod kupce. Okno se otevře,
   // jakmile na něj přijde řada, a zavře ho až volba (obchod se mezitím schová a pak zase ukáže).
   if (hra.porovnani && el('porovnani').hidden) {
@@ -380,6 +384,10 @@ function smycka(t) {
 
 addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
+  if (k === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (!e.repeat) prepniZvuk();
+    return;
+  }
   if (vMenu) {
     menu.klavesa(e);
     return;
