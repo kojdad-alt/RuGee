@@ -1,5 +1,7 @@
 import { sprity } from './sprity.js';
-import { staty, TRVANI_TRESU, VYCHOZI_TRIDA, TRVANI_ZABLESKU, ODHOZENI_PRI_OZIVENI } from './hra.js';
+import {
+  staty, TRVANI_TRESU, VYCHOZI_TRIDA, TRVANI_ZABLESKU, ODHOZENI_PRI_OZIVENI, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU,
+} from './hra.js';
 import { dlazdiceLouky, ozdobyLouky } from './louka.js';
 
 const MERITKO = 3;
@@ -12,8 +14,15 @@ const BARVY_CASTIC = {
   kostlivec: ['#e8e2d0', '#b9c2cc', '#e8e2d0'],
   strazce: ['#6e6577', '#8f86a0', '#ffb347'],
   pavouk: ['#4a3530', '#a07e5c', '#ffb347'],
+  duch: ['#e4f6f3', '#9fc8c6', '#e4f6f3'],
+  houbak: ['#9b59c9', '#d6a9f2', '#f1d2a8'],
+  vlk: ['#8d9098', '#53565e', '#c9ccd2'],
 };
 const BARVA_SITE = 'rgba(236,236,244,0.8)';
+// Duch je i viditelný průsvitný, schovaný je jen tušený obrys. Mezi tím přechází plynule.
+const PRUHLEDNOST_DUCHA = 0.62;
+const PRUHLEDNOST_SCHOVANEHO = 0.1;
+const PRECHOD_DUCHA = 0.25;
 
 function hash(x, y) {
   let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
@@ -94,6 +103,49 @@ function sit(ctx, x, y, zbyva) {
   ctx.restore();
 }
 
+// Průhlednost ducha podle toho, kolik mu zbývá do změny: před zmizením bledne, před vynořením sílí.
+function pruhlednostDucha(n) {
+  const t = Math.min(1, n.duchCas / PRECHOD_DUCHA);
+  const [ted, potom] = n.skryty ? [PRUHLEDNOST_SCHOVANEHO, PRUHLEDNOST_DUCHA] : [PRUHLEDNOST_DUCHA, PRUHLEDNOST_SCHOVANEHO];
+  return potom + (ted - potom) * t;
+}
+
+// Jedový oblak po houbákovi: chuchvalec fialových obláčků, které se pomalu točí, a pár bublinek.
+// Nejdřív se nafukuje (bledší), na konci se rozplyne.
+function oblak(ctx, x, y, o, cas) {
+  const stari = TRVANI_OBLAKU - o.zivot;
+  const nafouknuti = Math.min(1, stari / NAFUKOVANI_OBLAKU);
+  const r = o.polomer * (0.45 + 0.55 * nafouknuti);
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.globalAlpha = Math.min(1, o.zivot * 2) * (nafouknuti < 1 ? 0.55 : 1);
+  const chuchvalce = [[0, 0, 0.62]];
+  for (let i = 0; i < 6; i++) {
+    const uhel = (i / 6) * Math.PI * 2 + cas * 0.6 + o.x * 0.01;
+    chuchvalce.push([Math.cos(uhel) * r * 0.5, Math.sin(uhel) * r * 0.42, 0.42 + 0.06 * Math.sin(cas * 3 + i)]);
+  }
+  for (const [barva, navic] of [['rgba(48,18,70,0.5)', 2], ['rgba(170,96,220,0.42)', 0]]) {
+    ctx.fillStyle = barva;
+    for (const [cx, cy, velikost] of chuchvalce) {
+      ctx.beginPath();
+      ctx.arc(Math.round(cx), Math.round(cy), r * velikost + navic, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  // bublinky stoupají a mizí, každá s vlastním zpožděním
+  for (let i = 0; i < 4; i++) {
+    const faze = (cas * 0.9 + i * 0.27 + o.y * 0.003) % 1;
+    const bx = Math.round(Math.sin(i * 2.4 + o.x) * r * 0.55);
+    const by = Math.round(r * 0.35 - faze * r * 1.1);
+    ctx.globalAlpha = Math.min(1, o.zivot * 2) * (1 - faze);
+    ctx.fillStyle = '#0b0a0f';
+    ctx.fillRect(bx - 1, by - 1, 5, 5);
+    ctx.fillStyle = '#e2b8ff';
+    ctx.fillRect(bx, by, 3, 3);
+  }
+  ctx.restore();
+}
+
 export function kresli(ctx, hra) {
   const { width: sirka, height: vyska } = ctx.canvas;
   const { hrdina } = hra;
@@ -130,11 +182,24 @@ export function kresli(ctx, hra) {
     ctx.drawImage(sprity[pr.druh], Math.round(p.x - 13), Math.round(p.y - 13 + houpani), 26, 26);
   }
 
+  for (const o of hra.oblaky) {
+    const p = naObrazovce(o);
+    if (p.x < -60 || p.y < -60 || p.x > sirka + 60 || p.y > vyska + 60) continue;
+    oblak(ctx, p.x, p.y, o, hra.cas);
+  }
+
   for (const n of hra.nepratele) {
     const p = naObrazovce(n);
     if (p.x < -40 || p.y < -40 || p.x > sirka + 40 || p.y > vyska + 40) continue;
     const obr = sprity[n.druh];
     const velikost = obr.width * MERITKO * (n.boss ? 2 : 1);
+    if (n.duch) {
+      // duch se vznáší a kouká tam, kam letí (ne na hrdinu, letí kolem něj)
+      ctx.globalAlpha = pruhlednostDucha(n);
+      sprite(ctx, obr, p.x, p.y + Math.sin(hra.cas * 4 + n.maxHp + n.x * 0.01) * 2, n.smerX < 0 ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : null, velikost);
+      ctx.globalAlpha = 1;
+      continue;
+    }
     sprite(ctx, obr, p.x, p.y, n.x > hrdina.x ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : null, velikost);
     if (n.boss) {
       ctx.fillStyle = '#2a0f14';
@@ -234,7 +299,8 @@ export function kresli(ctx, hra) {
   for (const c of hra.cisla) {
     const p = naObrazovce(c);
     const pruhlednost = Math.min(1, c.zivot * 2);
-    ctx.fillStyle = c.barva === 'leceni' ? `rgba(120,230,140,${pruhlednost})` : `rgba(255,240,200,${pruhlednost})`;
+    const barva = { leceni: '120,230,140', jed: '214,169,242' }[c.barva] ?? '255,240,200';
+    ctx.fillStyle = `rgba(${barva},${pruhlednost})`;
     ctx.fillText(c.text, p.x, p.y);
   }
 
@@ -280,7 +346,7 @@ export function kresli(ctx, hra) {
 
 // Pozadí hlavního menu: louka pomalu ujíždí, dole přes ni utíká hrdina (zvolená třída) před hloučkem
 // nepřátel a nahoře přelétají netopýři. Všechno je jen podle času, nic se nepočítá ani neukládá.
-const HONICKA = ['netopyr', 'slizak', 'pavouk', 'kostlivec', 'netopyr', 'slizak'];
+const HONICKA = ['vlk', 'netopyr', 'slizak', 'vlk', 'pavouk', 'houbak', 'kostlivec', 'netopyr'];
 
 export function kresliMenu(ctx, cas, postava = VYCHOZI_TRIDA) {
   const { width: sirka, height: vyska } = ctx.canvas;

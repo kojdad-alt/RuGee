@@ -9,11 +9,16 @@
 // hrají úplně stejně, každé vylepšení změní svou vlastnost, Oživení vrátí hrdinu jednou, obchod a úložiště sedí.
 // Rarity karet: šance sedí s losováním, s časem a Štěstím přibývá vzácnějších, truhla nedá běžnou, karta nikdy
 // nepřeleze maximální úroveň a dá přesně to, co slibuje (úrovně, poškození, doléčení).
+// Noví nepřátelé: duch, houbák a vlk nepřijdou dřív, než mají. Schovaného ducha zbraně nezasáhnou a on nezraní,
+// duch proletí skrz místo, kam mířil. Oblak po houbákovi se nejdřív nafoukne, pak pálí a za 3 s zmizí.
+// Vlci chodí jen ve smečkách po 4–6 a jsou rychlejší než ostatní nepřátelé.
 import { vytvorRng } from '../src/rng.js';
 import {
   novaHra, aktualizuj, vyber, staty, TRVANI_TRESU, OD_PAVOUKU, TRVANI_SITE, ZPOMALENI_SITI, TRIDY, VYCHOZI_TRIDA,
   ZIVOTY_PO_OZIVENI, NEZRANITELNY_PO_OZIVENI, ODHOZENI_PRI_OZIVENI,
   ZBRANE, RARITY, PORADI_RARIT, MAX_UROVEN, SILA_ZA_PREBYTEK, LECENI_ODPOCINKU, CAS_PLNYCH_RARIT, sanceRarit, nabidka, karta,
+  OD_DUCHU, VIDITELNY_DUCH, SKRYTY_DUCH, OD_HOUBAKU, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU, JED_OBLAKU,
+  OD_VLKU, SMECKA_OD, SMECKA_DO, RYCHLOST_NEPRATEL, MAX_DUCHU, pridejNepritele,
 } from '../src/hra.js';
 import {
   VYLEPSENI, DUSE_ZA, dusZaHru, cenaVylepseni, kupVylepseni, vratDuse, utraceno,
@@ -41,6 +46,15 @@ let krokuVSiti = 0;
 const nabidnuto = Object.fromEntries(PORADI_RARIT.map((id) => [id, 0]));
 let truhel = 0;
 const chybyRarit = [];
+const chybyNepratel = [];
+const videni = new WeakSet();
+const prvni = { duch: null, houbak: null, vlk: null };
+const smecky = [];
+const videneOblaky = new WeakSet();
+let oblaku = 0;
+let zasahuOblakem = 0;
+let duchuSchovanych = 0;
+let maxDuchu = 0;
 
 // Každá nabídnutá karta: známá rarita, úrovně v mezích, popis a ikona.
 function zkontrolujKarty(h) {
@@ -60,6 +74,7 @@ function zkontrolujKarty(h) {
 
 // Jednoduchý hráč: utíká od nepřátel v blízkosti a jinak jde pro nejbližší krystal.
 // Bez zbraně na dálku (jen krumpáče nebo lucerna) pustí nepřátele blíž, jinak by je nikdy nezasáhl.
+// Jedovým oblakům se vyhýbá víc než nepřátelům (oblak je vidět, člověk z něj taky uteče).
 function rozhodni(hra, t) {
   const { hrdina } = hra;
   const odstup = hra.zbrane.jiskra || hra.zbrane.blesk ? 160 : 50;
@@ -72,6 +87,16 @@ function rozhodni(hra, t) {
     if (d < odstup && d > 0) {
       dx += (vx / d) * (odstup - d);
       dy += (vy / d) * (odstup - d);
+    }
+  }
+  for (const o of hra.oblaky) {
+    const vx = hrdina.x - o.x;
+    const vy = hrdina.y - o.y;
+    const d = Math.hypot(vx, vy);
+    const odOblaku = o.polomer + 20;
+    if (d < odOblaku && d > 0) {
+      dx += (vx / d) * (odOblaku - d) * 4;
+      dy += (vy / d) * (odOblaku - d) * 4;
     }
   }
   if (Math.hypot(dx, dy) < 1) {
@@ -96,7 +121,32 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
   const hpPred = hra.hrdina.hp;
   const sitPred = hra.hrdina.sit;
   const { x: xPred, y: yPred } = hra.hrdina;
+  const schovani = hra.nepratele.filter((n) => n.skryty).map((n) => [n, n.hp]);
   aktualizuj(hra, DT, rozhodni(hra, t), SIRKA, VYSKA);
+  // Schovaného ducha (před krokem i po něm) nesmí nic zasáhnout.
+  for (const [n, hp] of schovani) {
+    if (!n.skryty) continue;
+    duchuSchovanych += 1;
+    if (n.hp !== hp || !hra.nepratele.includes(n)) chybyNepratel.push(`schovaný duch dostal zásah v čase ${t.toFixed(1)} s`);
+  }
+  maxDuchu = Math.max(maxDuchu, hra.nepratele.filter((n) => n.duch).length);
+  const noviVlci = [];
+  for (const n of hra.nepratele) {
+    if (videni.has(n)) continue;
+    videni.add(n);
+    if (n.druh in prvni && prvni[n.druh] === null) prvni[n.druh] = hra.cas;
+    if (n.druh === 'vlk') noviVlci.push(n);
+  }
+  if (noviVlci.length) {
+    const rozptyl = Math.max(...noviVlci.map((n) => Math.hypot(n.x - noviVlci[0].x, n.y - noviVlci[0].y)));
+    smecky.push(noviVlci.length);
+    if (noviVlci.length < SMECKA_OD || noviVlci.length > SMECKA_DO) chybyNepratel.push(`smečka ${noviVlci.length} vlků`);
+    if (rozptyl > 30) chybyNepratel.push(`smečka rozházená na ${rozptyl.toFixed(0)} px`);
+  }
+  for (const o of hra.oblaky) {
+    if (!videneOblaky.has(o)) { videneOblaky.add(o); oblaku += 1; }
+  }
+  if (hra.cisla.some((c) => c.barva === 'jed' && c.zivot > 0.6 - DT * 1.5)) zasahuOblakem += 1;
   if (hra.hrdina.hp < hpPred) {
     zasahu += 1;
     if (hra.tres === TRVANI_TRESU) tresu += 1;
@@ -341,6 +391,75 @@ else {
 }
 for (const [id, z] of Object.entries(hra.zbrane)) if (z.uroven > MAX_UROVEN) chybyRarit.push(`${id} přes maximum`);
 for (const [id, u] of Object.entries(hra.pasivy)) if (u > MAX_UROVEN) chybyRarit.push(`${id} přes maximum`);
+// Noví nepřátelé zblízka. Hrdina stojí v (0, 0), nepřátelé z okraje jsou daleko a nevadí.
+const hraj = (h, sekund, kazdyKrok = () => {}) => {
+  for (let t = 0; t < sekund - 1e-9; t += DT) {
+    aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    kazdyKrok(h);
+  }
+};
+const vsechnyZbrane = () => Object.fromEntries(Object.keys(ZBRANE).map((id) => [id, { uroven: MAX_UROVEN, nabiti: 0 }]));
+// Schovaný duch na hrdinovi: zbraně na maximu ho nezasáhnou a on hrdinu nezraní. Viditelný ano.
+for (const skryty of [true, false]) {
+  const h = novaHra(vytvorRng(seminko));
+  h.zbrane = vsechnyZbrane();
+  const duch = pridejNepritele(h, 'duch', 6, 0);
+  duch.rychlost = 0;
+  Object.assign(duch, { skryty, duchCas: skryty ? SKRYTY_DUCH : VIDITELNY_DUCH });
+  hraj(h, 0.5);
+  const zasazen = duch.hp < duch.maxHp || !h.nepratele.includes(duch);
+  if (skryty && (zasazen || h.hrdina.hp !== h.hrdina.maxHp)) chybyNepratel.push('schovaný duch dostal zásah nebo zranil');
+  if (!skryty && (!zasazen || h.hrdina.hp === h.hrdina.maxHp)) chybyNepratel.push('viditelný duch se nedá zasáhnout nebo nezraní');
+}
+// Duch proletí skrz: zamíří na hrdinu, letí rovně dál, zmizí a po vynoření zamíří zpátky.
+const prolet = novaHra(vytvorRng(seminko));
+prolet.zbrane = {};
+prolet.hrdina.nezranitelny = 1000;
+const letec = pridejNepritele(prolet, 'duch', -200, 0);
+let nejdal = -Infinity;
+let bylSchovany = false;
+hraj(prolet, VIDITELNY_DUCH + SKRYTY_DUCH - 0.1, () => { nejdal = Math.max(nejdal, letec.x); bylSchovany ||= letec.skryty; });
+if (!(nejdal > 40) || Math.abs(letec.y) > 1e-6) chybyNepratel.push(`duch neproletěl skrz (nejdál x ${nejdal.toFixed(1)})`);
+if (!bylSchovany) chybyNepratel.push('duch nezmizel');
+hraj(prolet, 0.2);
+if (letec.skryty || !(letec.smerX < 0)) chybyNepratel.push('duch se po zmizení neukázal nebo nezamířil zpátky');
+// Houbák padne vedle hrdiny: oblak se nafoukne (nepálí), pak pálí, po 3 s zmizí. Mimo oblak nic.
+const jed = novaHra(vytvorRng(seminko));
+jed.zbrane = {};
+const houbak = pridejNepritele(jed, 'houbak', 25, 0);
+houbak.hp = 0;
+hraj(jed, DT);
+if (jed.oblaky.length !== 1) chybyNepratel.push(`po houbákovi ${jed.oblaky.length} oblaků`);
+hraj(jed, NAFUKOVANI_OBLAKU - 2 * DT);
+if (jed.hrdina.hp !== jed.hrdina.maxHp) chybyNepratel.push('oblak pálí, i když se teprve nafukuje');
+hraj(jed, 0.6);
+const poJedu = jed.hrdina.hp;
+if (!(poJedu < jed.hrdina.maxHp) || (jed.hrdina.maxHp - poJedu) % JED_OBLAKU !== 0) chybyNepratel.push(`oblak nepálí (${poJedu} životů)`);
+hraj(jed, TRVANI_OBLAKU);
+if (jed.oblaky.length) chybyNepratel.push('oblak nezmizel po 3 s');
+const poOblaku = jed.hrdina.hp;
+jed.oblaky.push({ x: 200, y: 0, zivot: TRVANI_OBLAKU, polomer: 36 });
+hraj(jed, 1);
+if (jed.hrdina.hp !== poOblaku) chybyNepratel.push('vzdálený oblak zranil hrdinu');
+// Oblak hrdinu zabije jen jako cokoli jiného: s Oživením vstane.
+const smrtVJedu = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, { oziveni: 1 });
+smrtVJedu.zbrane = {};
+smrtVJedu.hrdina.hp = 1;
+smrtVJedu.oblaky.push({ x: 0, y: 0, zivot: TRVANI_OBLAKU - NAFUKOVANI_OBLAKU - 0.1, polomer: 36 });
+hraj(smrtVJedu, DT);
+if (smrtVJedu.oziveno !== 1 || smrtVJedu.konec) chybyNepratel.push('smrt v oblaku neoživila hrdinu');
+// Vlci jsou nejrychlejší z obyčejných nepřátel.
+const rychlostiOstatnich = Object.entries(RYCHLOST_NEPRATEL).filter(([id]) => id !== 'vlk').map(([, r]) => r);
+if (!(RYCHLOST_NEPRATEL.vlk > Math.max(...rychlostiOstatnich))) chybyNepratel.push('vlk není rychlejší než ostatní');
+// Kdy přišli v hlavní hře.
+for (const [druh, od] of [['duch', OD_DUCHU], ['houbak', OD_HOUBAKU], ['vlk', OD_VLKU]]) {
+  if (prvni[druh] !== null && prvni[druh] < od) chybyNepratel.push(`${druh} přišel moc brzy (${prvni[druh].toFixed(1)} s)`);
+  if (prvni[druh] === null && hra.cas > od + 40) chybyNepratel.push(`po ${od} s nepřišel žádný ${druh}`);
+}
+if (maxDuchu > MAX_DUCHU) chybyNepratel.push(`duchů najednou ${maxDuchu}`);
+if (smecky.length !== hra.smecek) chybyNepratel.push(`smeček ${smecky.length}, hra jich hlásí ${hra.smecek}`);
+if (prvni.houbak !== null && hra.cas > OD_HOUBAKU + 120 && oblaku === 0) chybyNepratel.push('houbáci umírali, ale žádný oblak');
+
 const zaokrouhli = (s) => Object.fromEntries(Object.entries(s).map(([id, p]) => [id, Math.round(p * 1000) / 10]));
 
 const vysledek = {
@@ -372,10 +491,16 @@ const vysledek = {
   rarity_nabidnutych: nabidnuto,
   truhel,
   sance_rarit_procenta: { zacatek: zaokrouhli(sZacatek), minuta_15: zaokrouhli(sPozde), stesti_max: zaokrouhli(sStesti) },
+  prvni_s: Object.fromEntries(Object.entries(prvni).map(([id, c]) => [id, c === null ? null : Math.round(c)])),
+  smecky_vlku: smecky,
+  jedovych_oblaku: oblaku,
+  zasahu_oblakem: zasahuOblakem,
+  max_duchu_najednou: maxDuchu,
+  prumer_schovanych_duchu: Math.round((duchuSchovanych / Math.max(1, hra.cas / DT)) * 10) / 10,
 };
 console.log(JSON.stringify(vysledek, null, 2));
 
-const chyby = [...chybyTrid, ...chybyDusi, ...chybyRarit];
+const chyby = [...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel)];
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);
 if (hra.zabito === 0) chyby.push('nikdo nezemřel, zbraně asi nestřílí');
 if (hra.hrdina.uroven < 3) chyby.push('hrdina skoro nepostoupil, krystaly se asi nesbírají');

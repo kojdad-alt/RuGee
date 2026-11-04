@@ -2,7 +2,7 @@
 
 ## ▶ [Hrát v prohlížeči](https://kojdad-alt.github.io/hlubiny/)
 
-Survivors hra v prohlížeči: ty se jen pohybuješ, zbraně střílí samy a na louku se valí hordy. Z krystalů roste úroveň a na každé si vybereš vylepšení. Každé 3 minuty přijde Strážce hlubin, od 4. minuty lezou rychlí pavouci, jejichž síť tě na chvíli zpomalí.
+Survivors hra v prohlížeči: ty se jen pohybuješ, zbraně střílí samy a na louku se valí hordy. Z krystalů roste úroveň a na každé si vybereš vylepšení. Každé 3 minuty přijde Strážce hlubin. Od 1,5 minuty bloudí průsvitní duchové, kteří letí rovně skrz tebe a občas na chvíli zmizí (schovaného ducha zbraně netrefí, ale ani on tebe). Od 2. minuty lezou pomalí houbáci, po kterých zůstane na 3 s fialový jedový oblak, ze kterého je lepší hned vylézt. Od 3. minuty chodí smečky 4–6 rychlých vlků a od 4. minuty pavouci, jejichž síť tě na chvíli zpomalí.
 
 Stačí kliknout na odkaz výš, nic se neinstaluje. Jde to i na mobilu (tah prstem).
 
@@ -34,7 +34,7 @@ Simulace hry bez prohlížeče (Node 18+):
 node tests/simulace.mjs 1 600
 ```
 
-Jednoduchý hráč utíká od nepřátel, sbírá krystaly a na úrovni bere nejdřív zbraně. Test spadne, když se objeví NaN, nikdo nezemře, nepřátel přibývá bez konce, po zabití nevyletí úlomky, po zásahu hrdiny se neotřese obrazovka, pavouk přijde před 4. minutou, hrdina v síti nezpomalí, se špatně ukládá rekord nebo zvolená třída (kratší hra rekord přepíše, rozbitý záznam nebo zakázané úložiště spadne) nebo když některá třída nezačne se svou zbraní a výhodou. Hlavní hra je za výchozí třídu (Lovec) bez trvalých vylepšení, každá třída pak ještě 3 minuty hraje sama. Hlídá i duše: hra s prázdnými nebo rozbitými vylepšeními musí dopadnout úplně stejně jako bez nich, každé vylepšení změní svou vlastnost, Oživení vrátí hrdinu jen jednou, obchod nepustí nákup bez duší ani nad maximum, Vrátit duše vrátí přesně utracené a rozbitý záznam duší hru neshodí. U rarit hlídá, že losování sedí se šancemi, s časem a Štěstím přibývá vzácnějších karet, truhla nedá běžnou, karta nepřeleze maximální úroveň a dá přesně slíbené úrovně, poškození a doléčení.
+Jednoduchý hráč utíká od nepřátel, sbírá krystaly a na úrovni bere nejdřív zbraně. Test spadne, když se objeví NaN, nikdo nezemře, nepřátel přibývá bez konce, po zabití nevyletí úlomky, po zásahu hrdiny se neotřese obrazovka, pavouk přijde před 4. minutou, hrdina v síti nezpomalí, se špatně ukládá rekord nebo zvolená třída (kratší hra rekord přepíše, rozbitý záznam nebo zakázané úložiště spadne) nebo když některá třída nezačne se svou zbraní a výhodou. Hlavní hra je za výchozí třídu (Lovec) bez trvalých vylepšení, každá třída pak ještě 3 minuty hraje sama. Hlídá i duše: hra s prázdnými nebo rozbitými vylepšeními musí dopadnout úplně stejně jako bez nich, každé vylepšení změní svou vlastnost, Oživení vrátí hrdinu jen jednou, obchod nepustí nákup bez duší ani nad maximum, Vrátit duše vrátí přesně utracené a rozbitý záznam duší hru neshodí. U nových nepřátel hlídá, že duch, houbák ani vlk nepřijdou dřív, schovaného ducha nic nezasáhne a on nezraní, duch proletí skrz, oblak se nejdřív nafoukne, pak pálí a za 3 s zmizí, vlci chodí jen ve smečkách po 4–6 a jsou nejrychlejší. Bot se jedovým oblakům vyhýbá. U rarit hlídá, že losování sedí se šancemi, s časem a Štěstím přibývá vzácnějších karet, truhla nedá běžnou, karta nepřeleze maximální úroveň a dá přesně slíbené úrovně, poškození a doléčení.
 
 ## Nová verze
 
