@@ -11,7 +11,9 @@ const BARVY_CASTIC = {
   slizak: ['#5fae4e', '#9be08a', '#5fae4e'],
   kostlivec: ['#e8e2d0', '#b9c2cc', '#e8e2d0'],
   strazce: ['#6e6577', '#8f86a0', '#ffb347'],
+  pavouk: ['#4a3530', '#a07e5c', '#ffb347'],
 };
+const BARVA_SITE = 'rgba(236,236,244,0.8)';
 
 function hash(x, y) {
   let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
@@ -38,16 +40,57 @@ function podlaha(ctx, kx, ky, sirka, vyska) {
   }
 }
 
-function sprite(ctx, obr, x, y, otoceny = 1, bila = false, velikost = obr.width * MERITKO) {
+// Přebarvená kopie spritu (jen jeho pixely, ne celý čtverec). Každá kombinace se kreslí jednou.
+const prebarvene = new WeakMap();
+function prebarvi(obr, barva) {
+  if (!prebarvene.has(obr)) prebarvene.set(obr, new Map());
+  const podleBarvy = prebarvene.get(obr);
+  if (!podleBarvy.has(barva)) {
+    const kopie = document.createElement('canvas');
+    kopie.width = obr.width;
+    kopie.height = obr.height;
+    const g = kopie.getContext('2d');
+    g.drawImage(obr, 0, 0);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = barva;
+    g.fillRect(0, 0, obr.width, obr.height);
+    podleBarvy.set(barva, kopie);
+  }
+  return podleBarvy.get(barva);
+}
+
+// prekryv: barva, kterou se sprite přebarví (bílá po zásahu, bledá v síti), jinak nic
+function sprite(ctx, obr, x, y, otoceny = 1, prekryv = null, velikost = obr.width * MERITKO) {
   ctx.save();
   ctx.translate(Math.round(x), Math.round(y));
   if (otoceny < 0) ctx.scale(-1, 1);
-  ctx.drawImage(obr, -velikost / 2, -velikost / 2, velikost, velikost);
-  if (bila) {
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.fillRect(-velikost / 2, -velikost / 2, velikost, velikost);
+  ctx.drawImage(prekryv ? prebarvi(obr, prekryv) : obr, -velikost / 2, -velikost / 2, velikost, velikost);
+  ctx.restore();
+}
+
+// Pavoučí síť přes hrdinu: paprsky a dva kruhy, s koncem sítě bledne.
+function sit(ctx, x, y, zbyva) {
+  ctx.save();
+  ctx.translate(Math.round(x) + 0.5, Math.round(y) + 0.5);
+  ctx.globalAlpha = Math.min(1, zbyva * 2);
+  ctx.strokeStyle = BARVA_SITE;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const uhel = (i / 8) * Math.PI * 2 + 0.3;
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.round(Math.cos(uhel) * 17), Math.round(Math.sin(uhel) * 17));
   }
+  for (const r of [7, 13]) {
+    for (let i = 0; i <= 8; i++) {
+      const uhel = (i / 8) * Math.PI * 2 + 0.3;
+      const bx = Math.round(Math.cos(uhel) * r);
+      const by = Math.round(Math.sin(uhel) * r);
+      if (i === 0) ctx.moveTo(bx, by);
+      else ctx.lineTo(bx, by);
+    }
+  }
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -92,7 +135,7 @@ export function kresli(ctx, hra) {
     if (p.x < -40 || p.y < -40 || p.x > sirka + 40 || p.y > vyska + 40) continue;
     const obr = sprity[n.druh];
     const velikost = obr.width * MERITKO * (n.boss ? 2 : 1);
-    sprite(ctx, obr, p.x, p.y, n.x > hrdina.x ? -1 : 1, n.zasazen > 0, velikost);
+    sprite(ctx, obr, p.x, p.y, n.x > hrdina.x ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : null, velikost);
     if (n.boss) {
       ctx.fillStyle = '#2a0f14';
       ctx.fillRect(Math.round(p.x - 24), Math.round(p.y - 34), 48, 5);
@@ -161,7 +204,8 @@ export function kresli(ctx, hra) {
   }
 
   const blika = hrdina.nezranitelny > 0 && Math.floor(hrdina.nezranitelny * 20) % 2 === 0;
-  if (!blika) sprite(ctx, sprity.hrdina, stred.x, stred.y, hrdina.otoceny);
+  if (!blika) sprite(ctx, sprity.hrdina, stred.x, stred.y, hrdina.otoceny, hrdina.sit > 0 ? 'rgba(215,222,236,0.5)' : null);
+  if (hrdina.sit > 0) sit(ctx, stred.x, stred.y, hrdina.sit);
 
   // životy pod hrdinou
   ctx.fillStyle = '#2a0f14';

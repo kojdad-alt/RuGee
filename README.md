@@ -2,7 +2,7 @@
 
 ## ▶ [Hrát v prohlížeči](https://kojdad-alt.github.io/hlubiny/)
 
-Survivors hra v prohlížeči: ty se jen pohybuješ, zbraně střílí samy a na louku se valí hordy. Z krystalů roste úroveň a na každé si vybereš vylepšení. Každé 3 minuty přijde Strážce hlubin.
+Survivors hra v prohlížeči: ty se jen pohybuješ, zbraně střílí samy a na louku se valí hordy. Z krystalů roste úroveň a na každé si vybereš vylepšení. Každé 3 minuty přijde Strážce hlubin, od 4. minuty lezou rychlí pavouci, jejichž síť tě na chvíli zpomalí.
 
 Stačí kliknout na odkaz výš, nic se neinstaluje. Jde to i na mobilu (tah prstem).
 
@@ -26,7 +26,7 @@ Simulace hry bez prohlížeče (Node 18+):
 node tests/simulace.mjs 1 600
 ```
 
-Jednoduchý hráč utíká od nepřátel, sbírá krystaly a na úrovni bere nejdřív zbraně. Test spadne, když se objeví NaN, nikdo nezemře, nepřátel přibývá bez konce, po zabití nevyletí úlomky nebo se po zásahu hrdiny neotřese obrazovka.
+Jednoduchý hráč utíká od nepřátel, sbírá krystaly a na úrovni bere nejdřív zbraně. Test spadne, když se objeví NaN, nikdo nezemře, nepřátel přibývá bez konce, po zabití nevyletí úlomky, po zásahu hrdiny se neotřese obrazovka, pavouk přijde před 4. minutou nebo hrdina v síti nezpomalí.
 
 ## Nová verze
 
