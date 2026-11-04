@@ -15,7 +15,8 @@ export const VYLEPSENI = {
 
 // Za kolik se hra promění v duše: 1 duše za každých sekund přežití, za každých zabitych zabitých, strazce duší
 // za každého bosse (klíč strazce zůstal z doby, kdy byl boss jen jeden) a 1 duše za každých zlataku zlaťáků,
-// které hrdina neutratil (zbytek pod zlataku propadne).
+// které hrdina neutratil (zbytek pod zlataku propadne). Pasiva Chamtivost (hrdina.chamtivost) pak součet násobí,
+// navíc jsou jen celé duše (chamtivost v rozpisu).
 export const DUSE_ZA = { sekund: 20, zabitych: 20, strazce: 10, zlataku: 5 };
 
 export function dusZaHru(hra) {
@@ -23,7 +24,10 @@ export function dusZaHru(hra) {
   const zabiti = Math.floor(Math.max(0, hra.zabito) / DUSE_ZA.zabitych);
   const strazci = Math.max(0, hra.zabitoBossu) * DUSE_ZA.strazce;
   const zlataky = Math.floor(Math.max(0, Math.floor(hra.zlataky || 0)) / DUSE_ZA.zlataku);
-  return { cas, zabiti, strazci, zlataky, celkem: cas + zabiti + strazci + zlataky };
+  const zaklad = cas + zabiti + strazci + zlataky;
+  const nasobek = hra.hrdina?.chamtivost;
+  const chamtivost = Number.isFinite(nasobek) && nasobek > 1 ? Math.floor(zaklad * (nasobek - 1) + 1e-9) : 0;
+  return { cas, zabiti, strazci, zlataky, chamtivost, celkem: zaklad + chamtivost };
 }
 
 // Každá další úroveň stojí o polovinu víc než předchozí, zaokrouhleno na pětky.

@@ -83,6 +83,9 @@
 // a dojde k hrdinovi, duch proletí, střela přeletí. Každá mapa má hlavního bosse, který přijde první (na Louce
 // pořád Strážce, pořadí beze změny) a jeho truhla dá kus sady bosse, ze kterého vychází. Bot se lávě
 // a bublinám vyhýbá.
+// Pasivy II: Upíří zub vrací život za zabití (s šancí, nejvýš SANI_ZA_SEKUNDU za sekundu, náhodu vln neposune),
+// Trnová zbroj vrací útočníkovi podíl rány, Štít zastaví jednu ránu a dobíjí se, Moudrost dá víc zkušeností
+// a Chamtivost víc duší. Všechny mají ikonu, popis a úrovně bez stropu (kde je strop, dají pak poškození).
 import { readFileSync } from 'node:fs';
 import { vytvorRng } from '../src/rng.js';
 import {
@@ -110,6 +113,7 @@ import {
   POLOMER_ZAMCENE, cenaZbozi, prekazkaNakupu, nabidkaKupce, kup, odejdiOdKupce, cenaPrehozeni, prehod,
   POLOMER_HRDINY, SKOK_ZABY, poradiBossu, zakladBosse,
   pasivyDoZbrane, NASOBEK_KRITU, CISLO_REGENERACE,
+  DOBITI_STITU, MIN_DOBITI_STITU, ZIVOT_ZA_SANI, SANI_ZA_SEKUNDU, LET_KAPKY,
 } from '../src/hra.js';
 import {
   VYBAVA, PORADI_SLOTU, VSECHNY_KUSY, RARITY_VYBAVY, PORADI_RARIT_VYBAVY, EFEKTY_VYBAVY, STATY_VYBAVY, STROPY_VYBAVY,
@@ -423,6 +427,7 @@ function obsluz(h) {
 for (let t = 0; t < delka && !hra.konec; t += DT) {
   const hpPred = hra.hrdina.hp;
   const regenPred = hra.vylecenoRegeneraci;
+  const saniPred = hra.vylecenoSanim;
   const sitPred = hra.hrdina.sit;
   const odhozenPred = hra.hrdina.odhozen;
   const { x: xPred, y: yPred } = hra.hrdina;
@@ -521,8 +526,8 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
   for (const c of hra.cisla) {
     if (videnaCisla.has(c)) continue;
     videnaCisla.add(c);
-    const text = ['zraneni', 'jed', 'utrata'].includes(c.barva) ? `-${c.hodnota}` : c.barva === 'leceni' || c.barva === 'zlato' ? `+${c.hodnota}`
-      : c.barva === 'krit' ? `${kratkeCislo(c.hodnota)}!` : kratkeCislo(c.hodnota);
+    const text = ['zraneni', 'jed', 'utrata'].includes(c.barva) ? `-${c.hodnota}` : ['leceni', 'zlato', 'sani'].includes(c.barva) ? `+${c.hodnota}`
+      : c.barva === 'krit' ? `${kratkeCislo(c.hodnota)}!` : c.barva === 'stit' ? '0' : kratkeCislo(c.hodnota);
     if (!(c.hodnota > 0) || c.text !== text) {
       chybyCisel.push(`číslo ${c.text} (${c.hodnota}, ${c.barva}) v čase ${t.toFixed(1)} s`);
     }
@@ -531,10 +536,12 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
     zasahu += 1;
     // Když ve stejném snímku sebral srdce, ubylo o ránu méně léčení (obojí má své číslo). Regenerace léčí
     // plynule a její zelené číslo ukazuje minulou chvíli, takže se počítá to, co vrátila v tomhle snímku.
+    // Stejně Upíří zub (jeho růžové číslo se sčítá s dřívějším sáním).
     const tedCisla = hra.cisla.filter((c) => c.od === hra.cas);
     const leceniTed = tedCisla.filter((c) => c.barva === 'leceni' && !c.regenerace).reduce((a, c) => a + c.hodnota, 0);
     const regenTed = hra.vylecenoRegeneraci - regenPred;
-    if (tedCisla.some((c) => (c.barva === 'zraneni' || c.barva === 'jed') && Math.abs(c.hodnota - leceniTed - regenTed - (hpPred - hra.hrdina.hp)) < 1e-6)) cervenychCisel += 1;
+    const saniTed = hra.vylecenoSanim - saniPred;
+    if (tedCisla.some((c) => (c.barva === 'zraneni' || c.barva === 'jed') && Math.abs(c.hodnota - leceniTed - regenTed - saniTed - (hpPred - hra.hrdina.hp)) < 1e-6)) cervenychCisel += 1;
     if (hra.tres === TRVANI_TRESU) tresu += 1;
     if (hra.hrdina.sit === TRVANI_SITE && !hra.konec) siti += 1;
   }
@@ -728,11 +735,12 @@ else {
   if (!sOzivenim.konec || sOzivenim.oziveno !== 1) chybyDusi.push('Oživení platí víc než jednou za hru');
   if (!bezOziveni.konec || bezOziveni.oziveno !== 0 || bezOziveni.cas > oziveni.cas + 1e-9) chybyDusi.push('bez Oživení hrdina vstal nebo přežil déle');
 }
-// Duše za hru podle času, zabití a Strážců.
+// Duše za hru podle času, zabití a Strážců (a s Chamtivostí o její násobek víc, jen celé duše).
 const duseHry = dusZaHru(hra);
-const ocekavaneDuse = Math.floor(hra.cas / DUSE_ZA.sekund) + Math.floor(hra.zabito / DUSE_ZA.zabitych) + hra.zabitoBossu * DUSE_ZA.strazce
+const zakladDusi = Math.floor(hra.cas / DUSE_ZA.sekund) + Math.floor(hra.zabito / DUSE_ZA.zabitych) + hra.zabitoBossu * DUSE_ZA.strazce
   + Math.floor(hra.zlataky / DUSE_ZA.zlataku);
-if (duseHry.celkem !== ocekavaneDuse || duseHry.celkem !== duseHry.cas + duseHry.zabiti + duseHry.strazci + duseHry.zlataky) chybyDusi.push('duše za hru nesedí');
+const ocekavaneDuse = zakladDusi + Math.floor(zakladDusi * (hra.hrdina.chamtivost - 1) + 1e-9);
+if (duseHry.celkem !== ocekavaneDuse || duseHry.celkem !== duseHry.cas + duseHry.zabiti + duseHry.strazci + duseHry.zlataky + duseHry.chamtivost) chybyDusi.push('duše za hru nesedí');
 // Z každých DUSE_ZA.zlataku nevyužitých zlaťáků je duše, zbytek propadne.
 if (dusZaHru({ cas: 0, zabito: 0, zabitoBossu: 0, zlataky: 3 * DUSE_ZA.zlataku + 2 }).celkem !== 3) chybyDusi.push('zlaťáky nedávají duše');
 if (dusZaHru({ cas: 0, zabito: 0, zabitoBossu: 0, zlataky: DUSE_ZA.zlataku - 1 }).celkem !== 0) chybyDusi.push('pár zlaťáků dalo celou duši');
@@ -2312,6 +2320,254 @@ const relBlizkoP = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
   pasivyPreziti.stesti_srdce_a_magnety = { ...padloP, s_trvalym_max_a_5: sTrvalym };
 }
 
+// Pasivy II. Upíří zub: zabití s šancí vrátí přesně ZIVOT_ZA_SANI (jen když tolik chybí), nejvýš SANI_ZA_SEKUNDU
+// za sekundu, kapka krve doletí a zmizí, růžová čísla se sčítají a náhoda vln (rng) se neposune. Trnová zbroj: kdo
+// hrdinu kousne nebo zasáhne schopností (i ranou z dálky), dostane zpátky přesně podíl rány (z rány před Zbrojí, se
+// Sílou), jedový oblak nikoho. Štít: hned po vybrání je bublina, zastaví celou ránu od nepřátel (modrá 0, žádný
+// úbytek, Trnová zbroj vrací dál), pak se dobíjí přesně dobitiStitu s, další úrovně zkracují dobití až po
+// MIN_DOBITI_STITU (i rozběhnuté), láva ani bahno ji nespotřebují. Moudrost: krystal dá přesně o násobek víc
+// zkušeností (s trvalými Zkušenostmi ještě víc). Chamtivost: duše za hru vzrostou o násobek (jen celé), bez ní nic.
+// Nakonec se všemi pěti ve hře od 10. minuty: sání, odplata trnů i zastavené rány opravdu nastanou.
+const pasivyII = {};
+{
+  for (const id of ['upiriZub', 'trnovaZbroj', 'stit', 'moudrost', 'chamtivost']) {
+    const p = PASIVY[id];
+    if (!p || !jmenaSpritu.has(p.ikona) || !p.popis || !p.popisDal) chybyPasiv.push(`pasiva ${id}: chybí data nebo ikona`);
+  }
+  if (!PASIVY.stit?.popisPrvni?.includes(`${DOBITI_STITU} s`) || popisUrovni('pasiva', 'stit', 0, 2).join('|') !== `${PASIVY.stit.popisPrvni}|${PASIVY.stit.popis}`) {
+    chybyPasiv.push(`Štít: karta prvních úrovní „${popisUrovni('pasiva', 'stit', 0, 2)}“`);
+  }
+  if (STROPY.pasivy.trnovaZbroj !== undefined || !(STROPY.pasivy.upiriZub > 0) || !(STROPY.pasivy.moudrost > 1) || !(STROPY.pasivy.chamtivost > 1)) chybyPasiv.push('stropy Pasiv II nesedí');
+  const ticha = () => {
+    const h = novaHra(vytvorRng(seminko));
+    h.zbrane = {};
+    Object.assign(h, { doSpawnu: Infinity, doBedny: Infinity, doZamcene: Infinity, dalsiBoss: Infinity, dalsiSmecka: null, dalsiKupec: Infinity });
+    return h;
+  };
+  const sUrovni = (h, id, urovni) => {
+    for (let u = 0; u < urovni; u++) vyber(h, karta(h, 'pasiva', id, 'bezna'));
+    return h;
+  };
+  const krok = (h, dt = DT) => aktualizuj(h, dt, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  const padly = (h, x = 300, y = 0) => {
+    const n = pridejNepritele(h, 'netopyr', x, y);
+    n.hp = 0;
+    return n;
+  };
+
+  // Upíří zub: šance na 5. úrovni, 2000 zabití po jednom (pauza sání vždy vypršela), zraněný hrdina.
+  const z = sUrovni(ticha(), 'upiriZub', 5);
+  z.hrdina.nezranitelny = 1e9;
+  if (!relBlizkoP(z.hrdina.upiri, PASIVY.upiriZub.pricti * 5)) chybyPasiv.push(`Upíří zub na 5. úrovni ${z.hrdina.upiri}`);
+  for (let i = 0; i < 2000; i++) {
+    z.hrdina.hp = 10;
+    z.hrdina.doSani = 0;
+    padly(z);
+    krok(z, 0.0001);
+  }
+  const podilSani = z.sani / 2000;
+  if (Math.abs(podilSani - z.hrdina.upiri) > 0.03) chybyPasiv.push(`Upíří zub léčil u ${(podilSani * 100).toFixed(1)} % zabití místo ${z.hrdina.upiri * 100} %`);
+  // Jistá šance a zabití každý snímek: nejvýš SANI_ZA_SEKUNDU za sekundu, každé přesně ZIVOT_ZA_SANI, kapky a čísla.
+  const j = ticha();
+  j.hrdina.upiri = 1;
+  j.hrdina.nezranitelny = 1e9;
+  j.hrdina.hp = 10;
+  const kdySal = [];
+  const ruzova = new Set();
+  let maxKapek = 0;
+  for (let t = 0; t < 3 - 1e-9; t += DT) {
+    const pred = j.sani;
+    padly(j);
+    krok(j);
+    if (j.sani > pred) kdySal.push(j.cas);
+    maxKapek = Math.max(maxKapek, j.kapky.length);
+    for (const c of j.cisla) if (c.barva === 'sani') ruzova.add(c);
+  }
+  const odstupySani = kdySal.slice(1).map((c, i) => c - kdySal[i]);
+  if (kdySal.length < 3 * SANI_ZA_SEKUNDU - 1 || kdySal.length > 3 * SANI_ZA_SEKUNDU + 1 || odstupySani.some((d) => d < 1 / SANI_ZA_SEKUNDU - 1e-6)) {
+    chybyPasiv.push(`Upíří zub sál ${kdySal.length}× za 3 s (odstupy ${odstupySani.map((d) => d.toFixed(2))})`);
+  }
+  if (Math.abs(j.hrdina.hp - (10 + j.sani * ZIVOT_ZA_SANI)) > 1e-9 || j.vylecenoSanim !== j.sani * ZIVOT_ZA_SANI) chybyPasiv.push(`Upíří zub vrátil ${j.hrdina.hp - 10} životů za ${j.sani} sání`);
+  const souctem = [...ruzova].reduce((a, c) => a + c.hodnota, 0);
+  if (souctem !== j.vylecenoSanim || !(ruzova.size < j.sani) || [...ruzova].some((c) => c.text !== `+${c.hodnota}`)) chybyPasiv.push(`Upíří zub: růžová čísla ${[...ruzova].map((c) => c.text)} za ${j.sani} sání`);
+  if (!(maxKapek >= 1)) chybyPasiv.push('Upíří zub: žádná kapka krve');
+  hraj(j, LET_KAPKY + DT);
+  if (j.kapky.length) chybyPasiv.push('kapka krve nezmizela');
+  // Plné životy (chybí míň než ZIVOT_ZA_SANI): nic.
+  j.hrdina.hp = j.hrdina.maxHp - ZIVOT_ZA_SANI / 2;
+  j.hrdina.doSani = 0;
+  const saniPlne = j.sani;
+  padly(j);
+  krok(j);
+  if (j.sani !== saniPlne || j.hrdina.hp !== j.hrdina.maxHp - ZIVOT_ZA_SANI / 2) chybyPasiv.push('Upíří zub léčil skoro plného hrdinu');
+  // Náhoda vln: stejná zabití se Zubem i bez něj, rng potom dá stejné číslo.
+  const bezZubu = ticha();
+  const seZubem = ticha();
+  seZubem.hrdina.upiri = 1;
+  for (const h of [bezZubu, seZubem]) {
+    h.hrdina.nezranitelny = 1e9;
+    h.hrdina.hp = 10;
+    for (let i = 0; i < 60; i++) {
+      padly(h, 300 + i, 0);
+      krok(h);
+    }
+  }
+  if (!(seZubem.sani > 0) || bezZubu.rng.dalsi() !== seZubem.rng.dalsi()) chybyPasiv.push('Upíří zub posunul náhodu vln');
+  pasivyII.upiri_zub = {
+    sance_5_uroven: z.hrdina.upiri, leceno_z_2000: z.sani, za_3_s_jista_sance: kdySal.length, ruzovych_cisel: ruzova.size,
+    strop: hodnotaPasivy('upiriZub', 60),
+  };
+
+  // Trnová zbroj: kostlivec na dotek (stojí, nepadne), jedna rána.
+  const trny = (urovni, { sila = 1, zbroj = 0, stit = 0 } = {}) => {
+    const h = sUrovni(sUrovni(sUrovni(ticha(), 'trnovaZbroj', urovni), 'zbroj', zbroj), 'stit', stit);
+    h.hrdina.sila = sila;
+    h.hrdina.krit = 0;
+    if (stit) krok(h);
+    const n = pridejNepritele(h, 'kostlivec', 5, 0);
+    Object.assign(n, { rychlost: 0, hp: 1e6, maxHp: 1e6 });
+    h.hrdina.nezranitelny = 0;
+    krok(h);
+    return { h, ztratil: h.hrdina.maxHp - h.hrdina.hp, vratil: 1e6 - n.hp, rana: n.poskozeni, n };
+  };
+  const t0 = trny(0);
+  const t1 = trny(1);
+  const t5 = trny(5, { sila: 2 });
+  const tZ = trny(1, { zbroj: 3 });
+  const tS = trny(1, { stit: 1 });
+  if (t0.vratil !== 0 || t0.h.odvetTrnu !== 0) chybyPasiv.push(`bez Trnové zbroje dostal kostlivec ${t0.vratil}`);
+  if (t1.ztratil !== t1.rana || t1.vratil !== Math.round(t1.rana * PASIVY.trnovaZbroj.pricti) || t1.h.odvetTrnu !== 1 || !(t1.h.ostny > 0)) {
+    chybyPasiv.push(`Trnová zbroj 1: rána ${t1.rana}, vrátila ${t1.vratil}`);
+  }
+  if (!t1.h.cisla.some((c) => c.hodnota === t1.vratil && c.barva !== 'zraneni')) chybyPasiv.push('Trnová zbroj: nad kostlivcem chybí číslo');
+  if (t5.vratil !== Math.round(t5.rana * PASIVY.trnovaZbroj.pricti * 5 * 2)) chybyPasiv.push(`Trnová zbroj 5 se Silou 2: vrátila ${t5.vratil} z rány ${t5.rana}`);
+  if (tZ.ztratil !== Math.max(1, tZ.rana - 3) || tZ.vratil !== t1.vratil) chybyPasiv.push(`Trnová zbroj se Zbrojí: ztratil ${tZ.ztratil}, vrátila ${tZ.vratil}`);
+  if (tS.ztratil !== 0 || tS.vratil !== t1.vratil || tS.h.zablokovano !== 1) chybyPasiv.push(`Trnová zbroj se Štítem: ztratil ${tS.ztratil}, vrátila ${tS.vratil}`);
+  // Rázová vlna bosse (rána z dálky) se vrátí bossovi, jedový oblak nikomu.
+  const tb = sUrovni(ticha(), 'trnovaZbroj', 1);
+  tb.hrdina.sila = 1;
+  tb.hrdina.krit = 0;
+  const boss = pridejNepritele(tb, 'strazce', 400, 0);
+  Object.assign(boss, { rychlost: 0, hp: 1e6, maxHp: 1e6 });
+  tb.vlny.push({ x: 0, y: 0, r: 0, max: 60, poskozeni: 12, odhozeni: 0, zasahla: false, zdroj: boss });
+  tb.hrdina.nezranitelny = 0;
+  krok(tb);
+  const ranaVlnou = tb.hrdina.maxHp - tb.hrdina.hp;
+  if (!(ranaVlnou > 0) || 1e6 - boss.hp !== Math.round(ranaVlnou * PASIVY.trnovaZbroj.pricti)) chybyPasiv.push(`Trnová zbroj: vlna ${ranaVlnou}, boss dostal ${1e6 - boss.hp}`);
+  const to = sUrovni(ticha(), 'trnovaZbroj', 5);
+  to.oblaky.push({ x: 0, y: 0, zivot: TRVANI_OBLAKU - NAFUKOVANI_OBLAKU - 0.1, polomer: 36 });
+  to.hrdina.nezranitelny = 0;
+  krok(to);
+  if (!(to.hrdina.hp < to.hrdina.maxHp) || to.odvetTrnu !== 0) chybyPasiv.push('Trnová zbroj vrátila ránu jedového oblaku');
+  pasivyII.trnova_zbroj = { rana: t1.rana, vratila_1: t1.vratil, vratila_5_se_silou_2: t5.vratil, se_zbroji_3: { ztratil: tZ.ztratil, vratila: tZ.vratil }, boss_z_vlny: 1e6 - boss.hp };
+
+  // Štít: hned po vybrání bublina, rána kostlivce se zastaví celá, další projde, dobití přesně dobitiStitu.
+  const s1 = sUrovni(ticha(), 'stit', 1);
+  if (s1.hrdina.dobitiStitu !== DOBITI_STITU || s1.hrdina.stitHotov) chybyPasiv.push(`Štít na 1. úrovni: dobití ${s1.hrdina.dobitiStitu} s`);
+  krok(s1);
+  if (!s1.hrdina.stitHotov) chybyPasiv.push('Štít není hned po vybrání hotový');
+  const kost = pridejNepritele(s1, 'kostlivec', 5, 0);
+  kost.rychlost = 0;
+  s1.hrdina.nezranitelny = 0;
+  krok(s1);
+  const nula = s1.cisla.find((c) => c.barva === 'stit');
+  if (s1.hrdina.hp !== s1.hrdina.maxHp || s1.hrdina.stitHotov || s1.zablokovano !== 1 || !nula || nula.text !== '0' || nula.hodnota !== kost.poskozeni || s1.cisla.some((c) => c.barva === 'zraneni')) {
+    chybyPasiv.push(`Štít nezastavil ránu (${s1.hrdina.hp}/${s1.hrdina.maxHp}, číslo ${nula?.text})`);
+  }
+  if (!(s1.prasklStit > 0) || !(s1.hrdina.nezranitelny > 0)) chybyPasiv.push('Štít: po zastavení chybí prasknutí nebo chvíle klidu');
+  s1.hrdina.nezranitelny = 0;
+  krok(s1);
+  if (s1.hrdina.hp !== s1.hrdina.maxHp - kost.poskozeni) chybyPasiv.push('rána po prasknutí štítu neprošla');
+  s1.nepratele = [];
+  let dobitoZa = null;
+  const odPrasknuti = s1.cas - DT;
+  for (let t = 0; t < DOBITI_STITU + 1 && dobitoZa === null; t += DT) {
+    s1.hrdina.nezranitelny = 1e9;
+    krok(s1);
+    if (s1.hrdina.stitHotov) dobitoZa = s1.cas - odPrasknuti;
+  }
+  if (dobitoZa === null || Math.abs(dobitoZa - DOBITI_STITU) > 2 * DT) chybyPasiv.push(`Štít se dobil za ${dobitoZa} s místo ${DOBITI_STITU}`);
+  // Úrovně zkracují dobití až po MIN_DOBITI_STITU, nová úroveň zkrátí i rozběhnuté dobíjení.
+  const naMinimu = 1 + Array.from({ length: 200 }, (_, i) => i + 1).findIndex((u) => hodnotaPasivy('stit', u) === STROPY.pasivy.stit);
+  const dobiti = Object.fromEntries([1, 5, 10, naMinimu - 1, naMinimu, 60].map((u) => [u, sUrovni(ticha(), 'stit', u).hrdina.dobitiStitu]));
+  if (dobiti[5] !== DOBITI_STITU - 4 * -PASIVY.stit.pricti || !(dobiti[10] < dobiti[5]) || !(dobiti[naMinimu - 1] > MIN_DOBITI_STITU)
+    || dobiti[naMinimu] !== MIN_DOBITI_STITU || dobiti[60] !== MIN_DOBITI_STITU) chybyPasiv.push(`Štít: dobití podle úrovní ${JSON.stringify(dobiti)}`);
+  const zkrat = sUrovni(ticha(), 'stit', 1);
+  krok(zkrat);
+  zkrat.hrdina.stitHotov = false;
+  zkrat.hrdina.doStitu = DOBITI_STITU;
+  sUrovni(zkrat, 'stit', 4);
+  krok(zkrat);
+  if (!(zkrat.hrdina.doStitu <= dobiti[5])) chybyPasiv.push(`Štít: po nové úrovni zbývá dobíjet ${zkrat.hrdina.doStitu} s`);
+  // Bahno ani láva bublinu nespotřebují, jedový oblak po houbákovi ano.
+  const oblakSeStitem = (druh) => {
+    const h = sUrovni(ticha(), 'stit', 1);
+    krok(h);
+    h.oblaky.push({ x: 0, y: 0, zivot: TRVANI_OBLAKU - NAFUKOVANI_OBLAKU - 0.1, polomer: 36, ...(druh === 'bahno' ? { druh: 'bahno', jed: 9 } : {}) });
+    h.hrdina.nezranitelny = 0;
+    krok(h);
+    return { zraneno: h.hrdina.hp < h.hrdina.maxHp, stit: h.hrdina.stitHotov };
+  };
+  const bahno = oblakSeStitem('bahno');
+  const houbak = oblakSeStitem('houbak');
+  if (!bahno.zraneno || !bahno.stit) chybyPasiv.push('Štít zastavil bahenní oblak');
+  if (houbak.zraneno || houbak.stit) chybyPasiv.push('Štít nezastavil jedový oblak');
+  pasivyII.stit = { dobiti_podle_urovne_s: dobiti, dobil_se_za_s: dobitoZa && Math.round(dobitoZa * 100) / 100, zastavena_rana: nula?.hodnota };
+
+  // Moudrost: krystal za 1 zkušenost.
+  const zkus = (h) => {
+    h.krystaly.push({ x: 0, y: 0, xp: 1 });
+    krok(h);
+    return h.hrdina.xp;
+  };
+  const xp0 = zkus(ticha());
+  const xp5 = zkus(sUrovni(ticha(), 'moudrost', 5));
+  const sTrvalymi = (() => {
+    const h = sUrovni(novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, { zkusenosti: VYLEPSENI.zkusenosti.max }), 'moudrost', 5);
+    h.zbrane = {};
+    Object.assign(h, { doSpawnu: Infinity, doBedny: Infinity, doZamcene: Infinity, dalsiBoss: Infinity, dalsiSmecka: null, dalsiKupec: Infinity });
+    return zkus(h);
+  })();
+  if (!relBlizkoP(xp5, xp0 * (1 + PASIVY.moudrost.nasobek) ** 5)) chybyPasiv.push(`Moudrost 5: krystal dal ${xp5} místo ${xp0 * 1.1 ** 5}`);
+  if (!relBlizkoP(sTrvalymi, xp5 * (1 + VYLEPSENI.zkusenosti.nasobek * VYLEPSENI.zkusenosti.max))) chybyPasiv.push(`Moudrost s trvalými Zkušenostmi: ${sTrvalymi}`);
+  const moudrost60 = sUrovni(ticha(), 'moudrost', 60).hrdina.zkusenosti;
+  if (!relBlizkoP(moudrost60, STROPY.pasivy.moudrost)) chybyPasiv.push(`Moudrost na 60. úrovni ${moudrost60}`);
+  pasivyII.moudrost = { krystal_1: xp0, s_5_urovnemi: Math.round(xp5 * 1000) / 1000, i_s_trvalymi: Math.round(sTrvalymi * 1000) / 1000, na_60_urovni: moudrost60 };
+
+  // Chamtivost: duše za hru, jen celé, bez pasivy nebo s rozbitým číslem nic navíc.
+  const hraDusi = { cas: 400, zabito: 100, zabitoBossu: 1, zlataky: 10 };
+  const zaklad = dusZaHru(hraDusi).celkem;
+  const nasobek5 = sUrovni(ticha(), 'chamtivost', 5).hrdina.chamtivost;
+  const s5 = dusZaHru({ ...hraDusi, hrdina: { chamtivost: nasobek5 } });
+  if (zaklad !== 37 || dusZaHru(hraDusi).chamtivost !== 0) chybyPasiv.push(`duše bez Chamtivosti ${zaklad}`);
+  if (!relBlizkoP(nasobek5, (1 + PASIVY.chamtivost.nasobek) ** 5) || s5.chamtivost !== Math.floor(37 * (nasobek5 - 1)) || s5.celkem !== 37 + s5.chamtivost) chybyPasiv.push(`Chamtivost 5: ${JSON.stringify(s5)}`);
+  for (const spatna of [NaN, 0.5, -3, 'hodně', Infinity]) {
+    if (dusZaHru({ ...hraDusi, hrdina: { chamtivost: spatna } }).celkem !== 37) chybyPasiv.push(`Chamtivost ${spatna} změnila duše`);
+  }
+  const chamtivost60 = sUrovni(ticha(), 'chamtivost', 60).hrdina.chamtivost;
+  if (!relBlizkoP(chamtivost60, STROPY.pasivy.chamtivost)) chybyPasiv.push(`Chamtivost na 60. úrovni ${chamtivost60}`);
+  pasivyII.chamtivost = { duse_bez: zaklad, s_5_urovnemi: s5.celkem, nasobek_60: chamtivost60 };
+
+  // Ve hře: jiskra a krumpáče na 5., všech pět pasiv na 8. úrovni, od 10. minuty 40 s vestoje (ať na hrdinu
+  // nepřátelé dosáhnou), s milionem životů.
+  const v = novaHra(vytvorRng(seminko));
+  v.zbrane = { jiskra: { uroven: ZAKLAD_UROVNI, nabiti: 0 }, krumpace: { uroven: ZAKLAD_UROVNI, nabiti: 0 } };
+  Object.assign(v, { cas: 600, dalsiBoss: 1e9, dalsiSmecka: null, dalsiPrichod: 4 });
+  for (const id of ['upiriZub', 'trnovaZbroj', 'stit', 'moudrost', 'chamtivost']) sUrovni(v, id, 8);
+  v.hrdina.maxHp = v.hrdina.hp = 1e6;
+  for (let t = 0; t < 40 && !v.konec; t += DT) {
+    aktualizuj(v, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    if (v.porovnani) rozhodniKus(v, false);
+    if (v.volby) vyber(v, { druh: 'leceni', kroku: 1 });
+    if (v.obchod) odejdiOdKupce(v);
+    if (!Number.isFinite(v.hrdina.hp) || v.kapky.length > 24) throw new Error('Pasivy II ve hře: NaN nebo moc kapek');
+  }
+  pasivyII.ve_hre_od_10_min = {
+    sani: v.sani, odvet_trnu: v.odvetTrnu, vraceno_trny: Math.round(v.vracenoTrny), zastaveno_ran: v.zablokovano, stitu_dobito: v.stituDobito, zabito: v.zabito,
+  };
+  if (!(v.sani > 0) || !(v.odvetTrnu > 0) || !(v.zablokovano > 1) || !(v.stituDobito > 1)) chybyPasiv.push(`Pasivy II ve hře: ${JSON.stringify(pasivyII.ve_hre_od_10_min)}`);
+}
+
 // Úrovně bez stropu. Každá zbraň až do 200. úrovně: do 5. bez bonusu (stejně jako dřív), pak každá úroveň víc
 // poškození, každá třetí ještě kus, nabíjení nebo velikost, dokud to jde, a nic přes strop. Řádky karty sedí s tím,
 // co úroveň opravdu přidala. Data růstu (poradi, čísla, texty) musí k sobě pasovat.
@@ -2381,7 +2637,7 @@ for (const [id, p] of Object.entries(PASIVY)) {
   for (let u = 1; u <= 60; u++) {
     const v = karta(h, 'pasiva', id, 'bezna');
     if (v.uroven !== u || v.popis.length !== 1) chybyUrovni.push(`${id}: karta na ${u}. úroveň ${v.uroven} „${v.popis}“`);
-    if (u < naStropuOd && u <= ZAKLAD_UROVNI && v.popis[0] !== p.popis) chybyUrovni.push(`${id}: karta na ${u}. úroveň „${v.popis}“`);
+    if (u < naStropuOd && u <= ZAKLAD_UROVNI && v.popis[0] !== (u === 1 && p.popisPrvni ? p.popisPrvni : p.popis)) chybyUrovni.push(`${id}: karta na ${u}. úroveň „${v.popis}“`);
     vyber(h, v);
     const ted = h.hrdina[p.vlastnost];
     const ocekavano = p.pricti ? zaklad + hodnotaPasivy(id, u) : zaklad * hodnotaPasivy(id, u);
@@ -3730,6 +3986,17 @@ const vysledek = {
       ubrano_zbroji: vydrz.ubranoZbroji, zmenseno_ran: vydrz.zbrojiZasahu, vyleceno_regeneraci: Math.round(vydrz.vylecenoRegeneraci),
     },
     ...pasivyPreziti,
+  },
+  pasivy_ii: {
+    hlavni_hra: {
+      pasivy: Object.fromEntries(['upiriZub', 'trnovaZbroj', 'stit', 'moudrost', 'chamtivost'].map((id) => [id, hra.pasivy[id] ?? 0])),
+      sani: hra.sani, vraceno_trny: Math.round(hra.vracenoTrny), zastaveno_ran: hra.zablokovano, duse_chamtivosti: duseHry.chamtivost,
+    },
+    vse_vylepsene: {
+      pasivy: Object.fromEntries(['upiriZub', 'trnovaZbroj', 'stit', 'moudrost', 'chamtivost'].map((id) => [id, vydrz.pasivy[id] ?? 0])),
+      sani: vydrz.sani, vraceno_trny: Math.round(vydrz.vracenoTrny), zastaveno_ran: vydrz.zablokovano, duse_chamtivosti: dusZaHru(vydrz).chamtivost,
+    },
+    ...pasivyII,
   },
   vybava_bossu: {
     otevreno_truhel: otevrenoTruhel,
