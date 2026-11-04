@@ -1,8 +1,8 @@
 // Podlaha map (soubor se jmenuje po louce, která byla první): z dat v mapy.js vygeneruje dlaždice 16×16 pixelů
-// se semínkem, aby vypadaly pořád stejně, ozdoby (jen se kreslí a ničemu nebrání) a u jezera led se sněhovým
-// okrajem. Kreslí podlahu do hry i malý náhled mapy do menu.
+// se semínkem, aby vypadaly pořád stejně, ozdoby (jen se kreslí a ničemu nebrání), překážky a zvláštní plochu
+// (led, láva, bahno) s okrajem z okolní země. Kreslí podlahu do hry i malý náhled mapy do menu.
 import { vytvorRng } from './rng.js';
-import { MAPY, VELIKOST_DLAZDICE, hash, ledovaDlazdice } from './mapy.js';
+import { MAPY, VELIKOST_DLAZDICE, hash, dlazdicePlochy, plochaMapy, prekazkaNaDlazdici } from './mapy.js';
 import { sprity } from './sprity.js';
 
 const P = 16;
@@ -203,15 +203,16 @@ function ozdoba(kus, paleta) {
   return { obr: c, zare, kde: kus.kde ?? null };
 }
 
-// Sněhový okraj ledové dlaždice ze strany, kde sousedí se sněhem: zubatý pruh sněhu a pod ním stín.
-// Kreslí se pro horní stranu a otáčí na ostatní (pořadí: nahoře, vpravo, dole, vlevo).
-function okrajeLedu(okraj, seminko) {
+// Okraj dlaždice zvláštní plochy ze strany, kde sousedí s obyčejnou zemí: zubatý pruh okolní země (sníh u ledu,
+// skála u lávy, tráva u bahna) a pod ním čára (stín na ledu, žár lávy). Kreslí se pro horní stranu a otáčí na
+// ostatní (pořadí: nahoře, vpravo, dole, vlevo).
+function okrajePlochy(okraj, seminko) {
   const rng = vytvorRng(seminko);
   const horni = platno();
   const g = horni.getContext('2d');
   for (let x = 0; x < P; x++) {
     const hloubka = 1 + rng.cele(0, 2);
-    g.fillStyle = okraj.snih;
+    g.fillStyle = okraj.hrana;
     g.fillRect(x, 0, 1, hloubka);
     g.fillStyle = okraj.stin;
     g.fillRect(x, hloubka, 1, 1);
@@ -232,12 +233,14 @@ function vzhled(mapa) {
   if (!vzhledy.has(mapa)) {
     const m = MAPY[mapa];
     const sada = (p) => ({ dlazdice: dlazdice(p), obycejnych: p.obycejnych, vzacnych: p.vzacnych });
-    const led = m.podlahaLedu ? { ...sada(m.podlahaLedu), okraje: okrajeLedu(m.podlahaLedu.okraj, m.podlahaLedu.seminko + 1) } : null;
+    const p = m.podlahaPlochy;
+    const plocha = p ? { ...sada(p), okraje: okrajePlochy(p.okraj, p.seminko + 1) } : null;
     vzhledy.set(mapa, {
       ...sada(m.podlaha),
-      led,
+      plocha,
       hustota: m.ozdoby.hustota,
       ozdoby: m.ozdoby.kusy.map((kus) => ozdoba(kus, m.ozdoby.paleta)),
+      prekazky: (m.prekazky?.kusy ?? []).map((kus) => ozdoba(kus, m.ozdoby.paleta)),
     });
   }
   return vzhledy.get(mapa);
@@ -246,63 +249,97 @@ function vzhled(mapa) {
 const SOUSEDE = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
 // Podlaha mapy od bodu (kx, ky) přes celé plátno, dlaždice velké velikost px. Nejdřív všechny dlaždice, pak
-// ozdoby (ať ozdobu nepřekryje dlaždice vedle). Vrací svítící ozdoby na obrazovce ({ obr, x, y, velikost }),
-// které se ve tmě kreslí ještě jednou přes ni.
-export function kresliPodlahu(ctx, mapa, kx, ky, sirka, vyska, velikost = VELIKOST_DLAZDICE) {
+// ozdoby a překážky (ať je nepřekryje dlaždice vedle). Žhavá plocha (láva) pomalu pulzuje podle času cas.
+// Vrací svítící ozdoby a překážky na obrazovce ({ obr, x, y, velikost }), které se ve tmě kreslí ještě jednou přes ni.
+export function kresliPodlahu(ctx, mapa, kx, ky, sirka, vyska, velikost = VELIKOST_DLAZDICE, cas = 0) {
   const v = vzhled(mapa);
-  const dataLedu = MAPY[mapa].led;
+  const plocha = plochaMapy(mapa);
   const x0 = Math.floor(kx / velikost) - 1;
   const y0 = Math.floor(ky / velikost) - 1;
   const x1 = x0 + sirka / velikost + 3;
   const y1 = y0 + vyska / velikost + 3;
-  const jeLed = (tx, ty) => Boolean(dataLedu) && ledovaDlazdice(tx, ty, dataLedu);
+  const jePlocha = (tx, ty) => Boolean(plocha) && dlazdicePlochy(tx, ty, plocha.data);
   const naObrazovce = (tx, ty) => [Math.round(tx * velikost - kx), Math.round(ty * velikost - ky)];
+  const zhave = [];
   for (let ty = y0; ty < y1; ty++) {
     for (let tx = x0; tx < x1; tx++) {
       const [px, py] = naObrazovce(tx, ty);
       const h = hash(tx, ty);
-      const led = jeLed(tx, ty);
-      const s = led ? v.led : v;
+      const naPlose = jePlocha(tx, ty);
+      const s = naPlose ? v.plocha : v;
       // Obyčejné dlaždice jsou nejčastější, vzácné (s kresbou) jen občas.
       const druh = h % 100 < 100 - s.vzacnych ? h % s.obycejnych : s.obycejnych + (h >>> 8) % (s.dlazdice.length - s.obycejnych);
       ctx.drawImage(s.dlazdice[druh], px, py, velikost, velikost);
-      if (led) {
+      if (naPlose) {
         SOUSEDE.forEach(([dx, dy], strana) => {
-          if (!jeLed(tx + dx, ty + dy)) ctx.drawImage(v.led.okraje[strana], px, py, velikost, velikost);
+          if (!jePlocha(tx + dx, ty + dy)) ctx.drawImage(v.plocha.okraje[strana], px, py, velikost, velikost);
         });
+        if (plocha.data.zhave) zhave.push([px, py, h]);
       }
     }
   }
+  if (zhave.length) {
+    // láva dýchá: každá dlaždice se pomalu rozjasňuje a tmavne ve svém rytmu
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const [px, py, h] of zhave) {
+      ctx.fillStyle = `rgba(255,150,60,${(0.07 + 0.07 * Math.sin(cas * 1.8 + (h % 17) * 0.6)).toFixed(3)})`;
+      ctx.fillRect(px, py, velikost, velikost);
+    }
+    ctx.restore();
+  }
   const zare = [];
   const meritko = velikost / P;
+  const nakresli = (obr, svetlo, px, py) => {
+    const w = obr.width * meritko;
+    ctx.drawImage(obr, px, py, w, obr.height * meritko);
+    if (svetlo) zare.push({ obr: svetlo, x: px, y: py, velikost: w });
+  };
   for (let ty = y0; ty < y1; ty++) {
     for (let tx = x0; tx < x1; tx++) {
+      const [px, py] = naObrazovce(tx, ty);
+      const prekazka = prekazkaNaDlazdici(mapa, tx, ty);
+      if (prekazka >= 0) {
+        const p = v.prekazky[prekazka];
+        nakresli(p.obr, p.zare, px, py);
+        continue;
+      }
       const h = hash(tx, ty);
       if ((h >>> 16) % 100 >= v.hustota) continue;
       const ozd = v.ozdoby[(h >>> 20) % v.ozdoby.length];
-      if (ozd.kde && ozd.kde !== (jeLed(tx, ty) ? 'led' : 'snih')) continue;
-      const [px, py] = naObrazovce(tx, ty);
-      const w = ozd.obr.width * meritko;
-      ctx.drawImage(ozd.obr, px, py, w, ozd.obr.height * meritko);
-      if (ozd.zare) zare.push({ obr: ozd.zare, x: px, y: py, velikost: w });
+      if (ozd.kde && ozd.kde !== (jePlocha(tx, ty) ? 'plocha' : 'mimo')) continue;
+      nakresli(ozd.obr, ozd.zare, px, py);
     }
   }
   return zare;
 }
 
 // Malý náhled mapy do menu: kus podlahy 6×3 dlaždic po 16 px a na něm pár nepřátel, kteří tam chodí.
-// U jezera se hledá místo, kde je vidět led i sníh.
+// Hledá se místo, kde je vidět zvláštní plocha i obyčejná zem a aspoň jedna překážka (mimo místa nepřátel).
 const SIRKA_NAHLEDU = 6;
 const VYSKA_NAHLEDU = 3;
+const MISTA_NEPRATEL = [[20, 26], [52, 14], [78, 30]];
 function mistoNahledu(mapa) {
-  const led = MAPY[mapa].led;
-  if (!led) return [0, 0];
+  const plocha = plochaMapy(mapa);
+  const prekazky = Boolean(MAPY[mapa].prekazky);
+  if (!plocha && !prekazky) return [0, 0];
+  const podNepritelem = new Set(MISTA_NEPRATEL.map(([x, y]) => `${Math.floor(x / P)},${Math.floor(y / P)}`));
   for (let pokus = 0; pokus < 400; pokus++) {
     const tx = (pokus % 20) * 5 - 50;
     const ty = Math.floor(pokus / 20) * 4 - 40;
-    let ledu = 0;
-    for (let y = 0; y < VYSKA_NAHLEDU; y++) for (let x = 0; x < SIRKA_NAHLEDU; x++) ledu += ledovaDlazdice(tx + x, ty + y, led);
-    if (ledu >= 6 && ledu <= 10) return [tx, ty];
+    let naPlose = 0;
+    let prekazek = 0;
+    let zakryta = false;
+    for (let y = 0; y < VYSKA_NAHLEDU; y++) {
+      for (let x = 0; x < SIRKA_NAHLEDU; x++) {
+        if (plocha && dlazdicePlochy(tx + x, ty + y, plocha.data)) naPlose += 1;
+        if (prekazkaNaDlazdici(mapa, tx + x, ty + y) >= 0) {
+          prekazek += 1;
+          if (podNepritelem.has(`${x},${y}`)) zakryta = true;
+        }
+      }
+    }
+    if ((!plocha || (naPlose >= 6 && naPlose <= 10)) && (!prekazky || (prekazek >= 1 && !zakryta))) return [tx, ty];
   }
   return [0, 0];
 }
@@ -314,8 +351,7 @@ export function nahledMapy(mapa) {
   const [tx, ty] = mistoNahledu(mapa);
   const zare = kresliPodlahu(g, mapa, tx * P, ty * P, c.width, c.height, P);
   const druhy = MAPY[mapa].nepratele.slice().sort((a, b) => b.vaha - a.vaha || a.od - b.od).map((d) => d.druh);
-  const mista = [[20, 26], [52, 14], [78, 30]];
-  mista.forEach(([x, y], i) => {
+  MISTA_NEPRATEL.forEach(([x, y], i) => {
     const obr = sprity[druhy[i % druhy.length]];
     if (obr) g.drawImage(obr, x - obr.width / 2, y - obr.height / 2);
   });

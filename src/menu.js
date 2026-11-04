@@ -2,7 +2,7 @@
 // Novou záložku přidáš do ZALOZKY (nazev + vypln(panel)), tlačítko i ovládání šipkami se udělají samy.
 // Tlačítka, která záložka do panelu přidá, jdou taky vybírat šipkami a Enterem.
 import { sprity } from './sprity.js';
-import { TRIDY, ZBRANE, platnaTrida, silaHrozby, obtiznostMapy } from './hra.js';
+import { TRIDY, ZBRANE, BOSSOVE, platnaTrida, silaHrozby, obtiznostMapy, poradiBossu } from './hra.js';
 import {
   nactiRekord, nactiTridu, ulozTridu, nactiDuse, ulozDuse, nactiNastaveni, ulozNastaveni, nactiSbirku, nactiMapu, ulozMapu,
   odemceneMapy,
@@ -94,7 +94,7 @@ function vyplnPostavy(panel) {
   panel.append(prvek('p', 'podtitul', 'Vyber, za koho půjdeš do hlubin. Volba se zapamatuje.'), mrizka);
 }
 
-// Karta mapy je tlačítko jako karta třídy: náhled podlahy s nepřáteli, jméno, popis a rekord na té mapě.
+// Karta mapy je tlačítko jako karta třídy: náhled podlahy s nepřáteli, jméno, popis, hlavní boss a rekord na té mapě.
 // Zamčená karta má přes náhled zámek a říká, co ji odemkne. Klik na ni jen zatřese a zabzučí.
 function vyplnMapy(panel) {
   const odemcene = odemceneMapy();
@@ -113,6 +113,7 @@ function vyplnMapy(panel) {
     if (!odemcena) okno.append(obrazekSpritu('zamek', 4));
     const text = prvek('span', 'trida-text');
     text.append(prvek('b', '', m.nazev), prvek('small', '', m.popis));
+    text.append(prvek('small', 'mapa-boss', `Hlavní boss: ${BOSSOVE[poradiBossu(id)[0]].nazev}`));
     const ob = obtiznostMapy(id);
     if (ob.zivoty > 1 || ob.poskozeni > 1) {
       // pevná mezera, ať se % neodtrhne od čísla

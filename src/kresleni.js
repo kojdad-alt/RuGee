@@ -3,7 +3,7 @@ import {
   staty, TRVANI_TRESU, VYCHOZI_TRIDA, TRVANI_ZABLESKU, ODHOZENI_PRI_OZIVENI, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU,
   TRVANI_ZARU, TRVANI_VYBUCHU, bossBary, TRVANI_DOPADU, ZJEVENI_BLUDICKY, POLOMER_STRELY_BOSSU,
   RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, TRVANI_ODLESKU, poziceZrcadla, TRVANI_HLASENI_HROZBY, TRVANI_OTEVRENI,
-  KUPEC, CENA_ZAMCENE, POLOMER_ZAMCENE,
+  KUPEC, CENA_ZAMCENE, POLOMER_ZAMCENE, zakladBosse,
 } from './hra.js';
 import { kresliPodlahu } from './louka.js';
 import { MAPY, VYCHOZI_MAPA, hash } from './mapy.js';
@@ -30,6 +30,15 @@ const BARVY_CASTIC = {
   houbak: ['#9b59c9', '#d6a9f2', '#f1d2a8'],
   vlk: ['#8d9098', '#53565e', '#c9ccd2'],
   ledovy_duch: ['#dfe8ff', '#7f9cf0', '#b8fff5'],
+  ohnivy_brouk: ['#7a2b2e', '#ffb347', '#b8443c'],
+  zaba: ['#3f8a3c', '#9be08a', '#f2c94c'],
+  lavovy_obr: ['#2e2d3a', '#ffb347', '#151318'],
+  bahenni_bludicka: ['#5fae4e', '#9be08a', '#fff3b0'],
+  kosteny_kral: ['#e8e2d0', '#b9c2cc', '#4fd6c9'],
+  magma: ['#b8443c', '#ffb347', '#7a2b2e'],
+  lebka: ['#e8e2d0', '#b9c2cc', '#151318'],
+  lava: ['#ff7a2f', '#ffd27a', '#a8321a'],
+  bahno: ['#4a3a26', '#5fae4e', '#7a6a48'],
   bedna: ['#a07e5c', '#8a5a35', '#4a3530'],
   sud: ['#a07e5c', '#6e6577', '#8a5a35'],
   trny: ['#4a3530', '#3f8a3c', '#a07e5c'],
@@ -48,6 +57,9 @@ const BARVY_BOSSU = {
   matka: { pruh: '#e5484d', tmava: '#6e1f2b', text: '#ffc2c2' },
   obr: { pruh: '#7fc46a', tmava: '#2f5a2a', text: '#c8f0b0' },
   bludicka: { pruh: '#8fb4ff', tmava: '#2c3f7a', text: '#dfe8ff' },
+  lavovy_obr: { pruh: '#ff7a2f', tmava: '#5a1c12', text: '#ffd27a' },
+  bahenni_bludicka: { pruh: '#9be08a', tmava: '#26552a', text: '#d8f7b0' },
+  kosteny_kral: { pruh: '#e8e2d0', tmava: '#4a4650', text: '#f3efe6' },
 };
 // Barvy rarit výbavy (stejné jako u karet v style.css): c = rámeček a paprsky, svetla = záře a nápis.
 const BARVY_RARIT = {
@@ -173,6 +185,84 @@ function snezeni(ctx, pocet, kx, ky, sirka, vyska, cas) {
     ctx.fillRect(Math.round(x), Math.round(y), velikost, velikost);
   }
   ctx.restore();
+}
+
+// Žhavé jiskry na sopce: stoupají vzhůru, vítr je nosí stranou a mihotají se. Ve vzduchu jsou blíž než podlaha,
+// takže se posouvají o kus pomaleji než svět. Jako sněžení jen podle času, nic se neukládá.
+function jiskry(ctx, pocet, kx, ky, sirka, vyska, cas) {
+  const mod = (a, b) => ((a % b) + b) % b;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < pocet; i++) {
+    const h = hash(i, 4219);
+    const stoupani = 24 + (h % 40);
+    const vitr = Math.sin(cas * 0.8 + i * 1.3) * 20 + cas * 7;
+    const x = mod(((h >>> 8) % 997) / 997 * (sirka + 40) - kx * 0.6 + vitr, sirka + 40) - 20;
+    const y = mod(((h >>> 18) % 991) / 991 * (vyska + 40) - ky * 0.6 - cas * stoupani, vyska + 40) - 20;
+    const velikost = h & 1 ? MERITKO : 2;
+    ctx.globalAlpha = 0.3 + 0.45 * Math.abs(Math.sin(cas * (3 + (h % 4)) + i));
+    ctx.fillStyle = h & 2 ? '#ffb347' : '#ff7a2f';
+    ctx.fillRect(Math.round(x), Math.round(y), velikost, velikost);
+  }
+  ctx.restore();
+}
+
+// Mlha na hřbitově: velké ploché chuchvalce, které se pomalu sunou stranou (a napůl se světem). Skládají se
+// z pruhů po pixelech spritu, ať mají zubaté okraje jako všechno ostatní. Uprostřed jsou hustší.
+function mlha(ctx, m, kx, ky, sirka, vyska, cas) {
+  const mod = (a, b) => ((a % b) + b) % b;
+  const krok = MERITKO * 2;
+  ctx.save();
+  for (let i = 0; i < m.pocet; i++) {
+    const h = hash(i, 7717);
+    const sirkaM = 240 + (h % 180);
+    const vyskaM = 54 + ((h >>> 9) % 48);
+    const x = mod((h >>> 3) % 2003 - kx * 0.75 + cas * (6 + (h % 7)), sirka + sirkaM * 2) - sirkaM;
+    const y = mod((h >>> 13) % 1511 - ky * 0.75, vyska + vyskaM * 2) - vyskaM;
+    for (const [podil, sila] of [[1, m.sila], [0.6, m.sila * 0.8]]) {
+      ctx.fillStyle = `rgba(${m.barva},${sila.toFixed(3)})`;
+      const pv = (vyskaM / 2) * podil;
+      for (let r = -pv; r < pv; r += krok) {
+        const t = (r + krok / 2) / pv;
+        const w = Math.round(((sirkaM / 2) * podil * Math.sqrt(Math.max(0, 1 - t * t))) / MERITKO) * MERITKO;
+        if (w > 0) ctx.fillRect(Math.round((x - w) / MERITKO) * MERITKO, Math.round((y + r) / MERITKO) * MERITKO, 2 * w, krok);
+      }
+    }
+  }
+  ctx.restore();
+}
+
+// Jedová bublina v bahně: na zemi roste zelený kruh, kam dosáhne oblak, uprostřed se nafukuje bublina a kolem
+// stoupají malé bublinky. Ke konci varování kruh zhoustne, pak bublina praskne (oblak kreslí oblak()).
+function bublina(ctx, x, y, b, cas) {
+  const t = Math.max(0, Math.min(1, 1 - b.zivot / b.varovani));
+  ctx.save();
+  ctx.globalAlpha = 0.18 + 0.3 * t;
+  ctx.fillStyle = '#5fae4e';
+  kruhNaZemi(ctx, x, y, b.polomer * (0.5 + 0.5 * t), true);
+  ctx.globalAlpha = 0.5 + 0.5 * t;
+  ctx.fillStyle = '#9be08a';
+  kruhNaZemi(ctx, x, y, b.polomer * (0.5 + 0.5 * t));
+  ctx.restore();
+  // bublina uprostřed: tmavý obrys, zelená výplň a lesk vlevo nahoře
+  const r = Math.round(1 + t * 3);
+  ctx.fillStyle = '#0b0a0f';
+  kruhNaZemi(ctx, x, y - 4, (r + 1) * MERITKO, true);
+  ctx.fillStyle = '#7fc46a';
+  kruhNaZemi(ctx, x, y - 4, r * MERITKO, true);
+  ctx.fillStyle = '#d8f7b0';
+  ctx.fillRect(Math.round(x) - Math.floor(MERITKO / 2) - Math.max(1, r - 1) * MERITKO, Math.round(y - 4) - Math.floor(MERITKO / 2) - Math.max(1, r - 1) * MERITKO, MERITKO, MERITKO);
+  for (let i = 0; i < 3; i++) {
+    const faze = (cas * 1.4 + i * 0.33 + b.x * 0.01) % 1;
+    const bx = Math.round(x + Math.sin(i * 2.1 + b.y) * b.polomer * 0.6);
+    const by = Math.round(y - faze * 22);
+    ctx.globalAlpha = 1 - faze;
+    ctx.fillStyle = '#0b0a0f';
+    ctx.fillRect(bx - 1, by - 1, 5, 5);
+    ctx.fillStyle = '#b8e8a0';
+    ctx.fillRect(bx, by, 3, 3);
+  }
+  ctx.globalAlpha = 1;
 }
 
 // Přebarvená kopie spritu (jen jeho pixely, ne celý čtverec). Každá kombinace se kreslí jednou.
@@ -334,8 +424,13 @@ function pruhlednostDucha(n) {
 }
 
 // Jedový oblak po houbákovi: chuchvalec fialových obláčků, které se pomalu točí, a pár bublinek.
-// Nejdřív se nafukuje (bledší), na konci se rozplyne.
+// Nejdřív se nafukuje (bledší), na konci se rozplyne. Oblak z bubliny v bahně je zelený.
+const BARVY_OBLAKU = {
+  houbak: { stin: 'rgba(48,18,70,0.5)', mrak: 'rgba(170,96,220,0.42)', bublinka: '#e2b8ff' },
+  bahno: { stin: 'rgba(20,46,18,0.5)', mrak: 'rgba(120,190,80,0.42)', bublinka: '#d8f7b0' },
+};
 function oblak(ctx, x, y, o, cas) {
+  const barvy = BARVY_OBLAKU[o.druh] ?? BARVY_OBLAKU.houbak;
   const stari = TRVANI_OBLAKU - o.zivot;
   const nafouknuti = Math.min(1, stari / NAFUKOVANI_OBLAKU);
   const r = o.polomer * (0.45 + 0.55 * nafouknuti);
@@ -347,7 +442,7 @@ function oblak(ctx, x, y, o, cas) {
     const uhel = (i / 6) * Math.PI * 2 + cas * 0.6 + o.x * 0.01;
     chuchvalce.push([Math.cos(uhel) * r * 0.5, Math.sin(uhel) * r * 0.42, 0.42 + 0.06 * Math.sin(cas * 3 + i)]);
   }
-  for (const [barva, navic] of [['rgba(48,18,70,0.5)', 2], ['rgba(170,96,220,0.42)', 0]]) {
+  for (const [barva, navic] of [[barvy.stin, 2], [barvy.mrak, 0]]) {
     ctx.fillStyle = barva;
     for (const [cx, cy, velikost] of chuchvalce) {
       ctx.beginPath();
@@ -363,7 +458,7 @@ function oblak(ctx, x, y, o, cas) {
     ctx.globalAlpha = Math.min(1, o.zivot * 2) * (1 - faze);
     ctx.fillStyle = '#0b0a0f';
     ctx.fillRect(bx - 1, by - 1, 5, 5);
-    ctx.fillStyle = '#e2b8ff';
+    ctx.fillStyle = barvy.bublinka;
     ctx.fillRect(bx, by, 3, 3);
   }
   ctx.restore();
@@ -602,6 +697,13 @@ function vykricnik(ctx, x, y, barva, cas) {
   ctx.fillRect(bx, by + 19, 6, 4);
 }
 
+// Barvy střel bossů: vějíř Bludičky, vějíř Bahenní bludičky a střela vrácená zrcadlem.
+const BARVY_STREL = {
+  vejir: { zar: 'rgba(127,156,240,0.25)', telo: '#7f9cf0', jadro: '#dfe8ff' },
+  bahno: { zar: 'rgba(120,200,90,0.25)', telo: '#5fae4e', jadro: '#d8f7b0' },
+  odrazena: { zar: 'rgba(228,246,243,0.3)', telo: '#c9ccd2', jadro: '#ffffff' },
+};
+
 // Kameny v letu (nad nepřáteli, po oblouku), výbuchy po dopadu, kameny nad hlavou bosse, který se chystá
 // hodit, a střely Bludičky.
 function utokyVeVzduchu(ctx, hra, naObrazovce) {
@@ -637,9 +739,7 @@ function utokyVeVzduchu(ctx, hra, naObrazovce) {
     const y = Math.round(p.y);
     const r = POLOMER_STRELY_BOSSU;
     // Střela vrácená zrcadlem je stříbrná a táhne za sebou dva menší odlesky.
-    const barvy = st.odrazena
-      ? { zar: 'rgba(228,246,243,0.3)', telo: '#c9ccd2', jadro: '#ffffff' }
-      : { zar: 'rgba(127,156,240,0.25)', telo: '#7f9cf0', jadro: '#dfe8ff' };
+    const barvy = st.odrazena ? BARVY_STREL.odrazena : BARVY_STREL[st.barva] ?? BARVY_STREL.vejir;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.fillStyle = barvy.zar;
@@ -702,15 +802,16 @@ const BARVY_CISEL = {
   silny: ['#ffe14d', '#f0a830'],
   zraneni: ['#ff5a5a', '#c8323e'],
   jed: ['#ff5a5a', '#c8323e'],
+  ohen: ['#ffb347', '#e0662a'],
   leceni: ['#7cf08a', '#3fb557'],
   zlato: ['#f2c94c', '#c4862f'],
   utrata: ['#c4862f', '#8a5a35'],
 };
 // Násobek velikosti podle druhu (silný zásah je větší, čísla nad hrdinou o kus větší než zásahy).
-const VELIKOST_CISEL = { silny: 1.5, zraneni: 1.25, jed: 1.25, leceni: 1.25, zlato: 1.25, utrata: 1.25 };
+const VELIKOST_CISEL = { silny: 1.5, zraneni: 1.25, jed: 1.25, ohen: 1.25, leceni: 1.25, zlato: 1.25, utrata: 1.25 };
 // Čísla nad hrdinou se kreslí vždy navrchu. Se zhasnutými čísly poškození zůstane jen léčení a zlaťáky.
-const NAD_HRDINOU = new Set(['zraneni', 'jed', 'leceni', 'zlato', 'utrata']);
-const POSKOZENI = new Set([null, 'silny', 'zraneni', 'jed']);
+const NAD_HRDINOU = new Set(['zraneni', 'jed', 'ohen', 'leceni', 'zlato', 'utrata']);
+const POSKOZENI = new Set([null, 'silny', 'zraneni', 'jed', 'ohen']);
 // Číslo nejdřív krátce poskočí (i po přičtení další rány), vyletí o VYSKOK pixelů písma a na konci zprůhlední.
 const POSKOK_CISLA = 0.08;
 const VYSKOK_CISLA = 9;
@@ -1016,7 +1117,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
 
   ctx.imageSmoothingEnabled = false;
   const mapa = MAPY[hra.mapa] ?? MAPY[VYCHOZI_MAPA];
-  const zare = kresliPodlahu(ctx, hra.mapa ?? VYCHOZI_MAPA, kx, ky, sirka, vyska);
+  const zare = kresliPodlahu(ctx, hra.mapa ?? VYCHOZI_MAPA, kx, ky, sirka, vyska, undefined, hra.cas);
 
   const stred = naObrazovce(hrdina);
   const lucerna = hra.zbrane.lucerna ? poziceLucerny(hra, stred) : null;
@@ -1065,6 +1166,11 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     for (const [dx, dy] of kde) ctx.drawImage(sprity[pr.druh], Math.round(p.x - 13 + dx), Math.round(p.y - 13 + dy + houpani), 26, 26);
   }
 
+  for (const b of hra.bubliny ?? []) {
+    const p = naObrazovce(b);
+    if (p.x < -60 || p.y < -60 || p.x > sirka + 60 || p.y > vyska + 60) continue;
+    bublina(ctx, p.x, p.y, b, hra.cas);
+  }
   for (const o of hra.oblaky) {
     const p = naObrazovce(o);
     if (p.x < -60 || p.y < -60 || p.x > sirka + 60 || p.y > vyska + 60) continue;
@@ -1097,7 +1203,8 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     let { x, y } = p;
     const sch = n.boss ? n.schopnost : null;
     // Boss se při varování třese. Při výpadu za sebou nechává dva bledé obrysy.
-    if (sch?.faze === 'varovani' && n.druh !== 'bludicka') x += Math.floor(hra.cas * 30) % 2 ? 2 : -2;
+    const vznasiSe = zakladBosse(n.druh) === 'bludicka';
+    if (sch?.faze === 'varovani' && !vznasiSe) x += Math.floor(hra.cas * 30) % 2 ? 2 : -2;
     if (sch?.id === 'vypad' && sch.faze === 'provadi') {
       for (const [zpet, pruhlednost] of [[30, 0.2], [15, 0.4]]) {
         ctx.globalAlpha = pruhlednost;
@@ -1105,7 +1212,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
       }
       ctx.globalAlpha = 1;
     }
-    if (n.druh === 'bludicka') {
+    if (vznasiSe) {
       // Bludička se vznáší, mihotá a po přenesení se teprve zhmotní. Při nabíjení kolem ní roste záře.
       y += Math.round(Math.sin(hra.cas * 3) * 3);
       ctx.globalAlpha = (0.82 + 0.18 * Math.sin(hra.cas * 17)) * (1 - n.zjeveni / ZJEVENI_BLUDICKY);
@@ -1113,10 +1220,16 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
         const t = prubehVarovani(sch);
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
-        ctx.fillStyle = `rgba(127,156,240,${(0.12 + 0.25 * t).toFixed(3)})`;
+        ctx.fillStyle = `rgba(${n.druh === 'bludicka' ? '127,156,240' : '127,200,110'},${(0.12 + 0.25 * t).toFixed(3)})`;
         kruhNaZemi(ctx, x, y, 18 + 16 * t, true);
         ctx.restore();
       }
+    }
+    if (n.vyskok > 0) {
+      // skákající žába: stín zůstane na zemi, žába letí obloukem nad ním
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';
+      ctx.fillRect(Math.round(x - velikost * 0.3), Math.round(y + velikost * 0.36), Math.round(velikost * 0.6), MERITKO);
+      y -= Math.round(Math.sin(Math.PI * n.vyskok) * 9);
     }
     if (n.elita) obrysElity(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, velikost, hra.cas);
     const rudne = n.zuri && (hra.cas % PULZ_ZURIVOSTI) < PULZ_ZURIVOSTI / 3;
@@ -1265,6 +1378,8 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
   ctx.fillRect(Math.round(stred.x - 14), Math.round(stred.y + 18), Math.round(28 * Math.max(0, hrdina.hp) / hrdina.maxHp), 4);
 
   if (mapa.snezeni) snezeni(ctx, mapa.snezeni, kx, ky, sirka, vyska, hra.cas);
+  if (mapa.jiskry) jiskry(ctx, mapa.jiskry, kx, ky, sirka, vyska, hra.cas);
+  if (mapa.mlha) mlha(ctx, mapa.mlha, kx, ky, sirka, vyska, hra.cas);
   // Tma jeskyně je pod šipkami k bossům a kupci, ať jsou pořád vidět.
   if (mapa.tma) {
     tmaKolem(ctx, mapa.tma, stred.x, stred.y, polomerSvetla(hra, s), hra.cas);
@@ -1387,7 +1502,8 @@ function hlaseniHrozby(ctx, hra, sirka, y) {
 }
 
 // Pozadí hlavního menu: zvolená mapa pomalu ujíždí, dole přes ni utíká hrdina (zvolená třída) před hloučkem
-// nepřátel a nahoře přelétají netopýři. V jeskyni svítí jen kolem hrdiny, na jezeře sněží.
+// nepřátel a nahoře přelétají netopýři. V jeskyni a na hřbitově svítí jen kolem hrdiny, na jezeře sněží, na sopce
+// létají jiskry a na hřbitově se plazí mlha.
 // Všechno je jen podle času, nic se nepočítá ani neukládá.
 const HONICKA = ['vlk', 'netopyr', 'slizak', 'vlk', 'pavouk', 'houbak', 'kostlivec', 'netopyr'];
 
@@ -1395,7 +1511,7 @@ export function kresliMenu(ctx, cas, postava = VYCHOZI_TRIDA, idMapy = VYCHOZI_M
   const { width: sirka, height: vyska } = ctx.canvas;
   const mapa = MAPY[idMapy] ?? MAPY[VYCHOZI_MAPA];
   ctx.imageSmoothingEnabled = false;
-  kresliPodlahu(ctx, MAPY[idMapy] ? idMapy : VYCHOZI_MAPA, cas * 12, 0, sirka, vyska);
+  kresliPodlahu(ctx, MAPY[idMapy] ? idMapy : VYCHOZI_MAPA, cas * 12, 0, sirka, vyska, undefined, cas);
 
   const draha = sirka + 600;
   const hx = ((cas * 64) % draha) - 100;
@@ -1411,6 +1527,8 @@ export function kresliMenu(ctx, cas, postava = VYCHOZI_TRIDA, idMapy = VYCHOZI_M
     sprite(ctx, sprity.netopyr, x, vyska * (0.1 + i * 0.07) + Math.sin(cas * 7 + i) * 8, -1);
   }
   if (mapa.snezeni) snezeni(ctx, mapa.snezeni, cas * 12, 0, sirka, vyska, cas);
+  if (mapa.jiskry) jiskry(ctx, mapa.jiskry, cas * 12, 0, sirka, vyska, cas);
+  if (mapa.mlha) mlha(ctx, mapa.mlha, cas * 12, 0, sirka, vyska, cas);
   if (mapa.tma) tmaKolem(ctx, { ...mapa.tma, sila: Math.min(mapa.tma.sila, 0.55) }, hx, y, 220, cas);
 
   // ztmavení, ať jsou logo a tlačítka dobře čitelné

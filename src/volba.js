@@ -165,8 +165,10 @@ export function vytvorKartuKusu(kus, { stitek, akce, klavesa, rozdil = [], sada 
 // Vrací stupeň rarity nového kusu (0 běžná … 3 legendární) pro znělku.
 export function ukazPorovnani(okno, hra, rozhodni) {
   const { novy, nasazeny } = hra.porovnani;
-  // Kus koupený u kupce nepřišel z poraženého bosse.
-  okno.querySelector('#porovnani-stitek').textContent = hra.obchod ? 'Koupeno u kupce' : BOSSOVE[novy.boss]?.porazen ?? 'Boss poražen';
+  // Kus koupený u kupce nepřišel z poraženého bosse. Z truhly je nápis toho, kdo ji nechal (hlavní boss mapy
+  // dává kusy sady bosse, ze kterého vychází).
+  const odKoho = BOSSOVE[hra.truhlaOd] ? hra.truhlaOd : novy.boss;
+  okno.querySelector('#porovnani-stitek').textContent = hra.obchod ? 'Koupeno u kupce' : BOSSOVE[odKoho]?.porazen ?? 'Boss poražen';
   okno.querySelector('#porovnani-podtitul').textContent = `Slot ${SLOTY[novy.slot].nazev} už je obsazený. Kus, který si nenecháš, se rozloží na zlaťáky.`;
   const karty = [
     vytvorKartuKusu(novy, {
