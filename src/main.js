@@ -274,7 +274,8 @@ function zapisKonec() {
   // Duše za hru se připíšou hned, utratit se dají v menu Vylepšení.
   const duse = dusZaHru(hra);
   const { duse: celkem } = pripisDuse(duse.celkem);
-  const rozpis = textovyPrvek('small', `čas ${duse.cas} · zabití ${duse.zabiti} · bossové ${duse.strazci} · zlaťáky ${duse.zlataky} · celkem ${celkem}`);
+  const chamtivost = duse.chamtivost > 0 ? ` · chamtivost ${duse.chamtivost}` : '';
+  const rozpis = textovyPrvek('small', `čas ${duse.cas} · zabití ${duse.zabiti} · bossové ${duse.strazci} · zlaťáky ${duse.zlataky}${chamtivost} · celkem ${celkem}`);
   // Nevyužité zlaťáky se mění v duše (DUSE_ZA.zlataku za jednu), zbytek propadne.
   const utraceno = Object.values(hra.utraceno).reduce((a, b) => a + b, 0);
   const zlato = textovyPrvek('small', '');

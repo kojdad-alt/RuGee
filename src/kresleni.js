@@ -6,6 +6,7 @@ import {
   KUPEC, CENA_ZAMCENE, POLOMER_ZAMCENE, zakladBosse, DOPAD_KRYSTALU, DOZNIVANI_MRAZU, TRVANI_TRISTENI,
   KYV_ZVONU, ZRANI_SEMINKA, POMER_KERE, RUST_KERE, VADNUTI_KERE, TRVANI_VYBUCHU_SEMINKA,
   VYRAZENI_KORENU, VZPLANUTI, DOHASINANI, PAD_KAMENE, TRVANI_DOZVUKU, poziceUhliku,
+  LET_KAPKY, TRVANI_OSTNU, TRVANI_PRASKNUTI,
 } from './hra.js';
 import { kresliPodlahu } from './louka.js';
 import { MAPY, VYCHOZI_MAPA, hash } from './mapy.js';
@@ -52,6 +53,7 @@ const BARVY_CASTIC = {
   korene: ['#8a5a35', '#4a3530', '#a07e5c'],
   oblazek: ['#c9ccd2', '#8d9098', '#53565e'],
   zamcena: ['#a07e5c', '#8a5a35', '#f2c94c'],
+  stit: ['#b8fff5', '#dfe8ff', '#7fd8ff'],
 };
 const BARVA_SITE = 'rgba(236,236,244,0.8)';
 // Duch je i viditelný průsvitný, schovaný je jen tušený obrys. Mezi tím přechází plynule.
@@ -1484,11 +1486,16 @@ const BARVY_CISEL = {
   leceni: ['#7cf08a', '#3fb557'],
   zlato: ['#f2c94c', '#c4862f'],
   utrata: ['#c4862f', '#8a5a35'],
+  sani: ['#ff9db0', '#d0405e'],
+  stit: ['#b8fff5', '#4fd6c9'],
 };
 // Násobek velikosti podle druhu (silný zásah je větší, čísla nad hrdinou o kus větší než zásahy).
-const VELIKOST_CISEL = { krit: 1.75, silny: 1.5, zraneni: 1.25, jed: 1.25, ohen: 1.25, leceni: 1.25, zlato: 1.25, utrata: 1.25 };
-// Čísla nad hrdinou se kreslí vždy navrchu. Se zhasnutými čísly poškození zůstane jen léčení a zlaťáky.
-const NAD_HRDINOU = new Set(['zraneni', 'jed', 'ohen', 'leceni', 'zlato', 'utrata']);
+const VELIKOST_CISEL = {
+  krit: 1.75, silny: 1.5, zraneni: 1.25, jed: 1.25, ohen: 1.25, leceni: 1.25, zlato: 1.25, utrata: 1.25, sani: 1.25, stit: 1.5,
+};
+// Čísla nad hrdinou se kreslí vždy navrchu. Se zhasnutými čísly poškození zůstane léčení (i sání Upířího zubu),
+// zlaťáky a modrá 0 po ráně, kterou zastavil Štít.
+const NAD_HRDINOU = new Set(['zraneni', 'jed', 'ohen', 'leceni', 'zlato', 'utrata', 'sani', 'stit']);
 const POSKOZENI = new Set([null, 'silny', 'krit', 'zraneni', 'jed', 'ohen']);
 // Číslo nejdřív krátce poskočí (i po přičtení další rány), vyletí o VYSKOK pixelů písma a na konci zprůhlední.
 const POSKOK_CISLA = 0.08;
@@ -1536,6 +1543,89 @@ function obrazekCisla(text, druh) {
 // Velikost pixelu písma podle menší strany obrazovky: na mobilu 3, v 720p 4, ve Full HD 5 a víc.
 export function pixelCisel(sirka, vyska) {
   return Math.max(3, Math.round(Math.min(sirka, vyska) / 200));
+}
+
+// Štít (pasiva): hotová bublina kolem hrdiny mírně pulzuje a má odlesk, při dobíjení je kolem tenký oblouk, kolik
+// už je dobito, a prasklá bublina se ještě chvíli rozbíhá a bledne.
+const POLOMER_BUBLINY = 17;
+function stitHrdiny(ctx, hra, stred) {
+  const { hrdina } = hra;
+  const maStit = hra.pasivy?.stit > 0;
+  if (!maStit && !(hra.prasklStit > 0)) return;
+  const kruh = (r, barva, sirkaCary, od = 0, kam = Math.PI * 2) => {
+    ctx.strokeStyle = barva;
+    ctx.lineWidth = sirkaCary;
+    ctx.beginPath();
+    ctx.arc(stred.x, stred.y, r, od, kam);
+    ctx.stroke();
+  };
+  ctx.save();
+  if (maStit && hrdina.stitHotov) {
+    const r = POLOMER_BUBLINY + Math.sin(hra.cas * 4);
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = '#7fd8ff';
+    ctx.beginPath();
+    ctx.arc(stred.x, stred.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.5;
+    kruh(r, '#0b0a0f', 4);
+    ctx.globalAlpha = 0.9;
+    kruh(r, '#b8fff5', 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(Math.round(stred.x - r * 0.6), Math.round(stred.y - r * 0.7), 4, 2);
+    ctx.fillRect(Math.round(stred.x - r * 0.75), Math.round(stred.y - r * 0.5), 2, 3);
+  } else if (maStit && hrdina.dobitiStitu > 0) {
+    const podil = Math.max(0, Math.min(1, 1 - hrdina.doStitu / hrdina.dobitiStitu));
+    ctx.globalAlpha = 0.4;
+    kruh(POLOMER_BUBLINY, '#7fd8ff', 2, -Math.PI / 2, -Math.PI / 2 + podil * Math.PI * 2);
+  }
+  if (hra.prasklStit > 0) {
+    const t = 1 - hra.prasklStit / TRVANI_PRASKNUTI;
+    ctx.globalAlpha = 1 - t;
+    kruh(POLOMER_BUBLINY + t * 26, '#dfe8ff', 3);
+  }
+  ctx.restore();
+}
+
+// Upíří zub: kapka krve letí od padlého nepřítele ke hrdinovi po mírném oblouku (míří za ním, i když běží).
+function kapkyKrve(ctx, hra, naObrazovce, stred) {
+  for (const k of hra.kapky ?? []) {
+    const t = Math.max(0, Math.min(1, 1 - k.zivot / LET_KAPKY));
+    const od = naObrazovce({ x: k.odX, y: k.odY });
+    const x = Math.round(od.x + (stred.x - od.x) * t - MERITKO / 2);
+    const y = Math.round(od.y + (stred.y - od.y) * t - Math.sin(t * Math.PI) * 18 - MERITKO / 2);
+    ctx.fillStyle = '#0b0a0f';
+    ctx.fillRect(x - 1, y - 1, MERITKO + 2, MERITKO + 3);
+    ctx.fillStyle = '#e5484d';
+    ctx.fillRect(x, y, MERITKO, MERITKO + 1);
+    ctx.fillStyle = '#ffc2c2';
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+// Trnová zbroj vrátila ránu: z hrdiny na chvíli vyrazí kruh trnů a zase zalezou.
+function ostnyHrdiny(ctx, hra, stred) {
+  if (!(hra.ostny > 0)) return;
+  const t = 1 - hra.ostny / TRVANI_OSTNU;
+  const delka = 4 + Math.sin(t * Math.PI) * 14;
+  ctx.save();
+  for (let i = 0; i < 8; i++) {
+    const uhel = (i / 8) * Math.PI * 2 + Math.PI / 8;
+    const ux = Math.cos(uhel);
+    const uy = Math.sin(uhel);
+    const r = 11;
+    ctx.beginPath();
+    ctx.moveTo(stred.x + ux * r - uy * 3.5, stred.y + uy * r + ux * 3.5);
+    ctx.lineTo(stred.x + ux * (r + delka), stred.y + uy * (r + delka));
+    ctx.lineTo(stred.x + ux * r + uy * 3.5, stred.y + uy * r - ux * 3.5);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 ? '#5fae4e' : '#a07e5c';
+    ctx.strokeStyle = '#0b0a0f';
+    ctx.lineWidth = 1;
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function cisloNadHlavou(ctx, c, p, pixel) {
@@ -2063,6 +2153,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
 
   svetluskyRoje(ctx, hra, naObrazovce, false);
   if (hra.zbrane.cep) cepHrdiny(ctx, hra, s, stred, naObrazovce);
+  ostnyHrdiny(ctx, hra, stred);
   // Zmizelý hrdina (Bludný plamen) nebliká, je průsvitný a modře se mihotá.
   const zmizel = hrdina.neviditelny > 0;
   const blika = !zmizel && hrdina.nezranitelny > 0 && Math.floor(hrdina.nezranitelny * 20) % 2 === 0;
@@ -2076,6 +2167,8 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     ctx.drawImage(obr, lucerna.x - Math.round(obr.width * MERITKO / 2), lucerna.y - Math.round(obr.height * MERITKO / 2), obr.width * MERITKO, obr.height * MERITKO);
   }
   if (hrdina.sit > 0) sit(ctx, stred.x, stred.y, hrdina.sit);
+  stitHrdiny(ctx, hra, stred);
+  kapkyKrve(ctx, hra, naObrazovce, stred);
   svetluskyRoje(ctx, hra, naObrazovce, true);
   if (hra.zbrane.zvon) zvonNadHrdinou(ctx, hra, stred);
 

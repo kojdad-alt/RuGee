@@ -177,6 +177,20 @@ export const ZBRANE = {
 //                nedá přežít donekonečna jen stáním.
 //   Štěstí – větší šance, že nepřítel pustí srdce nebo magnet (hrdina.stestiKoristi násobí šanci spolu se
 //            Štěstím z trvalých vylepšení, karty ani výbavu nemění), nejvýš STROPY.pasivy.stesti.
+// Pasivy II:
+//   Upíří zub – šance (hrdina.upiri), že zabití nepřítele vrátí ZIVOT_ZA_SANI. Od padlého doletí ke hrdinovi kapka
+//               krve a nad ním je růžové +N. Nejvýš SANI_ZA_SEKUNDU za sekundu, ať v hustých vlnách nejde jen stát.
+//   Trnová zbroj – kdo hrdinu zraní dotykem nebo schopností (boss i ranou z dálky), dostane zpátky podíl rány
+//                  hrdina.trnovaZbroj (0,5 = půlka), počítaný z rány před Zbrojí, se Sílou a kritickým zásahem.
+//                  Jedový oblak útočníka nemá. Strop nemá: hrdinu zraní nejvýš dvakrát za sekundu.
+//   Štít – bublina kolem hrdiny zastaví celou jednu ránu od nepřátel (láva a bahno projdou, Trnová zbroj vrací
+//          dál), pak se dobíjí hrdina.dobitiStitu sekund. První úroveň ho zapne na DOBITI_STITU, další zkracují.
+//   Moudrost – víc zkušeností z krystalů (hrdina.zkusenosti, stejné číslo jako trvalé vylepšení Zkušenosti).
+//   Chamtivost – víc duší na konci hry (hrdina.chamtivost násobí duše za hru, dusZaHru v duse.js).
+// popisPrvni = řádek karty pro 1. úroveň, když nová pasiva dělá něco jiného, než co přidávají další úrovně.
+export const DOBITI_STITU = 20;
+export const MIN_DOBITI_STITU = 8;
+const UBYTEK_STITU = 1;
 export const PASIVY = {
   srdce: {
     nazev: 'Srdce', ikona: 'srdce', popis: '+20 max. životů a doléčení', vlastnost: 'maxHp', pricti: 20,
@@ -230,6 +244,27 @@ export const PASIVY = {
     nazev: 'Štěstí', ikona: 'stesti', popis: '+20 % šance na srdce a magnet', vlastnost: 'stestiKoristi', pricti: 0.2,
     dal: 0.2, popisDal: '+20 % šance na srdce a magnet',
   },
+  upiriZub: {
+    nazev: 'Upíří zub', ikona: 'upiriZub', popis: '+4 % šance, že zabití vrátí 1 život', vlastnost: 'upiri', pricti: 0.04,
+    dal: 0.01, popisDal: '+1 % šance, že zabití vrátí 1 život',
+  },
+  trnovaZbroj: {
+    nazev: 'Trnová zbroj', ikona: 'trnovaZbroj', popis: '+50 % rány se vrátí útočníkovi', vlastnost: 'trnovaZbroj', pricti: 0.5,
+    dal: 0.15, popisDal: '+15 % rány se vrátí útočníkovi',
+  },
+  stit: {
+    nazev: 'Štít', ikona: 'stit', popisPrvni: `Bublina každých ${DOBITI_STITU} s zastaví jednu ránu`,
+    popis: `Štít se dobije o ${UBYTEK_STITU} s dřív`, vlastnost: 'dobitiStitu', pricti: -UBYTEK_STITU,
+    dal: -0.25, popisDal: 'Štít se dobije o 0,25 s dřív',
+  },
+  moudrost: {
+    nazev: 'Moudrost', ikona: 'moudrost', popis: '+5 % zkušeností z krystalů', vlastnost: 'zkusenosti', nasobek: 0.05,
+    dal: 0.02, popisDal: '+2 % zkušeností z krystalů',
+  },
+  chamtivost: {
+    nazev: 'Chamtivost', ikona: 'chamtivost', popis: '+10 % duší na konci hry', vlastnost: 'chamtivost', nasobek: 0.1,
+    dal: 0.03, popisDal: '+3 % duší na konci hry',
+  },
 };
 
 // Úrovně nemají strop. Úrovně 1–5 popisuje každá zbraň a pasiva sama (popis), od 6. dál dá každá úroveň menší
@@ -245,11 +280,19 @@ export const RUST_UROVNI = { poskozeni: 0.08, kazda: 3, nabiti: 0.9, velikost: 0
 // a efekty, které nikdy nepovolí, by hru rozbily. Rychlé ruce nejvýš o 40 % (krumpáče a zrcadla se točí s nimi).
 // Regenerace nejvýš 4 životy za sekundu (10 úrovní) a Štěstí nejvýš +200 % (10 úrovní): víc srdcí by doléčilo
 // každou ránu (u pricti je strop to, co pasiva přidá celkem). Zbroj strop nemá, zastaví ji rána aspoň 1.
+// Upíří zub nejvýš 30 % (15. úroveň), Štít se dobije nejrychleji za MIN_DOBITI_STITU (37. úroveň, u záporného
+// pricti je strop spodní mez), Moudrost nejvýš 1,6× zkušeností a Chamtivost nejvýš 2× duší. Trnová zbroj
+// strop nemá: vrací jen rány, které hrdina opravdu schytal. Štít a Moudrost jsou slabší, než by se chtělo,
+// schválně: pozdě ve hře je každá zastavená rána život navíc a víc zkušeností víc úrovní všeho (s dobitím
+// po 2 s a 2,5× zkušenostmi přežil plně vylepšený bot v simulaci přes 33 minut).
 export const STROPY = {
   pocet: 12,
   nabiti: 0.25,
   velikost: 2.5,
-  pasivy: { boty: 2, magnet: 8, krit: 0.5, rozpeti: 1.6, ozvena: 0.5, vydrz: 2, rychleRuce: 0.6, prival: 3, regenerace: 4, stesti: 2 },
+  pasivy: {
+    boty: 2, magnet: 8, krit: 0.5, rozpeti: 1.6, ozvena: 0.5, vydrz: 2, rychleRuce: 0.6, prival: 3, regenerace: 4, stesti: 2,
+    upiriZub: 0.3, stit: MIN_DOBITI_STITU - DOBITI_STITU - UBYTEK_STITU, moudrost: 1.6, chamtivost: 2,
+  },
 };
 // Od těchto úrovní mění barvu rámeček v přehledu výbavy a čtverečky na kartě (stupenUrovne).
 export const STUPNE_UROVNI = [5, 10, 15];
@@ -309,13 +352,14 @@ export function platnaTrida(id) {
 // růst přerostly, rychlý hrdina by nepřátelům utíkal napořád a srdce ze zabitých by doléčila každou ránu.
 // Od pozdeOd se životy i poškození (i bossů) násobí ještě narustPozde za minutu: se zlaťáky (vylepšení od kupce,
 // zamčené truhly) vydržel bot se všemi trvalými vylepšeními místo 19–21 min až 30. S pasivami pro zbraně (krit,
-// ozvěna, rychlé ruce, příval …) zase místo 21–24 min 27–30+, proto 1,3 místo 1,15. Bez trvalých vylepšení se tam
-// nikdo nedostane, takže se mu nic nemění.
+// ozvěna, rychlé ruce, příval …) zase místo 21–24 min 27–30+, proto 1,3 místo 1,15. S Pasivami II (hlavně Štít
+// a Moudrost) vydržel 25–34 min, proto 1,36 místo 1,3. Bez trvalých vylepšení se tam nikdo nedostane, takže se
+// mu nic nemění.
 // Vyváženo simulací (tests/simulace.mjs, hrozba.preziti_min): bot bez trvalých vylepšení vydrží zhruba 4–15 min,
-// se všemi na maximu (s výbavou bossů z truhel, se zlaťáky, s pasivami pro zbraně i se Zbrojí, Regenerací
-// a Štěstím) 21–28 min. Brzký růst rychlosti je citlivý: už 0,015 místo 0,01 složí slabého bota v 6. minutě.
+// se všemi na maximu (s výbavou bossů z truhel, se zlaťáky, s pasivami pro zbraně, pro přežití i s Pasivami II)
+// 24–29 min. Brzký růst rychlosti je citlivý: už 0,015 místo 0,01 složí slabého bota v 6. minutě.
 export const HROZBA = {
-  zivoty: 0.1, narustOd: 8, narustZivotu: 1.25, bossZivoty: 0.2, bossNavic: 0.3, pozdeOd: 18, narustPozde: 1.3,
+  zivoty: 0.1, narustOd: 8, narustZivotu: 1.25, bossZivoty: 0.2, bossNavic: 0.3, pozdeOd: 18, narustPozde: 1.36,
   poskozeni: 0.05, narustPoskozeni: 1.1,
   rychlost: 0.01, narustRychlosti: 1.08, maxRychlost: 3,
   prvniVlna: 1.2, zkraceniVlny: 1 / 3, nejkratsiVlna: 0.25, davka: 1, maxDavka: 40,
@@ -766,6 +810,11 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     // stestiKoristi = násobek šance na srdce a magnet ze Štěstí (pasiva), naRegeneraci = vyléčeno, ale ještě
     // neukázáno číslem, doCislaRegenerace = za jak dlouho vyskočí další zelené číslo.
     pancir: 0, regenerace: 0, stestiKoristi: 1, naRegeneraci: 0, doCislaRegenerace: 0,
+    // Pasivy II: upiri = šance na život za zabití, doSani = za jak dlouho smí Upíří zub léčit znovu,
+    // trnovaZbroj = kolik rány se vrátí útočníkovi (1 = celá), dobitiStitu = za kolik sekund se štít dobije (bez
+    // pasivy o úroveň víc, první úroveň ho zapne přesně na DOBITI_STITU), doStitu = za jak dlouho bude hotový,
+    // stitHotov = bublina je kolem hrdiny, chamtivost = násobek duší za hru.
+    upiri: 0, doSani: 0, trnovaZbroj: 0, dobitiStitu: DOBITI_STITU + UBYTEK_STITU, doStitu: 0, stitHotov: false, chamtivost: 1,
   };
   for (const [vlastnost, nasobek] of Object.entries(TRIDY[trida].nasobky)) hrdina[vlastnost] *= nasobek;
   pouzijVylepseni(hrdina, vylepseni);
@@ -877,6 +926,22 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     ubranoZbroji: 0,
     zbrojiZasahu: 0,
     vylecenoRegeneraci: 0,
+    // Pasivy II: kapky = krev, která letí od padlého ke hrdinovi (Upíří zub), cisloSani = růžové číslo, ke kterému
+    // se sání přičítá, ostny = jak dlouho ještě trčí z hrdiny trny (Trnová zbroj vrátila ránu), prasklStit = jak
+    // dlouho se ještě rozbíhá prasklá bublina (jen na pohled). Počítadla pro simulaci: sani a vylecenoSanim (kolikrát
+    // a kolik vrátil Upíří zub), odvetTrnu a vracenoTrny (kolikrát a kolik vrátila Trnová zbroj), zablokovano
+    // a ubranoStitem (kolik ran a jak velkých zastavil Štít), stituDobito (kolikrát se bublina dobila).
+    kapky: [],
+    cisloSani: null,
+    ostny: 0,
+    prasklStit: 0,
+    sani: 0,
+    vylecenoSanim: 0,
+    odvetTrnu: 0,
+    vracenoTrny: 0,
+    zablokovano: 0,
+    ubranoStitem: 0,
+    stituDobito: 0,
     doSpawnu: 0,
     dalsiBoss: BOSS_KAZDYCH,
     bossu: 0,
@@ -1143,8 +1208,17 @@ function oziv(hra) {
 // Zbroj z výbavy ubere z rány svůj díl (aspoň 1 projde vždy). S Bludným plamenem hrdina po ráně zmizí.
 // Zbroj (pasiva) pak ubere ještě svůj počet, jen z ran od nepřátel (odNepritele = false: láva, bahenní oblak),
 // a i tak projde aspoň 1 (menší rána zůstane, jak byla).
-function zran(hra, kolik, barva = 'zraneni', odNepritele = true) {
+// utocnik = kdo ránu dal (nepřítel při dotyku, boss u schopnosti), tomu Trnová zbroj vrátí podíl celé rány. Hotový
+// Štít pak ránu od nepřátel zastaví celou (bez červeného čísla, třesu i Bludného plamene).
+function zran(hra, kolik, barva = 'zraneni', odNepritele = true, utocnik = null) {
   const { hrdina } = hra;
+  if (odNepritele && kolik > 0) {
+    odvetaTrnu(hra, utocnik, kolik);
+    if (hrdina.stitHotov) {
+      zablokuj(hra, kolik);
+      return;
+    }
+  }
   if (hrdina.zbroj > 0 && kolik > 0) kolik = Math.max(1, Math.round(kolik * (1 - hrdina.zbroj)));
   if (odNepritele && hrdina.pancir > 0 && kolik > 1) {
     const zbude = Math.max(1, kolik - hrdina.pancir);
@@ -1169,6 +1243,76 @@ function zran(hra, kolik, barva = 'zraneni', odNepritele = true) {
     hrdina.zmizelY = hrdina.y;
     hra.efektyPouzito.zmizeni += 1;
     rozprsk(hra, hrdina.x, hrdina.y, 'bludicka', 8);
+  }
+}
+
+// Trnová zbroj (pasiva): útočník dostane zpátky podíl rány jako zásah zbraní (Síla, kritický zásah, číslo nad ním),
+// z hrdiny na chvíli vyrazí trny. Schovaného ducha ani padlého nepřítele nic nezasáhne.
+export const TRVANI_OSTNU = 0.25;
+function odvetaTrnu(hra, n, kolik) {
+  const podil = hra.hrdina.trnovaZbroj;
+  if (!(podil > 0) || !n || !(n.hp > 0) || !viditelny(n)) return;
+  const pred = n.hp;
+  zasah(hra, n, kolik * podil);
+  hra.odvetTrnu += 1;
+  hra.vracenoTrny += pred - n.hp;
+  hra.ostny = TRVANI_OSTNU;
+  rozprsk(hra, n.x, n.y, 'trny', 5);
+}
+
+// Štít (pasiva) zastaví ránu: bublina praskne, nad hrdinou je modré 0 a chvíle bez zranění jako po ráně (ať ho
+// dav nepřátel neprorazí hned v dalším snímku). Pak se začne dobíjet.
+export const TRVANI_PRASKNUTI = 0.35;
+function zablokuj(hra, kolik) {
+  const { hrdina } = hra;
+  hrdina.stitHotov = false;
+  hrdina.doStitu = hrdina.dobitiStitu;
+  hrdina.nezranitelny = 0.5;
+  hra.zablokovano += 1;
+  hra.ubranoStitem += kolik;
+  hra.prasklStit = TRVANI_PRASKNUTI;
+  pridejCislo(hra, { x: hrdina.x, y: hrdina.y - 18, text: '0', hodnota: kolik, barva: 'stit' });
+  rozprsk(hra, hrdina.x, hrdina.y, 'stit', 10);
+}
+
+// Dobíjení štítu: jen s pasivou, bublina se nafoukne, až doběhne dobitiStitu (další úroveň zkrátí i rozběhnuté
+// dobíjení). Hned po vybrání první úrovně je hotový.
+function dobijStit(hra, dt) {
+  const { hrdina } = hra;
+  hra.prasklStit = Math.max(0, hra.prasklStit - dt);
+  if (!(hra.pasivy.stit > 0) || hrdina.stitHotov) return;
+  hrdina.doStitu = Math.min(hrdina.doStitu, hrdina.dobitiStitu) - dt;
+  if (hrdina.doStitu > 0) return;
+  hrdina.doStitu = 0;
+  hrdina.stitHotov = true;
+  hra.stituDobito += 1;
+}
+
+// Upíří zub (pasiva): po zabití s šancí hrdina.upiri vrátí ZIVOT_ZA_SANI, jen když tolik chybí, a nejvýš
+// SANI_ZA_SEKUNDU za sekundu. Los z losPasiv (náhoda vln se neposune). Od padlého letí kapka ke hrdinovi
+// a růžové +N se do SLUCOVANI_SANI sčítá.
+export const ZIVOT_ZA_SANI = 1;
+export const SANI_ZA_SEKUNDU = 3;
+export const LET_KAPKY = 0.35;
+export const SLUCOVANI_SANI = 0.5;
+const MAX_KAPEK = 24;
+function sajKrev(hra, n) {
+  const { hrdina } = hra;
+  if (!(hrdina.upiri > 0) || hra.konec || hrdina.doSani > 0 || hrdina.hp > hrdina.maxHp - ZIVOT_ZA_SANI) return;
+  if (losPasiv(hra) >= hrdina.upiri) return;
+  hrdina.hp += ZIVOT_ZA_SANI;
+  hrdina.doSani = 1 / SANI_ZA_SEKUNDU;
+  hra.sani += 1;
+  hra.vylecenoSanim += ZIVOT_ZA_SANI;
+  hra.kapky.push({ odX: n.x, odY: n.y, zivot: LET_KAPKY });
+  if (hra.kapky.length > MAX_KAPEK) hra.kapky.splice(0, hra.kapky.length - MAX_KAPEK);
+  const c = hra.cisloSani;
+  if (c && c.zivot > 0 && hra.cas - c.od < SLUCOVANI_SANI) {
+    c.hodnota += ZIVOT_ZA_SANI;
+    c.text = `+${c.hodnota}`;
+    c.pridano = c.trvani - c.zivot;
+  } else {
+    hra.cisloSani = pridejCislo(hra, { x: hrdina.x, y: hrdina.y - 18, text: `+${ZIVOT_ZA_SANI}`, hodnota: ZIVOT_ZA_SANI, zivot: TRVANI_CISLA_LECENI, barva: 'sani' });
   }
 }
 
@@ -1528,7 +1672,7 @@ function vystrelVejir(hra, n, s) {
     const uhel = zaklad + (i - (s.strel - 1) / 2) * s.rozestup;
     hra.strelyBossu.push({
       x: n.x, y: n.y, vx: Math.cos(uhel) * s.rychlost, vy: Math.sin(uhel) * s.rychlost, zivot: ZIVOT_STREL_BOSSU, rana: s.poskozeni,
-      barva: BOSSOVE[n.druh]?.strely ?? null,
+      barva: BOSSOVE[n.druh]?.strely ?? null, zdroj: n,
     });
   }
 }
@@ -1541,7 +1685,7 @@ const PRUBEH_SCHOPNOSTI = {
   dupnuti: {
     proved(hra, n, sch) {
       const { s } = sch;
-      hra.vlny.push({ x: n.x, y: n.y, r: 0, max: s.polomer, poskozeni: s.poskozeni, odhozeni: s.odhozeni, zasahla: false });
+      hra.vlny.push({ x: n.x, y: n.y, r: 0, max: s.polomer, poskozeni: s.poskozeni, odhozeni: s.odhozeni, zasahla: false, zdroj: n });
       hra.tres = Math.max(hra.tres, TRES_DUPNUTI);
       rozprsk(hra, n.x, n.y + n.polomer / 2, 'kamen', 10);
     },
@@ -1559,7 +1703,7 @@ const PRUBEH_SCHOPNOSTI = {
         const r = i === 0 ? 0 : s.rozptyl * (0.7 + 0.3 * rng.dalsi());
         hra.kameny.push({
           odX: n.x, odY: n.y - n.polomer, x: cilX + Math.cos(uhel) * r, y: cilY + Math.sin(uhel) * r, let: -i * ROZESTUP_HODU,
-          trvani: s.let, polomer: s.polomer, poskozeni: s.poskozeni, sit: s.sit, druh: s.strela,
+          trvani: s.let, polomer: s.polomer, poskozeni: s.poskozeni, sit: s.sit, druh: s.strela, zdroj: n,
         });
       }
     },
@@ -1587,7 +1731,7 @@ const PRUBEH_SCHOPNOSTI = {
         hra.zasahyBossu.vypad += 1;
         // Odletí kolmo od dráhy na tu stranu, kde stojí (kdo je přesně na ní, doprava od směru výpadu).
         const strana = (hrdina.x - n.x) * -sch.uy + (hrdina.y - n.y) * sch.ux >= 0 ? 1 : -1;
-        zran(hra, ranaHrozby(hra, s.poskozeni));
+        zran(hra, ranaHrozby(hra, s.poskozeni), 'zraneni', true, n);
         odhodHrdinu(hra, -sch.uy * strana, sch.ux * strana, s.odhozeni);
       }
       if (sch.ujde < s.delka - 1e-9) return false;
@@ -1717,7 +1861,7 @@ function strelyBossu(hra, dt) {
     if (!v.zasahla && d >= pred - 10 && d <= v.r + 10 && muzeDostat()) {
       v.zasahla = true;
       hra.zasahyBossu.dupnuti += 1;
-      zran(hra, ranaHrozby(hra, v.poskozeni));
+      zran(hra, ranaHrozby(hra, v.poskozeni), 'zraneni', true, v.zdroj);
       odhodHrdinu(hra, d > 0 ? (hrdina.x - v.x) / d : 1, d > 0 ? (hrdina.y - v.y) / d : 0, v.odhozeni);
     }
     if (v.r >= v.max) v.konec = true;
@@ -1731,7 +1875,7 @@ function strelyBossu(hra, dt) {
     hra.dopady.push({ x: k.x, y: k.y, polomer: k.polomer, druh: k.druh, zivot: TRVANI_DOPADU });
     if (vzdalenost(k, hrdina) < k.polomer && muzeDostat()) {
       hra.zasahyBossu.hod += 1;
-      zran(hra, ranaHrozby(hra, k.poskozeni));
+      zran(hra, ranaHrozby(hra, k.poskozeni), 'zraneni', true, k.zdroj);
       if (k.sit) hrdina.sit = TRVANI_SITE;
     }
   }
@@ -1757,7 +1901,7 @@ function strelyBossu(hra, dt) {
       st.zivot = 0;
       if (muzeDostat()) {
         hra.zasahyBossu.vejir += 1;
-        zran(hra, ranaHrozby(hra, st.rana ?? SCHOPNOSTI.vejir.poskozeni));
+        zran(hra, ranaHrozby(hra, st.rana ?? SCHOPNOSTI.vejir.poskozeni), 'zraneni', true, st.zdroj);
       }
     }
   }
@@ -3254,6 +3398,11 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   hra.zablesk = Math.max(0, hra.zablesk - dt);
   hra.vybuch = Math.max(0, hra.vybuch - dt);
   regeneruj(hra, dt);
+  dobijStit(hra, dt);
+  hrdina.doSani = Math.max(0, hrdina.doSani - dt);
+  hra.ostny = Math.max(0, hra.ostny - dt);
+  for (const k of hra.kapky) k.zivot -= dt;
+  hra.kapky = hra.kapky.filter((k) => k.zivot > 0);
   // Láva pálí, dokud v ní hrdina stojí (po každé ráně chvíle klidu jako u jedu), rána roste s hrozbou.
   if (mapa.lava && naPlose(hra.mapa, hrdina.x, hrdina.y) === 'lava' && hrdina.nezranitelny <= 0 && !hra.konec) {
     hra.popaleno += 1;
@@ -3386,7 +3535,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     if (d < n.polomer + 8 && hrdina.nezranitelny <= 0 && viditelny(n) && !nekouse(n)) {
       if (n.sit) hrdina.sit = TRVANI_SITE;
       if (n.pan) hra.zasahyBossu.pomocnik += 1;
-      zran(hra, ranaDotykem(hra, n), n.ohen ? 'ohen' : 'zraneni');
+      zran(hra, ranaDotykem(hra, n), n.ohen ? 'ohen' : 'zraneni', true, n);
     }
   }
   strelyBossu(hra, dt);
@@ -3719,6 +3868,7 @@ function pohrbi(hra) {
     if (n.hp <= 0) {
       hra.zabito += 1;
       rozlet(hra, n);
+      sajKrev(hra, n);
       hra.krystaly.push({ x: n.x, y: n.y, xp: n.xp });
       if (n.jed) {
         hra.oblaky.push({ x: n.x, y: n.y, zivot: TRVANI_OBLAKU, polomer: POLOMER_OBLAKU });
@@ -3772,14 +3922,19 @@ function losujRaritu(hra, minimum) {
 }
 
 // Kolik dá pasiva celkem na úrovni u: násobek vlastnosti (u pricti přičtené číslo). Úrovně 1–5 se násobí
-// jako dřív, další jen přičtou dal k násobku z 5. úrovně, nanejvýš po strop (u záporného nasobku nejníž po něj).
+// jako dřív, další jen přičtou dal k násobku z 5. úrovně, nanejvýš po strop (u záporného nasobku nebo pricti
+// nejníž po něj).
 export function hodnotaPasivy(id, uroven) {
   const p = PASIVY[id];
   const u = Math.max(0, Math.floor(uroven));
   const pod = Math.min(u, ZAKLAD_UROVNI);
   const nad = u - pod;
   const strop = STROPY.pasivy[id];
-  if (p.pricti) return Math.min(p.pricti * pod + p.dal * nad, strop ?? Infinity);
+  if (p.pricti) {
+    const soucet = p.pricti * pod + p.dal * nad;
+    if (strop === undefined) return soucet;
+    return p.pricti < 0 ? Math.max(soucet, strop) : Math.min(soucet, strop);
+  }
   const hodnota = (1 + p.nasobek) ** pod * (1 + p.dal * nad);
   if (strop === undefined) return hodnota;
   return p.nasobek < 0 ? Math.max(hodnota, strop) : Math.min(hodnota, strop);
@@ -3811,6 +3966,7 @@ export function popisUrovni(druh, id, od, uroven) {
     const radky = [];
     for (let u = od + 1; u <= uroven; u++) {
       if (pasivaNaStropu(id, u)) radky.push(`+${procent(SILA_ZA_PREBYTEK)} % poškození všech zbraní`);
+      else if (u === 1 && p.popisPrvni) radky.push(p.popisPrvni);
       else if (u <= ZAKLAD_UROVNI) radky.push(p.popis);
       else radky.push(p.popisDal);
     }
