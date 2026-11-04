@@ -75,3 +75,10 @@ export function zvukPrehozeni() {
   ton(880, 0.05, 0.05, 0.03);
   ton(740, 0.1, 0.08, 0.03);
 }
+
+// Zvon hlubin: hluboký úder a nad ním tichý alikvot, oba dlouho doznívají (ozvěna je tišší).
+export function zvukZvonu(ozvena = false) {
+  const h = ozvena ? 0.012 : 0.022;
+  ton(196, 0, 0.45, h);
+  ton(494, 0, 0.3, h * 0.45);
+}

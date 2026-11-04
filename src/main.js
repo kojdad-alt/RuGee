@@ -9,7 +9,7 @@ import {
 import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu } from './ulozeni.js';
 import { MAPY, ODEMKNUTI_MAPY, dalsiMapa } from './mapy.js';
 import {
-  odemkniZvuk, zvukStartu, zvukVolby, zvukVyberu, zvukZlataku, zvukNakupu, zvukOdmitnuti, zvukPrehozeni,
+  odemkniZvuk, zvukStartu, zvukVolby, zvukVyberu, zvukZlataku, zvukNakupu, zvukOdmitnuti, zvukPrehozeni, zvukZvonu,
 } from './zvuk.js';
 import { ukazVolby, ukazPorovnani } from './volba.js';
 import { ukazObchod, zatresZbozim, textZlataku } from './obchod.js';
@@ -33,6 +33,8 @@ let zapsanoNalezu = 0;
 // Kolik zlaťáků ukazovala horní lišta minule (přibyly = cinknutí a poskočení) a kdy naposledy cinkly.
 let ukazaneZlato = 0;
 let cinkloOd = 0;
+// Kolikrát už zvon hlubin zazvonil (každé nové zvonění se ozve).
+let slyseneZvoneni = 0;
 // Mapa, která se v téhle hře odemkne po ODEMKNUTI_MAPY s (null = další není nebo už je odemčená),
 // a která se v ní opravdu odemkla (ukáže se na konci).
 let mapaKOdemceni = null;
@@ -52,6 +54,7 @@ function start() {
   odemcenaVHre = null;
   zapsanoNalezu = 0;
   ukazaneZlato = 0;
+  slyseneZvoneni = 0;
   vMenu = false;
   menu.skryj();
   document.body.classList.remove('v-menu');
@@ -321,6 +324,8 @@ function hud() {
     stitek.classList.add('roste');
   }
   ukazaneZlato = hra.zlataky;
+  if (hra.zvoneni > slyseneZvoneni) zvukZvonu(hra.vlnyZvonu.at(-1)?.ozvena);
+  slyseneZvoneni = hra.zvoneni;
   el('hud-klice').hidden = !(hra.klice > 0);
   el('klice').textContent = hra.klice;
   el('cas').textContent = formatCas(hra.cas);
