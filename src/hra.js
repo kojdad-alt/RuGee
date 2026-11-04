@@ -1,44 +1,106 @@
 // Pravidla hry: pohyb, zbraně, nepřátelé, krystaly zkušeností a vylepšení.
 import { pouzijVylepseni } from './duse.js';
 
-// ikona = jméno spritu, který se ukáže na kartě vylepšení
+// ikona = jméno spritu, který se ukáže na kartě vylepšení. popis = řádek za každou z úrovní 1–5.
+// dal = jak zbraň roste nad 5. úrovní (bonusZaUroven): poradi = co přidá každá třetí úroveň (dokola) a která
+// čísla ze statyZbrane to jsou. poskozeni a velikost se násobí, pocet je jedno číslo (+1 kus), nabiti se
+// násobí (kratší nabíjení). maxPocet = nižší strop kusů než STROPY.pocet. texty = řádek na kartě.
+// Krumpáče a zrcadla se netočí rychleji: při velké rychlosti by mezi dvěma snímky přeskočily nepřítele.
 export const ZBRANE = {
   jiskra: {
     nazev: 'Jiskra', ikona: 'jiskra',
     popis: ['Střílí jiskry na nejbližšího nepřítele.', '+1 jiskra', 'Rychlejší střelba', '+1 jiskra', 'Větší poškození'],
+    dal: {
+      poradi: ['pocet', 'nabiti'], poskozeni: ['poskozeni'], pocet: 'pocet', nabiti: ['nabiti'],
+      texty: { pocet: '+1 jiskra', nabiti: 'Rychlejší střelba' },
+    },
   },
   lucerna: {
     nazev: 'Lucerna', ikona: 'lucerna',
     popis: ['Žár lucerny pálí nepřátele kolem tebe.', 'Větší dosah', 'Silnější žár', 'Větší dosah', 'Silnější žár'],
+    dal: {
+      poradi: ['velikost', 'nabiti'], poskozeni: ['zar'], nabiti: ['tik'], velikost: ['dosah'],
+      texty: { velikost: 'Větší dosah', nabiti: 'Častější žár' },
+    },
   },
   krumpace: {
     nazev: 'Krumpáče', ikona: 'krumpac',
     popis: ['Krumpáč krouží kolem tebe.', '+1 krumpáč', 'Rychlejší otáčení', '+1 krumpáč', 'Větší poškození'],
+    dal: {
+      poradi: ['pocet', 'velikost'], poskozeni: ['poskozeni'], pocet: 'pocet', velikost: ['polomer'],
+      texty: { pocet: '+1 krumpáč', velikost: 'Širší kruh' },
+    },
   },
   blesk: {
     nazev: 'Blesk', ikona: 'blesk',
     popis: ['Blesk udeří do nepřítele a přeskočí na další.', '+1 přeskok', 'Častější údery', '+2 přeskoky', 'Větší poškození'],
+    dal: {
+      poradi: ['pocet', 'nabiti', 'velikost'], poskozeni: ['poskozeni'], pocet: 'preskoky', nabiti: ['nabiti'], velikost: ['skok'],
+      texty: { pocet: '+1 přeskok', nabiti: 'Častější údery', velikost: 'Delší přeskoky' },
+    },
   },
   trny: {
     nazev: 'Trnová past', ikona: 'trny',
     popis: ['Pod nejbližším nepřítelem vyraší trny, které zraňují a zpomalí.', '+1 trs trnů', 'Větší trsy, vydrží déle', '+1 trs trnů', 'Ostřejší trny, zpomalí víc'],
+    // Bez kratšího nabíjení: víc trsů naráz, než unese MAX_TRNU, by staré trsy mazalo dřív, než zalezou.
+    dal: {
+      poradi: ['pocet', 'velikost'], poskozeni: ['poskozeni'], pocet: 'pocet', velikost: ['polomer'], maxPocet: 8,
+      texty: { pocet: '+1 trs trnů', velikost: 'Větší trsy' },
+    },
   },
   zrcadlo: {
     nazev: 'Zrcadlový štít', ikona: 'zrcadlo',
     popis: ['Zrcadlo krouží těsně u tebe, vrací střely a odhodí, kdo se ho dotkne.', '+1 zrcadlo', 'Silnější odhození', '+1 zrcadlo', 'Větší zrcadla, víc poškození'],
+    dal: {
+      poradi: ['pocet', 'velikost'], poskozeni: ['poskozeni', 'odraz'], pocet: 'pocet', velikost: ['velikost'], maxPocet: 8,
+      texty: { pocet: '+1 zrcadlo', velikost: 'Větší zrcadla' },
+    },
   },
 };
 
+// Pasivy: na úrovních 1–5 dá každá úroveň plný díl (násobí vlastnost hrdiny o nasobek, Srdce přičte pricti),
+// od 6. jen menší díl dal (přičítá se k násobku z 5. úrovně) a popisDal na kartě. Kde je strop (STROPY.pasivy),
+// tam se pasiva po jeho dosažení promění v +3 % poškození všech zbraní za úroveň (SILA_ZA_PREBYTEK).
 export const PASIVY = {
-  srdce: { nazev: 'Srdce', ikona: 'srdce', popis: '+20 max. životů a doléčení' },
-  boty: { nazev: 'Boty', ikona: 'boty', popis: '+12 % rychlost pohybu' },
-  magnet: { nazev: 'Magnet', ikona: 'magnet', popis: '+40 % dosah sběru krystalů' },
-  sila: { nazev: 'Síla', ikona: 'sila', popis: '+15 % poškození všech zbraní' },
+  srdce: {
+    nazev: 'Srdce', ikona: 'srdce', popis: '+20 max. životů a doléčení', vlastnost: 'maxHp', pricti: 20,
+    dal: 10, popisDal: '+10 max. životů a doléčení',
+  },
+  boty: {
+    nazev: 'Boty', ikona: 'boty', popis: '+12 % rychlost pohybu', vlastnost: 'rychlost', nasobek: 0.12,
+    dal: 0.03, popisDal: '+3 % rychlost pohybu',
+  },
+  magnet: {
+    nazev: 'Magnet', ikona: 'magnet', popis: '+40 % dosah sběru krystalů', vlastnost: 'magnet', nasobek: 0.4,
+    dal: 0.1, popisDal: '+10 % dosah sběru krystalů',
+  },
+  sila: {
+    nazev: 'Síla', ikona: 'sila', popis: '+15 % poškození všech zbraní', vlastnost: 'sila', nasobek: 0.15,
+    dal: 0.05, popisDal: '+5 % poškození všech zbraní',
+  },
 };
+
+// Úrovně nemají strop. Úrovně 1–5 popisuje každá zbraň a pasiva sama (popis), od 6. dál dá každá úroveň menší
+// díl: zbraň +8 % poškození (proti 5. úrovni, sčítá se) a každá třetí (8, 11, 14, …) navíc jednu věc z dal.poradi
+// o kus, o 10 % kratší nabíjení (násobí se) nebo o 15 % větší dosah či velikost (sčítá se). Evoluce zbraní
+// půjdou od ZAKLAD_UROVNI dál.
+export const ZAKLAD_UROVNI = 5;
+export const RUST_UROVNI = { poskozeni: 0.08, kazda: 3, nabiti: 0.9, velikost: 0.15 };
+// Stropy jen tam, kde by se hra rozbila (všechno proti 5. úrovni zbraně). Když je zbraň na stropu všude, roste
+// už jen poškození. pasivy = nejvyšší násobek vlastnosti od pasivy celkem: rychlejšímu hrdinovi by všechno
+// uteklo a osminásobný magnet už sahá přes celou obrazovku.
+export const STROPY = {
+  pocet: 12,
+  nabiti: 0.25,
+  velikost: 2.5,
+  pasivy: { boty: 2, magnet: 8 },
+};
+// Od těchto úrovní mění barvu rámeček v přehledu výbavy a čtverečky na kartě (stupenUrovne).
+export const STUPNE_UROVNI = [5, 10, 15];
 
 // Rarita karty při nové úrovni: kolik úrovní karta přidá a jaký bonus dá navíc.
 // vaha = jak často padá na začátku hry; vzácnějších rarit časem přibývá (v 15. minutě 2×) a Štěstí je násobí dál.
-// Úroveň, která se do zbraně nebo pasivy už nevejde (je na maximu), se promění v +3 % poškození.
+// Úrovně nemají strop, takže karta přidá vždy celý počet úrovní své rarity.
 // Váhy a bonusy jsou nízko schválně: s dvojnásobnými rozjel bot v simulaci sněhovou kouli a přežil přes 20 minut.
 export const RARITY = {
   bezna: { nazev: 'Běžná', urovni: 1, sila: 0, doleceni: false, vaha: 100 },
@@ -47,6 +109,7 @@ export const RARITY = {
   legendarni: { nazev: 'Legendární', urovni: 3, sila: 0.1, doleceni: true, vaha: 1 },
 };
 export const PORADI_RARIT = Object.keys(RARITY);
+// Úroveň pasivy, která už je na stropu, dá místo toho +3 % poškození všech zbraní.
 export const SILA_ZA_PREBYTEK = 0.03;
 export const CAS_PLNYCH_RARIT = 900;
 export const LECENI_ODPOCINKU = 30;
@@ -77,7 +140,6 @@ export function platnaTrida(id) {
   return typeof id === 'string' && Object.hasOwn(TRIDY, id) ? id : VYCHOZI_TRIDA;
 }
 
-export const MAX_UROVEN = 5;
 const MAX_NEPRATEL = 350;
 const MAX_KRYSTALU = 300;
 const SANCE_SRDCE = 0.012;
@@ -675,32 +737,79 @@ export function bossBary(hra) {
     .map((n) => ({ druh: n.druh, nazev: BOSSOVE[n.druh]?.nazev ?? n.druh, hp: Math.max(0, n.hp), maxHp: n.maxHp, nepritel: n }));
 }
 
-export function staty(hra) {
-  const u = (id) => hra.zbrane[id]?.uroven ?? 0;
-  const j = u('jiskra');
-  const l = u('lucerna');
-  const k = u('krumpace');
-  const b = u('blesk');
-  const t = u('trny');
-  const z = u('zrcadlo');
-  // Kratší nabíjení zrychlí všechny zbraně: střelbu, údery, žár lucerny, trny i otáčení krumpáčů a zrcadel.
-  const n = hra.hrdina.nabijeni ?? 1;
-  return {
-    jiskra: { pocet: 1 + (j >= 2) + (j >= 4), nabiti: (j >= 3 ? 0.5 : 0.7) * n, poskozeni: j >= 5 ? 16 : 11 },
-    lucerna: { dosah: 56 + 22 * ((l >= 2) + (l >= 4)), zar: 14 + 9 * ((l >= 3) + (l >= 5)), tik: 0.3 * n },
-    krumpace: { pocet: 1 + (k >= 2) + (k >= 4), rychlost: (k >= 3 ? 4.5 : 3) / n, poskozeni: k >= 5 ? 18 : 12, polomer: 64 },
-    blesk: { preskoky: 2 + (b >= 2) + 2 * (b >= 4), nabiti: (b >= 3 ? 1.5 : 2.2) * n, poskozeni: b >= 5 ? 30 : 20, dosah: 320, skok: 110 },
-    // trny: pocet trsů naráz, poškození za každý tik, zpomaleni = násobek rychlosti nepřítele v trní
-    trny: {
-      pocet: 1 + (t >= 2) + (t >= 4), nabiti: 2 * n, dosah: 300, polomer: t >= 3 ? 34 : 26, trvani: t >= 3 ? 3.4 : 2.4,
-      tik: 0.5, poskozeni: t >= 5 ? 9 : 6, zpomaleni: t >= 5 ? 0.35 : 0.55,
-    },
-    // zrcadlo: polomer = jak daleko od hrdiny krouží, velikost = kam až zrcadlo sahá, odhozeni = o kolik px odhodí
-    zrcadlo: {
-      pocet: 1 + (z >= 2) + (z >= 4), rychlost: 2.4 / n, polomer: 34, velikost: z >= 5 ? 14 : 10,
-      poskozeni: z >= 5 ? 12 : 7, odhozeni: z >= 3 ? 110 : 70, odraz: z >= 5 ? 30 : 20,
-    },
+// Čísla zbraní na úrovních 1–5: u = úroveň (nad pátou platí čísla páté, růst přidá statyZbrane),
+// n = násobek nabíjení hrdiny. Kratší nabíjení zrychlí všechny zbraně: střelbu, údery, žár lucerny, trny
+// i otáčení krumpáčů a zrcadel.
+const CISLA_ZBRANI = {
+  jiskra: (j, n) => ({ pocet: 1 + (j >= 2) + (j >= 4), nabiti: (j >= 3 ? 0.5 : 0.7) * n, poskozeni: j >= 5 ? 16 : 11 }),
+  lucerna: (l, n) => ({ dosah: 56 + 22 * ((l >= 2) + (l >= 4)), zar: 14 + 9 * ((l >= 3) + (l >= 5)), tik: 0.3 * n }),
+  krumpace: (k, n) => ({ pocet: 1 + (k >= 2) + (k >= 4), rychlost: (k >= 3 ? 4.5 : 3) / n, poskozeni: k >= 5 ? 18 : 12, polomer: 64 }),
+  blesk: (b, n) => ({ preskoky: 2 + (b >= 2) + 2 * (b >= 4), nabiti: (b >= 3 ? 1.5 : 2.2) * n, poskozeni: b >= 5 ? 30 : 20, dosah: 320, skok: 110 }),
+  // trny: pocet trsů naráz, poškození za každý tik, zpomaleni = násobek rychlosti nepřítele v trní
+  trny: (t, n) => ({
+    pocet: 1 + (t >= 2) + (t >= 4), nabiti: 2 * n, dosah: 300, polomer: t >= 3 ? 34 : 26, trvani: t >= 3 ? 3.4 : 2.4,
+    tik: 0.5, poskozeni: t >= 5 ? 9 : 6, zpomaleni: t >= 5 ? 0.35 : 0.55,
+  }),
+  // zrcadlo: polomer = jak daleko od hrdiny krouží, velikost = kam až zrcadlo sahá, odhozeni = o kolik px odhodí
+  zrcadlo: (z, n) => ({
+    pocet: 1 + (z >= 2) + (z >= 4), rychlost: 2.4 / n, polomer: 34, velikost: z >= 5 ? 14 : 10,
+    poskozeni: z >= 5 ? 12 : 7, odhozeni: z >= 3 ? 110 : 70, odraz: z >= 5 ? 30 : 20,
+  }),
+};
+
+// Co přidají úrovně nad pátou: poskozeni a velikost jsou násobky, pocet kusů navíc, nabiti násobek nabíjení.
+// Každá třetí úroveň vezme další věc z dal.poradi (dokola). Co je už na stropu, přeskočí, a když je na stropu
+// všechno, přidá už jen poškození. Pod 6. úrovní nepřidá nic.
+export function bonusZaUroven(id, uroven) {
+  const nad = Math.max(0, Math.floor(uroven) - ZAKLAD_UROVNI);
+  const b = { poskozeni: 1 + RUST_UROVNI.poskozeni * nad, pocet: 0, nabiti: 1, velikost: 1 };
+  const dal = ZBRANE[id]?.dal;
+  if (!dal || nad < RUST_UROVNI.kazda) return b;
+  // Kroky se počítají celými čísly, ať strop nepřeskočí zaokrouhlovací chyba.
+  const kusu = dal.pocet ? CISLA_ZBRANI[id](ZAKLAD_UROVNI, 1)[dal.pocet] : 0;
+  const kroky = { pocet: 0, nabiti: 0, velikost: 0 };
+  const volno = {
+    pocet: () => Boolean(dal.pocet) && kusu + kroky.pocet < (dal.maxPocet ?? STROPY.pocet),
+    nabiti: () => RUST_UROVNI.nabiti ** kroky.nabiti > STROPY.nabiti,
+    velikost: () => 1 + RUST_UROVNI.velikost * kroky.velikost < STROPY.velikost - 1e-9,
   };
+  let i = 0;
+  for (let krok = 0; krok < Math.floor(nad / RUST_UROVNI.kazda); krok++) {
+    for (let pokus = 0; pokus < dal.poradi.length; pokus++) {
+      const co = dal.poradi[i++ % dal.poradi.length];
+      if (volno[co]?.()) {
+        kroky[co] += 1;
+        break;
+      }
+    }
+  }
+  b.pocet = kroky.pocet;
+  b.nabiti = Math.max(STROPY.nabiti, RUST_UROVNI.nabiti ** kroky.nabiti);
+  b.velikost = Math.min(STROPY.velikost, 1 + RUST_UROVNI.velikost * kroky.velikost);
+  return b;
+}
+
+// Čísla jedné zbraně na dané úrovni i nad pátou.
+export function statyZbrane(id, uroven, n = 1) {
+  const cisla = CISLA_ZBRANI[id](uroven, n);
+  if (uroven <= ZAKLAD_UROVNI) return cisla;
+  const { dal } = ZBRANE[id];
+  const b = bonusZaUroven(id, uroven);
+  for (const pole of dal.poskozeni ?? []) cisla[pole] *= b.poskozeni;
+  if (dal.pocet) cisla[dal.pocet] += b.pocet;
+  for (const pole of dal.nabiti ?? []) cisla[pole] *= b.nabiti;
+  for (const pole of dal.velikost ?? []) cisla[pole] *= b.velikost;
+  return cisla;
+}
+
+export function staty(hra) {
+  const n = hra.hrdina.nabijeni ?? 1;
+  return Object.fromEntries(Object.keys(ZBRANE).map((id) => [id, statyZbrane(id, hra.zbrane[id]?.uroven ?? 0, n)]));
+}
+
+// Stupeň úrovně pro barvu rámečku: 0 do 4. úrovně, 1 od 5., 2 od 10., 3 od 15.
+export function stupenUrovne(uroven) {
+  return STUPNE_UROVNI.filter((od) => uroven >= od).length;
 }
 
 // Kde je i-té zrcadlo (pro pravidla i kreslení).
@@ -1182,28 +1291,80 @@ function losujRaritu(hra, minimum) {
   return PORADI_RARIT[PORADI_RARIT.length - 1];
 }
 
-// Karta vylepšení pro současný stav: od které úrovně, na kterou (kroku = kolik úrovní přidá),
-// řádky popisu za každou novou úroveň a bonus rarity (poškození navíc, doléčení).
+// Kolik dá pasiva celkem na úrovni u: násobek vlastnosti (u Srdce přičtené životy). Úrovně 1–5 se násobí
+// jako dřív, další jen přičtou dal k násobku z 5. úrovně, nanejvýš po strop.
+export function hodnotaPasivy(id, uroven) {
+  const p = PASIVY[id];
+  const u = Math.max(0, Math.floor(uroven));
+  const pod = Math.min(u, ZAKLAD_UROVNI);
+  const nad = u - pod;
+  if (p.pricti) return p.pricti * pod + p.dal * nad;
+  return Math.min((1 + p.nasobek) ** pod * (1 + p.dal * nad), STROPY.pasivy[id] ?? Infinity);
+}
+
+// Na úrovni u (z u - 1) už pasiva nic nepřidá a mění se v poškození.
+function pasivaNaStropu(id, u) {
+  return u > ZAKLAD_UROVNI && hodnotaPasivy(id, u) <= hodnotaPasivy(id, u - 1);
+}
+
+const procent = (x) => Math.round(x * 100);
+
+// Stejné řádky za sebou se slijí: „2× +3 % rychlost pohybu“.
+function slij(radky) {
+  const vysledek = [];
+  for (const radek of radky) {
+    const posledni = vysledek[vysledek.length - 1];
+    if (posledni?.radek === radek) posledni.kolik += 1;
+    else vysledek.push({ radek, kolik: 1 });
+  }
+  return vysledek.map(({ radek, kolik }) => (kolik > 1 ? `${kolik}× ${radek}` : radek));
+}
+
+// Řádky karty pro úrovně od + 1 až do. Do 5. úrovně řádky z popisu zbraně, nad ní součet poškození a co
+// přidala třetí úroveň (víc kusů, nabíjení, velikost). Pasiva má řádek za každou úroveň.
+export function popisUrovni(druh, id, od, uroven) {
+  if (druh === 'pasiva') {
+    const p = PASIVY[id];
+    const radky = [];
+    for (let u = od + 1; u <= uroven; u++) {
+      if (u <= ZAKLAD_UROVNI) radky.push(p.popis);
+      else if (pasivaNaStropu(id, u)) radky.push(`+${procent(SILA_ZA_PREBYTEK)} % poškození všech zbraní`);
+      else radky.push(p.popisDal);
+    }
+    return slij(radky);
+  }
+  const vzor = ZBRANE[id];
+  const radky = vzor.popis.slice(od, Math.min(uroven, ZAKLAD_UROVNI));
+  if (uroven > ZAKLAD_UROVNI) {
+    const pred = bonusZaUroven(id, Math.max(od, ZAKLAD_UROVNI));
+    const po = bonusZaUroven(id, uroven);
+    radky.push(`+${procent(po.poskozeni - pred.poskozeni)} % poškození`);
+    for (const co of ['pocet', 'nabiti', 'velikost']) {
+      if (po[co] !== pred[co]) radky.push(vzor.dal.texty[co]);
+    }
+  }
+  return radky;
+}
+
+// Karta vylepšení pro současný stav: od které úrovně, na kterou (kroku = kolik úrovní přidá, vždy celá
+// rarita, strop není), řádky popisu za nové úrovně a bonus rarity (poškození navíc, doléčení).
 export function karta(hra, druh, id, rarita = 'bezna') {
   if (!Object.hasOwn(RARITY, rarita)) rarita = 'bezna';
   const r = RARITY[rarita];
-  const bonusy = (kroku) => {
-    const sila = r.sila + (r.urovni - kroku) * SILA_ZA_PREBYTEK;
-    const radky = [];
-    if (sila > 0) radky.push(`+${Math.round(sila * 100)} % poškození všech zbraní`);
-    if (r.doleceni) radky.push('Doléčí všechny životy');
-    return { bonus: { sila, doleceni: r.doleceni }, bonusy: radky };
-  };
+  const radky = [];
+  if (r.sila > 0) radky.push(`+${procent(r.sila)} % poškození všech zbraní`);
+  if (r.doleceni) radky.push('Doléčí všechny životy');
+  const bonusy = { bonus: { sila: r.sila, doleceni: r.doleceni }, bonusy: radky };
   if (druh === 'zbran' || druh === 'pasiva') {
     const vzor = druh === 'zbran' ? ZBRANE[id] : PASIVY[id];
     const od = (druh === 'zbran' ? hra.zbrane[id]?.uroven : hra.pasivy[id]) ?? 0;
-    const kroku = Math.max(0, Math.min(r.urovni, MAX_UROVEN - od));
+    const kroku = r.urovni;
     // U nové zbraně je první řádek, co zbraň dělá (že je nová, ukáže karta u úrovní).
-    const popis = druh === 'zbran' ? vzor.popis.slice(od, od + kroku) : [kroku > 1 ? `${kroku}× ${vzor.popis}` : vzor.popis];
-    return { druh, id, nazev: vzor.nazev, ikona: vzor.ikona, rarita, od, uroven: od + kroku, kroku, popis, ...bonusy(kroku) };
+    const popis = popisUrovni(druh, id, od, od + kroku);
+    return { druh, id, nazev: vzor.nazev, ikona: vzor.ikona, rarita, od, uroven: od + kroku, kroku, popis, ...bonusy };
   }
-  // Všechno na maximu: odpočinek jen léčí, čím vzácnější, tím víc. Poškození nepřidá, jinak by po
-  // vylepšení všeho rostlo bez konce a pozdní hra by přestala být těžká.
+  // Odpočinek jen léčí, čím vzácnější, tím víc. Poškození nepřidá. Úrovně nemají strop, takže se nabídne,
+  // jen kdyby nebylo co vylepšit (pojistka).
   const kroku = r.urovni;
   return {
     druh: 'leceni', id: 'leceni', nazev: 'Odpočinek', ikona: 'odpocinek', rarita, od: 0, uroven: 0, kroku,
@@ -1212,14 +1373,12 @@ export function karta(hra, druh, id, rarita = 'bezna') {
   };
 }
 
+// Tři různé karty ze všech zbraní a pasiv (úrovně nemají strop, takže nabídka nikdy nedojde).
 export function nabidka(hra, minimum = 'bezna') {
-  const moznosti = [];
-  for (const id of Object.keys(ZBRANE)) {
-    if ((hra.zbrane[id]?.uroven ?? 0) < MAX_UROVEN) moznosti.push(['zbran', id]);
-  }
-  for (const id of Object.keys(PASIVY)) {
-    if ((hra.pasivy[id] ?? 0) < MAX_UROVEN) moznosti.push(['pasiva', id]);
-  }
+  const moznosti = [
+    ...Object.keys(ZBRANE).map((id) => ['zbran', id]),
+    ...Object.keys(PASIVY).map((id) => ['pasiva', id]),
+  ];
   const vybrane = [];
   while (vybrane.length < 3 && moznosti.length) {
     const [druh, id] = moznosti.splice(Math.floor(hra.rng.dalsi() * moznosti.length), 1)[0];
@@ -1229,21 +1388,32 @@ export function nabidka(hra, minimum = 'bezna') {
   return vybrane;
 }
 
-function pridejPasivu(hrdina, id) {
-  if (id === 'srdce') { hrdina.maxHp += 20; hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + 20); }
-  if (id === 'boty') hrdina.rychlost *= 1.12;
-  if (id === 'magnet') hrdina.magnet *= 1.4;
-  if (id === 'sila') hrdina.sila *= 1.15;
+// Pasiva z úrovně u - 1 na u. Úrovně 1–5 násobí přesně jako dřív (stejná hra se stejným semínkem),
+// další o poměr hodnot. Na stropu přidá poškození všech zbraní.
+function pridejPasivu(hrdina, id, u) {
+  const p = PASIVY[id];
+  if (pasivaNaStropu(id, u)) {
+    hrdina.sila *= 1 + SILA_ZA_PREBYTEK;
+    return;
+  }
+  const pred = hodnotaPasivy(id, u - 1);
+  const ted = hodnotaPasivy(id, u);
+  if (p.pricti) {
+    hrdina[p.vlastnost] += ted - pred;
+    if (p.vlastnost === 'maxHp') hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + ted - pred);
+  } else {
+    hrdina[p.vlastnost] *= u <= ZAKLAD_UROVNI ? 1 + p.nasobek : ted / pred;
+  }
 }
 
-// Použije kartu: zbraň nebo pasiva vyskočí o kroku úrovní (nikdy přes maximum), pak bonus rarity.
+// Použije kartu: zbraň nebo pasiva vyskočí o kroku úrovní, pak bonus rarity.
 export function vyber(hra, volba) {
   const { hrdina } = hra;
-  const cil = Math.min(MAX_UROVEN, volba.uroven ?? 0);
+  const cil = Math.max(0, Math.floor(volba.uroven ?? 0));
   if (volba.druh === 'zbran') {
     hra.zbrane[volba.id] = { ...(hra.zbrane[volba.id] ?? { nabiti: 0 }), uroven: Math.max(cil, hra.zbrane[volba.id]?.uroven ?? 0) };
   } else if (volba.druh === 'pasiva') {
-    for (let u = hra.pasivy[volba.id] ?? 0; u < cil; u++) pridejPasivu(hrdina, volba.id);
+    for (let u = (hra.pasivy[volba.id] ?? 0) + 1; u <= cil; u++) pridejPasivu(hrdina, volba.id, u);
     hra.pasivy[volba.id] = Math.max(cil, hra.pasivy[volba.id] ?? 0);
   } else {
     hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + LECENI_ODPOCINKU * (volba.kroku ?? 1));
@@ -1255,9 +1425,9 @@ export function vyber(hra, volba) {
 }
 
 // Co hrdina právě má, v pořadí, jak to dostal (zbraně, pak pasivy): pro přehled výbavy v rohu obrazovky.
-// max = úroveň je na maximu, dál už nejde. Kreslí to vybava.js, tady jsou jen data.
+// stupen = barva rámečku podle úrovně (stupenUrovne). Kreslí to vybava.js, tady jsou jen data.
 export function seznamVybavy(hra) {
-  const polozka = (druh, id, vzor, uroven) => ({ druh, id, nazev: vzor.nazev, ikona: vzor.ikona, uroven, max: uroven >= MAX_UROVEN });
+  const polozka = (druh, id, vzor, uroven) => ({ druh, id, nazev: vzor.nazev, ikona: vzor.ikona, uroven, stupen: stupenUrovne(uroven) });
   return {
     zbrane: Object.entries(hra.zbrane)
       .filter(([id, z]) => Object.hasOwn(ZBRANE, id) && z?.uroven > 0)

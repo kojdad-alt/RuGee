@@ -1,29 +1,30 @@
 // Přehled výbavy vlevo dole: nahoře políčka se zbraněmi, pod nimi pasivy, v pořadí, jak je hrdina dostal.
-// Úroveň ukazují čtverečky pod spritem, na maximu políčko zezlátne. Prázdná políčka ukazují, kolik toho
-// ještě jde získat. Jen DOM: co hrdina má, říká seznamVybavy v hra.js. Překreslí se jen při změně, takže se
-// dá volat každý snímek. Políčko, které právě přibylo nebo stouplo, krátce blikne (vzhled je v style.css).
-import { seznamVybavy, ZBRANE, PASIVY, MAX_UROVEN } from './hra.js';
+// Úroveň je číslo v rohu ikony (strop nemá), rámeček mění barvu od 5., 10. a 15. úrovně (stupen ze
+// seznamVybavy). Prázdná políčka ukazují, co ještě jde získat. Jen DOM: co hrdina má, říká seznamVybavy
+// v hra.js. Překreslí se jen při změně, takže se dá volat každý snímek. Políčko, které právě přibylo nebo
+// stouplo, krátce blikne (vzhled je v style.css).
+import { seznamVybavy, ZBRANE, PASIVY } from './hra.js';
 import { obrazekSpritu } from './menu.js';
 
 // Pro každý kontejner: pro kterou hru a jaké úrovně se kreslilo naposledy.
 const minule = new WeakMap();
 
-function prvek(znacka, trida = '') {
+function prvek(znacka, trida = '', text = null) {
   const e = document.createElement(znacka);
   if (trida) e.className = trida;
+  if (text !== null) e.textContent = text;
   return e;
 }
 
 const klic = (p) => `${p.druh}:${p.id}`;
 
 function policko(p, novy) {
-  const e = prvek('div', `vybava-policko${p.max ? ' max' : ''}${novy ? ' nove' : ''}`);
+  const e = prvek('div', `vybava-policko stupen-${p.stupen}${novy ? ' nove' : ''}`);
   const obr = obrazekSpritu(p.ikona);
   // Velikost dává style.css (na mobilu menší), ne pevné pixely z obrazekSpritu.
   obr.removeAttribute('style');
-  const urovne = prvek('span', 'vybava-urovne');
-  for (let u = 0; u < MAX_UROVEN; u++) urovne.append(prvek('i', u < p.uroven ? 'plna' : ''));
-  e.append(obr, urovne);
+  // Trojmístné číslo by se do rohu nevešlo, od 100 je tam 99+.
+  e.append(obr, prvek('b', 'vybava-cislo', p.uroven > 99 ? '99+' : String(p.uroven)));
   return e;
 }
 

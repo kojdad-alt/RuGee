@@ -7,6 +7,10 @@
   --zlata: #e9c46a;
   --xp: #4fd6c9;
   --duse: #9db8ff;
+  /* Stupně úrovní zbraní a pasiv (rámeček v přehledu výbavy, čtverečky na kartě): od 5., 10. a 15. úrovně. */
+  --stupen-1: #e9c46a;
+  --stupen-2: #5ee0d0;
+  --stupen-3: #ff5d7a;
 }
 
 * { box-sizing: border-box; }
@@ -265,6 +269,9 @@ html, body {
 }
 
 .karta-ctverecky i.plny { background: #7d748c; border-color: #a39cae; }
+.karta-ctverecky.stupen-1 i.plny { background: var(--stupen-1); border-color: var(--stupen-1); }
+.karta-ctverecky.stupen-2 i.plny { background: var(--stupen-2); border-color: var(--stupen-2); }
+.karta-ctverecky.stupen-3 i.plny { background: var(--stupen-3); border-color: var(--stupen-3); }
 
 .karta-ctverecky i.novy {
   background: var(--c-svetla);
@@ -415,13 +422,12 @@ html, body {
   pointer-events: none;
 }
 
-/* Přehled výbavy vlevo dole nad nápovědou: řada zbraní, pod ní řada pasiv. Políčko = sprite a pod ním
-   úrovně jako čtverečky, na maximu zlaté. Na dotyk nereaguje (joystick jde chytit i přes něj)
-   a u joysticku zprůhlední. Na mobilu menší. */
+/* Přehled výbavy vlevo dole nad nápovědou: řada zbraní, pod ní řada pasiv. Políčko = sprite a v pravém
+   dolním rohu číslo úrovně. Rámeček mění barvu od 5. (zlatý), 10. (tyrkysový) a 15. úrovně (rubínový, pulzuje).
+   Na dotyk nereaguje (joystick jde chytit i přes něj) a u joysticku zprůhlední. Na mobilu menší. */
 .vybava {
   --ikona: 30px;
-  --cip: 5px;
-  --cip-vyska: 3px;
+  --cislo: 11px;
   --mezera: 4px;
   position: fixed;
   left: 16px;
@@ -441,15 +447,14 @@ html, body {
 }
 
 .vybava-policko {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
+  --barva: var(--okraj);
+  position: relative;
+  display: grid;
+  place-items: center;
   width: calc(var(--ikona) + 8px);
-  height: calc(var(--ikona) + var(--cip-vyska) + 12px);
+  height: calc(var(--ikona) + 8px);
   background: rgba(21, 19, 27, 0.85);
-  border: 2px solid var(--okraj);
+  border: 2px solid var(--barva);
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 2px 0 #000;
 }
 
@@ -460,26 +465,31 @@ html, body {
   image-rendering: pixelated;
 }
 
-.vybava-urovne {
-  display: flex;
-  gap: 1px;
+/* Číslo úrovně v rohu: tučné, s černým pixelovým obrysem, ať je čitelné přes sprite. */
+.vybava-cislo {
+  position: absolute;
+  right: -1px;
+  bottom: -2px;
+  padding: 0 1px;
+  font: bold var(--cislo) / 1 ui-monospace, Menlo, monospace;
+  color: #f3efe6;
+  text-shadow: 1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000, 1px 1px 0 #000;
+  pointer-events: none;
 }
 
-.vybava-urovne i {
-  width: var(--cip);
-  height: var(--cip-vyska);
-  background: #2c2836;
+.vybava-policko.stupen-1 { --barva: var(--stupen-1); background: rgba(46, 38, 24, 0.92); }
+.vybava-policko.stupen-2 { --barva: var(--stupen-2); background: rgba(16, 44, 46, 0.92); }
+.vybava-policko.stupen-3 { --barva: var(--stupen-3); background: rgba(54, 18, 28, 0.92); animation: stupen-pulz 1.4s steps(4) infinite; }
+
+.vybava-policko.stupen-1, .vybava-policko.stupen-2, .vybava-policko.stupen-3 {
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 2px 0 #000, 0 0 6px color-mix(in srgb, var(--barva) 45%, transparent);
 }
 
-.vybava-urovne i.plna { background: #d8d0e4; }
+.vybava-policko:not(.stupen-0) .vybava-cislo { color: var(--barva); }
 
-.vybava-policko.max {
-  border-color: var(--zlata);
-  background: rgba(46, 38, 24, 0.92);
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 2px 0 #000, 0 0 6px rgba(233, 196, 106, 0.45);
+@keyframes stupen-pulz {
+  50% { box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 2px 0 #000, 0 0 10px color-mix(in srgb, var(--barva) 70%, transparent); }
 }
-
-.vybava-policko.max .vybava-urovne i { background: var(--zlata); }
 
 .vybava-policko.prazdne {
   background: rgba(11, 10, 15, 0.35);
@@ -489,6 +499,7 @@ html, body {
 
 /* Právě vylepšené políčko dvakrát blikne světlým okrajem. */
 .vybava-policko.nove { animation: vybava-nove 0.35s steps(2) 3; }
+.vybava-policko.stupen-3.nove { animation: vybava-nove 0.35s steps(2) 3, stupen-pulz 1.4s steps(4) 1.05s infinite; }
 
 @keyframes vybava-nove {
   50% { border-color: #f3efe6; background: rgba(90, 82, 104, 0.9); }
@@ -497,8 +508,7 @@ html, body {
 @media (max-width: 600px), (max-height: 500px) {
   .vybava {
     --ikona: 20px;
-    --cip: 3px;
-    --cip-vyska: 2px;
+    --cislo: 9px;
     --mezera: 3px;
   }
 }
@@ -509,7 +519,7 @@ html, body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vybava-policko.nove { animation: none; }
+  .vybava-policko.nove, .vybava-policko.stupen-3, .vybava-policko.stupen-3.nove { animation: none; }
   .vybava { transition: none; }
 }
 
