@@ -104,7 +104,7 @@ function smycka(t) {
   aktualizuj(hra, dt, vstup(), platno.width, platno.height);
   if (!melVolby && hra.volby) ukazVolby();
   if (hra.konec && el('konec').hidden) {
-    el('konec-text').textContent = `Přežil jsi ${formatCas(hra.cas)}, úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}.`;
+    el('konec-text').textContent = `Přežil jsi ${formatCas(hra.cas)}, úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}, Strážců ${hra.zabitoBossu}.`;
     el('konec').hidden = false;
   }
   kresli(ctx, hra);

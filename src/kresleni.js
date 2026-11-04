@@ -29,15 +29,15 @@ function podlaha(ctx, kx, ky, sirka, vyska) {
   }
 }
 
-function sprite(ctx, obr, x, y, otoceny = 1, bila = false) {
+function sprite(ctx, obr, x, y, otoceny = 1, bila = false, velikost = VELIKOST) {
   ctx.save();
   ctx.translate(Math.round(x), Math.round(y));
   if (otoceny < 0) ctx.scale(-1, 1);
-  ctx.drawImage(obr, -VELIKOST / 2, -VELIKOST / 2, VELIKOST, VELIKOST);
+  ctx.drawImage(obr, -velikost / 2, -velikost / 2, velikost, velikost);
   if (bila) {
     ctx.globalCompositeOperation = 'source-atop';
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.fillRect(-VELIKOST / 2, -VELIKOST / 2, VELIKOST, VELIKOST);
+    ctx.fillRect(-velikost / 2, -velikost / 2, velikost, velikost);
   }
   ctx.restore();
 }
@@ -78,7 +78,14 @@ export function kresli(ctx, hra) {
   for (const n of hra.nepratele) {
     const p = naObrazovce(n);
     if (p.x < -40 || p.y < -40 || p.x > sirka + 40 || p.y > vyska + 40) continue;
-    sprite(ctx, sprity[n.druh], p.x, p.y, n.x > hrdina.x ? -1 : 1, n.zasazen > 0);
+    const velikost = n.boss ? VELIKOST * 2 : VELIKOST;
+    sprite(ctx, sprity[n.druh], p.x, p.y, n.x > hrdina.x ? -1 : 1, n.zasazen > 0, velikost);
+    if (n.boss) {
+      ctx.fillStyle = '#2a0f14';
+      ctx.fillRect(Math.round(p.x - 24), Math.round(p.y - 34), 48, 5);
+      ctx.fillStyle = '#e9c46a';
+      ctx.fillRect(Math.round(p.x - 24), Math.round(p.y - 34), Math.round(48 * Math.max(0, n.hp) / n.maxHp), 5);
+    }
   }
 
   ctx.fillStyle = '#ffd27a';
@@ -116,10 +123,42 @@ export function kresli(ctx, hra) {
     ctx.fillText(c.text, p.x, p.y);
   }
 
+  // šipka k bossovi, když je mimo obrazovku
+  for (const n of hra.nepratele) {
+    if (!n.boss) continue;
+    const p = naObrazovce(n);
+    if (p.x > 0 && p.y > 0 && p.x < sirka && p.y < vyska) continue;
+    const uhel = Math.atan2(p.y - vyska / 2, p.x - sirka / 2);
+    const r = Math.min(sirka, vyska) / 2 - 40;
+    ctx.save();
+    ctx.translate(sirka / 2 + Math.cos(uhel) * r, vyska / 2 + Math.sin(uhel) * r);
+    ctx.rotate(uhel);
+    ctx.fillStyle = '#e9c46a';
+    ctx.beginPath();
+    ctx.moveTo(12, 0);
+    ctx.lineTo(-8, -8);
+    ctx.lineTo(-8, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
   // tma okolo, jako v jeskyni
   const tma = ctx.createRadialGradient(sirka / 2, vyska / 2, Math.min(sirka, vyska) * 0.3, sirka / 2, vyska / 2, Math.max(sirka, vyska) * 0.75);
   tma.addColorStop(0, 'rgba(0,0,0,0)');
   tma.addColorStop(1, 'rgba(0,0,0,0.75)');
   ctx.fillStyle = tma;
   ctx.fillRect(0, 0, sirka, vyska);
+
+  if (hra.oznameni) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, hra.oznameni.zivot);
+    ctx.font = 'bold 22px ui-monospace, Menlo, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#000';
+    ctx.fillText(hra.oznameni.text, sirka / 2 + 2, 92);
+    ctx.fillStyle = '#e9c46a';
+    ctx.fillText(hra.oznameni.text, sirka / 2, 90);
+    ctx.restore();
+  }
 }

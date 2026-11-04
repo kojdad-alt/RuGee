@@ -28,11 +28,13 @@ const MAX_KRYSTALU = 300;
 const SANCE_SRDCE = 0.012;
 const SANCE_MAGNET = 0.003;
 const LECENI_SRDCE = 25;
+const BOSS_KAZDYCH = 180;
 
 const NEPRATELE = {
   netopyr: { hp: 10, rychlost: 72, poskozeni: 5, xp: 1, polomer: 10 },
   slizak: { hp: 32, rychlost: 42, poskozeni: 10, xp: 2, polomer: 12 },
   kostlivec: { hp: 60, rychlost: 58, poskozeni: 14, xp: 3, polomer: 11 },
+  strazce: { hp: 320, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
 };
 
 export function novaHra(rng) {
@@ -40,6 +42,7 @@ export function novaHra(rng) {
     rng,
     cas: 0,
     zabito: 0,
+    zabitoBossu: 0,
     konec: false,
     volby: null,
     hrdina: {
@@ -55,6 +58,8 @@ export function novaHra(rng) {
     cisla: [],
     uhelKrumpacu: 0,
     doSpawnu: 0,
+    dalsiBoss: BOSS_KAZDYCH,
+    oznameni: null,
   };
 }
 
@@ -149,6 +154,17 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   for (const n of hra.nepratele) {
     if (vzdalenost(n, hrdina) > daleko) Object.assign(n, naOkraji(hra, sirka, vyska));
   }
+  if (hra.cas >= hra.dalsiBoss) {
+    const vzor = NEPRATELE.strazce;
+    const hp = Math.round(vzor.hp * (1 + hra.cas / 300));
+    hra.nepratele.push({ druh: 'strazce', ...vzor, hp, maxHp: hp, zasazen: 0, zasahKrumpacem: 0, ...naOkraji(hra, sirka, vyska) });
+    hra.dalsiBoss += BOSS_KAZDYCH;
+    hra.oznameni = { text: 'Přichází Strážce hlubin', zivot: 3 };
+  }
+  if (hra.oznameni) {
+    hra.oznameni.zivot -= dt;
+    if (hra.oznameni.zivot <= 0) hra.oznameni = null;
+  }
   for (const n of hra.nepratele) {
     const d = vzdalenost(n, hrdina) || 1;
     n.x += ((hrdina.x - n.x) / d) * n.rychlost * dt;
@@ -225,6 +241,11 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     if (n.hp <= 0) {
       hra.zabito += 1;
       hra.krystaly.push({ x: n.x, y: n.y, xp: n.xp });
+      if (n.boss) {
+        hra.zabitoBossu += 1;
+        hra.predmety.push({ druh: 'truhla', x: n.x, y: n.y });
+        continue;
+      }
       const los = hra.rng.dalsi();
       if (los < SANCE_MAGNET) hra.predmety.push({ druh: 'magnet', x: n.x, y: n.y });
       else if (los < SANCE_MAGNET + SANCE_SRDCE) hra.predmety.push({ druh: 'srdce', x: n.x, y: n.y });
@@ -236,7 +257,10 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   for (const p of hra.predmety) {
     if (vzdalenost(p, hrdina) < 16) {
       p.sebran = true;
-      if (p.druh === 'srdce') {
+      if (p.druh === 'truhla') {
+        hra.volby = nabidka(hra);
+        hra.oznameni = { text: 'Truhla Strážce: vylepšení zdarma', zivot: 2 };
+      } else if (p.druh === 'srdce') {
         const pred = hrdina.hp;
         hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + LECENI_SRDCE);
         hra.cisla.push({ x: hrdina.x, y: hrdina.y - 18, text: `+${Math.round(hrdina.hp - pred)}`, zivot: 0.8, barva: 'leceni' });

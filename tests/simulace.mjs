@@ -66,6 +66,7 @@ const vysledek = {
   konec: hra.konec,
   uroven: hra.hrdina.uroven,
   zabito: hra.zabito,
+  zabito_bossu: hra.zabitoBossu,
   vyber_vylepseni: volby,
   max_nepratel_najednou: maxNepratel,
   zbrane: Object.fromEntries(Object.entries(hra.zbrane).map(([id, z]) => [id, z.uroven])),
