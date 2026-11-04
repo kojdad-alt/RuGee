@@ -2,7 +2,8 @@ import { sprity } from './sprity.js';
 import {
   staty, TRVANI_TRESU, VYCHOZI_TRIDA, TRVANI_ZABLESKU, ODHOZENI_PRI_OZIVENI, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU,
   TRVANI_ZARU, TRVANI_VYBUCHU, bossBary, POLOMER_DUPNUTI, NAPRAH_DUPNUTI, LET_KAMENE, POLOMER_KAMENE,
-  NABITI_BLUDICKY, ZJEVENI_BLUDICKY, POLOMER_STRELY_BOSSU,
+  NABITI_BLUDICKY, ZJEVENI_BLUDICKY, POLOMER_STRELY_BOSSU, RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, TRVANI_ODLESKU,
+  poziceZrcadla,
 } from './hra.js';
 import { dlazdiceLouky, ozdobyLouky } from './louka.js';
 
@@ -26,6 +27,8 @@ const BARVY_CASTIC = {
   vlk: ['#8d9098', '#53565e', '#c9ccd2'],
   bedna: ['#a07e5c', '#8a5a35', '#4a3530'],
   sud: ['#a07e5c', '#6e6577', '#8a5a35'],
+  trny: ['#4a3530', '#3f8a3c', '#a07e5c'],
+  zrcadlo: ['#dfe8ff', '#b9c2cc', '#7f9cf0'],
 };
 const BARVA_SITE = 'rgba(236,236,244,0.8)';
 // Duch je i viditelný průsvitný, schovaný je jen tušený obrys. Mezi tím přechází plynule.
@@ -49,6 +52,10 @@ const DRZENI_UBYTKU = 0.35;
 const RYCHLOST_UBYTKU = 0.8;
 // Výška oblouku, kterým letí kámen Kamenného obra.
 const VYSKA_HODU = 90;
+// Zrcadla za sebou nechávají dva bledé odlesky (o kolik radiánů zpátky a jak průhledné) a jednou za
+// TREPOT_ZRCADEL sekund se každé krátce zablýskne.
+const STOPY_ZRCADEL = [[0.3, 0.16], [0.15, 0.32]];
+const TREPOT_ZRCADEL = 1.1;
 
 // Světlo lucerny se kreslí po čtverečcích stejně velkých jako pixel spritu, ať nevypadá rozmazaně.
 // Jednou za PULZ_LUCERNY sekund vyjde od hrdiny vlna světla, na okraji dosahu prstenec zjasní.
@@ -268,6 +275,103 @@ function kruhNaZemi(ctx, x, y, r, plny = false) {
   else for (const [a, b] of kruh.obvod) ctx.fillRect(cx + a * m, cy + b * m, m, m);
 }
 
+// Trs trnů na zemi: tmavá rozrytá hlína v dosahu a v ní ostny. Ostny nejdřív vyrůstají ze země (špičky
+// první), na konci zase zalezou. Kde který osten stojí, je dané místem trsu, ať neposkakují.
+function trsTrnu(ctx, p, x, y) {
+  const stari = p.trvani - p.zivot;
+  const rust = Math.min(1, stari / RUST_TRNU);
+  const venku = Math.max(0, Math.min(rust, p.zivot / VADNUTI_TRNU));
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, p.zivot / VADNUTI_TRNU);
+  const r = p.polomer * (0.55 + 0.45 * rust);
+  ctx.fillStyle = 'rgba(46,30,22,0.42)';
+  kruhNaZemi(ctx, x, y, r, true);
+  ctx.fillStyle = 'rgba(38,85,42,0.75)';
+  kruhNaZemi(ctx, x, y, r);
+  ctx.restore();
+  const obr = sprity.trs;
+  const radku = Math.ceil(obr.height * venku);
+  if (radku <= 0) return;
+  const zaklad = hash(Math.round(p.x), Math.round(p.y));
+  const pocet = p.polomer > 30 ? 7 : 5;
+  const ostny = [];
+  for (let i = 0; i < pocet; i++) {
+    const uhel = i * 2.4 + (zaklad % 628) / 100;
+    const vzdal = i === 0 ? 0 : p.polomer * (i % 2 ? 0.66 : 0.4);
+    ostny.push({ x: x + Math.cos(uhel) * vzdal, y: y + Math.sin(uhel) * vzdal * 0.8, otoceny: (zaklad >>> i) & 1 });
+  }
+  // zadní ostny dřív, ať je přední překryjí
+  ostny.sort((a, b) => a.y - b.y);
+  const w = obr.width * MERITKO;
+  const v = radku * MERITKO;
+  for (const o of ostny) {
+    ctx.save();
+    ctx.translate(Math.round(o.x), Math.round(o.y + (obr.height * MERITKO) / 2));
+    if (o.otoceny) ctx.scale(-1, 1);
+    ctx.drawImage(obr, 0, 0, obr.width, radku, -w / 2, -v, w, v);
+    ctx.restore();
+  }
+}
+
+// Nepříteli v trní se kolem nohou omotají šlahouny (bossovi dva), po vylezení vyblednou.
+function sponaTrnu(ctx, n, x, y, velikost) {
+  const obr = sprity.spona;
+  const w = obr.width * MERITKO;
+  const v = obr.height * MERITKO;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, n.trny / DOZNIVANI_TRNU);
+  const dole = Math.round(y + velikost / 2 - v + 2);
+  for (const posun of n.boss ? [-w / 2 + 2, w / 2 - 2] : [0]) ctx.drawImage(obr, Math.round(x + posun - w / 2), dole, w, v);
+  ctx.restore();
+}
+
+// Zrcadlový štít: bledý kruh dráhy, za každým zrcadlem dva odlesky a samo zrcadlo natočené po dráze.
+// Občas se zablýskne. Větší zrcadla (5. úroveň) se kreslí o pixel spritu větší.
+function zrcadlaHrdiny(ctx, hra, s, stred) {
+  const z = s.zrcadlo;
+  const obr = sprity.strep;
+  const m = z.velikost > 10 ? MERITKO + 1 : MERITKO;
+  ctx.save();
+  ctx.fillStyle = 'rgba(223,232,255,0.12)';
+  kruhNaZemi(ctx, stred.x, stred.y, z.polomer);
+  ctx.restore();
+  const kresli1 = (uhel, prekryv, pruhlednost) => {
+    ctx.save();
+    ctx.globalAlpha = pruhlednost;
+    ctx.translate(Math.round(stred.x + Math.cos(uhel) * z.polomer), Math.round(stred.y + Math.sin(uhel) * z.polomer));
+    ctx.rotate(uhel);
+    ctx.drawImage(prekryv ? prebarvi(obr, prekryv) : obr, (-obr.width * m) / 2, (-obr.height * m) / 2, obr.width * m, obr.height * m);
+    ctx.restore();
+  };
+  const smer = Math.sign(z.rychlost) || 1;
+  for (let i = 0; i < z.pocet; i++) {
+    const { uhel } = poziceZrcadla(hra, i, s);
+    for (const [zpet, pruhlednost] of STOPY_ZRCADEL) kresli1(uhel - zpet * smer, '#dfe8ff', pruhlednost);
+    kresli1(uhel, null, 1);
+    const faze = (hra.cas / TREPOT_ZRCADEL + i * 0.37) % 1;
+    if (faze < 0.12) kresli1(uhel, '#ffffff', 0.7 * Math.sin((faze / 0.12) * Math.PI));
+  }
+}
+
+// Odlesk po odražené střele nebo odhození: čtyřcípá jiskra, roste a zhasíná.
+function odlesk(ctx, x, y, o) {
+  const t = 1 - o.zivot / TRVANI_ODLESKU;
+  const delka = Math.round(4 + 10 * t);
+  const cx = Math.round(x);
+  const cy = Math.round(y);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 1 - t;
+  ctx.fillStyle = '#7f9cf0';
+  ctx.fillRect(cx - delka, cy - 1, delka * 2, 3);
+  ctx.fillRect(cx - 1, cy - delka, 3, delka * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(cx - Math.round(delka / 2), cy, delka, 1);
+  ctx.fillRect(cx, cy - Math.round(delka / 2), 1, delka);
+  ctx.fillRect(cx - 1, cy - 1, 3, 3);
+  ctx.restore();
+}
+
 // Útoky bossů na zemi (pod nepřáteli): kam Strážce dupne, vlny dupnutí a kam dopadne kámen.
 function utokyNaZemi(ctx, hra, naObrazovce) {
   for (const n of hra.nepratele) {
@@ -325,16 +429,26 @@ function utokyVeVzduchu(ctx, hra, naObrazovce) {
     const x = Math.round(p.x);
     const y = Math.round(p.y);
     const r = POLOMER_STRELY_BOSSU;
+    // Střela vrácená zrcadlem je stříbrná a táhne za sebou dva menší odlesky.
+    const barvy = st.odrazena
+      ? { zar: 'rgba(228,246,243,0.3)', telo: '#c9ccd2', jadro: '#ffffff' }
+      : { zar: 'rgba(127,156,240,0.25)', telo: '#7f9cf0', jadro: '#dfe8ff' };
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = 'rgba(127,156,240,0.25)';
+    ctx.fillStyle = barvy.zar;
     ctx.fillRect(x - r - 4, y - r - 4, 2 * r + 8, 2 * r + 8);
+    if (st.odrazena) {
+      const rychlost = Math.hypot(st.vx, st.vy) || 1;
+      for (const [zpet, velikost] of [[9, 3], [17, 2]]) {
+        ctx.fillRect(Math.round(x - (st.vx / rychlost) * zpet - velikost), Math.round(y - (st.vy / rychlost) * zpet - velikost), velikost * 2, velikost * 2);
+      }
+    }
     ctx.restore();
     ctx.fillStyle = '#0b0a0f';
     ctx.fillRect(x - r - 1, y - r - 1, 2 * r + 2, 2 * r + 2);
-    ctx.fillStyle = '#7f9cf0';
+    ctx.fillStyle = barvy.telo;
     ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
-    ctx.fillStyle = '#dfe8ff';
+    ctx.fillStyle = barvy.jadro;
     ctx.fillRect(x - 2, y - 2, 4, 4);
   }
 }
@@ -461,6 +575,11 @@ export function kresli(ctx, hra) {
     if (p.x < -60 || p.y < -60 || p.x > sirka + 60 || p.y > vyska + 60) continue;
     oblak(ctx, p.x, p.y, o, hra.cas);
   }
+  for (const t of hra.trny ?? []) {
+    const p = naObrazovce(t);
+    if (p.x < -60 || p.y < -60 || p.x > sirka + 60 || p.y > vyska + 60) continue;
+    trsTrnu(ctx, t, p.x, p.y);
+  }
   utokyNaZemi(ctx, hra, naObrazovce);
 
   for (const n of hra.nepratele) {
@@ -475,6 +594,7 @@ export function kresli(ctx, hra) {
       sprite(ctx, obr, p.x, vy, n.smerX < 0 ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : null, velikost);
       if (n.zar > 0) rozzar(ctx, obr, p.x, vy, n.smerX < 0 ? -1 : 1, velikost, n.zar / TRVANI_ZARU);
       ctx.globalAlpha = 1;
+      if (n.trny > 0 && !n.skryty) sponaTrnu(ctx, n, p.x, vy, velikost);
       continue;
     }
     let { x, y } = p;
@@ -495,6 +615,7 @@ export function kresli(ctx, hra) {
     sprite(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : null, velikost);
     if (n.zar > 0) rozzar(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, velikost, n.zar / TRVANI_ZARU);
     ctx.globalAlpha = 1;
+    if (n.trny > 0) sponaTrnu(ctx, n, x, y, velikost);
     if (n.boss) {
       const nad = Math.round(y - velikost / 2 - 7);
       ctx.fillStyle = '#0b0a0f';
@@ -565,6 +686,11 @@ export function kresli(ctx, hra) {
       ctx.drawImage(sprity.krumpac, -v / 2, -v / 2, v, v);
       ctx.restore();
     }
+  }
+  if (hra.zbrane.zrcadlo) zrcadlaHrdiny(ctx, hra, s, stred);
+  for (const o of hra.odlesky ?? []) {
+    const p = naObrazovce(o);
+    odlesk(ctx, p.x, p.y, o);
   }
 
   // Oživení: od hrdiny se rozběhne modrobílý kruh duší a bledne.

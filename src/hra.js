@@ -19,6 +19,14 @@ export const ZBRANE = {
     nazev: 'Blesk', ikona: 'blesk',
     popis: ['Blesk udeří do nepřítele a přeskočí na další.', '+1 přeskok', 'Častější údery', '+2 přeskoky', 'Větší poškození'],
   },
+  trny: {
+    nazev: 'Trnová past', ikona: 'trny',
+    popis: ['Pod nejbližším nepřítelem vyraší trny, které zraňují a zpomalí.', '+1 trs trnů', 'Větší trsy, vydrží déle', '+1 trs trnů', 'Ostřejší trny, zpomalí víc'],
+  },
+  zrcadlo: {
+    nazev: 'Zrcadlový štít', ikona: 'zrcadlo',
+    popis: ['Zrcadlo krouží těsně u tebe, vrací střely a odhodí, kdo se ho dotkne.', '+1 zrcadlo', 'Silnější odhození', '+1 zrcadlo', 'Větší zrcadla, víc poškození'],
+  },
 };
 
 export const PASIVY = {
@@ -178,6 +186,22 @@ const RYCHLOST_STREL_BOSSU = 160;
 const ZIVOT_STREL_BOSSU = 3.5;
 export const POLOMER_STRELY_BOSSU = 5;
 
+// Trnová past: trsy trnů vyraší pod nejbližšími nepřáteli (každý pod jiným, ne dva na sobě), chvíli rostou
+// (RUST_TRNU, ještě neškodí), pak zraňují každého, kdo v nich stojí, a zpomalí ho. Zpomalení chvíli doznívá
+// i po vylezení. Bosse zpomalí jen napůl. Na konci trsy zase zalezou do země (VADNUTI_TRNU, už neškodí).
+// Volné trsy, na které nezbyl nepřítel, vyraší pod bednou v dosahu.
+export const RUST_TRNU = 0.25;
+export const VADNUTI_TRNU = 0.35;
+export const DOZNIVANI_TRNU = 0.4;
+export const MAX_TRNU = 30;
+// Zrcadlový štít: zrcadla krouží těsně u hrdiny. Střelu bosse, která do zrcadla narazí, pošle zpátky
+// (rychleji a zraní nepřátele, ne hrdinu). Nepřítel, který se zrcadla dotkne, dostane ránu a odletí od hrdiny
+// (bossové jsou moc těžcí, ti jen dostanou ránu).
+export const TRVANI_ODHOZENI = 0.2;
+export const ZRYCHLENI_ODRAZU = 1.3;
+const ZIVOT_ODRAZU = 2;
+export const TRVANI_ODLESKU = 0.25;
+
 const NEPRATELE = {
   netopyr: { hp: 10, rychlost: 72, poskozeni: 5, xp: 1, polomer: 10 },
   slizak: { hp: 32, rychlost: 42, poskozeni: 10, xp: 2, polomer: 12 },
@@ -250,6 +274,11 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}) {
     vybuch: 0,
     tres: 0,
     uhelKrumpacu: 0,
+    uhelZrcadel: 0,
+    trny: [],
+    odlesky: [],
+    odrazeno: 0,
+    odhozeno: 0,
     doSpawnu: 0,
     dalsiBoss: BOSS_KAZDYCH,
     bossu: 0,
@@ -347,7 +376,10 @@ function zamir(n, hrdina) {
 export function pridejNepritele(hra, druh, x, y) {
   const vzor = NEPRATELE[druh];
   const hp = Math.round(vzor.hp * (1 + hra.cas / (vzor.boss ? 300 : 150)));
-  const n = { druh, ...vzor, hp, maxHp: hp, zasazen: 0, zar: 0, zasahKrumpacem: 0, x, y };
+  // trny = jak dlouho ještě je zpomalený trny, zpomaleni = na kolik, odhozen = ještě letí od zrcadla
+  const n = {
+    druh, ...vzor, hp, maxHp: hp, zasazen: 0, zar: 0, zasahKrumpacem: 0, zasahZrcadlem: 0, trny: 0, zpomaleni: 1, odhozen: 0, x, y,
+  };
   if (n.duch) {
     n.skryty = false;
     n.duchCas = VIDITELNY_DUCH;
@@ -614,6 +646,17 @@ function strelyBossu(hra, dt) {
     st.x += st.vx * dt;
     st.y += st.vy * dt;
     st.zivot -= dt;
+    if (st.odrazena) {
+      // Střela vrácená zrcadlem už hrdinovi neublíží, zraní prvního nepřítele, do kterého vletí.
+      for (const n of hra.nepratele) {
+        if (n.hp > 0 && viditelny(n) && vzdalenost(st, n) < n.polomer + POLOMER_STRELY_BOSSU) {
+          zasah(hra, n, st.poskozeni);
+          st.zivot = 0;
+          break;
+        }
+      }
+      continue;
+    }
     if (vzdalenost(st, hrdina) < POLOMER_STRELY_BOSSU + 8) {
       st.zivot = 0;
       if (muzeDostat()) {
@@ -638,14 +681,133 @@ export function staty(hra) {
   const l = u('lucerna');
   const k = u('krumpace');
   const b = u('blesk');
-  // Kratší nabíjení zrychlí všechny zbraně: střelbu, údery, žár lucerny i otáčení krumpáčů.
+  const t = u('trny');
+  const z = u('zrcadlo');
+  // Kratší nabíjení zrychlí všechny zbraně: střelbu, údery, žár lucerny, trny i otáčení krumpáčů a zrcadel.
   const n = hra.hrdina.nabijeni ?? 1;
   return {
     jiskra: { pocet: 1 + (j >= 2) + (j >= 4), nabiti: (j >= 3 ? 0.5 : 0.7) * n, poskozeni: j >= 5 ? 16 : 11 },
     lucerna: { dosah: 56 + 22 * ((l >= 2) + (l >= 4)), zar: 14 + 9 * ((l >= 3) + (l >= 5)), tik: 0.3 * n },
     krumpace: { pocet: 1 + (k >= 2) + (k >= 4), rychlost: (k >= 3 ? 4.5 : 3) / n, poskozeni: k >= 5 ? 18 : 12, polomer: 64 },
     blesk: { preskoky: 2 + (b >= 2) + 2 * (b >= 4), nabiti: (b >= 3 ? 1.5 : 2.2) * n, poskozeni: b >= 5 ? 30 : 20, dosah: 320, skok: 110 },
+    // trny: pocet trsů naráz, poškození za každý tik, zpomaleni = násobek rychlosti nepřítele v trní
+    trny: {
+      pocet: 1 + (t >= 2) + (t >= 4), nabiti: 2 * n, dosah: 300, polomer: t >= 3 ? 34 : 26, trvani: t >= 3 ? 3.4 : 2.4,
+      tik: 0.5, poskozeni: t >= 5 ? 9 : 6, zpomaleni: t >= 5 ? 0.35 : 0.55,
+    },
+    // zrcadlo: polomer = jak daleko od hrdiny krouží, velikost = kam až zrcadlo sahá, odhozeni = o kolik px odhodí
+    zrcadlo: {
+      pocet: 1 + (z >= 2) + (z >= 4), rychlost: 2.4 / n, polomer: 34, velikost: z >= 5 ? 14 : 10,
+      poskozeni: z >= 5 ? 12 : 7, odhozeni: z >= 3 ? 110 : 70, odraz: z >= 5 ? 30 : 20,
+    },
   };
+}
+
+// Kde je i-té zrcadlo (pro pravidla i kreslení).
+export function poziceZrcadla(hra, i, s = staty(hra)) {
+  const uhel = hra.uhelZrcadel + (i / s.zrcadlo.pocet) * Math.PI * 2;
+  return { x: hra.hrdina.x + Math.cos(uhel) * s.zrcadlo.polomer, y: hra.hrdina.y + Math.sin(uhel) * s.zrcadlo.polomer, uhel };
+}
+
+// O kolik trny zpomalí nepřítele (bosse jen napůl). 1 = vůbec.
+function brzdaTrnu(n) {
+  if (!(n.trny > 0)) return 1;
+  return n.boss ? 1 - (1 - n.zpomaleni) / 2 : n.zpomaleni;
+}
+
+// Nové trsy trnů: pod nejbližšími viditelnými nepřáteli v dosahu, ale každý jinde (kdo stojí v kruhu už
+// vybraného trsu, ten se přeskočí). Na co nezbyl nepřítel, to vyraší pod nejbližší bednou v dosahu.
+function zasadTrny(hra, st) {
+  const { hrdina } = hra;
+  const mista = [];
+  const volno = (o) => mista.every((m) => vzdalenost(m, o) >= st.polomer);
+  const kandidati = hra.nepratele
+    .filter((n) => n.hp > 0 && viditelny(n) && vzdalenost(n, hrdina) < st.dosah)
+    .sort((a, b) => vzdalenost(a, hrdina) - vzdalenost(b, hrdina));
+  for (const n of kandidati) {
+    if (mista.length >= st.pocet) break;
+    if (volno(n)) mista.push({ x: n.x, y: n.y });
+  }
+  const bedny = hra.bedny
+    .filter((b) => !b.rozbita && vzdalenost(b, hrdina) < st.dosah)
+    .sort((a, b) => vzdalenost(a, hrdina) - vzdalenost(b, hrdina));
+  for (const b of bedny) {
+    if (mista.length >= st.pocet) break;
+    if (volno(b)) mista.push({ x: b.x, y: b.y });
+  }
+  for (const m of mista) {
+    hra.trny.push({
+      x: m.x, y: m.y, polomer: st.polomer, trvani: st.trvani, zivot: st.trvani, tik: 0,
+      poskozeni: st.poskozeni, zpomaleni: st.zpomaleni,
+    });
+    rozprsk(hra, m.x, m.y, 'trny', 5);
+  }
+  if (hra.trny.length > MAX_TRNU) hra.trny.splice(0, hra.trny.length - MAX_TRNU);
+  return mista.length;
+}
+
+// Trsy rostou, zraňují a zpomalí, kdo v nich stojí, rozbijí bedny a nakonec zalezou.
+function rostouTrny(hra, dt, s) {
+  for (const p of hra.trny) {
+    p.zivot -= dt;
+    const stari = p.trvani - p.zivot;
+    const ostre = stari >= RUST_TRNU && p.zivot > VADNUTI_TRNU;
+    if (!ostre) continue;
+    p.tik -= dt;
+    const tikne = p.tik <= 0;
+    if (tikne) p.tik = s.trny.tik;
+    for (const n of hra.nepratele) {
+      if (n.hp <= 0 || !viditelny(n) || vzdalenost(n, p) >= p.polomer + n.polomer / 2) continue;
+      n.zpomaleni = Math.min(n.trny > 0 ? n.zpomaleni : 1, p.zpomaleni);
+      n.trny = DOZNIVANI_TRNU;
+      if (tikne) zasah(hra, n, p.poskozeni);
+    }
+    if (tikne) {
+      for (const b of hra.bedny) {
+        if (vzdalenost(b, p) < p.polomer + POLOMER_BEDNY / 2) rozbij(hra, b);
+      }
+    }
+  }
+  hra.trny = hra.trny.filter((p) => p.zivot > 0);
+}
+
+// Zrcadla: točí se, vrací střely bossů a odhazují nepřátele, kterých se dotknou. Rozbijí i bednu.
+function zrcadla(hra, s) {
+  const { hrdina } = hra;
+  const z = s.zrcadlo;
+  for (let i = 0; i < z.pocet; i++) {
+    const p = poziceZrcadla(hra, i, s);
+    for (const st of hra.strelyBossu) {
+      if (st.odrazena || vzdalenost(st, p) >= z.velikost + POLOMER_STRELY_BOSSU) continue;
+      // Pošle ji zpátky tam, odkud přiletěla (rychleji), ať trefí toho, kdo ji vystřelil.
+      st.odrazena = true;
+      st.vx *= -ZRYCHLENI_ODRAZU;
+      st.vy *= -ZRYCHLENI_ODRAZU;
+      st.zivot = ZIVOT_ODRAZU;
+      st.poskozeni = z.odraz;
+      hra.odrazeno += 1;
+      hra.odlesky.push({ x: st.x, y: st.y, zivot: TRVANI_ODLESKU });
+    }
+    for (const n of hra.nepratele) {
+      if (n.zasahZrcadlem > 0 || n.hp <= 0 || !viditelny(n) || vzdalenost(n, p) >= n.polomer + z.velikost) continue;
+      zasah(hra, n, z.poskozeni);
+      n.zasahZrcadlem = 0.5;
+      hra.odlesky.push({ x: (n.x + p.x) / 2, y: (n.y + p.y) / 2, zivot: TRVANI_ODLESKU });
+      if (n.boss) continue;
+      // Odletí od hrdiny (kdo stojí přímo na něm, tím směrem, kde je zrcadlo).
+      const d = vzdalenost(n, hrdina);
+      const ux = d > 0 ? (n.x - hrdina.x) / d : Math.cos(p.uhel);
+      const uy = d > 0 ? (n.y - hrdina.y) / d : Math.sin(p.uhel);
+      n.odhozen = TRVANI_ODHOZENI;
+      n.odhozVx = (ux * z.odhozeni) / TRVANI_ODHOZENI;
+      n.odhozVy = (uy * z.odhozeni) / TRVANI_ODHOZENI;
+      hra.odhozeno += 1;
+    }
+    for (const b of hra.bedny) {
+      if (vzdalenost(b, p) < POLOMER_BEDNY + z.velikost) rozbij(hra, b);
+    }
+  }
+  if (hra.odlesky.length > 40) hra.odlesky.splice(0, hra.odlesky.length - 40);
 }
 
 export function aktualizuj(hra, dt, vstup, sirka, vyska) {
@@ -722,7 +884,14 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   utokyBossu(hra, dt, sirka, vyska);
   for (const n of hra.nepratele) {
     const d = vzdalenost(n, hrdina) || 1;
-    if (n.naprah > 0 || n.nabiji > 0) {
+    const brzda = brzdaTrnu(n);
+    if (n.odhozen > 0) {
+      // Odhozený zrcadlem letí od hrdiny a mezitím po něm nejde (uletí přesně o odhození, ne o kus víc).
+      const kus = Math.min(dt, n.odhozen);
+      n.x += n.odhozVx * kus;
+      n.y += n.odhozVy * kus;
+      n.odhozen -= kus;
+    } else if (n.naprah > 0 || n.nabiji > 0) {
       // Strážce při napřahování a Bludička při nabíjení stojí na místě.
     } else if (n.duch) {
       // Duch letí pořád rovně. Střídá se: chvíli vidět, chvíli schovaný, po vynoření zamíří znovu.
@@ -732,10 +901,10 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
         n.duchCas = n.skryty ? SKRYTY_DUCH : VIDITELNY_DUCH;
         if (!n.skryty) zamir(n, hrdina);
       }
-      n.x += n.smerX * n.rychlost * dt;
-      n.y += n.smerY * n.rychlost * dt;
+      n.x += n.smerX * n.rychlost * brzda * dt;
+      n.y += n.smerY * n.rychlost * brzda * dt;
     } else {
-      const rychlost = n.rychlost * (n.vyrazi > 0 ? RYCHLOST_VYRAZENI : 1);
+      const rychlost = n.rychlost * brzda * (n.vyrazi > 0 ? RYCHLOST_VYRAZENI : 1);
       n.x += ((hrdina.x - n.x) / d) * rychlost * dt;
       n.y += ((hrdina.y - n.y) / d) * rychlost * dt;
       if (n.vyrazi > 0) n.vyrazi -= dt;
@@ -743,6 +912,8 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     n.zasazen = Math.max(0, n.zasazen - dt);
     n.zar = Math.max(0, (n.zar || 0) - dt);
     n.zasahKrumpacem = Math.max(0, n.zasahKrumpacem - dt);
+    n.zasahZrcadlem = Math.max(0, (n.zasahZrcadlem || 0) - dt);
+    n.trny = Math.max(0, (n.trny || 0) - dt);
     if (d < n.polomer + 8 && hrdina.nezranitelny <= 0 && viditelny(n)) {
       if (n.sit) hrdina.sit = TRVANI_SITE;
       if (n.druh === 'pavoucek') hra.zasahyBossu.pavoucek += 1;
@@ -865,6 +1036,22 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   }
   for (const b of hra.blesky) b.zivot -= dt;
   hra.blesky = hra.blesky.filter((b) => b.zivot > 0);
+
+  // Trnová past: když je nabitá a má pod co trny zasadit, zasadí je. Bez cíle čeká nabitá.
+  const trn = hra.zbrane.trny;
+  if (trn) {
+    trn.nabiti = (trn.nabiti ?? 0) - dt;
+    if (trn.nabiti <= 0 && zasadTrny(hra, s.trny)) trn.nabiti = s.trny.nabiti;
+  }
+  rostouTrny(hra, dt, s);
+
+  // Zrcadlový štít
+  if (hra.zbrane.zrcadlo) {
+    hra.uhelZrcadel += s.zrcadlo.rychlost * dt;
+    zrcadla(hra, s);
+  }
+  for (const o of hra.odlesky) o.zivot -= dt;
+  hra.odlesky = hra.odlesky.filter((o) => o.zivot > 0);
   hra.bedny = hra.bedny.filter((b) => !b.rozbita);
 
   pohrbi(hra);
