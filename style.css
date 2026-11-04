@@ -404,8 +404,106 @@ html, body {
   pointer-events: none;
 }
 
+/* Přehled výbavy vlevo dole nad nápovědou: řada zbraní, pod ní řada pasiv. Políčko = sprite a pod ním
+   úrovně jako čtverečky, na maximu zlaté. Na dotyk nereaguje (joystick jde chytit i přes něj)
+   a u joysticku zprůhlední. Na mobilu menší. */
+.vybava {
+  --ikona: 30px;
+  --cip: 5px;
+  --cip-vyska: 3px;
+  --mezera: 4px;
+  position: fixed;
+  left: 16px;
+  bottom: 34px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mezera);
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.vybava.u-joysticku { opacity: 0.2; }
+
+.vybava-radek {
+  display: flex;
+  gap: var(--mezera);
+}
+
+.vybava-policko {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: calc(var(--ikona) + 8px);
+  height: calc(var(--ikona) + var(--cip-vyska) + 12px);
+  background: rgba(21, 19, 27, 0.85);
+  border: 2px solid var(--okraj);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 2px 0 #000;
+}
+
+.vybava-policko canvas {
+  display: block;
+  width: var(--ikona);
+  height: var(--ikona);
+  image-rendering: pixelated;
+}
+
+.vybava-urovne {
+  display: flex;
+  gap: 1px;
+}
+
+.vybava-urovne i {
+  width: var(--cip);
+  height: var(--cip-vyska);
+  background: #2c2836;
+}
+
+.vybava-urovne i.plna { background: #d8d0e4; }
+
+.vybava-policko.max {
+  border-color: var(--zlata);
+  background: rgba(46, 38, 24, 0.92);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 2px 0 #000, 0 0 6px rgba(233, 196, 106, 0.45);
+}
+
+.vybava-policko.max .vybava-urovne i { background: var(--zlata); }
+
+.vybava-policko.prazdne {
+  background: rgba(11, 10, 15, 0.35);
+  border-color: rgba(58, 52, 70, 0.55);
+  box-shadow: none;
+}
+
+/* Právě vylepšené políčko dvakrát blikne světlým okrajem. */
+.vybava-policko.nove { animation: vybava-nove 0.35s steps(2) 3; }
+
+@keyframes vybava-nove {
+  50% { border-color: #f3efe6; background: rgba(90, 82, 104, 0.9); }
+}
+
+@media (max-width: 600px), (max-height: 500px) {
+  .vybava {
+    --ikona: 20px;
+    --cip: 3px;
+    --cip-vyska: 2px;
+    --mezera: 3px;
+  }
+}
+
+/* Na úzkém displeji je nápověda na dva řádky, přehled je nad ní. */
+@media (max-width: 600px) {
+  .vybava { bottom: 48px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vybava-policko.nove { animation: none; }
+  .vybava { transition: none; }
+}
+
 /* Hlavní menu: přes louku nakreslenou na plátně, tlačítka jako kostky s hranou dole. */
-body.v-menu .hud, body.v-menu .napoveda { display: none; }
+body.v-menu .hud, body.v-menu .napoveda, body.v-menu .vybava { display: none; }
 
 .menu {
   position: fixed;

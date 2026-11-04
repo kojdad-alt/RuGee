@@ -6,10 +6,12 @@ import { vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, ob
 import { zapisVysledek, nactiDuse, pripisDuse } from './ulozeni.js';
 import { odemkniZvuk, zvukStartu, zvukVolby, zvukVyberu } from './zvuk.js';
 import { ukazVolby } from './volba.js';
+import { ukazVybavu } from './vybava.js';
 
 const platno = document.getElementById('platno');
 const ctx = platno.getContext('2d');
 const el = (id) => document.getElementById(id);
+const vybava = el('vybava');
 
 const stisknute = new Set();
 let hra = null;
@@ -96,6 +98,17 @@ function kresliJoystick() {
   ctx.restore();
 }
 
+// Přehled výbavy leží nad plátnem. Když prst s joystickem dosedne k němu, přehled zprůhlední, ať je joystick vidět.
+function vybavaUJoysticku() {
+  let blizko = false;
+  if (dotyk.aktivni) {
+    const r = vybava.getBoundingClientRect();
+    const okraj = POLOMER_JOYSTICKU + 18;
+    blizko = dotyk.sx > r.left - okraj && dotyk.sx < r.right + okraj && dotyk.sy > r.top - okraj && dotyk.sy < r.bottom + okraj;
+  }
+  vybava.classList.toggle('u-joysticku', blizko);
+}
+
 function otevriVolby() {
   const stupen = ukazVolby(el('volba'), hra, zvol);
   volbyOd = performance.now();
@@ -146,6 +159,8 @@ function hud() {
   el('zabito').textContent = hra.zabito;
   el('cas').textContent = formatCas(hra.cas);
   el('xp-pruh').style.width = `${Math.min(100, (hrdina.xp / hrdina.potreba) * 100)}%`;
+  // Překreslí se jen když se výbava změnila (po výběru vylepšení nebo v nové hře).
+  ukazVybavu(vybava, hra);
 }
 
 function smycka(t) {
@@ -166,6 +181,7 @@ function smycka(t) {
   }
   kresli(ctx, hra);
   kresliJoystick();
+  vybavaUJoysticku();
   hud();
   requestAnimationFrame(smycka);
 }

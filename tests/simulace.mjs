@@ -12,13 +12,16 @@
 // Noví nepřátelé: duch, houbák a vlk nepřijdou dřív, než mají. Schovaného ducha zbraně nezasáhnou a on nezraní,
 // duch proletí skrz místo, kam mířil. Oblak po houbákovi se nejdřív nafoukne, pak pálí a za 3 s zmizí.
 // Vlci chodí jen ve smečkách po 4–6 a jsou rychlejší než ostatní nepřátelé.
+// Přehled výbavy v rohu: sedí s tím, co hrdina má (pořadí, úrovně, maximum, ikony se sprity) a po každém
+// výběru zbraně nebo pasivy se změní, po Odpočinku ne.
+import { readFileSync } from 'node:fs';
 import { vytvorRng } from '../src/rng.js';
 import {
   novaHra, aktualizuj, vyber, staty, TRVANI_TRESU, OD_PAVOUKU, TRVANI_SITE, ZPOMALENI_SITI, TRIDY, VYCHOZI_TRIDA,
   ZIVOTY_PO_OZIVENI, NEZRANITELNY_PO_OZIVENI, ODHOZENI_PRI_OZIVENI,
   ZBRANE, RARITY, PORADI_RARIT, MAX_UROVEN, SILA_ZA_PREBYTEK, LECENI_ODPOCINKU, CAS_PLNYCH_RARIT, sanceRarit, nabidka, karta,
   OD_DUCHU, VIDITELNY_DUCH, SKRYTY_DUCH, OD_HOUBAKU, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU, JED_OBLAKU,
-  OD_VLKU, SMECKA_OD, SMECKA_DO, RYCHLOST_NEPRATEL, MAX_DUCHU, pridejNepritele,
+  OD_VLKU, SMECKA_OD, SMECKA_DO, RYCHLOST_NEPRATEL, MAX_DUCHU, pridejNepritele, PASIVY, seznamVybavy,
 } from '../src/hra.js';
 import {
   VYLEPSENI, DUSE_ZA, dusZaHru, cenaVylepseni, kupVylepseni, vratDuse, utraceno,
@@ -55,6 +58,30 @@ let oblaku = 0;
 let zasahuOblakem = 0;
 let duchuSchovanych = 0;
 let maxDuchu = 0;
+const chybyVybavy = [];
+let zmenVybavy = 0;
+
+// Přehled výbavy proti skutečnému stavu hrdiny. Sprity se v node kreslit nedají, jejich jména jsou v sprity.js.
+const jmenaSpritu = new Set([...readFileSync(new URL('../src/sprity.js', import.meta.url), 'utf8').matchAll(/^ {2}(\w+): \[/gm)].map((m) => m[1]));
+const podpisVybavy = (h) => JSON.stringify(seznamVybavy(h));
+function zkontrolujVybavu(h, kdy) {
+  const { zbrane, pasivy } = seznamVybavy(h);
+  if (zbrane.map((p) => p.id).join() !== Object.keys(h.zbrane).join()) chybyVybavy.push(`${kdy}: zbraně v přehledu ${zbrane.map((p) => p.id)}`);
+  if (pasivy.map((p) => p.id).join() !== Object.keys(h.pasivy).join()) chybyVybavy.push(`${kdy}: pasivy v přehledu ${pasivy.map((p) => p.id)}`);
+  for (const p of [...zbrane, ...pasivy]) {
+    const vzor = (p.druh === 'zbran' ? ZBRANE : PASIVY)[p.id];
+    const ma = p.druh === 'zbran' ? h.zbrane[p.id].uroven : h.pasivy[p.id];
+    if (p.uroven !== ma || p.uroven < 1 || p.uroven > MAX_UROVEN) chybyVybavy.push(`${kdy}: ${p.id} v přehledu na ${p.uroven}, hrdina má ${ma}`);
+    if (p.max !== (p.uroven === MAX_UROVEN)) chybyVybavy.push(`${kdy}: ${p.id} na ${p.uroven} ${p.max ? 'je' : 'není'} jako maximum`);
+    if (p.ikona !== vzor.ikona || !jmenaSpritu.has(p.ikona) || p.nazev !== vzor.nazev) chybyVybavy.push(`${kdy}: ${p.id} má ikonu ${p.ikona}`);
+  }
+}
+for (const id of Object.keys(TRIDY)) {
+  const h = novaHra(vytvorRng(seminko), id);
+  zkontrolujVybavu(h, `start ${id}`);
+  const { zbrane, pasivy } = seznamVybavy(h);
+  if (zbrane.length !== 1 || zbrane[0].id !== TRIDY[id].zbran || zbrane[0].uroven !== 1 || pasivy.length) chybyVybavy.push(`${id} nezačíná jen se svou zbraní`);
+}
 
 // Každá nabídnutá karta: známá rarita, úrovně v mezích, popis a ikona.
 function zkontrolujKarty(h) {
@@ -169,7 +196,13 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
   if (hra.volby) {
     volby += 1;
     zkontrolujKarty(hra);
-    vyber(hra, zvol(hra.volby));
+    const vzata = zvol(hra.volby);
+    const predVyberem = podpisVybavy(hra);
+    vyber(hra, vzata);
+    zkontrolujVybavu(hra, `výběr v ${t.toFixed(1)} s`);
+    const zmena = podpisVybavy(hra) !== predVyberem;
+    if (zmena) zmenVybavy += 1;
+    if (zmena !== (vzata.druh !== 'leceni')) chybyVybavy.push(`výběr ${vzata.id} v ${t.toFixed(1)} s ${zmena ? 'změnil' : 'nezměnil'} přehled výbavy`);
     if (hra.zTruhly) chybyRarit.push('po výběru zůstala truhla otevřená');
   }
   maxNepratel = Math.max(maxNepratel, hra.nepratele.length);
@@ -480,6 +513,8 @@ const vysledek = {
   zasahu_siti: siti,
   sekund_v_siti: Math.round(krokuVSiti * DT),
   zbrane: Object.fromEntries(Object.entries(hra.zbrane).map(([id, z]) => [id, z.uroven])),
+  pasivy: hra.pasivy,
+  zmen_prehledu_vybavy: zmenVybavy,
   tridy_3_minuty: tridy,
   duse_za_hru: duseHry,
   vse_vylepsene_3_minuty: { preziti_s: Math.round(vylepsena.cas), uroven: vylepsena.hrdina.uroven, zabito: vylepsena.zabito },
@@ -500,7 +535,7 @@ const vysledek = {
 };
 console.log(JSON.stringify(vysledek, null, 2));
 
-const chyby = [...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel)];
+const chyby = [...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel), ...chybyVybavy];
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);
 if (hra.zabito === 0) chyby.push('nikdo nezemřel, zbraně asi nestřílí');
 if (hra.hrdina.uroven < 3) chyby.push('hrdina skoro nepostoupil, krystaly se asi nesbírají');

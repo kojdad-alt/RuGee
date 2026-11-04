@@ -692,3 +692,17 @@ export function vyber(hra, volba) {
   hra.volby = null;
   hra.zTruhly = false;
 }
+
+// Co hrdina právě má, v pořadí, jak to dostal (zbraně, pak pasivy): pro přehled výbavy v rohu obrazovky.
+// max = úroveň je na maximu, dál už nejde. Kreslí to vybava.js, tady jsou jen data.
+export function seznamVybavy(hra) {
+  const polozka = (druh, id, vzor, uroven) => ({ druh, id, nazev: vzor.nazev, ikona: vzor.ikona, uroven, max: uroven >= MAX_UROVEN });
+  return {
+    zbrane: Object.entries(hra.zbrane)
+      .filter(([id, z]) => Object.hasOwn(ZBRANE, id) && z?.uroven > 0)
+      .map(([id, z]) => polozka('zbran', id, ZBRANE[id], z.uroven)),
+    pasivy: Object.entries(hra.pasivy)
+      .filter(([id, u]) => Object.hasOwn(PASIVY, id) && u > 0)
+      .map(([id, u]) => polozka('pasiva', id, PASIVY[id], u)),
+  };
+}
