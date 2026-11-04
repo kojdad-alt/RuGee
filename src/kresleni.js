@@ -1,9 +1,8 @@
 import { sprity } from './sprity.js';
 import {
   staty, TRVANI_TRESU, VYCHOZI_TRIDA, TRVANI_ZABLESKU, ODHOZENI_PRI_OZIVENI, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU,
-  TRVANI_ZARU, TRVANI_VYBUCHU, bossBary, POLOMER_DUPNUTI, NAPRAH_DUPNUTI, LET_KAMENE, POLOMER_KAMENE,
-  NABITI_BLUDICKY, ZJEVENI_BLUDICKY, POLOMER_STRELY_BOSSU, RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, TRVANI_ODLESKU,
-  poziceZrcadla, TRVANI_HLASENI_HROZBY,
+  TRVANI_ZARU, TRVANI_VYBUCHU, bossBary, TRVANI_DOPADU, ZJEVENI_BLUDICKY, POLOMER_STRELY_BOSSU,
+  RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, TRVANI_ODLESKU, poziceZrcadla, TRVANI_HLASENI_HROZBY,
 } from './hra.js';
 import { dlazdiceLouky, ozdobyLouky } from './louka.js';
 
@@ -24,6 +23,7 @@ const BARVY_CASTIC = {
   bludicka: ['#7f9cf0', '#dfe8ff', '#fff3b0'],
   pavoucek: ['#3b2a4a', '#6b4c8a', '#ff5a5a'],
   kamen: ['#8d9098', '#53565e', '#c9ccd2'],
+  kokon: ['#e4f6f3', '#c9ccd2', '#9fc8c6'],
   pavouk: ['#4a3530', '#a07e5c', '#ffb347'],
   duch: ['#e4f6f3', '#9fc8c6', '#e4f6f3'],
   houbak: ['#9b59c9', '#d6a9f2', '#f1d2a8'],
@@ -53,8 +53,17 @@ const PORTRET = 40;
 // Úbytek životů v pruhu se chvíli drží světlý a pak doběhne (ať je vidět, kolik rána vzala).
 const DRZENI_UBYTKU = 0.35;
 const RYCHLOST_UBYTKU = 0.8;
-// Výška oblouku, kterým letí kámen Kamenného obra.
+// Výška oblouku, kterým letí kameny z Hodu, a jak vysoko nad hlavou je boss při varování zvedá.
 const VYSKA_HODU = 90;
+const NAD_HLAVOU = 14;
+// Barvy výbuchu po dopadu podle toho, co dopadlo: záře, prstenec, jádro.
+const BARVY_DOPADU = {
+  kamen: ['rgba(255,140,50,0.35)', '#ffb347', '#fff3b0'],
+  kokon: ['rgba(228,246,243,0.35)', '#c9ccd2', '#ffffff'],
+};
+// Zuřící boss (pod polovinou životů) krátce rudne, pulz trvá PULZ_ZURIVOSTI s.
+const PULZ_ZURIVOSTI = 0.6;
+const BARVA_ZURIVOSTI = 'rgba(229,72,77,0.45)';
 // Zrcadla za sebou nechávají dva bledé odlesky (o kolik radiánů zpátky a jak průhledné) a jednou za
 // TREPOT_ZRCADEL sekund se každé krátce zablýskne.
 const STOPY_ZRCADEL = [[0.3, 0.16], [0.15, 0.32]];
@@ -387,21 +396,73 @@ function odlesk(ctx, x, y, o) {
   ctx.restore();
 }
 
-// Útoky bossů na zemi (pod nepřáteli): kam Strážce dupne, vlny dupnutí a kam dopadne kámen.
-function utokyNaZemi(ctx, hra, naObrazovce) {
+// Jak daleko je varování schopnosti: 0 na začátku, 1 těsně před provedením.
+function prubehVarovani(sch) {
+  return Math.max(0, Math.min(1, 1 - sch.zbyva / sch.s.varovani));
+}
+
+// Pixelová čára z (x, y) směrem (ux, uy) dlouhá delka: čtverečky po MERITKO px, s tmavým okrajem.
+function caraNaZemi(ctx, x, y, ux, uy, delka, tloustka) {
+  const m = MERITKO;
+  for (let d = 0; d <= delka; d += m) {
+    ctx.fillRect(Math.round(x + ux * d - tloustka / 2), Math.round(y + uy * d - tloustka / 2), tloustka, tloustka);
+  }
+}
+
+// Varování schopností bossů na zemi (pod nepřáteli): rudý kruh dupnutí roste, čára výpadu míří (po zamčení
+// svítí naplno a hrot ukazuje, kam až doběhne), kruhy vyvolání se rozzáří.
+function varovaniNaZemi(ctx, hra, naObrazovce) {
   for (const n of hra.nepratele) {
-    if (n.druh !== 'strazce' || !(n.naprah > 0)) continue;
-    // Napřahování: kruh dosahu na zemi rudne a bliká čím dál rychleji.
+    const sch = n.schopnost;
+    if (!n.boss || !sch) continue;
     const p = naObrazovce(n);
-    const t = 1 - n.naprah / NAPRAH_DUPNUTI;
+    const t = prubehVarovani(sch);
+    const barva = (BARVY_BOSSU[n.druh] ?? BARVY_BOSSU.strazce).pruh;
     ctx.save();
-    ctx.fillStyle = `rgba(229,72,77,${(0.06 + 0.12 * t).toFixed(3)})`;
-    kruhNaZemi(ctx, p.x, p.y, POLOMER_DUPNUTI, true);
-    ctx.globalAlpha = Math.floor(hra.cas * (6 + 14 * t)) % 2 ? 0.55 : 0.95;
-    ctx.fillStyle = '#e5484d';
-    kruhNaZemi(ctx, p.x, p.y, POLOMER_DUPNUTI);
+    if (sch.id === 'dupnuti' && sch.faze === 'varovani') {
+      ctx.fillStyle = `rgba(229,72,77,${(0.1 + 0.18 * t).toFixed(3)})`;
+      kruhNaZemi(ctx, p.x, p.y, Math.max(6, sch.s.polomer * t), true);
+      ctx.globalAlpha = Math.floor(hra.cas * (6 + 14 * t)) % 2 ? 0.5 : 0.95;
+      ctx.fillStyle = '#e5484d';
+      kruhNaZemi(ctx, p.x, p.y, sch.s.polomer);
+    } else if (sch.id === 'vypad' && sch.faze === 'varovani') {
+      const zamceno = sch.zbyva <= sch.s.zamek;
+      const od = n.polomer;
+      ctx.globalAlpha = zamceno ? 0.95 : (Math.floor(hra.cas * 12) % 2 ? 0.35 : 0.6);
+      ctx.fillStyle = '#0b0a0f';
+      caraNaZemi(ctx, p.x + sch.ux * od, p.y + sch.uy * od, sch.ux, sch.uy, sch.s.delka - od, zamceno ? 8 : 6);
+      ctx.fillStyle = zamceno ? '#ff5a5a' : '#e5484d';
+      caraNaZemi(ctx, p.x + sch.ux * od, p.y + sch.uy * od, sch.ux, sch.uy, sch.s.delka - od, zamceno ? 4 : 3);
+      // hrot na konci dráhy
+      const kx = p.x + sch.ux * sch.s.delka;
+      const ky = p.y + sch.uy * sch.s.delka;
+      for (let i = 1; i <= 4; i++) {
+        const z = i * MERITKO * 1.5;
+        for (const strana of [-1, 1]) {
+          ctx.fillRect(Math.round(kx - sch.ux * z - sch.uy * z * strana * 0.8) - 2, Math.round(ky - sch.uy * z + sch.ux * z * strana * 0.8) - 2, 4, 4);
+        }
+      }
+    } else if (sch.id === 'vyvolani' && sch.faze === 'varovani') {
+      for (const m of sch.mista) {
+        const q = naObrazovce(m);
+        ctx.globalAlpha = 0.25 + 0.25 * t;
+        ctx.fillStyle = '#0b0a0f';
+        kruhNaZemi(ctx, q.x, q.y, 6 + 10 * t, true);
+        ctx.globalAlpha = Math.floor(hra.cas * (8 + 12 * t)) % 2 ? 0.6 : 1;
+        ctx.fillStyle = barva;
+        kruhNaZemi(ctx, q.x, q.y, 6 + 10 * t);
+        ctx.fillStyle = '#fff3b0';
+        const jiskra = Math.round(((hra.cas * 40 + m.x) % 18));
+        ctx.fillRect(Math.round(q.x) - 1, Math.round(q.y - jiskra) - 1, 3, 3);
+      }
+    }
     ctx.restore();
   }
+}
+
+// Útoky bossů na zemi (pod nepřáteli): varování schopností, vlny dupnutí a kam dopadnou kameny.
+function utokyNaZemi(ctx, hra, naObrazovce) {
+  varovaniNaZemi(ctx, hra, naObrazovce);
   for (const v of hra.vlny) {
     const p = naObrazovce(v);
     const t = v.r / v.max;
@@ -418,26 +479,76 @@ function utokyNaZemi(ctx, hra, naObrazovce) {
   for (const k of hra.kameny) {
     // Místo dopadu: stín roste, jak kámen padá, a rudý kroužek kolem.
     const p = naObrazovce(k);
-    const t = Math.min(1, k.let / LET_KAMENE);
+    const t = Math.max(0, Math.min(1, k.let / k.trvani));
     ctx.save();
     ctx.fillStyle = `rgba(11,10,15,${(0.15 + 0.3 * t).toFixed(3)})`;
-    kruhNaZemi(ctx, p.x, p.y, 6 + (POLOMER_KAMENE - 10) * t, true);
+    kruhNaZemi(ctx, p.x, p.y, 6 + (k.polomer - 10) * t, true);
     ctx.globalAlpha = 0.5 + 0.5 * t;
-    ctx.fillStyle = '#e5484d';
-    kruhNaZemi(ctx, p.x, p.y, POLOMER_KAMENE);
+    ctx.fillStyle = k.sit ? '#c9ccd2' : '#e5484d';
+    kruhNaZemi(ctx, p.x, p.y, k.polomer);
     ctx.restore();
   }
 }
 
-// Kameny v letu (nad nepřáteli, po oblouku) a střely Bludičky.
+// Malý výbuch po dopadu kamene: záblesk a prstenec, který se rozběhne do poloměru zásahu a zbledne.
+function dopad(ctx, x, y, d) {
+  const t = 1 - d.zivot / TRVANI_DOPADU;
+  const [zar, prsten, jadro] = BARVY_DOPADU[d.druh] ?? BARVY_DOPADU.kamen;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, 1 - t);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = zar;
+  kruhNaZemi(ctx, x, y, d.polomer * (0.5 + 0.5 * t), true);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = prsten;
+  kruhNaZemi(ctx, x, y, d.polomer * (0.4 + 0.6 * t));
+  if (t < 0.4) {
+    ctx.fillStyle = jadro;
+    kruhNaZemi(ctx, x, y, 6 + 6 * t, true);
+  }
+  ctx.restore();
+}
+
+// Vykřičník nad bossem, dokud varuje: hráč hned ví, že něco přijde.
+function vykricnik(ctx, x, y, barva, cas) {
+  const bx = Math.round(x) - 3;
+  const by = Math.round(y + (Math.floor(cas * 8) % 2 ? -1 : 0));
+  ctx.fillStyle = '#0b0a0f';
+  ctx.fillRect(bx - 2, by - 2, 10, 17);
+  ctx.fillRect(bx - 2, by + 17, 10, 8);
+  ctx.fillStyle = barva;
+  ctx.fillRect(bx, by, 6, 13);
+  ctx.fillRect(bx, by + 19, 6, 4);
+}
+
+// Kameny v letu (nad nepřáteli, po oblouku), výbuchy po dopadu, kameny nad hlavou bosse, který se chystá
+// hodit, a střely Bludičky.
 function utokyVeVzduchu(ctx, hra, naObrazovce) {
+  for (const d of hra.dopady ?? []) {
+    const p = naObrazovce(d);
+    dopad(ctx, p.x, p.y, d);
+  }
+  for (const n of hra.nepratele) {
+    const sch = n.schopnost;
+    if (!n.boss || sch?.id !== 'hod' || sch.faze !== 'varovani') continue;
+    // tři kameny stoupají nad hlavu a třesou se
+    const p = naObrazovce(n);
+    const t = prubehVarovani(sch);
+    const obr = sprity[sch.s.strela] ?? sprity.kamen;
+    const vyska = n.polomer + NAD_HLAVOU * (0.4 + 0.6 * t);
+    for (let i = -1; i <= 1; i++) {
+      const chvej = Math.floor(hra.cas * 24 + i) % 2 ? 1 : -1;
+      sprite(ctx, obr, p.x + i * 14 + chvej, p.y - vyska + Math.abs(i) * 4);
+    }
+  }
   for (const k of hra.kameny) {
-    const t = Math.min(1, k.let / LET_KAMENE);
+    if (k.let < 0) continue;
+    const t = Math.min(1, k.let / k.trvani);
     const od = naObrazovce({ x: k.odX, y: k.odY });
     const kam = naObrazovce(k);
     const x = od.x + (kam.x - od.x) * t;
     const y = od.y + (kam.y - od.y) * t - Math.sin(Math.PI * t) * VYSKA_HODU;
-    sprite(ctx, sprity.kamen, x, y);
+    sprite(ctx, sprity[k.druh] ?? sprity.kamen, x, y);
   }
   for (const st of hra.strelyBossu) {
     const p = naObrazovce(st);
@@ -614,6 +725,10 @@ function bossBar(ctx, bar, x, y, sirka, cas) {
   ctx.font = 'bold 14px ui-monospace, Menlo, monospace';
   ctx.textAlign = 'left';
   napis(ctx, bar.nazev.toUpperCase(), px, y + 13, barvy.text);
+  if (bar.nepritel?.zuri && Math.floor(cas * 3) % 2 === 0) {
+    const za = px + ctx.measureText(bar.nazev.toUpperCase()).width + 10;
+    napis(ctx, 'ZUŘÍ', za, y + 13, '#ff5a5a');
+  }
   ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
   ctx.textAlign = 'right';
   napis(ctx, `${Math.ceil(bar.hp)} / ${bar.maxHp}`, x + sirka, y + 13, '#ece6da');
@@ -716,13 +831,22 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
       continue;
     }
     let { x, y } = p;
-    if (n.druh === 'strazce' && n.naprah > 0) x += Math.floor(hra.cas * 30) % 2 ? 1 : -1;
+    const sch = n.boss ? n.schopnost : null;
+    // Boss se při varování třese. Při výpadu za sebou nechává dva bledé obrysy.
+    if (sch?.faze === 'varovani' && n.druh !== 'bludicka') x += Math.floor(hra.cas * 30) % 2 ? 2 : -2;
+    if (sch?.id === 'vypad' && sch.faze === 'provadi') {
+      for (const [zpet, pruhlednost] of [[30, 0.2], [15, 0.4]]) {
+        ctx.globalAlpha = pruhlednost;
+        sprite(ctx, obr, x - sch.ux * zpet, y - sch.uy * zpet, sch.ux < 0 ? -1 : 1, (BARVY_BOSSU[n.druh] ?? BARVY_BOSSU.strazce).pruh, velikost);
+      }
+      ctx.globalAlpha = 1;
+    }
     if (n.druh === 'bludicka') {
       // Bludička se vznáší, mihotá a po přenesení se teprve zhmotní. Při nabíjení kolem ní roste záře.
       y += Math.round(Math.sin(hra.cas * 3) * 3);
       ctx.globalAlpha = (0.82 + 0.18 * Math.sin(hra.cas * 17)) * (1 - n.zjeveni / ZJEVENI_BLUDICKY);
-      if (n.nabiji > 0) {
-        const t = 1 - n.nabiji / NABITI_BLUDICKY;
+      if (sch?.id === 'vejir' && sch.faze === 'varovani') {
+        const t = prubehVarovani(sch);
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         ctx.fillStyle = `rgba(127,156,240,${(0.12 + 0.25 * t).toFixed(3)})`;
@@ -731,7 +855,9 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
       }
     }
     if (n.elita) obrysElity(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, velikost, hra.cas);
-    sprite(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : null, velikost);
+    const rudne = n.zuri && (hra.cas % PULZ_ZURIVOSTI) < PULZ_ZURIVOSTI / 3;
+    const prekryv = n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : rudne ? BARVA_ZURIVOSTI : null;
+    sprite(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, prekryv, velikost);
     if (n.zar > 0) rozzar(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, velikost, n.zar / TRVANI_ZARU);
     ctx.globalAlpha = 1;
     if (n.trny > 0) sponaTrnu(ctx, n, x, y, velikost);
@@ -751,6 +877,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
       ctx.fillRect(Math.round(x - 24), nad, 48, 5);
       ctx.fillStyle = (BARVY_BOSSU[n.druh] ?? BARVY_BOSSU.strazce).pruh;
       ctx.fillRect(Math.round(x - 24), nad, Math.round(48 * Math.max(0, n.hp) / n.maxHp), 5);
+      if (sch?.faze === 'varovani') vykricnik(ctx, x, nad - 32, (BARVY_BOSSU[n.druh] ?? BARVY_BOSSU.strazce).pruh, hra.cas);
     }
   }
 

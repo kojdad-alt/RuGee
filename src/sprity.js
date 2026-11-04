@@ -257,6 +257,15 @@ const SPRITY = {
     'GGDDD',
     '.DDD.',
   ],
+  // Kokon ze sítě, který hází Matka pavouků (po dopadu zalepí hrdinu).
+  kokon: [
+    '..aa..',
+    '.aHaa.',
+    'aaaHaA',
+    'aHaaaA',
+    '.AaHA.',
+    '..AA..',
+  ],
   truhla: [
     '........',
     '.hhhhhh.',

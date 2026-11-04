@@ -22,11 +22,14 @@
 // kořist padá podle šancí, zlaťák je po hře duše navíc a bomba složí nepřátele na obrazovce, ale ne Strážce
 // ani schovaného ducha.
 // Bossové: chodí po 3 minutách v pořadí Strážce, Matka, Obr, Bludička a pak znovu, každý s vlastním nápisem a
-// spritem 16×16. Každý živý boss má svůj pruh (bossBary). Každý útok zblízka: dupnutí trefí jen uvnitř kruhu a až po
-// napřahování, Matka pouští pavoučky (vyrazí rychleji) do limitu, kámen trefí toho, kdo stojí nebo běží rovně, a mine toho, kdo po hodu
-// změní směr, Bludička se přenese a vystřelí dva vějíře. Souboj s každým bossem zvlášť ukáže, jak dlouho trvá a kolik
-// životů stojí s uhýbáním a bez něj (na vyvážení).
-// Bot se útokům bossů vyhýbá jako člověk, který je vidí (místo dopadu, kruh dupnutí, letící střely).
+// spritem 16×16. Každý živý boss má svůj pruh (bossBary).
+// Schopnosti bossů: každý má 2–3 (data v SCHOPNOSTI a BOSSOVE) a střídá je dokola, každá začne varováním kolem
+// 0,8 s, při kterém boss stojí a nikomu neublíží. Dupnutí trefí jen v kruhu, odhodí a otřese obrazovkou; Hod hodí
+// 3–5 kamenů (stojícího trefí, kdo po hodu uhne, toho minou) a po dopadu vybuchnou; Výpad míří, zamkne směr a
+// proběhne rovně (kdo uhne kolmo, toho mine); Vyvolání přivolá 6–8 pomocníků do limitu; Vějíř Bludičky se přenese
+// a vystřelí. Pod polovinou životů boss zuří a střídá schopnosti rychleji. Souboj s každým bossem zvlášť ukáže, jak
+// dlouho trvá a kolik životů stojí s uhýbáním a bez něj (na vyvážení). Boss musí jít porazit a zároveň umí ublížit.
+// Bot se schopnostem bossů vyhýbá jako člověk, který je vidí (stín dopadu, kruh dupnutí, čára výpadu, střely).
 // Trnová past a Zrcadlový štít: trs vyraší pod nepřítelem (víc trsů každý jinde, za dosahem nic), než doroste,
 // neškodí, pak zraňuje a zpomalí (bosse napůl), zpomalení po vylezení dozní a trs zmizí. Zrcadlo odhodí, koho se
 // dotkne (bosse ne, schovaného ducha ani nevidí), a střelu bosse pošle zpátky, kde zraní nepřítele a ne hrdinu.
@@ -47,9 +50,9 @@ import {
   OD_DUCHU, VIDITELNY_DUCH, SKRYTY_DUCH, OD_HOUBAKU, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU, JED_OBLAKU,
   OD_VLKU, SMECKA_OD, SMECKA_DO, RYCHLOST_NEPRATEL, MAX_DUCHU, pridejNepritele, PASIVY, seznamVybavy, TRVANI_ZARU,
   MAX_BEDEN, KORIST_BEDEN, losujKorist, xpZBedny, JISKRA_NA_BEDNU, TRVANI_VYBUCHU,
-  PORADI_BOSSU, BOSSOVE, bossBary, POLOMER_DUPNUTI, NAPRAH_DUPNUTI, DUPNUTI, SNUSKA, MAX_PAVOUCKU, LET_KAMENE,
-  POLOMER_KAMENE, KAMEN, NABITI_BLUDICKY, STREL_BLUDICKY, STRELA_BLUDICKY, SALV_BLUDICKY, MEZI_SALVAMI,
-  VYRAZENI_PAVOUCKU, RYCHLOST_VYRAZENI,
+  PORADI_BOSSU, BOSSOVE, bossBary, MAX_PAVOUCKU, VYRAZENI_PAVOUCKU, RYCHLOST_VYRAZENI,
+  SCHOPNOSTI, schopnostiBosse, ZURIVOST, ZRYCHLENI_ZURIVOSTI, PRVNI_SCHOPNOST, TRES_DUPNUTI, TRVANI_DOPADU,
+  TRVANI_ODHOZENI_HRDINY,
   RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, MAX_TRNU, TRVANI_ODHOZENI, ZRYCHLENI_ODRAZU, poziceZrcadla,
   HROZBA, ELITA, silaHrozby, textHrozby, POLOMER_OBLAKU,
   zasah, kratkeCislo, TRVANI_CISLA, SLUCOVANI_CISEL, MAX_CISEL, NAD_PRAHEM,
@@ -180,9 +183,24 @@ function rozhodni(hra, t, uhyba = true) {
   };
   for (const o of hra.oblaky) utec(o, o.polomer + 20, 4);
   if (!uhyba) return smer(hra, t, dx, dy);
-  // Útoky bossů jsou vidět dopředu: místo dopadu kamene a kruh, kam Strážce dupne.
-  for (const k of hra.kameny) utec(k, POLOMER_KAMENE + 16, 4);
-  for (const n of hra.nepratele) if (n.naprah > 0) utec(n, POLOMER_DUPNUTI + 20, 2);
+  // Schopnosti bossů jsou vidět dopředu: stín dopadu kamene, rudý kruh dupnutí a čára výpadu.
+  for (const k of hra.kameny) utec(k, k.polomer + 16, 4);
+  for (const n of hra.nepratele) {
+    const sch = n.schopnost;
+    if (!n.boss || !sch) continue;
+    if (sch.id === 'dupnuti' && sch.faze === 'varovani') utec(n, sch.s.polomer + 30, 5);
+    if (sch.id === 'vypad') {
+      // Z čáry výpadu uhne kolmo na tu stranu, kde už je (za bossem je v bezpečí).
+      const vx = hrdina.x - n.x;
+      const vy = hrdina.y - n.y;
+      const bok = vx * -sch.uy + vy * sch.ux;
+      const pas = n.polomer + 50;
+      if (vx * sch.ux + vy * sch.uy < -n.polomer || Math.abs(bok) > pas) continue;
+      const strana = bok >= 0 ? 1 : -1;
+      dx += -sch.uy * strana * (pas - Math.abs(bok)) * 8;
+      dy += sch.ux * strana * (pas - Math.abs(bok)) * 8;
+    }
+  }
   // Střele Bludičky uhne stranou (utíkat před ní nejde, je rychlejší).
   for (const st of hra.strelyBossu) {
     const vx = hrdina.x - st.x;
@@ -226,6 +244,7 @@ function zvol(volby) {
 for (let t = 0; t < delka && !hra.konec; t += DT) {
   const hpPred = hra.hrdina.hp;
   const sitPred = hra.hrdina.sit;
+  const odhozenPred = hra.hrdina.odhozen;
   const { x: xPred, y: yPred } = hra.hrdina;
   const schovani = hra.nepratele.filter((n) => n.skryty).map((n) => [n, n.hp]);
   const hrozbaPred = hra.hrozba;
@@ -244,7 +263,8 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
     duchuSchovanych += 1;
     if (n.hp !== hp || !hra.nepratele.includes(n)) chybyNepratel.push(`schovaný duch dostal zásah v čase ${t.toFixed(1)} s`);
   }
-  maxDuchu = Math.max(maxDuchu, hra.nepratele.filter((n) => n.duch).length);
+  // Duchové od Bludičky mají svůj limit (vyvolání), sem se nepočítají.
+  maxDuchu = Math.max(maxDuchu, hra.nepratele.filter((n) => n.duch && !n.pan).length);
   const noviVlci = [];
   for (const n of hra.nepratele) {
     if (videni.has(n)) continue;
@@ -294,15 +314,16 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
     zasahu += 1;
     if (hra.cisla.some((c) => (c.barva === 'zraneni' || c.barva === 'jed') && c.od === hra.cas && c.hodnota === hpPred - hra.hrdina.hp)) cervenychCisel += 1;
     if (hra.tres === TRVANI_TRESU) tresu += 1;
-    if (hra.hrdina.sit === TRVANI_SITE) siti += 1;
+    if (hra.hrdina.sit === TRVANI_SITE && !hra.konec) siti += 1;
   }
   const pavouci = hra.nepratele.filter((n) => n.druh === 'pavouk').length;
   if (pavouci && prvniPavouk === null) prvniPavouk = hra.cas;
   maxPavouku = Math.max(maxPavouku, pavouci);
+  // Odhozený hrdina letí, i když je v síti (rána ho posune, ne nohy).
   if (sitPred > 0) {
     krokuVSiti += 1;
     const ujito = Math.hypot(hra.hrdina.x - xPred, hra.hrdina.y - yPred);
-    if (ujito > hra.hrdina.rychlost * ZPOMALENI_SITI * DT + 1e-6) {
+    if (!(odhozenPred > 0) && ujito > hra.hrdina.rychlost * ZPOMALENI_SITI * DT + 1e-6) {
       throw new Error(`hrdina v síti nezpomalil v čase ${t.toFixed(1)} s (${ujito.toFixed(2)} px za krok)`);
     }
   }
@@ -768,78 +789,231 @@ const bossZblizka = (druh, x, y) => {
   b.rychlost = 0;
   return [h, b];
 };
-// Strážce: kousek od hrdiny se napřáhne, a až pak vlna trefí (jednou). Kousek za kruhem dupne taky, ale netrefí.
-for (const [vzdal, ma] of [[100, true], [POLOMER_DUPNUTI + 40, false]]) {
-  const [h, b] = bossZblizka('strazce', vzdal, 0);
-  let naprahOd = null;
-  let zasahV = null;
-  let vln = 0;
-  const videneVlny = new WeakSet();
-  hraj(h, 4, () => {
-    if (b.naprah > 0 && naprahOd === null) naprahOd = h.cas;
-    for (const v of h.vlny) if (!videneVlny.has(v)) { videneVlny.add(v); vln += 1; }
-    if (h.hrdina.hp < h.hrdina.maxHp && zasahV === null) zasahV = h.cas;
-  });
-  if (!vln || naprahOd === null) chybyBossu.push(`Strážce ${vzdal} px od hrdiny nedupl`);
-  if (ma && (h.zasahyBossu.dupnuti !== 1 || h.hrdina.hp !== h.hrdina.maxHp - DUPNUTI)) chybyBossu.push(`dupnutí 100 px od Strážce: ${h.hrdina.hp} životů`);
-  if (ma && zasahV !== null && zasahV - naprahOd < NAPRAH_DUPNUTI - 1e-9) chybyBossu.push('dupnutí trefilo dřív, než se Strážce napřáhl');
-  if (!ma && h.hrdina.hp !== h.hrdina.maxHp) chybyBossu.push('dupnutí trefilo hrdinu za kruhem');
-}
-// Matka: první snůška kolem ní, pak přibývá jen do limitu.
-{
-  const [h, b] = bossZblizka('matka', 150, 0);
-  h.hrdina.nezranitelny = Infinity;
-  const pavoucci = () => h.nepratele.filter((n) => n.druh === 'pavoucek');
-  for (let t = 0; t < 3 && !pavoucci().length; t += DT) aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
-  if (pavoucci().length !== SNUSKA || pavoucci().some((n) => Math.hypot(n.x - b.x, n.y - b.y) > b.polomer + 20)) chybyBossu.push(`první snůška ${pavoucci().length} pavoučků`);
-  // čerstvě vypuštění vyrazí rychleji, po chvíli zpomalí na svou rychlost
-  if (!pavoucci().every((n) => n.vyrazi > 0) || !(RYCHLOST_VYRAZENI > 1)) chybyBossu.push('pavoučci po vypuštění nevyrazili');
-  hraj(h, VYRAZENI_PAVOUCKU + DT);
-  if (pavoucci().some((n) => n.vyrazi > 0)) chybyBossu.push('pavoučci nepřestali vyrážet');
-  let nejvic = 0;
-  hraj(h, 60, () => { nejvic = Math.max(nejvic, pavoucci().length); });
-  if (nejvic !== MAX_PAVOUCKU) chybyBossu.push(`Matka nakladla nejvýš ${nejvic} pavoučků`);
-}
-// Obr: stojícího hrdinu kámen trefí (až po letu), toho, kdo běží rovně, taky (míří mu do cesty). Kdo po hodu
-// zahne, toho mine.
-{
-  const [h] = bossZblizka('obr', 300, 0);
-  hraj(h, 2.4 + LET_KAMENE + 0.3);
-  if (h.zasahyBossu.kamen !== 1 || h.hrdina.hp !== h.hrdina.maxHp - KAMEN) chybyBossu.push(`kámen do stojícího hrdiny: ${h.zasahyBossu.kamen} zásahů`);
-  for (const zahne of [false, true]) {
-    const [b2] = bossZblizka('obr', 300, 0);
-    let hozeno = 0;
-    let predHrdinou = true;
-    const videne = new WeakSet();
-    for (let t = 0; t < 4.5; t += DT) {
-      aktualizuj(b2, DT, zahne && hozeno ? { dx: 1, dy: 0 } : { dx: 0, dy: 1 }, SIRKA, VYSKA);
-      for (const k of b2.kameny) {
-        if (videne.has(k)) continue;
-        videne.add(k);
-        hozeno += 1;
-        if (!(k.y > b2.hrdina.y + 30)) predHrdinou = false;
-      }
-    }
-    if (hozeno !== 1 || b2.zasahyBossu.kamen !== (zahne ? 0 : 1)) chybyBossu.push(`hrdina, který ${zahne ? 'zahne' : 'běží rovně'}: hozeno ${hozeno}, trefeno ${b2.zasahyBossu.kamen}`);
-    if (!predHrdinou) chybyBossu.push('obr nehází kámen tam, kam hrdina běží');
+// Boss zblízka, který hned v příštím snímku začne danou schopnost (pořadí se nastaví na ni).
+const sSchopnosti = (druh, id, x, y) => {
+  const [h, b] = bossZblizka(druh, x, y);
+  b.dalsiSchopnost = schopnostiBosse(druh).findIndex((s) => s.id === id);
+  b.doSchopnosti = DT / 2;
+  return [h, b, schopnostiBosse(druh)[b.dalsiSchopnost]];
+};
+// Hraje, dokud boss nezačne (a pak neskončí) schopnost. Vrací, kolik s to trvalo.
+const dokudVaruje = (h, b, kazdyKrok = () => {}) => {
+  let t = 0;
+  for (; t < 5 && !(b.schopnost?.faze === 'provadi') && (b.schopnost || t < DT * 2); t += DT) {
+    aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    if (b.schopnost?.faze === 'varovani') kazdyKrok(h);
+  }
+  return t;
+};
+const schopnostiPokusy = {};
+// Data: každý boss má 2–3 známé schopnosti, každá s varováním kolem 0,8 s. Všechny čtyři hlavní schopnosti
+// (dupnutí, hod, výpad, vyvolání) má aspoň jeden boss, hozené věci mají sprite a pomocníci jsou známí nepřátelé.
+for (const id of PORADI_BOSSU) {
+  const seznam = schopnostiBosse(id);
+  if (seznam.length < 2 || seznam.length > 3) chybyBossu.push(`${id} má ${seznam.length} schopností`);
+  if (!(BOSSOVE[id].pauza > 0)) chybyBossu.push(`${id} nemá pauzu mezi schopnostmi`);
+  for (const s of seznam) {
+    if (!Object.hasOwn(SCHOPNOSTI, s.id)) chybyBossu.push(`${id} má neznámou schopnost ${s.id}`);
+    if (!(s.varovani >= 0.7 && s.varovani <= 1)) chybyBossu.push(`${id}: ${s.id} varuje ${s.varovani} s`);
+    if (s.id === 'hod' && !jmenaSpritu.has(s.strela)) chybyBossu.push(`${id} hází ${s.strela} bez spritu`);
+    if (s.id === 'vyvolani' && (!Object.hasOwn(RYCHLOST_NEPRATEL, s.druh) || s.max < s.pocet[1])) chybyBossu.push(`${id} vyvolá ${s.druh}`);
   }
 }
-// Bludička: přenese se k hrdinovi, chvíli se nabíjí (stojí), vystřelí vějíř a prostřední střela stojícího trefí.
+for (const id of ['dupnuti', 'hod', 'vypad', 'vyvolani']) {
+  if (!PORADI_BOSSU.some((b) => schopnostiBosse(b).some((s) => s.id === id))) chybyBossu.push(`schopnost ${id} nemá žádný boss`);
+}
+// Dupnutí (Strážce i Obr): při varování boss stojí a nic se neděje, pak vlna. Kdo je v kruhu, dostane ránu jednou,
+// odletí o odhození a obrazovka se otřese víc než po obyčejném zásahu. Kousek za kruhem vlna netrefí.
+for (const druh of ['strazce', 'obr']) {
+  for (const uvnitr of [true, false]) {
+    const s0 = schopnostiBosse(druh).find((s) => s.id === 'dupnuti');
+    const [h, b, s] = sSchopnosti(druh, 'dupnuti', uvnitr ? 100 : s0.polomer + 40, 0);
+    const kde = { x: b.x, y: b.y };
+    let vlnaPriVarovani = false;
+    const varovani = dokudVaruje(h, b, () => { if (h.vlny.length || h.hrdina.hp < h.hrdina.maxHp) vlnaPriVarovani = true; });
+    if (vlnaPriVarovani || b.x !== kde.x || b.y !== kde.y) chybyBossu.push(`${druh}: dupnutí při varování`);
+    if (Math.abs(varovani - s.varovani) > 2 * DT) chybyBossu.push(`${druh}: dupnutí varovalo ${varovani.toFixed(2)} s`);
+    if (h.vlny.length !== 1 || !(h.tres > TRVANI_TRESU)) chybyBossu.push(`${druh}: po dupnutí ${h.vlny.length} vln, třes ${h.tres}`);
+    hraj(h, 1.2);
+    const odstup = Math.hypot(h.hrdina.x - b.x, h.hrdina.y - b.y);
+    if (uvnitr) {
+      if (h.zasahyBossu.dupnuti !== 1 || h.hrdina.hp !== h.hrdina.maxHp - s.poskozeni) chybyBossu.push(`${druh}: dupnutí v kruhu ${h.hrdina.hp} životů`);
+      if (Math.abs(odstup - (100 + s.odhozeni)) > 1) chybyBossu.push(`${druh}: dupnutí odhodilo na ${odstup.toFixed(1)} px`);
+      schopnostiPokusy[`${druh}_dupnuti`] = { varovani_s: +varovani.toFixed(2), rana: s.poskozeni, odhozen_na_px: Math.round(odstup) };
+    } else if (h.hrdina.hp !== h.hrdina.maxHp) chybyBossu.push(`${druh}: dupnutí trefilo hrdinu za kruhem`);
+  }
+}
+// Hod (Obr kameny, Matka kokony): po varování 3–5 kusů kolem hrdiny, stín je vidět celý let. Stojícího trefí jen
+// jednou (po zásahu chvíle bez zranění), po dopadu vybuchnou. Kokon zalepí sítí. Kdo po hodu uteče, toho minou.
+for (const druh of ['obr', 'matka']) {
+  for (const utece of [false, true]) {
+    const [h, b, s] = sSchopnosti(druh, 'hod', 300, 0);
+    dokudVaruje(h, b);
+    const kameny = [...h.kameny];
+    const daleko = Math.max(...kameny.map((k) => Math.hypot(k.x - h.hrdina.x, k.y - h.hrdina.y)));
+    if (kameny.length < s.pocet[0] || kameny.length > s.pocet[1] || daleko > s.rozptyl + 1) chybyBossu.push(`${druh}: hod ${kameny.length} kusů až ${daleko.toFixed(0)} px od hrdiny`);
+    if (kameny.some((k) => k.druh !== s.strela || k.trvani !== s.let)) chybyBossu.push(`${druh}: hod hází něco jiného`);
+    let dopadu = 0;
+    const videne = new WeakSet();
+    for (let t = 0; t < s.let + 0.6; t += DT) {
+      aktualizuj(h, DT, utece ? { dx: 0, dy: 1 } : { dx: 0, dy: 0 }, SIRKA, VYSKA);
+      for (const d of h.dopady) if (!videne.has(d)) { videne.add(d); dopadu += 1; }
+      if (h.hrdina.sit === TRVANI_SITE && !s.sit) chybyBossu.push(`${druh}: kámen zalepil sítí`);
+    }
+    if (dopadu !== kameny.length || h.kameny.length) chybyBossu.push(`${druh}: dopadlo ${dopadu} z ${kameny.length}`);
+    const zasahu = h.zasahyBossu.hod;
+    if (zasahu !== (utece ? 0 : 1)) chybyBossu.push(`${druh}: hod do hrdiny, který ${utece ? 'uteče' : 'stojí'}: ${zasahu} zásahů`);
+    if (!utece && (h.hrdina.hp !== h.hrdina.maxHp - s.poskozeni || (s.sit && !(h.hrdina.sit > 0)))) chybyBossu.push(`${druh}: hod vzal ${h.hrdina.maxHp - h.hrdina.hp}`);
+    if (!utece) schopnostiPokusy[`${druh}_hod`] = { kusu: kameny.length, rana: s.poskozeni, sit: s.sit };
+  }
+}
+// Kámen míří tam, kam hrdina běží (stojícímu pod nohy).
 {
-  const [h, b] = bossZblizka('bludicka', 500, 0);
+  const [h, b] = sSchopnosti('obr', 'hod', 300, 0);
+  for (let t = 0; t < 2 && !h.kameny.length; t += DT) aktualizuj(h, DT, { dx: 0, dy: 1 }, SIRKA, VYSKA);
+  if (!(h.kameny[0]?.y > h.hrdina.y + 30)) chybyBossu.push('hod nemíří tam, kam hrdina běží');
+  if (b.schopnost) chybyBossu.push('hod po vyhození neskončil');
+}
+// Výpad (Strážce, Matka): při varování boss stojí a míří na hrdinu, posledních zamek s už ne. Pak proběhne rovně
+// celou délku a stojícího trefí jednou a odhodí stranou. Kdo po zamčení uhne kolmo, toho mine.
+for (const druh of ['strazce', 'matka']) {
+  for (const uhne of [false, true]) {
+    const [h, b, s] = sSchopnosti(druh, 'vypad', 300, 0);
+    const kde = { x: b.x, y: b.y };
+    let t = 0;
+    let smerPredZamcenim = null;
+    for (; t < 3 && b.schopnost?.faze !== 'provadi'; t += DT) {
+      const zamceno = b.schopnost && b.schopnost.zbyva <= s.zamek;
+      // Před zamčením hrdina kousek ustoupí nahoru (míření ho musí sledovat), po zamčení stojí nebo uhýbá dolů.
+      aktualizuj(h, DT, zamceno ? (uhne ? { dx: 0, dy: 1 } : { dx: 0, dy: 0 }) : { dx: 0, dy: b.schopnost ? -1 : 0 }, SIRKA, VYSKA);
+      if (b.schopnost && b.schopnost.zbyva > s.zamek) smerPredZamcenim = { ux: b.schopnost.ux, uy: b.schopnost.uy };
+      if (b.schopnost?.faze === 'varovani' && (b.x !== kde.x || b.y !== kde.y || h.hrdina.hp < h.hrdina.maxHp)) chybyBossu.push(`${druh}: výpad při varování`);
+    }
+    const sch = b.schopnost;
+    if (!sch || !smerPredZamcenim) {
+      chybyBossu.push(`${druh}: výpad nezačal`);
+      continue;
+    }
+    if (!(smerPredZamcenim.uy < 0)) chybyBossu.push(`${druh}: výpad nesleduje hrdinu`);
+    const dalsi = { ux: sch.ux, uy: sch.uy };
+    for (let k = 0; k < 3 && b.schopnost; k++) aktualizuj(h, DT, uhne ? { dx: 0, dy: 1 } : { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    for (let k = 0; k < 2 / DT && b.schopnost; k++) aktualizuj(h, DT, uhne ? { dx: 0, dy: 1 } : { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    const ujel = Math.hypot(b.x - kde.x, b.y - kde.y);
+    if (Math.abs(ujel - s.delka) > 1 || b.schopnost) chybyBossu.push(`${druh}: výpad ujel ${ujel.toFixed(0)} px`);
+    if (Math.abs(dalsi.ux - smerPredZamcenim.ux) > 0.2) chybyBossu.push(`${druh}: výpad divně zamířil`);
+    if (h.zasahyBossu.vypad !== (uhne ? 0 : 1)) chybyBossu.push(`${druh}: výpad do hrdiny, který ${uhne ? 'uhne' : 'stojí'}: ${h.zasahyBossu.vypad}`);
+    if (!uhne) {
+      if (h.hrdina.hp !== h.hrdina.maxHp - s.poskozeni) chybyBossu.push(`${druh}: výpad vzal ${h.hrdina.maxHp - h.hrdina.hp}`);
+      schopnostiPokusy[`${druh}_vypad`] = { rana: s.poskozeni, ujel_px: Math.round(ujel), odhozen_stranou_px: Math.round(Math.abs(h.hrdina.y)) };
+    }
+  }
+}
+// Vyvolání (Strážce kostlivci, Matka pavoučci, Bludička duchové): při varování kruhy, ale nikdo nový. Po něm
+// tolik pomocníků, kolik bylo kruhů (6–8), na jejich místech. Nikdy jich nežije víc než max a s plnou loukou boss
+// vezme jinou schopnost.
+for (const druh of ['strazce', 'matka', 'bludicka']) {
+  const [h, b, s] = sSchopnosti(druh, 'vyvolani', 150, 0);
+  h.hrdina.nezranitelny = Infinity;
+  const pomocnici = () => h.nepratele.filter((n) => n.pan === b);
+  let behem = false;
+  let mista = [];
+  dokudVaruje(h, b, () => {
+    if (pomocnici().length) behem = true;
+    mista = b.schopnost.mista;
+  });
+  if (behem) chybyBossu.push(`${druh}: pomocníci před koncem varování`);
+  if (mista.length < s.pocet[0] || mista.length > s.pocet[1]) chybyBossu.push(`${druh}: ${mista.length} kruhů vyvolání`);
+  const prvni = pomocnici();
+  if (prvni.length !== mista.length || prvni.some((n) => n.druh !== s.druh) || !mista.every((m) => prvni.some((n) => Math.hypot(n.x - m.x, n.y - m.y) < 30))) {
+    chybyBossu.push(`${druh}: vyvolal ${prvni.length} (${prvni.map((n) => n.druh)})`);
+  }
+  if (s.vyrazi && !prvni.every((n) => n.vyrazi > 0)) chybyBossu.push(`${druh}: pomocníci nevyrazili`);
+  let nejvic = 0;
+  const pred = { ...h.schopnostiPouzito };
+  hraj(h, 60, () => { nejvic = Math.max(nejvic, h.nepratele.filter((n) => n.pan && n.druh === s.druh).length); });
+  if (nejvic > s.max) chybyBossu.push(`${druh}: pomocníků naráz ${nejvic} (max ${s.max})`);
+  const jine = schopnostiBosse(druh).filter((x) => x.id !== 'vyvolani').every((x) => h.schopnostiPouzito[x.id] > (pred[x.id] ?? 0));
+  if (!jine) chybyBossu.push(`${druh}: s plnou loukou nepoužil jiné schopnosti`);
+  schopnostiPokusy[`${druh}_vyvolani`] = { druh: s.druh, poprve: prvni.length, nejvic_naraz: nejvic };
+}
+// Matka: pavoučci po vylezení vyrazí rychleji a za chvíli zpomalí.
+{
+  const [h, b] = sSchopnosti('matka', 'vyvolani', 150, 0);
+  h.hrdina.nezranitelny = Infinity;
+  for (let t = 0; t < 3 && !h.nepratele.some((n) => n.pan === b); t += DT) aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  hraj(h, VYRAZENI_PAVOUCKU + DT);
+  if (h.nepratele.some((n) => n.pan === b && n.vyrazi > 0) || !(RYCHLOST_VYRAZENI > 1)) chybyBossu.push('pavoučci nepřestali vyrážet');
+}
+// Bludička: Vějíř ji přenese k hrdinovi, chvíli se nabíjí (stojí), vystřelí vějíř a za chvíli druhý, prostřední
+// střela stojícího trefí.
+{
+  const [h, b, s] = sSchopnosti('bludicka', 'vejir', 500, 0);
   b.rychlost = 40;
-  hraj(h, 2.5 + DT);
+  aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
   const d = Math.hypot(b.x - h.hrdina.x, b.y - h.hrdina.y);
-  if (!(d >= 120 && d <= 221) || !(b.nabiji > 0)) chybyBossu.push(`Bludička se přenesla na ${d.toFixed(0)} px`);
+  if (!(d >= 120 && d <= 221) || b.schopnost?.faze !== 'varovani') chybyBossu.push(`Bludička se přenesla na ${d.toFixed(0)} px`);
   const kde = { x: b.x, y: b.y };
-  hraj(h, NABITI_BLUDICKY - 2 * DT);
+  hraj(h, s.varovani - 3 * DT);
   if (b.x !== kde.x || b.y !== kde.y || h.strelyBossu.length) chybyBossu.push('Bludička se při nabíjení hýbe nebo střílí');
   hraj(h, 3 * DT);
-  if (h.strelyBossu.length !== STREL_BLUDICKY) chybyBossu.push(`Bludička vystřelila ${h.strelyBossu.length} střel`);
-  hraj(h, MEZI_SALVAMI);
-  if (h.strelyBossu.length !== STREL_BLUDICKY * SALV_BLUDICKY) chybyBossu.push(`Bludička po salvách: ${h.strelyBossu.length} střel`);
+  if (h.strelyBossu.length !== s.strel) chybyBossu.push(`Bludička vystřelila ${h.strelyBossu.length} střel`);
+  hraj(h, s.mezi);
+  if (h.strelyBossu.length !== s.strel * s.salv || b.schopnost) chybyBossu.push(`Bludička po salvách: ${h.strelyBossu.length} střel`);
   hraj(h, 1.6);
-  if (h.zasahyBossu.strela < 1 || (h.hrdina.maxHp - h.hrdina.hp) % STRELA_BLUDICKY !== 0) chybyBossu.push(`střely Bludičky: ${h.zasahyBossu.strela} zásahů, ${h.hrdina.hp} životů`);
+  if (h.zasahyBossu.vejir < 1 || (h.hrdina.maxHp - h.hrdina.hp) % s.poskozeni !== 0) chybyBossu.push(`střely Bludičky: ${h.zasahyBossu.vejir} zásahů, ${h.hrdina.hp} životů`);
+}
+// Střídání: první schopnost chvíli po příchodu, pak dokola v pořadí. Pod polovinou životů boss zuří (jednou
+// ohlásí) a mezi schopnostmi čeká kratší pauzu, takže jich stihne víc.
+for (const druh of PORADI_BOSSU) {
+  const pokus = (podil) => {
+    const [h, b] = bossZblizka(druh, 120, 0);
+    h.hrdina.nezranitelny = Infinity;
+    b.hp = Math.round(b.maxHp * podil);
+    const zacatky = [];
+    const pauzy = [];
+    let byla = null;
+    let zuri = 0;
+    hraj(h, 40, () => {
+      if (b.schopnost && b.schopnost !== byla) zacatky.push({ id: b.schopnost.id, s: h.cas });
+      if (byla && !b.schopnost) pauzy.push(b.doSchopnosti);
+      byla = b.schopnost;
+      if (h.oznameni?.text?.endsWith('zuří')) zuri += 1;
+      // Pomocníci by louku zaplnili a vyvolání by se přeskakovalo, tak hned zmizí. Hrdina i boss (mimo schopnost)
+      // zůstávají na svých místech, ať je každá schopnost v dosahu.
+      h.nepratele = h.nepratele.filter((n) => !n.pan);
+      Object.assign(h.hrdina, { x: 0, y: 0, odhozen: 0 });
+      if (!b.schopnost) Object.assign(b, { x: 120, y: 0 });
+    });
+    return { zacatky, pauzy, zuri, b };
+  };
+  const plny = pokus(1);
+  const zrany = pokus(ZURIVOST - 0.1);
+  const seznam = schopnostiBosse(druh).map((s) => s.id);
+  const poradi = plny.zacatky.slice(0, seznam.length * 2).map((z) => z.id);
+  if (Math.abs((plny.zacatky[0]?.s ?? 0) - PRVNI_SCHOPNOST) > 2 * DT) chybyBossu.push(`${druh}: první schopnost v ${plny.zacatky[0]?.s}`);
+  if (poradi.join() !== [...seznam, ...seznam].slice(0, poradi.length).join() || poradi.length < seznam.length * 2) chybyBossu.push(`${druh} střídá ${poradi}`);
+  if (plny.pauzy.some((p) => Math.abs(p - BOSSOVE[druh].pauza) > 1e-9) || plny.b.zuri || plny.zuri) chybyBossu.push(`${druh}: pauzy s plnými životy ${plny.pauzy}`);
+  if (zrany.pauzy.some((p) => Math.abs(p - BOSSOVE[druh].pauza * ZRYCHLENI_ZURIVOSTI) > 1e-9) || !zrany.b.zuri) chybyBossu.push(`${druh}: zuřící pauzy ${zrany.pauzy}`);
+  if (!(zrany.zacatky.length > plny.zacatky.length)) chybyBossu.push(`${druh}: zuřící ${zrany.zacatky.length} schopností, klidný ${plny.zacatky.length}`);
+  schopnostiPokusy[`${druh}_za_40_s`] = { klidny: plny.zacatky.length, zurici: zrany.zacatky.length };
+}
+// Boss umí ublížit: hrdina bez zbraní stojí 150 px od bosse, který nechodí, a schopnosti ho za 30 s trefí.
+for (const druh of PORADI_BOSSU) {
+  const [h] = bossZblizka(druh, 150, 0);
+  hraj(h, 30);
+  const zasahu = Object.values(h.zasahyBossu).reduce((a, c) => a + c, 0);
+  if (!(zasahu > 0) || !(h.hrdina.hp < h.hrdina.maxHp)) chybyBossu.push(`${druh} stojícího hrdinu za 30 s netrefil`);
+  schopnostiPokusy[`${druh}_stojici_30_s`] = { zasahu, ztraceno: Math.round(h.hrdina.maxHp - Math.max(0, h.hrdina.hp)), padl: h.konec };
+}
+// Zuřivost se ohlásí jednou, až životy klesnou pod polovinu.
+{
+  const [h, b] = bossZblizka('obr', 400, 0);
+  h.hrdina.nezranitelny = Infinity;
+  hraj(h, 1);
+  if (b.zuri) chybyBossu.push('obr zuří s plnými životy');
+  b.hp = Math.floor(b.maxHp * ZURIVOST) - 1;
+  aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  if (!b.zuri || h.oznameni?.text !== `${BOSSOVE.obr.nazev} zuří`) chybyBossu.push(`zuřivost bez ohlášení (${h.oznameni?.text})`);
 }
 // Dvě kola bossů: pořadí a nápisy, osm pruhů. Po zabití druhého pruh zmizí a truhla ví, od koho je.
 {
@@ -879,9 +1053,10 @@ for (const [vzdal, ma] of [[100, true], [POLOMER_DUPNUTI + 40, false]]) {
   if (bossove.some((b) => !h.nepratele.includes(b) || b.hp !== b.maxHp)) chybyBossu.push('bomba ublížila bossovi');
 }
 // Souboj s každým bossem zvlášť, hrdina ve 3. minutě (Jiskra 3, Blesk 2, Krumpáče 2) a bot hraje jako vždycky.
-// Sám na sám: za kolik ho porazí (musí do 90 s). Uprostřed vln, 60 s s uhýbáním a bez něj: kolikrát ho útok
-// bosse trefí a kolik životů hrdina ztratí (na vyvážení). Útoky všech bossů dohromady musí hrdinu, který
-// neuhýbá, trefit víckrát než toho, který uhýbá.
+// Sám na sám s uhýbáním: musí ho porazit do 90 s a přežít (boss je porazitelný). Sám na sám bez uhýbání: schopnosti
+// ho trefí víckrát než uhýbajícího. Uprostřed vln, 60 s s uhýbáním
+// a bez něj: kolikrát ho schopnosti trefí a kolik životů hrdina ztratí (na vyvážení). Ve vlnách i sám na sám musí
+// schopnosti všech bossů dohromady trefit neuhýbajícího víckrát než uhýbajícího.
 const souboje = {};
 const souboj = (druh, { uhyba = true, vlny = false, sekund = 90 } = {}) => {
   const h = novaHra(vytvorRng(seminko));
@@ -892,33 +1067,40 @@ const souboj = (druh, { uhyba = true, vlny = false, sekund = 90 } = {}) => {
   h.dalsiPrichod = Infinity;
   if (!vlny) { h.doSpawnu = Infinity; h.doBedny = Infinity; }
   const b = pridejNepritele(h, druh, 320, 0);
+  let zurilOd = null;
   for (let t = 0; t < sekund && (vlny || h.nepratele.includes(b)) && !h.konec; t += DT) {
     aktualizuj(h, DT, rozhodni(h, t, uhyba), SIRKA, VYSKA);
     if (h.volby) vyber(h, zvol(h.volby));
+    if (b.zuri && zurilOd === null) zurilOd = Math.round(h.cas - 180);
   }
+  const zasahy = Object.fromEntries(Object.entries(h.zasahyBossu).filter(([, v]) => v));
   return {
-    porazen: !h.nepratele.includes(b), konec: h.konec, zbyva: b.hp, za_s: Math.round(h.cas - 180),
-    ztraceno: h.hrdina.maxHp - Math.max(0, h.hrdina.hp), utokem: Object.values(h.zasahyBossu).reduce((a, c) => a + c, 0),
+    porazen: !h.nepratele.includes(b), konec: h.konec, zbyva: b.hp, za_s: Math.round(h.cas - 180), zuril_od_s: zurilOd,
+    ztraceno: Math.round(h.hrdina.maxHp - Math.max(0, h.hrdina.hp)), utokem: Object.values(h.zasahyBossu).reduce((a, c) => a + c, 0),
+    zasahy, pouzil: { ...h.schopnostiPouzito },
   };
 };
-let utokemUhyba = 0;
-let utokemNeuhyba = 0;
+const soucet = { samUhyba: 0, samNeuhyba: 0, vlnyUhyba: 0, vlnyNeuhyba: 0 };
 for (const druh of PORADI_BOSSU) {
   const sam = souboj(druh);
+  const samNe = souboj(druh, { uhyba: false });
   const uhyba = souboj(druh, { vlny: true, sekund: 60 });
   const neuhyba = souboj(druh, { vlny: true, sekund: 60, uhyba: false });
-  utokemUhyba += uhyba.utokem;
-  utokemNeuhyba += neuhyba.utokem;
+  soucet.samUhyba += sam.utokem;
+  soucet.samNeuhyba += samNe.utokem;
+  soucet.vlnyUhyba += uhyba.utokem;
+  soucet.vlnyNeuhyba += neuhyba.utokem;
+  const shrn = (v) => ({ porazen: v.porazen, za_s: v.za_s, padl: v.konec, ztraceno_zivotu: v.ztraceno, zasahu_schopnostmi: v.utokem, zasahy: v.zasahy });
   souboje[druh] = {
     sam_porazen_za_s: sam.porazen ? sam.za_s : null,
-    ve_vlnach_60_s: {
-      uhyba: { zasahu_utokem: uhyba.utokem, ztraceno_zivotu: uhyba.ztraceno, porazen: uhyba.porazen, padl: uhyba.konec },
-      neuhyba: { zasahu_utokem: neuhyba.utokem, ztraceno_zivotu: neuhyba.ztraceno, porazen: neuhyba.porazen, padl: neuhyba.konec },
-    },
+    sam_uhyba: { ...shrn(sam), zuril_od_s: sam.zuril_od_s, pouzil: sam.pouzil },
+    sam_neuhyba: shrn(samNe),
+    ve_vlnach_60_s: { uhyba: shrn(uhyba), neuhyba: shrn(neuhyba) },
   };
-  if (!sam.porazen) chybyBossu.push(`${druh} se sám na sám nedal porazit za 90 s (${sam.konec ? 'hrdina padl' : `zbývá ${sam.zbyva}`})`);
+  if (!sam.porazen || sam.konec) chybyBossu.push(`${druh} se sám na sám nedal porazit za 90 s (${sam.konec ? 'hrdina padl' : `zbývá ${sam.zbyva}`})`);
 }
-if (!(utokemNeuhyba > utokemUhyba)) chybyBossu.push(`útoky bossů trefí neuhýbajícího ${utokemNeuhyba}×, uhýbajícího ${utokemUhyba}×`);
+if (!(soucet.samNeuhyba > soucet.samUhyba)) chybyBossu.push(`sám na sám schopnosti trefí neuhýbajícího ${soucet.samNeuhyba}×, uhýbajícího ${soucet.samUhyba}×`);
+if (!(soucet.vlnyNeuhyba > soucet.vlnyUhyba)) chybyBossu.push(`ve vlnách schopnosti trefí neuhýbajícího ${soucet.vlnyNeuhyba}×, uhýbajícího ${soucet.vlnyUhyba}×`);
 
 // Trnová past a Zrcadlový štít zblízka. Hrdina stojí sám (bez vln, beden a bossů).
 const chybyZbrani = [];
@@ -1043,7 +1225,7 @@ for (const se of [true, false]) {
   if (se && (!strela.odrazena || !(Math.abs(strela.vx - 160 * ZRYCHLENI_ODRAZU) < 1e-9) || h.odrazeno !== 1)) chybyZbrani.push('zrcadlo střelu nevrátilo');
   hraj(h, 1.2);
   if (se && (h.hrdina.hp !== h.hrdina.maxHp || cil.hp !== cil.maxHp - z.odraz)) chybyZbrani.push(`vrácená střela: hrdina ${h.hrdina.hp}, slizák ${cil.hp}/${cil.maxHp}`);
-  if (!se && h.zasahyBossu.strela !== 1) chybyZbrani.push('střela bez zrcadla netrefila hrdinu');
+  if (!se && h.zasahyBossu.vejir !== 1) chybyZbrani.push('střela bez zrcadla netrefila hrdinu');
 }
 // Bludička 20 s střílí na hrdinu, který stojí a nic jiného nemá: se třemi zrcadly (4. úroveň) jí část střel
 // vrátí (zraní ji) a hrdinu trefí méně střel než bez nich. Aby se počítala každá střela, která doletí,
@@ -1055,7 +1237,7 @@ for (const se of [true, false]) {
     h.hrdina.hp = 1e6;
     h.hrdina.maxHp = 1e6;
     hraj(h, 20, () => { h.hrdina.nezranitelny = 0; });
-    return { zasahu_strelou: h.zasahyBossu.strela, vraceno: h.odrazeno, bludicka_ztratila: b.maxHp - b.hp };
+    return { zasahu_strelou: h.zasahyBossu.vejir, vraceno: h.odrazeno, bludicka_ztratila: b.maxHp - b.hp };
   };
   const bez = pokus({});
   const se = pokus({ zrcadlo: { uroven: 4, nabiti: 0 } });
@@ -1247,7 +1429,8 @@ for (let t = 0; t < 10; t += DT) {
 }
 if (hodina.konec || hodina.hrozba !== 61 || !hlaseniNaHodine?.startsWith('Hrozba 61')) chybyHrozby.push(`hodina hry: konec ${hodina.konec}, hrozba ${hodina.hrozba}, ohlášení ${hlaseniNaHodine}`);
 if (!hodina.nepratele.length || hodina.nepratele.some((n) => !Number.isFinite(n.hp) || !(n.hp > 0) || !Number.isFinite(n.poskozeni) || !Number.isFinite(n.rychlost))) chybyHrozby.push('v 60. minutě nepřátelé bez konečných čísel');
-if (maxNaHodine > HROZBA.stropNepratel + SMECKA_DO * 3 + SNUSKA * 4) chybyHrozby.push(`v 60. minutě ${maxNaHodine} nepřátel naráz`);
+const vyvolaniNaraz = Math.max(...PORADI_BOSSU.flatMap((id) => schopnostiBosse(id).filter((x) => x.id === 'vyvolani').map((x) => x.pocet[1])));
+if (maxNaHodine > HROZBA.stropNepratel + SMECKA_DO * 3 + vyvolaniNaraz * 4) chybyHrozby.push(`v 60. minutě ${maxNaHodine} nepřátel naráz`);
 // Elity v hlavní hře: před elitaOd žádná, mezi elitaOd a castejiOd zhruba elitaSance, potom víc.
 const podil = ([kolik, elit]) => (kolik ? elit / kolik : null);
 if (elityPodleCasu.pred[1]) chybyHrozby.push(`${elityPodleCasu.pred[1]} elit před ${HROZBA.elitaOd}. minutou`);
@@ -1379,7 +1562,8 @@ const vysledek = {
     rozbila_zbran_za_s: rozbiteZbrani,
   },
   bossove: {
-    prisli: prisliBossove, zabito: hra.zabitoBossu, zasahy_hrdiny: hra.zasahyBossu, max_pavoucku: maxPavoucku, souboje,
+    prisli: prisliBossove, zabito: hra.zabitoBossu, zasahy_hrdiny: hra.zasahyBossu, schopnosti_pouzil: hra.schopnostiPouzito,
+    max_pavoucku: maxPavoucku, souboje, zasahu_schopnostmi_celkem: soucet, schopnosti_zblizka: schopnostiPokusy,
   },
   urovne_bez_stropu: {
     zbrane_hlavni_hry: Object.fromEntries(Object.entries(hra.zbrane).map(([id, z]) => [id, z.uroven])),
