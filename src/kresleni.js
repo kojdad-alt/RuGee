@@ -5,7 +5,7 @@ import {
   RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, TRVANI_ODLESKU, poziceZrcadla, TRVANI_HLASENI_HROZBY, TRVANI_OTEVRENI,
   KUPEC, CENA_ZAMCENE, POLOMER_ZAMCENE, zakladBosse, DOPAD_KRYSTALU, DOZNIVANI_MRAZU, TRVANI_TRISTENI,
   KYV_ZVONU, ZRANI_SEMINKA, POMER_KERE, RUST_KERE, VADNUTI_KERE, TRVANI_VYBUCHU_SEMINKA,
-  VYRAZENI_KORENU, VZPLANUTI, DOHASINANI, PAD_KAMENE,
+  VYRAZENI_KORENU, VZPLANUTI, DOHASINANI, PAD_KAMENE, TRVANI_DOZVUKU, poziceUhliku,
 } from './hra.js';
 import { kresliPodlahu } from './louka.js';
 import { MAPY, VYCHOZI_MAPA, hash } from './mapy.js';
@@ -602,6 +602,58 @@ function zrcadlaHrdiny(ctx, hra, s, stred) {
     const faze = (hra.cas / TREPOT_ZRCADEL + i * 0.37) % 1;
     if (faze < 0.12) kresli1(uhel, '#ffffff', 0.7 * Math.sin((faze / 0.12) * Math.PI));
   }
+}
+
+// Uhlíky lucerny (Příval): žhavé čtverečky na okraji světla, za každým krátký ohon, občas vyšlehne jiskra.
+function uhlikyLucerny(ctx, hra, s, naObrazovce) {
+  ctx.save();
+  for (let i = 0; i < s.lucerna.uhliky; i++) {
+    const u = poziceUhliku(hra, i, s);
+    const p = naObrazovce(u);
+    const blik = Math.sin(hra.cas * 9 + i * 2.1) > 0.6;
+    // ohon za uhlíkem: kde byl před chvílí (krouží proti směru hodinových ručiček)
+    for (let k = 1; k <= 3; k++) {
+      const zpet = u.uhel + k * 0.09;
+      const o = naObrazovce({ x: hra.hrdina.x + Math.cos(zpet) * s.lucerna.dosah, y: hra.hrdina.y + Math.sin(zpet) * s.lucerna.dosah });
+      ctx.globalAlpha = 0.5 - k * 0.13;
+      ctx.fillStyle = '#e0662a';
+      ctx.fillRect(Math.round(o.x - 2), Math.round(o.y - 2), 4, 4);
+    }
+    // záře, tmavý obrys, žhavé tělo a světlé jádro
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = blik ? 0.45 : 0.3;
+    ctx.fillStyle = '#ff8c3a';
+    ctx.fillRect(Math.round(p.x - 8), Math.round(p.y - 8), 16, 16);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#0b0a0f';
+    ctx.fillRect(Math.round(p.x - 5), Math.round(p.y - 5), 10, 10);
+    ctx.fillStyle = '#e0662a';
+    ctx.fillRect(Math.round(p.x - 4), Math.round(p.y - 4), 8, 8);
+    ctx.fillStyle = '#ffb347';
+    ctx.fillRect(Math.round(p.x - 3), Math.round(p.y - 3), 5, 5);
+    ctx.fillStyle = blik ? '#ffffff' : '#fff3b0';
+    ctx.fillRect(Math.round(p.x - 2), Math.round(p.y - 2), 2, 2);
+  }
+  ctx.restore();
+}
+
+// Dozvuk ozvěny: fialový pixelový kroužek, který se rozběhne a zhasne (u hrdiny větší, u nepřítele menší).
+function dozvuky(ctx, hra, naObrazovce) {
+  if (!hra.dozvuky?.length) return;
+  ctx.save();
+  for (const d of hra.dozvuky) {
+    const t = 1 - d.zivot / TRVANI_DOZVUKU;
+    const p = naObrazovce(d);
+    const r = Math.round((d.velky ? 12 : 6) + t * (d.velky ? 26 : 14));
+    ctx.globalAlpha = Math.max(0, 1 - t) * 0.8;
+    const { obvod } = pixelovyKruh(Math.max(1, Math.round(r / MERITKO)));
+    for (const [barva, posun] of [['#5e2f86', 1], ['#d6a9f2', 0]]) {
+      ctx.fillStyle = barva;
+      for (const [a, b] of obvod) ctx.fillRect(Math.round(p.x + a * MERITKO - 1 + posun), Math.round(p.y + b * MERITKO - 1 + posun), MERITKO, MERITKO);
+    }
+  }
+  ctx.restore();
 }
 
 // Odlesk po odražené střele nebo odhození: čtyřcípá jiskra, roste a zhasíná.
@@ -1415,6 +1467,7 @@ const PISMO_CISEL = {
   8: ['XXX', 'X.X', 'XXX', 'X.X', 'XXX'],
   9: ['XXX', 'X.X', 'XXX', '..X', 'XXX'],
   '+': ['...', '.X.', 'XXX', '.X.', '...'],
+  '!': ['X', 'X', 'X', '.', 'X'],
   '-': ['...', '...', 'XXX', '...', '...'],
   k: ['X..', 'X.X', 'XX.', 'X.X', 'X.X'],
   M: ['X...X', 'XX.XX', 'X.X.X', 'X...X', 'X...X'],
@@ -1424,6 +1477,7 @@ const OBRYS_CISEL = '#0b0a0f';
 const BARVY_CISEL = {
   zasah: ['#ffffff', '#cfc9dc'],
   silny: ['#ffe14d', '#f0a830'],
+  krit: ['#ffe98a', '#ff6b1a'],
   zraneni: ['#ff5a5a', '#c8323e'],
   jed: ['#ff5a5a', '#c8323e'],
   ohen: ['#ffb347', '#e0662a'],
@@ -1432,10 +1486,10 @@ const BARVY_CISEL = {
   utrata: ['#c4862f', '#8a5a35'],
 };
 // Násobek velikosti podle druhu (silný zásah je větší, čísla nad hrdinou o kus větší než zásahy).
-const VELIKOST_CISEL = { silny: 1.5, zraneni: 1.25, jed: 1.25, ohen: 1.25, leceni: 1.25, zlato: 1.25, utrata: 1.25 };
+const VELIKOST_CISEL = { krit: 1.75, silny: 1.5, zraneni: 1.25, jed: 1.25, ohen: 1.25, leceni: 1.25, zlato: 1.25, utrata: 1.25 };
 // Čísla nad hrdinou se kreslí vždy navrchu. Se zhasnutými čísly poškození zůstane jen léčení a zlaťáky.
 const NAD_HRDINOU = new Set(['zraneni', 'jed', 'ohen', 'leceni', 'zlato', 'utrata']);
-const POSKOZENI = new Set([null, 'silny', 'zraneni', 'jed', 'ohen']);
+const POSKOZENI = new Set([null, 'silny', 'krit', 'zraneni', 'jed', 'ohen']);
 // Číslo nejdřív krátce poskočí (i po přičtení další rány), vyletí o VYSKOK pixelů písma a na konci zprůhlední.
 const POSKOK_CISLA = 0.08;
 const VYSKOK_CISLA = 9;
@@ -1920,10 +1974,12 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
   vybuchySeminek(ctx, hra, naObrazovce);
   kamenyPraku(ctx, hra, naObrazovce);
 
+  // Jiskry: čtvereček 1,5× tak velký, kam až zasáhnou (s Rozpětím větší).
   ctx.fillStyle = '#ffd27a';
   for (const st of hra.strely) {
     const p = naObrazovce(st);
-    ctx.fillRect(Math.round(p.x - 3), Math.round(p.y - 3), 6, 6);
+    const v = Math.max(6, Math.round((st.velikost ?? 4) * 1.5));
+    ctx.fillRect(Math.round(p.x - v / 2), Math.round(p.y - v / 2), v, v);
   }
 
   // blesky: lomená čára mezi zasaženými, náhodné zuby se mění každý snímek
@@ -1958,12 +2014,16 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
       ctx.save();
       ctx.translate(stred.x + Math.cos(uhel) * s.krumpace.polomer, stred.y + Math.sin(uhel) * s.krumpace.polomer);
       ctx.rotate(uhel * 2);
-      const v = sprity.krumpac.width * MERITKO;
+      // S Rozpětím sahá krumpáč dál, a tak je i větší (celé násobky pixelu, ať zůstane ostrý).
+      const m = Math.max(MERITKO, Math.round((MERITKO * s.krumpace.velikost) / 10));
+      const v = sprity.krumpac.width * m;
       ctx.drawImage(sprity.krumpac, -v / 2, -v / 2, v, v);
       ctx.restore();
     }
   }
   if (hra.zbrane.zrcadlo) zrcadlaHrdiny(ctx, hra, s, stred);
+  if (hra.zbrane.lucerna && s.lucerna.uhliky > 0) uhlikyLucerny(ctx, hra, s, naObrazovce);
+  dozvuky(ctx, hra, naObrazovce);
   for (const o of hra.odlesky ?? []) {
     const p = naObrazovce(o);
     odlesk(ctx, p.x, p.y, o);
