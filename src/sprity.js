@@ -398,6 +398,51 @@ const SPRITY = {
     '.hNhhNh.',
     '........',
   ],
+  // Trnová past: ikona je trs rudých trnitých šlahounů s bledými ostny, který raší ze země. Ve hře se z menších
+  // trsů (trs) skládá celá past a nepřítel v ní má kolem nohou omotané šlahouny (spona).
+  trny: [
+    '...W....',
+    '...eW.W.',
+    '.W.E..e.',
+    'We.E.WE.',
+    '.EWEe.E.',
+    '.lE.EeEl',
+    'lLElLELL',
+    '.NNNNNN.',
+  ],
+  trs: [
+    '..W..',
+    '..eW.',
+    'W.E.W',
+    'e.EeE',
+    'ElE.E',
+    'LLLLL',
+  ],
+  spona: [
+    'W.e..e.W',
+    'eEWEEWEe',
+    '.E.EE.E.',
+  ],
+  // Zrcadlový štít: ikona je kulatý štít se zrcadlem a odleskem, kolem hrdiny krouží menší zrcadla (strep).
+  zrcadlo: [
+    '..pHHp..',
+    '.pUaaAp.',
+    'pUaAAAAp',
+    'HaAAAAuH',
+    'HaAAAuuH',
+    'pAAAuuup',
+    '.pAuuup.',
+    '..pHHp..',
+  ],
+  strep: [
+    '.pp.',
+    'pUap',
+    'paAp',
+    'pAAp',
+    'pAup',
+    'puup',
+    '.pp.',
+  ],
   krumpac: [
     '.ppppp..',
     'p..h..p.',

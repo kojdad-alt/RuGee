@@ -24,6 +24,10 @@
 // změní směr, Bludička se přenese a vystřelí dva vějíře. Souboj s každým bossem zvlášť ukáže, jak dlouho trvá a kolik
 // životů stojí s uhýbáním a bez něj (na vyvážení).
 // Bot se útokům bossů vyhýbá jako člověk, který je vidí (místo dopadu, kruh dupnutí, letící střely).
+// Trnová past a Zrcadlový štít: trs vyraší pod nepřítelem (víc trsů každý jinde, za dosahem nic), než doroste,
+// neškodí, pak zraňuje a zpomalí (bosse napůl), zpomalení po vylezení dozní a trs zmizí. Zrcadlo odhodí, koho se
+// dotkne (bosse ne, schovaného ducha ani nevidí), a střelu bosse pošle zpátky, kde zraní nepřítele a ne hrdinu.
+// Každá zbraň má 5 řádků popisu a ikonu se spritem.
 import { readFileSync } from 'node:fs';
 import { vytvorRng } from '../src/rng.js';
 import {
@@ -36,6 +40,7 @@ import {
   PORADI_BOSSU, BOSSOVE, bossBary, POLOMER_DUPNUTI, NAPRAH_DUPNUTI, DUPNUTI, SNUSKA, MAX_PAVOUCKU, LET_KAMENE,
   POLOMER_KAMENE, KAMEN, NABITI_BLUDICKY, STREL_BLUDICKY, STRELA_BLUDICKY, SALV_BLUDICKY, MEZI_SALVAMI,
   VYRAZENI_PAVOUCKU, RYCHLOST_VYRAZENI,
+  RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, MAX_TRNU, TRVANI_ODHOZENI, ZRYCHLENI_ODRAZU, poziceZrcadla,
 } from '../src/hra.js';
 import {
   VYLEPSENI, DUSE_ZA, dusZaHru, cenaVylepseni, kupVylepseni, vratDuse, utraceno,
@@ -80,6 +85,7 @@ let maxBeden = 0;
 const prisliBossove = [];
 const chybyBossu = [];
 let maxPavoucku = 0;
+let maxTrsu = 0;
 // Bedna je celá mimo obrazovku, když její sprite (30 px) nezasahuje do výřezu kolem hrdiny.
 const mimoObrazovku = (b, h) => Math.abs(b.x - h.x) > SIRKA / 2 + 15 || Math.abs(b.y - h.y) > VYSKA / 2 + 15;
 
@@ -221,6 +227,7 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
     chybyBossu.push(`pruhy bossů nesedí v čase ${t.toFixed(1)} s`);
   }
   maxPavoucku = Math.max(maxPavoucku, hra.nepratele.filter((n) => n.druh === 'pavoucek').length);
+  maxTrsu = Math.max(maxTrsu, hra.trny.length);
   if (noviVlci.length) {
     const rozptyl = Math.max(...noviVlci.map((n) => Math.hypot(n.x - noviVlci[0].x, n.y - noviVlci[0].y)));
     smecky.push(noviVlci.length);
@@ -306,7 +313,8 @@ const obycejna = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA);
 const sB = staty(bourka);
 const sO = staty(obycejna);
 if (!(sB.jiskra.nabiti < sO.jiskra.nabiti && sB.blesk.nabiti < sO.blesk.nabiti
-  && sB.lucerna.tik < sO.lucerna.tik && sB.krumpace.rychlost > sO.krumpace.rychlost)) {
+  && sB.lucerna.tik < sO.lucerna.tik && sB.krumpace.rychlost > sO.krumpace.rychlost
+  && sB.trny.nabiti < sO.trny.nabiti && sB.zrcadlo.rychlost > sO.zrcadlo.rychlost)) {
   chybyTrid.push('kratší nabíjení Bouřliváka nezrychlilo všechny zbraně');
 }
 
@@ -600,7 +608,9 @@ const bedna = (h, x, y, druh = 'bedna') => {
 const korist = (h) => Object.values(h.zBeden).reduce((a, b) => a + b, 0);
 // Každá zbraň rozbije bednu, na kterou dosáhne. Bedna daleko (500 px) zůstane celá.
 const dosahLucerny1 = staty(novaHra(vytvorRng(seminko), 'svetlonos')).lucerna.dosah;
-const kdeBedna = { jiskra: [150, 0], lucerna: [dosahLucerny1 - 10, 0], krumpace: [64, 0], blesk: [200, 0] };
+const kdeBedna = {
+  jiskra: [150, 0], lucerna: [dosahLucerny1 - 10, 0], krumpace: [64, 0], blesk: [200, 0], trny: [150, 0], zrcadlo: [34, 0],
+};
 const rozbiteZbrani = {};
 for (const id of Object.keys(ZBRANE)) {
   const h = tichaHra({ [id]: { uroven: 1, nabiti: 0 } });
@@ -853,6 +863,151 @@ for (const druh of PORADI_BOSSU) {
 }
 if (!(utokemNeuhyba > utokemUhyba)) chybyBossu.push(`útoky bossů trefí neuhýbajícího ${utokemNeuhyba}×, uhýbajícího ${utokemUhyba}×`);
 
+// Trnová past a Zrcadlový štít zblízka. Hrdina stojí sám (bez vln, beden a bossů).
+const chybyZbrani = [];
+for (const [id, z] of Object.entries(ZBRANE)) {
+  if (z.popis.length !== MAX_UROVEN || !z.popis.every((r) => typeof r === 'string' && r)) chybyZbrani.push(`${id} nemá ${MAX_UROVEN} řádků popisu`);
+  if (!jmenaSpritu.has(z.ikona)) chybyZbrani.push(`${id} nemá sprite ikony ${z.ikona}`);
+}
+const samotny = (zbrane) => {
+  const h = tichaHra(zbrane);
+  h.dalsiBoss = Infinity;
+  h.dalsiSmecka = Infinity;
+  h.dalsiPrichod = Infinity;
+  return h;
+};
+const krok = (h) => {
+  const x = h.nepratele.map((n) => [n, n.x, n.y]);
+  aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  return new Map(x.map(([n, x0, y0]) => [n, Math.hypot(n.x - x0, n.y - y0)]));
+};
+const trnovePokusy = {};
+// Kostlivec jde k hrdinovi: trs vyraší pod ním, roste (nezraní), pak zraňuje a zpomalí, mimo trs zpomalení dozní.
+{
+  const h = samotny({ trny: { uroven: 1, nabiti: 0 } });
+  const st = staty(h).trny;
+  const kost = pridejNepritele(h, 'kostlivec', 150, 0);
+  krok(h);
+  const trs = h.trny[0];
+  if (h.trny.length !== 1 || trs.x !== kost.x || trs.y !== kost.y) chybyZbrani.push(`trs nevyrašil pod nepřítelem (${h.trny.length} trsů)`);
+  hraj(h, RUST_TRNU - 2 * DT);
+  if (kost.hp !== kost.maxHp || kost.trny > 0) chybyZbrani.push('trs zraňuje nebo zpomaluje, i když teprve roste');
+  hraj(h, 3 * DT);
+  if (!(kost.hp < kost.maxHp) || !(kost.trny > 0)) chybyZbrani.push(`dorostlý trs nezranil nebo nezpomalil (${kost.hp}/${kost.maxHp})`);
+  const vTrni = krok(h).get(kost);
+  if (Math.abs(vTrni - kost.rychlost * st.zpomaleni * DT) > 1e-6) chybyZbrani.push(`v trní ušel ${vTrni.toFixed(3)} px místo ${(kost.rychlost * st.zpomaleni * DT).toFixed(3)}`);
+  let venku = null;
+  for (let t = 0; t < 2 && venku === null; t += DT) {
+    krok(h);
+    if (Math.hypot(kost.x - trs.x, kost.y - trs.y) >= trs.polomer + kost.polomer / 2) venku = h.cas;
+  }
+  hraj(h, DOZNIVANI_TRNU - 2 * DT);
+  if (!(kost.trny > 0)) chybyZbrani.push('zpomalení po vylezení z trní nedoznělo');
+  hraj(h, 3 * DT);
+  const mimo = krok(h).get(kost);
+  if (kost.trny !== 0 || Math.abs(mimo - kost.rychlost * DT) > 1e-6) chybyZbrani.push(`mimo trní kostlivec pořád pomalý (${mimo.toFixed(3)} px)`);
+  hraj(h, st.trvani);
+  if (h.trny.includes(trs)) chybyZbrani.push('trs nezmizel');
+  trnovePokusy.kostlivec = { zraneni: kost.maxHp - kost.hp, vylezl_za_s: venku === null ? null : Math.round(venku * 100) / 100 };
+}
+// Na 4. úrovni tři trsy pod třemi nejbližšími, ale ne dva na sobě. Nepřítel za dosahem nic nespustí,
+// a zbraň zůstane nabitá, dokud někdo nepřijde.
+{
+  const h = samotny({ trny: { uroven: 4, nabiti: 0 } });
+  const st = staty(h).trny;
+  const cile = [[100, 0], [110, 0], [0, 120], [-140, 0], [0, -200]].map(([x, y]) => pridejNepritele(h, 'slizak', x, y));
+  for (const n of cile) n.rychlost = 0;
+  krok(h);
+  const mista = h.trny.map((p) => `${p.x},${p.y}`).join(' ');
+  if (st.pocet !== 3 || mista !== '100,0 0,120 -140,0') chybyZbrani.push(`3 trsy vyrašily na ${mista}`);
+  const daleko = samotny({ trny: { uroven: 1, nabiti: 0 } });
+  const dalekyNepritel = pridejNepritele(daleko, 'slizak', staty(daleko).trny.dosah + 50, 0);
+  dalekyNepritel.rychlost = 0;
+  hraj(daleko, 1);
+  if (daleko.trny.length) chybyZbrani.push('trny vyrašily pod nepřítelem za dosahem');
+  dalekyNepritel.x = 200;
+  krok(daleko);
+  if (daleko.trny.length !== 1) chybyZbrani.push('nabité trny nevyrašily, když nepřítel přišel do dosahu');
+  // Schovaný duch trsy nespustí ani v nich nic nedostane.
+  const tma = samotny({ trny: { uroven: 5, nabiti: 0 } });
+  const duch = pridejNepritele(tma, 'duch', 80, 0);
+  Object.assign(duch, { rychlost: 0, skryty: true, duchCas: 100 });
+  tma.trny.push({ x: 80, y: 0, polomer: 34, trvani: 3, zivot: 3 - RUST_TRNU, tik: 0, poskozeni: 9, zpomaleni: 0.35 });
+  hraj(tma, 1);
+  if (duch.hp !== duch.maxHp || duch.trny > 0 || tma.trny.length !== 1) chybyZbrani.push('trny našly schovaného ducha');
+}
+// Boss v trní zpomalí jen napůl. Po celou dobu trsu se nikam nenahromadí (nejvýš MAX_TRNU).
+{
+  const h = samotny({ trny: { uroven: 5, nabiti: 0 } });
+  const st = staty(h).trny;
+  const obr = pridejNepritele(h, 'obr', 200, 0);
+  hraj(h, RUST_TRNU + 2 * DT);
+  const ujito = krok(h).get(obr);
+  const ocekavano = obr.rychlost * (1 - (1 - st.zpomaleni) / 2) * DT;
+  if (Math.abs(ujito - ocekavano) > 1e-6) chybyZbrani.push(`boss v trní ušel ${ujito.toFixed(3)} px místo ${ocekavano.toFixed(3)}`);
+  if (MAX_TRNU < st.pocet * Math.ceil(st.trvani / st.nabiti)) chybyZbrani.push('limit trsů je menší, než kolik jich může růst naráz');
+}
+// Zrcadlo: slizák u zrcadla dostane ránu a odletí, boss jen ránu, schovaného ducha zrcadlo nevidí.
+const zrcadlovePokusy = {};
+{
+  const h = samotny({ zrcadlo: { uroven: 1, nabiti: 0 } });
+  const z = staty(h).zrcadlo;
+  const p0 = poziceZrcadla(h, 0);
+  if (Math.abs(p0.x - z.polomer) > 1e-9 || p0.y !== 0) chybyZbrani.push('zrcadlo nezačíná vpravo od hrdiny');
+  const sliz = pridejNepritele(h, 'slizak', z.polomer + 4, 0);
+  sliz.rychlost = 0;
+  krok(h);
+  if (!(sliz.hp < sliz.maxHp) || !(sliz.odhozen > 0) || h.odhozeno !== 1) chybyZbrani.push('zrcadlo neodhodilo slizáka');
+  hraj(h, TRVANI_ODHOZENI + DT);
+  const odstup = Math.hypot(sliz.x, sliz.y);
+  if (!(odstup >= z.polomer + 4 + z.odhozeni - 1) || sliz.odhozen !== 0) chybyZbrani.push(`odhozený slizák je ${odstup.toFixed(1)} px od hrdiny`);
+  zrcadlovePokusy.odhozeni_px = Math.round(odstup - z.polomer - 4);
+  if (h.hrdina.hp !== h.hrdina.maxHp) chybyZbrani.push('slizák u zrcadla zranil hrdinu');
+
+  const b = samotny({ zrcadlo: { uroven: 1, nabiti: 0 } });
+  const boss = pridejNepritele(b, 'strazce', z.polomer + 16, 0);
+  boss.rychlost = 0;
+  const duch = pridejNepritele(b, 'duch', 0, -z.polomer);
+  Object.assign(duch, { rychlost: 0, skryty: true, duchCas: 100 });
+  hraj(b, 3);
+  if (!(boss.hp < boss.maxHp) || boss.x !== z.polomer + 16 || boss.y !== 0) chybyZbrani.push('zrcadlo s bossem pohnulo nebo ho nezranilo');
+  if (duch.hp !== duch.maxHp || duch.x !== 0 || duch.y !== -z.polomer) chybyZbrani.push('zrcadlo zasáhlo schovaného ducha');
+}
+// Střela bosse do zrcadla: vrátí se zpátky rychleji, hrdinu netrefí a zraní slizáka, který stojí za ní.
+// Bez zrcadla stejná střela trefí hrdinu.
+for (const se of [true, false]) {
+  const h = samotny(se ? { zrcadlo: { uroven: 1, nabiti: 0 } } : {});
+  const z = staty(h).zrcadlo;
+  const cil = pridejNepritele(h, 'slizak', 150, 0);
+  cil.rychlost = 0;
+  const strela = { x: z.polomer + 6, y: 0, vx: -160, vy: 0, zivot: 3.5 };
+  h.strelyBossu.push(strela);
+  krok(h);
+  if (se && (!strela.odrazena || !(Math.abs(strela.vx - 160 * ZRYCHLENI_ODRAZU) < 1e-9) || h.odrazeno !== 1)) chybyZbrani.push('zrcadlo střelu nevrátilo');
+  hraj(h, 1.2);
+  if (se && (h.hrdina.hp !== h.hrdina.maxHp || cil.hp !== cil.maxHp - z.odraz)) chybyZbrani.push(`vrácená střela: hrdina ${h.hrdina.hp}, slizák ${cil.hp}/${cil.maxHp}`);
+  if (!se && h.zasahyBossu.strela !== 1) chybyZbrani.push('střela bez zrcadla netrefila hrdinu');
+}
+// Bludička 20 s střílí na hrdinu, který stojí a nic jiného nemá: se třemi zrcadly (4. úroveň) jí část střel
+// vrátí (zraní ji) a hrdinu trefí méně střel než bez nich. Aby se počítala každá střela, která doletí,
+// hrdina má po zásahu hned zase nulovou ochranu a životů dost.
+{
+  const pokus = (zbrane) => {
+    const [h, b] = bossZblizka('bludicka', 300, 0);
+    h.zbrane = zbrane;
+    h.hrdina.hp = 1e6;
+    h.hrdina.maxHp = 1e6;
+    hraj(h, 20, () => { h.hrdina.nezranitelny = 0; });
+    return { zasahu_strelou: h.zasahyBossu.strela, vraceno: h.odrazeno, bludicka_ztratila: b.maxHp - b.hp };
+  };
+  const bez = pokus({});
+  const se = pokus({ zrcadlo: { uroven: 4, nabiti: 0 } });
+  zrcadlovePokusy.bludicka_20_s = { bez_zrcadel: bez, se_zrcadly: se };
+  if (!(se.vraceno > 0) || !(se.zasahu_strelou < bez.zasahu_strelou) || !(se.bludicka_ztratila > 0)) {
+    chybyZbrani.push(`zrcadla proti Bludičce: vráceno ${se.vraceno}, zásahů ${se.zasahu_strelou} (bez nich ${bez.zasahu_strelou})`);
+  }
+}
+
 const zaokrouhli = (s) => Object.fromEntries(Object.entries(s).map(([id, p]) => [id, Math.round(p * 1000) / 10]));
 
 const vysledek = {
@@ -899,13 +1054,18 @@ const vysledek = {
   bossove: {
     prisli: prisliBossove, zabito: hra.zabitoBossu, zasahy_hrdiny: hra.zasahyBossu, max_pavoucku: maxPavoucku, souboje,
   },
+  trny_a_zrcadlo: {
+    hlavni_hra: { max_trsu_naraz: maxTrsu, odrazeno_strel: hra.odrazeno, odhozeno_nepratel: hra.odhozeno },
+    trny: trnovePokusy, zrcadlo: zrcadlovePokusy,
+  },
 };
 console.log(JSON.stringify(vysledek, null, 2));
 
 const chyby = [
   ...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel), ...chybyVybavy, ...chybyLucerny, ...new Set(chybyBeden),
-  ...new Set(chybyBossu),
+  ...new Set(chybyBossu), ...chybyZbrani,
 ];
+if (maxTrsu > MAX_TRNU) chyby.push(`trsů trnů naráz ${maxTrsu}`);
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);
 if (hra.zabito === 0) chyby.push('nikdo nezemřel, zbraně asi nestřílí');
 if (hra.hrdina.uroven < 3) chyby.push('hrdina skoro nepostoupil, krystaly se asi nesbírají');
