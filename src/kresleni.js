@@ -5,13 +5,13 @@ import {
   RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, TRVANI_ODLESKU, poziceZrcadla, TRVANI_HLASENI_HROZBY, TRVANI_OTEVRENI,
   KUPEC, CENA_ZAMCENE, POLOMER_ZAMCENE,
 } from './hra.js';
-import { dlazdiceLouky, ozdobyLouky } from './louka.js';
+import { kresliPodlahu } from './louka.js';
+import { MAPY, VYCHOZI_MAPA, hash } from './mapy.js';
 
 const MERITKO = 3;
 // Elita se kreslí po 4 px na pixel spritu (o třetinu větší, ale pořád ostrá) s rudým obrysem.
 const MERITKO_ELITY = 4;
 const OBRYS_ELITY = '#e5484d';
-const DLAZDICE = 48;
 const SILA_TRESU = 5;
 // Barvy úlomků podle toho, z čeho je nepřítel (stejné odstíny jako jeho sprite).
 const BARVY_CASTIC = {
@@ -29,6 +29,7 @@ const BARVY_CASTIC = {
   duch: ['#e4f6f3', '#9fc8c6', '#e4f6f3'],
   houbak: ['#9b59c9', '#d6a9f2', '#f1d2a8'],
   vlk: ['#8d9098', '#53565e', '#c9ccd2'],
+  ledovy_duch: ['#dfe8ff', '#7f9cf0', '#b8fff5'],
   bedna: ['#a07e5c', '#8a5a35', '#4a3530'],
   sud: ['#a07e5c', '#6e6577', '#8a5a35'],
   trny: ['#4a3530', '#3f8a3c', '#a07e5c'],
@@ -91,29 +92,87 @@ const BARVA_ZARU = '#ff9a3c';
 // Jak moc nepřítel po zásahu žárem nejvýš zjasní (víc už by z něj byla jen oranžová skvrna).
 const SILA_ZARU = 0.6;
 
-function hash(x, y) {
-  let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return (h ^ (h >>> 16)) >>> 0;
+// Tma v jeskyni: přes celou obrazovku tma (tma.sila) a kolem (x, y) kruh světla o poloměru polomer, k okraji
+// po schůdcích tmavne. Kreslí se na malé plátno (pixel = pixel spritu) a zvětší bez vyhlazení, ať má okraj
+// světla schody jako všechno ostatní. Poloměr se lehce chvěje jako plamen.
+let platnoTmy = null;
+const SCHODY_TMY = [[0.55, 1], [0.7, 0.78], [0.84, 0.5], [1, 0.22]];
+function tmaKolem(ctx, tma, x, y, polomer, cas) {
+  const m = MERITKO;
+  const w = Math.ceil(ctx.canvas.width / m) + 1;
+  const h = Math.ceil(ctx.canvas.height / m) + 1;
+  if (!platnoTmy) platnoTmy = document.createElement('canvas');
+  if (platnoTmy.width !== w || platnoTmy.height !== h) {
+    platnoTmy.width = w;
+    platnoTmy.height = h;
+  }
+  const g = platnoTmy.getContext('2d');
+  g.globalCompositeOperation = 'source-over';
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = `rgba(${tma.barva},${tma.sila})`;
+  g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = 'destination-out';
+  const r = (polomer / m) * (1 + 0.025 * Math.sin(cas * 7) + 0.015 * Math.sin(cas * 17.3));
+  const sx = x / m;
+  const sy = y / m;
+  const prechod = g.createRadialGradient(sx, sy, 0, sx, sy, r);
+  let od = 0;
+  for (const [kde, svetlo] of SCHODY_TMY) {
+    prechod.addColorStop(od, `rgba(0,0,0,${svetlo})`);
+    prechod.addColorStop(kde, `rgba(0,0,0,${svetlo})`);
+    od = kde;
+  }
+  prechod.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = prechod;
+  g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = 'source-over';
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(platnoTmy, 0, 0, w * m, h * m);
+  ctx.restore();
 }
 
-function podlaha(ctx, kx, ky, sirka, vyska) {
-  const x0 = Math.floor(kx / DLAZDICE) - 1;
-  const y0 = Math.floor(ky / DLAZDICE) - 1;
-  for (let ty = y0; ty < y0 + vyska / DLAZDICE + 3; ty++) {
-    for (let tx = x0; tx < x0 + sirka / DLAZDICE + 3; tx++) {
-      const px = Math.round(tx * DLAZDICE - kx);
-      const py = Math.round(ty * DLAZDICE - ky);
-      const h = hash(tx, ty);
-      // Obyčejná tráva je nejčastější, květiny, kameny a hlína jen občas.
-      const druh = h % 100 < 82 ? h % 6 : 6 + (h >>> 8) % (dlazdiceLouky.length - 6);
-      ctx.drawImage(dlazdiceLouky[druh], px, py, DLAZDICE, DLAZDICE);
-      if ((h >>> 16) % 100 < 3) {
-        const ozd = ozdobyLouky[(h >>> 20) % ozdobyLouky.length];
-        ctx.drawImage(ozd, px, py, DLAZDICE, DLAZDICE);
-      }
-    }
+// Poloměr světla v jeskyni: základ, s lucernou o kus a celý její dosah víc.
+export function polomerSvetla(hra, s = staty(hra)) {
+  const { tma } = MAPY[hra.mapa];
+  if (!tma) return Infinity;
+  return tma.svetlo + (hra.zbrane.lucerna ? tma.lucerna + s.lucerna.dosah : 0);
+}
+
+// Co ve tmě svítí: krystaly ve skále (ozdoby se září) a krystaly zkušeností na zemi, obojí jen napůl
+// a s pomalým mihotáním, ať se dá ve tmě aspoň trochu vyznat.
+function svetlaVeTme(ctx, zare, hra, naObrazovce) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const [i, z] of zare.entries()) {
+    ctx.globalAlpha = 0.45 + 0.15 * Math.sin(hra.cas * 2 + i * 1.7);
+    ctx.drawImage(z.obr, z.x, z.y, z.velikost, z.velikost);
   }
+  ctx.globalAlpha = 0.45;
+  for (const kr of hra.krystaly) {
+    const p = naObrazovce(kr);
+    ctx.drawImage(sprity.krystal, Math.round(p.x - 10), Math.round(p.y - 10), 20, 20);
+  }
+  ctx.restore();
+}
+
+// Sněžení na jezeře: vločky padají a vítr je pomalu nosí stranou. Posouvají se jen napůl se světem (jsou ve
+// vzduchu nad ním), takže při běhu je vidět, že hrdina jde. Jen podle času, nic se neukládá.
+function snezeni(ctx, pocet, kx, ky, sirka, vyska, cas) {
+  const mod = (a, b) => ((a % b) + b) % b;
+  ctx.save();
+  ctx.fillStyle = '#f4f8ff';
+  for (let i = 0; i < pocet; i++) {
+    const h = hash(i, 9173);
+    const pad = 26 + (h % 34);
+    const vitr = Math.sin(cas * 0.6 + i) * 14 + cas * 12;
+    const x = mod(((h >>> 8) % 997) / 997 * (sirka + 40) - kx * 0.5 + vitr, sirka + 40) - 20;
+    const y = mod(((h >>> 18) % 991) / 991 * (vyska + 40) - ky * 0.5 + cas * pad, vyska + 40) - 20;
+    const velikost = h & 1 ? MERITKO : 2;
+    ctx.globalAlpha = 0.45 + ((h >>> 4) % 5) * 0.1;
+    ctx.fillRect(Math.round(x), Math.round(y), velikost, velikost);
+  }
+  ctx.restore();
 }
 
 // Přebarvená kopie spritu (jen jeho pixely, ne celý čtverec). Každá kombinace se kreslí jednou.
@@ -956,7 +1015,8 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
   const s = staty(hra);
 
   ctx.imageSmoothingEnabled = false;
-  podlaha(ctx, kx, ky, sirka, vyska);
+  const mapa = MAPY[hra.mapa] ?? MAPY[VYCHOZI_MAPA];
+  const zare = kresliPodlahu(ctx, hra.mapa ?? VYCHOZI_MAPA, kx, ky, sirka, vyska);
 
   const stred = naObrazovce(hrdina);
   const lucerna = hra.zbrane.lucerna ? poziceLucerny(hra, stred) : null;
@@ -1204,6 +1264,13 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
   ctx.fillStyle = '#e5484d';
   ctx.fillRect(Math.round(stred.x - 14), Math.round(stred.y + 18), Math.round(28 * Math.max(0, hrdina.hp) / hrdina.maxHp), 4);
 
+  if (mapa.snezeni) snezeni(ctx, mapa.snezeni, kx, ky, sirka, vyska, hra.cas);
+  // Tma jeskyně je pod šipkami k bossům a kupci, ať jsou pořád vidět.
+  if (mapa.tma) {
+    tmaKolem(ctx, mapa.tma, stred.x, stred.y, polomerSvetla(hra, s), hra.cas);
+    svetlaVeTme(ctx, zare, hra, naObrazovce);
+  }
+
   // šipka k bossovi, když je mimo obrazovku
   for (const n of hra.nepratele) {
     if (!n.boss) continue;
@@ -1265,10 +1332,10 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
 
   if (hra.otevira) otevirani(ctx, hra, naObrazovce, sirka, vyska);
 
-  // ztmavení u okrajů, ať je hrdina uprostřed vidět nejlíp
+  // ztmavení u okrajů (barva podle mapy), ať je hrdina uprostřed vidět nejlíp
   const tma = ctx.createRadialGradient(sirka / 2, vyska / 2, Math.min(sirka, vyska) * 0.4, sirka / 2, vyska / 2, Math.max(sirka, vyska) * 0.8);
   tma.addColorStop(0, 'rgba(0,0,0,0)');
-  tma.addColorStop(1, 'rgba(0,0,0,0.45)');
+  tma.addColorStop(1, mapa.okraje ?? 'rgba(0,0,0,0.45)');
   ctx.fillStyle = tma;
   ctx.fillRect(0, 0, sirka, vyska);
 
@@ -1319,14 +1386,16 @@ function hlaseniHrozby(ctx, hra, sirka, y) {
   ctx.restore();
 }
 
-// Pozadí hlavního menu: louka pomalu ujíždí, dole přes ni utíká hrdina (zvolená třída) před hloučkem
-// nepřátel a nahoře přelétají netopýři. Všechno je jen podle času, nic se nepočítá ani neukládá.
+// Pozadí hlavního menu: zvolená mapa pomalu ujíždí, dole přes ni utíká hrdina (zvolená třída) před hloučkem
+// nepřátel a nahoře přelétají netopýři. V jeskyni svítí jen kolem hrdiny, na jezeře sněží.
+// Všechno je jen podle času, nic se nepočítá ani neukládá.
 const HONICKA = ['vlk', 'netopyr', 'slizak', 'vlk', 'pavouk', 'houbak', 'kostlivec', 'netopyr'];
 
-export function kresliMenu(ctx, cas, postava = VYCHOZI_TRIDA) {
+export function kresliMenu(ctx, cas, postava = VYCHOZI_TRIDA, idMapy = VYCHOZI_MAPA) {
   const { width: sirka, height: vyska } = ctx.canvas;
+  const mapa = MAPY[idMapy] ?? MAPY[VYCHOZI_MAPA];
   ctx.imageSmoothingEnabled = false;
-  podlaha(ctx, cas * 12, 0, sirka, vyska);
+  kresliPodlahu(ctx, MAPY[idMapy] ? idMapy : VYCHOZI_MAPA, cas * 12, 0, sirka, vyska);
 
   const draha = sirka + 600;
   const hx = ((cas * 64) % draha) - 100;
@@ -1341,9 +1410,11 @@ export function kresliMenu(ctx, cas, postava = VYCHOZI_TRIDA) {
     const x = sirka + 60 - ((cas * (50 + i * 9) + i * 330) % (sirka + 120));
     sprite(ctx, sprity.netopyr, x, vyska * (0.1 + i * 0.07) + Math.sin(cas * 7 + i) * 8, -1);
   }
+  if (mapa.snezeni) snezeni(ctx, mapa.snezeni, cas * 12, 0, sirka, vyska, cas);
+  if (mapa.tma) tmaKolem(ctx, { ...mapa.tma, sila: Math.min(mapa.tma.sila, 0.55) }, hx, y, 220, cas);
 
   // ztmavení, ať jsou logo a tlačítka dobře čitelné
-  ctx.fillStyle = 'rgba(11,10,15,0.35)';
+  ctx.fillStyle = `rgba(11,10,15,${mapa.menuTma ?? 0.35})`;
   ctx.fillRect(0, 0, sirka, vyska);
   const tma = ctx.createRadialGradient(sirka / 2, vyska / 2, Math.min(sirka, vyska) * 0.3, sirka / 2, vyska / 2, Math.max(sirka, vyska) * 0.75);
   tma.addColorStop(0, 'rgba(0,0,0,0)');

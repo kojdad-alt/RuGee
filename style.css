@@ -1116,3 +1116,59 @@ kbd {
 /* Konec hry: kolik zlaťáků zbylo a kolik z nich je duší. */
 .konec-duse small.konec-zlato { color: var(--zlata); }
 .konec-zlato canvas { vertical-align: -5px; }
+
+/* Výběr mapy v záložce Mapy: karta jako u postav, vlevo náhled podlahy v barvě mapy, vpravo text.
+   Zamčená mapa má šedý náhled se zámkem a nápis, co ji odemkne. */
+.mrizka-map {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.trida.mapa { border-left: 6px solid var(--mapa); }
+.trida.mapa b { color: var(--mapa); }
+.trida.mapa.zvolena b { color: var(--zlata); }
+.trida.mapa.zatrast { animation: zatrast 0.25s steps(4); }
+
+.mapa-nahled {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  line-height: 0;
+  box-shadow: 0 0 0 2px #0b0a0f, 0 0 0 4px var(--mapa);
+}
+
+.mapa-nahled canvas:first-child { width: 192px; height: 96px; }
+.mapa-nahled canvas + canvas { position: absolute; }
+.trida.mapa.zamcena .mapa-nahled canvas:first-child { filter: grayscale(0.85) brightness(0.55); }
+.trida.mapa.zamcena { background: #1a1820; }
+.trida.mapa.zamcena b { color: var(--text-tlumeny); }
+.trida .mapa-rekord { color: var(--text); }
+.trida .mapa-zamek { color: #f0b4bc; }
+.trida .mapa-obtiznost { color: #f2a65a; }
+
+@media (max-width: 520px) {
+  .trida.mapa { flex-direction: column; align-items: stretch; text-align: center; }
+  .mapa-nahled { align-self: center; }
+}
+
+/* Rekordy po mapách: nadpis v barvě mapy, pod ním tabulka nebo krátká věta. */
+.rekord-mapy {
+  margin: 0 0 12px;
+  padding: 8px 10px 2px;
+  background: #1c1a23;
+  border: 2px solid var(--okraj);
+  border-left: 6px solid var(--mapa);
+}
+
+.rekord-mapy h3 {
+  margin: 0 0 8px;
+  color: var(--mapa);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rekord-mapy .tabulka { margin-bottom: 8px; }
+.rekord-prazdny { margin: 0 0 8px; color: var(--text-tlumeny); font-size: 13px; }

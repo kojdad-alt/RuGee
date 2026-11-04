@@ -3,9 +3,11 @@ import { novaHra, aktualizuj, vyber, rozhodniKus, TRIDY, kup, odejdiOdKupce, pre
 import { kresli, kresliMenu } from './kresleni.js';
 import { dusZaHru, DUSE_ZA } from './duse.js';
 import {
-  vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, obrazekSpritu, pocetDusi, cislaPoskozeni, prepinacNastaveni,
+  vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, zvolenaMapa, obrazekSpritu, pocetDusi, cislaPoskozeni,
+  prepinacNastaveni,
 } from './menu.js';
-import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez } from './ulozeni.js';
+import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu } from './ulozeni.js';
+import { MAPY, ODEMKNUTI_MAPY, dalsiMapa } from './mapy.js';
 import {
   odemkniZvuk, zvukStartu, zvukVolby, zvukVyberu, zvukZlataku, zvukNakupu, zvukOdmitnuti, zvukPrehozeni,
 } from './zvuk.js';
@@ -31,6 +33,10 @@ let zapsanoNalezu = 0;
 // Kolik zlaťáků ukazovala horní lišta minule (přibyly = cinknutí a poskočení) a kdy naposledy cinkly.
 let ukazaneZlato = 0;
 let cinkloOd = 0;
+// Mapa, která se v téhle hře odemkne po ODEMKNUTI_MAPY s (null = další není nebo už je odemčená),
+// a která se v ní opravdu odemkla (ukáže se na konci).
+let mapaKOdemceni = null;
+let odemcenaVHre = null;
 
 function zmenVelikost() {
   platno.width = innerWidth;
@@ -40,7 +46,10 @@ function zmenVelikost() {
 function start() {
   // ?seed=123 v adrese dá pořád stejné vlny (hodí se na hledání chyb).
   const seminko = Number(new URLSearchParams(location.search).get('seed')) || (Date.now() >>> 0);
-  hra = novaHra(vytvorRng(seminko), zvolenaTrida(), nactiDuse().vylepseni);
+  hra = novaHra(vytvorRng(seminko), zvolenaTrida(), nactiDuse().vylepseni, zvolenaMapa());
+  const dalsi = dalsiMapa(hra.mapa);
+  mapaKOdemceni = dalsi && !odemceneMapy().includes(dalsi) ? dalsi : null;
+  odemcenaVHre = null;
   zapsanoNalezu = 0;
   ukazaneZlato = 0;
   vMenu = false;
@@ -227,20 +236,32 @@ function zapisNalezy() {
   while (zapsanoNalezu < hra.nalezy.length) zapisNalez(hra.nalezy[zapsanoNalezu++]);
 }
 
-// Rekord se drží jen v tomhle prohlížeči (ulozeni.js), v menu ho ukazuje záložka Rekordy.
+// Přežil na mapě ODEMKNUTI_MAPY s: další mapa se hned zapíše jako odemčená (i kdyby hra skončila zavřením okna)
+// a ohlásí se nápisem.
+function hlidejOdemceni() {
+  if (!mapaKOdemceni || hra.cas < ODEMKNUTI_MAPY) return;
+  odemkniMapu(mapaKOdemceni);
+  hra.oznameni = { text: `Odemčena mapa: ${MAPY[mapaKOdemceni].nazev}`, zivot: 3 };
+  odemcenaVHre = mapaKOdemceni;
+  mapaKOdemceni = null;
+}
+
+// Rekordy se drží jen v tomhle prohlížeči (ulozeni.js), každá mapa svůj. V menu je ukazuje záložka Rekordy.
 function zapisKonec() {
   const vysledek = {
-    cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito, hrozba: hra.hrozba, trida: hra.trida, datum: new Date().toISOString(),
+    cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito, hrozba: hra.hrozba, trida: hra.trida, mapa: hra.mapa,
+    datum: new Date().toISOString(),
   };
-  const { novy, rekord } = zapisVysledek(vysledek);
-  const text = `${TRIDY[hra.trida].nazev} přežil ${formatCas(hra.cas)} (hrozba ${hra.hrozba}), úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}, bossů ${hra.zabitoBossu}.`;
+  const { novy, rekord } = zapisVysledek(vysledek, hra.mapa);
+  const text = `${TRIDY[hra.trida].nazev} přežil ${formatCas(hra.cas)} na mapě ${MAPY[hra.mapa].nazev} (hrozba ${hra.hrozba}), úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}, bossů ${hra.zabitoBossu}.`;
   const radekRekordu = novy
     ? 'Nový rekord!'
     : `Rekord: ${formatCas(rekord.cas)}, úroveň ${rekord.uroven}, zabito ${rekord.zabito}.`;
   const oziveni = hra.oziveno ? ' Duše tě jednou vrátily.' : '';
   const kusu = hra.nalezy.length;
   const vystroj = kusu ? ` Výbava bossů: ${kusu} ${kusu === 1 ? 'kus' : kusu <= 4 ? 'kusy' : 'kusů'}.` : '';
-  el('konec-text').textContent = `${text}${oziveni}${vystroj} ${radekRekordu}`;
+  const odemceno = odemcenaVHre ? ` Odemčena nová mapa: ${MAPY[odemcenaVHre].nazev}!` : '';
+  el('konec-text').textContent = `${text}${oziveni}${vystroj} ${radekRekordu}${odemceno}`;
 
   // Duše za hru se připíšou hned, utratit se dají v menu Vylepšení.
   const duse = dusZaHru(hra);
@@ -313,11 +334,12 @@ function smycka(t) {
   const dt = Math.min(0.05, (t - posledni) / 1000 || 0);
   posledni = t;
   if (vMenu) {
-    kresliMenu(ctx, t / 1000, zvolenaTrida());
+    kresliMenu(ctx, t / 1000, zvolenaTrida(), zvolenaMapa());
     requestAnimationFrame(smycka);
     return;
   }
   aktualizuj(hra, dt, vstup(), platno.width, platno.height);
+  hlidejOdemceni();
   // Po truhle nejdřív porovnání výbavy (když je slot obsazený), pak karty, nakonec obchod kupce. Okno se otevře,
   // jakmile na něj přijde řada, a zavře ho až volba (obchod se mezitím schová a pak zase ukáže).
   if (hra.porovnani && el('porovnani').hidden) {
