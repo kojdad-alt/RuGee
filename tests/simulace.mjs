@@ -430,6 +430,101 @@ function obsluz(h) {
   if (h.obchod) nakupujBot(h);
 }
 
+// Strojový výstup pro nastroje/balanc.py. Jen s --json, bez něj test běží úplně stejně jako dřív.
+//   node tests/simulace.mjs <seminko> <sekund> --json [--trida id] [--mapa id] [--vylepseni max]
+// Odehraje jednu hru stejným botem jako hry na mapách (rozhodni + obsluz), nic nekontroluje a vypíše jeden řádek
+// JSON: výsledek, průběh po minutách (zabití, úroveň, nepřátelé naráz, elity, rány) a příchod a pád každého bosse.
+// S --seznam místo hry vypíše třídy, mapy, jména bossů a sílu hrozby po minutách (silaHrozby).
+if (process.argv.includes('--json')) {
+  const volba = (jmeno, vychozi) => {
+    const i = process.argv.indexOf(jmeno);
+    return i > 0 && i + 1 < process.argv.length ? process.argv[i + 1] : vychozi;
+  };
+  const zaokr = (x, mist = 2) => Math.round(x * 10 ** mist) / 10 ** mist;
+  let vystup;
+  if (process.argv.includes('--seznam')) {
+    vystup = {
+      tridy: Object.fromEntries(Object.entries(TRIDY).map(([id, t]) => [id, t.nazev])),
+      mapy: Object.fromEntries(PORADI_MAP.map((id) => [id, MAPY[id].nazev])),
+      bossove: Object.fromEntries(Object.entries(BOSSOVE).map(([id, b]) => [id, b.nazev])),
+      elity_od_min: HROZBA.elitaOd,
+      casteji_od_min: HROZBA.castejiOd,
+      narust_od_min: HROZBA.narustOd,
+      pozde_od_min: HROZBA.pozdeOd,
+      hrozba: Array.from({ length: Math.ceil(delka / 60) + 1 }, (_, min) => {
+        const s = silaHrozby(min * 60);
+        return {
+          min, zivoty: zaokr(s.zivoty), boss_zivoty: zaokr(s.bossZivoty), poskozeni: zaokr(s.poskozeni),
+          rychlost: zaokr(s.rychlost), elita: zaokr(s.elita, 3), davka: s.davka, vlna_s: zaokr(s.vlna),
+        };
+      }),
+    };
+  } else {
+    const idTridy = volba('--trida', VYCHOZI_TRIDA);
+    const idMapy = volba('--mapa', VYCHOZI_MAPA);
+    const vylepseni = volba('--vylepseni', '') === 'max' ? Object.fromEntries(Object.entries(VYLEPSENI).map(([id, v]) => [id, v.max])) : {};
+    if (!Object.hasOwn(TRIDY, idTridy) || !PORADI_MAP.includes(idMapy) || !Number.isFinite(seminko) || !(delka > 0)) {
+      console.error(`CHYBA: neznámá třída, mapa, semínko nebo délka (${idTridy}, ${idMapy}, ${seminko}, ${delka})`);
+      process.exit(2);
+    }
+    const h = novaHra(vytvorRng(seminko), idTridy, vylepseni, idMapy);
+    const minuty = [];
+    const bossove = [];
+    const sledovani = new Map(); // elita nebo boss → záznam bosse (u elity null), dokud nepadne
+    const videno = new WeakSet();
+    let prvniElita = null;
+    let zabitoPred = 0;
+    for (let t = 0; t < delka && !h.konec; t += DT) {
+      const hpPred = h.hrdina.hp;
+      aktualizuj(h, DT, rozhodni(h, t), SIRKA, VYSKA);
+      obsluz(h);
+      const min = Math.floor(h.cas / 60);
+      while (minuty.length <= min) minuty.push({ zabito: 0, elit: 0, elit_padlo: 0, nepratel: 0, snimku: 0, uroven: h.hrdina.uroven, zivoty_min: 1, rany: 0 });
+      const m = minuty[min];
+      m.zabito += h.zabito - zabitoPred;
+      zabitoPred = h.zabito;
+      m.nepratel += h.nepratele.length;
+      m.snimku += 1;
+      m.uroven = h.hrdina.uroven;
+      m.zivoty_min = Math.min(m.zivoty_min, Math.max(0, h.hrdina.hp) / h.hrdina.maxHp);
+      if (h.hrdina.hp < hpPred) m.rany += hpPred - h.hrdina.hp;
+      for (const n of h.nepratele) {
+        if (videno.has(n)) continue;
+        videno.add(n);
+        if (n.boss) {
+          const zaznam = { druh: n.druh, prisel_s: zaokr(h.cas, 1), padl_s: null };
+          bossove.push(zaznam);
+          sledovani.set(n, zaznam);
+        } else if (n.elita) {
+          m.elit += 1;
+          if (prvniElita === null) prvniElita = zaokr(h.cas, 1);
+          sledovani.set(n, null);
+        }
+      }
+      for (const [n, zaznam] of sledovani) {
+        if (n.hp > 0) continue;
+        if (zaznam) zaznam.padl_s = zaokr(h.cas, 1);
+        else m.elit_padlo += 1;
+        sledovani.delete(n);
+      }
+    }
+    vystup = {
+      seminko, sekund: delka, trida: idTridy, mapa: idMapy, vylepseni: Object.keys(vylepseni).length ? 'max' : 'zadna',
+      prezil: !h.konec, preziti_s: zaokr(h.cas, 1), uroven: h.hrdina.uroven, zabito: h.zabito, zabito_bossu: h.zabitoBossu,
+      oziveno: h.oziveno, prvni_elita_s: prvniElita,
+      zbrane: Object.fromEntries(Object.entries(h.zbrane).map(([id, z]) => [id, z.uroven])),
+      pasivy: { ...h.pasivy },
+      bossove,
+      minuty: minuty.map(({ snimku, nepratel, zivoty_min, rany, ...m }) => ({
+        ...m, nepratel: Math.round(nepratel / snimku), zivoty_min: zaokr(zivoty_min), rany: Math.round(rany),
+      })),
+    };
+  }
+  // Výpis do roury je v Node na macOS asynchronní: počká se na něj, ať process.exit nic neusekne.
+  await new Promise((hotovo) => process.stdout.write(`${JSON.stringify(vystup)}\n`, hotovo));
+  process.exit(0);
+}
+
 for (let t = 0; t < delka && !hra.konec; t += DT) {
   const hpPred = hra.hrdina.hp;
   const regenPred = hra.vylecenoRegeneraci;
