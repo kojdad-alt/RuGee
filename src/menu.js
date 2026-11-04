@@ -2,8 +2,13 @@
 // Novou záložku přidáš do ZALOZKY (nazev + vypln(panel)), tlačítko i ovládání šipkami se udělají samy.
 // Tlačítka, která záložka do panelu přidá, jdou taky vybírat šipkami a Enterem.
 import { sprity } from './sprity.js';
-import { TRIDY, ZBRANE, platnaTrida, silaHrozby } from './hra.js';
-import { nactiRekord, nactiTridu, ulozTridu, nactiDuse, ulozDuse, nactiNastaveni, ulozNastaveni, nactiSbirku } from './ulozeni.js';
+import { TRIDY, ZBRANE, platnaTrida, silaHrozby, obtiznostMapy } from './hra.js';
+import {
+  nactiRekord, nactiTridu, ulozTridu, nactiDuse, ulozDuse, nactiNastaveni, ulozNastaveni, nactiSbirku, nactiMapu, ulozMapu,
+  odemceneMapy,
+} from './ulozeni.js';
+import { MAPY, PORADI_MAP, ODEMKNUTI_MAPY, predchoziMapa } from './mapy.js';
+import { nahledMapy } from './louka.js';
 import { VYLEPSENI, cenaVylepseni, kupVylepseni, vratDuse, utraceno } from './duse.js';
 import {
   VYBAVA, PORADI_SAD, PORADI_SLOTU, SLOTY, VSECHNY_KUSY, RARITY_VYBAVY, EFEKTY_VYBAVY, idKusu, vytvorKus, radkyStatu,
@@ -16,6 +21,13 @@ let trida = nactiTridu();
 
 export function zvolenaTrida() {
   return trida;
+}
+
+// Zvolená mapa: načte se z prohlížeče a mění se v záložce Mapy (jen na odemčenou). Hra ji bere při startu.
+let mapa = nactiMapu();
+
+export function zvolenaMapa() {
+  return mapa;
 }
 
 // Nastavení (čísla poškození): načte se z prohlížeče, mění ho přepínač v Ovládání nebo v pauze.
@@ -80,6 +92,70 @@ function vyplnPostavy(panel) {
   oznacZvolenou();
   mrizka.append(...karty);
   panel.append(prvek('p', 'podtitul', 'Vyber, za koho půjdeš do hlubin. Volba se zapamatuje.'), mrizka);
+}
+
+// Karta mapy je tlačítko jako karta třídy: náhled podlahy s nepřáteli, jméno, popis a rekord na té mapě.
+// Zamčená karta má přes náhled zámek a říká, co ji odemkne. Klik na ni jen zatřese a zabzučí.
+function vyplnMapy(panel) {
+  const odemcene = odemceneMapy();
+  const mrizka = prvek('div', 'mrizka-map');
+  const karty = PORADI_MAP.map((id) => {
+    const m = MAPY[id];
+    const odemcena = odemcene.includes(id);
+    const karta = prvek('button', odemcena ? 'trida mapa' : 'trida mapa zamcena');
+    karta.type = 'button';
+    karta.dataset.mapa = id;
+    karta.style.setProperty('--mapa', m.barva);
+    const okno = prvek('span', 'mapa-nahled');
+    const nahled = nahledMapy(id);
+    nahled.classList.add('pixel');
+    okno.append(nahled);
+    if (!odemcena) okno.append(obrazekSpritu('zamek', 4));
+    const text = prvek('span', 'trida-text');
+    text.append(prvek('b', '', m.nazev), prvek('small', '', m.popis));
+    const ob = obtiznostMapy(id);
+    if (ob.zivoty > 1 || ob.poskozeni > 1) {
+      // pevná mezera, ať se % neodtrhne od čísla
+      const procent = (x) => `+${Math.round((x - 1) * 100)} %`;
+      text.append(prvek('small', 'mapa-obtiznost', `Těžší: nepřátelé ${procent(ob.zivoty)} životů a ${procent(ob.poskozeni)} poškození`));
+    }
+    const rekord = nactiRekord(id);
+    if (odemcena) text.append(prvek('small', 'mapa-rekord', rekord ? `Rekord: ${formatCas(rekord.cas)}` : 'Zatím bez rekordu'));
+    else {
+      const pred = predchoziMapa(id);
+      const nejlepe = nactiRekord(pred);
+      text.append(prvek('small', 'mapa-zamek', `Zamčeno: přežij ${formatCas(ODEMKNUTI_MAPY)} na mapě ${MAPY[pred].nazev}${nejlepe ? ` (zatím ${formatCas(nejlepe.cas)})` : ''}`));
+    }
+    karta.append(okno, text, prvek('span', 'trida-stitek', 'Zvoleno'));
+    karta.setAttribute('aria-label', `${m.nazev}${odemcena ? '' : ', zamčeno'}`);
+    karta.addEventListener('click', () => {
+      if (!odemcena) {
+        odemkniZvuk();
+        zvukOdmitnuti();
+        karta.classList.remove('zatrast');
+        void karta.offsetWidth;
+        karta.classList.add('zatrast');
+        return;
+      }
+      mapa = id;
+      ulozMapu(id);
+      oznacZvolenou();
+    });
+    return karta;
+  });
+  function oznacZvolenou() {
+    for (const k of karty) {
+      const zvolena = k.dataset.mapa === mapa;
+      k.classList.toggle('zvolena', zvolena);
+      k.setAttribute('aria-pressed', String(zvolena));
+    }
+  }
+  oznacZvolenou();
+  mrizka.append(...karty);
+  panel.append(
+    prvek('p', 'podtitul', `Kde budeš přežívat. Další mapa se odemkne, když na té předchozí vydržíš ${formatCas(ODEMKNUTI_MAPY)}.`),
+    mrizka,
+  );
 }
 
 // 1–4 duše, jinak duší (0 duší, 5 duší).
@@ -190,12 +266,23 @@ function vyplnSbirku(panel) {
   }
 }
 
+// Rekordy: každá mapa má svůj blok (v barvě mapy), zamčená mapa jen řekne, že je zamčená.
 function vyplnRekordy(panel) {
-  const rekord = nactiRekord();
-  if (!rekord) {
-    panel.append(prvek('p', 'podtitul', 'Zatím žádný rekord. Dej Hrát a vydrž co nejdéle.'));
-    return;
+  const odemcene = odemceneMapy();
+  panel.append(prvek('p', 'podtitul', 'Tvoje nejlepší výpravy v tomhle prohlížeči, každá mapa zvlášť'));
+  for (const id of PORADI_MAP) {
+    const blok = prvek('section', 'rekord-mapy');
+    blok.style.setProperty('--mapa', MAPY[id].barva);
+    blok.append(prvek('h3', '', MAPY[id].nazev));
+    const rekord = nactiRekord(id);
+    if (!odemcene.includes(id)) blok.append(prvek('p', 'rekord-prazdny', 'Zamčeno'));
+    else if (!rekord) blok.append(prvek('p', 'rekord-prazdny', 'Zatím žádný rekord. Dej Hrát a vydrž co nejdéle.'));
+    else blok.append(tabulkaRekordu(rekord));
+    panel.append(blok);
   }
+}
+
+function tabulkaRekordu(rekord) {
   const radky = [
     ['Nejdelší přežití', formatCas(rekord.cas)],
     ...(Object.hasOwn(TRIDY, rekord.trida ?? '') ? [['Postava', TRIDY[rekord.trida].nazev]] : []),
@@ -208,7 +295,7 @@ function vyplnRekordy(panel) {
   if (rekord.datum && !Number.isNaN(kdy.getTime())) radky.push(['Kdy', kdy.toLocaleDateString('cs-CZ')]);
   const tabulka = prvek('dl', 'tabulka');
   for (const [nazev, hodnota] of radky) tabulka.append(prvek('dt', '', nazev), prvek('dd', '', String(hodnota)));
-  panel.append(prvek('p', 'podtitul', 'Tvoje nejlepší výprava v tomhle prohlížeči'), tabulka);
+  return tabulka;
 }
 
 const OVLADANI = [
@@ -264,6 +351,7 @@ function vyplnOvladani(panel) {
 
 export const ZALOZKY = {
   postavy: { nazev: 'Postavy', vypln: vyplnPostavy },
+  mapy: { nazev: 'Mapy', vypln: vyplnMapy },
   vylepseni: { nazev: 'Vylepšení', vypln: vyplnVylepseni },
   sbirka: { nazev: 'Sbírka', vypln: vyplnSbirku },
   rekordy: { nazev: 'Rekordy', vypln: vyplnRekordy },
@@ -393,7 +481,7 @@ export function vytvorMenu({ hrat }) {
   const radekPostavy = prvek('p', 'menu-postava');
   const ukazPostavu = () => {
     const { duse } = nactiDuse();
-    radekPostavy.textContent = `Hraješ za: ${TRIDY[trida].nazev} · ${duse} ${pocetDusi(duse)}`;
+    radekPostavy.textContent = `Hraješ za: ${TRIDY[trida].nazev} · ${MAPY[mapa].nazev} · ${duse} ${pocetDusi(duse)}`;
   };
   ukazPostavu();
   volby.replaceChildren(...polozky.map((p) => {

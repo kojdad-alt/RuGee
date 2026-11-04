@@ -133,6 +133,28 @@ const SPRITY = {
     '..D...D.',
     '.DD..DD.',
   ],
+  // Ledový duch (Zamrzlé jezero): modrobílý závoj s korunou z rampouchů a svítícíma tyrkysovýma očima.
+  ledovy_duch: [
+    '.C.CC.C.',
+    '.UUUUUU.',
+    'UUcUUcUu',
+    'UUCUUCUu',
+    'UUUUUUUu',
+    'UUUuuUuu',
+    'UUUUUUuu',
+    'U.Uu.Uu.',
+  ],
+  // Zámek na zamčené mapě v menu.
+  zamek: [
+    '..GGGG..',
+    '.G....G.',
+    '.G....G.',
+    'OyyyyyyO',
+    'OyYKKyyO',
+    'OyyKKyyO',
+    'OyyyKyyO',
+    'OOOOOOOO',
+  ],
   krystal: [
     '........',
     '...c....',
