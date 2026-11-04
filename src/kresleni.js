@@ -96,6 +96,32 @@ export function kresli(ctx, hra) {
     ctx.fillRect(Math.round(p.x - 3), Math.round(p.y - 3), 6, 6);
   }
 
+  // blesky: lomená čára mezi zasaženými, náhodné zuby se mění každý snímek
+  for (const bl of hra.blesky) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, bl.zivot / 0.18);
+    for (const [barva, sirkaCary] of [['rgba(143,211,255,0.5)', 6], ['#e8f7ff', 2]]) {
+      ctx.strokeStyle = barva;
+      ctx.lineWidth = sirkaCary;
+      ctx.beginPath();
+      bl.body.forEach((bod, i) => {
+        const p = naObrazovce(bod);
+        if (i === 0) {
+          ctx.moveTo(p.x, p.y);
+          return;
+        }
+        const pred = naObrazovce(bl.body[i - 1]);
+        for (let k = 1; k <= 3; k++) {
+          const t = k / 4;
+          ctx.lineTo(pred.x + (p.x - pred.x) * t + (Math.random() - 0.5) * 14, pred.y + (p.y - pred.y) * t + (Math.random() - 0.5) * 14);
+        }
+        ctx.lineTo(p.x, p.y);
+      });
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   if (hra.zbrane.krumpace) {
     for (let i = 0; i < s.krumpace.pocet; i++) {
       const uhel = hra.uhelKrumpacu + (i / s.krumpace.pocet) * Math.PI * 2;
