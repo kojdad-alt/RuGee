@@ -20,7 +20,7 @@ Simulace hry bez prohlížeče (Node 18+):
 node tests/simulace.mjs 1 600
 ```
 
-Jednoduchý hráč utíká od nepřátel, sbírá krystaly a na úrovni bere nejdřív zbraně. Test spadne, když se objeví NaN, nikdo nezemře nebo nepřátel přibývá bez konce.
+Jednoduchý hráč utíká od nepřátel, sbírá krystaly a na úrovni bere nejdřív zbraně. Test spadne, když se objeví NaN, nikdo nezemře, nepřátel přibývá bez konce, po zabití nevyletí úlomky nebo se po zásahu hrdiny neotřese obrazovka.
 
 ## Nová verze
 

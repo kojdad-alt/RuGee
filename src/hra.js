@@ -33,6 +33,9 @@ const SANCE_SRDCE = 0.012;
 const SANCE_MAGNET = 0.003;
 const LECENI_SRDCE = 25;
 const BOSS_KAZDYCH = 180;
+const MAX_CASTIC = 400;
+const ZIVOT_CASTICE = 0.45;
+export const TRVANI_TRESU = 0.15;
 
 const NEPRATELE = {
   netopyr: { hp: 10, rychlost: 72, poskozeni: 5, xp: 1, polomer: 10 },
@@ -61,6 +64,8 @@ export function novaHra(rng) {
     predmety: [],
     cisla: [],
     blesky: [],
+    castice: [],
+    tres: 0,
     uhelKrumpacu: 0,
     doSpawnu: 0,
     dalsiBoss: BOSS_KAZDYCH,
@@ -82,6 +87,22 @@ function zasah(hra, n, kolik) {
   n.hp -= poskozeni;
   n.zasazen = 0.1;
   hra.cisla.push({ x: n.x, y: n.y - 10, text: String(poskozeni), zivot: 0.6 });
+}
+
+// Pár pixelových úlomků rozletí od zabitého nepřítele. Směry se počítají z pořadí zabití, ne z rng,
+// aby ozdoby neposunuly náhodu vln (stejné semínko = stejná hra).
+function rozlet(hra, n) {
+  const pocet = n.boss ? 16 : 6;
+  const posun = hra.zabito * 2.39;
+  for (let i = 0; i < pocet; i++) {
+    const uhel = posun + (i / pocet) * Math.PI * 2;
+    const rychlost = (100 + ((i * 37 + hra.zabito * 11) % 80)) * (n.boss ? 1.6 : 1);
+    hra.castice.push({
+      x: n.x, y: n.y, vx: Math.cos(uhel) * rychlost, vy: Math.sin(uhel) * rychlost,
+      zivot: ZIVOT_CASTICE, druh: n.druh, odstin: i,
+    });
+  }
+  if (hra.castice.length > MAX_CASTIC) hra.castice.splice(0, hra.castice.length - MAX_CASTIC);
 }
 
 function polomerSpawnu(sirka, vyska) {
@@ -149,6 +170,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     if (dx !== 0) hrdina.otoceny = Math.sign(dx);
   }
   hrdina.nezranitelny = Math.max(0, hrdina.nezranitelny - dt);
+  hra.tres = Math.max(0, hra.tres - dt);
 
   // nepřátelé
   hra.doSpawnu -= dt;
@@ -181,6 +203,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     if (d < n.polomer + 8 && hrdina.nezranitelny <= 0) {
       hrdina.hp -= n.poskozeni;
       hrdina.nezranitelny = 0.5;
+      hra.tres = TRVANI_TRESU;
       if (hrdina.hp <= 0) hra.konec = true;
     }
   }
@@ -276,6 +299,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   for (const n of hra.nepratele) {
     if (n.hp <= 0) {
       hra.zabito += 1;
+      rozlet(hra, n);
       hra.krystaly.push({ x: n.x, y: n.y, xp: n.xp });
       if (n.boss) {
         hra.zabitoBossu += 1;
@@ -332,6 +356,17 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     hrdina.potreba = potrebaNaUroven(hrdina.uroven);
     hra.volby = nabidka(hra);
   }
+
+  // úlomky zpomalují a mizí
+  const brzda = Math.exp(-5 * dt);
+  for (const c of hra.castice) {
+    c.x += c.vx * dt;
+    c.y += c.vy * dt;
+    c.vx *= brzda;
+    c.vy *= brzda;
+    c.zivot -= dt;
+  }
+  hra.castice = hra.castice.filter((c) => c.zivot > 0);
 
   for (const c of hra.cisla) {
     c.y -= 30 * dt;
