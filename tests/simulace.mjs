@@ -109,7 +109,7 @@ import {
   SANCE_ZLATAKU, MESEC, KUPEC, ZBOZI, PORADI_ZBOZI, RUST_CEN, LECENI_LEKTVARU, PREHOZENI, MAX_ZAMCENYCH, PRVNI_ZAMCENA, CENA_ZAMCENE,
   POLOMER_ZAMCENE, cenaZbozi, prekazkaNakupu, nabidkaKupce, kup, odejdiOdKupce, cenaPrehozeni, prehod,
   POLOMER_HRDINY, SKOK_ZABY, poradiBossu, zakladBosse,
-  pasivyDoZbrane, NASOBEK_KRITU,
+  pasivyDoZbrane, NASOBEK_KRITU, CISLO_REGENERACE,
 } from '../src/hra.js';
 import {
   VYBAVA, PORADI_SLOTU, VSECHNY_KUSY, RARITY_VYBAVY, PORADI_RARIT_VYBAVY, EFEKTY_VYBAVY, STATY_VYBAVY, STROPY_VYBAVY,
@@ -422,6 +422,7 @@ function obsluz(h) {
 
 for (let t = 0; t < delka && !hra.konec; t += DT) {
   const hpPred = hra.hrdina.hp;
+  const regenPred = hra.vylecenoRegeneraci;
   const sitPred = hra.hrdina.sit;
   const odhozenPred = hra.hrdina.odhozen;
   const { x: xPred, y: yPred } = hra.hrdina;
@@ -528,10 +529,12 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
   }
   if (hra.hrdina.hp < hpPred) {
     zasahu += 1;
-    // Když ve stejném snímku sebral srdce, ubylo o ránu méně léčení (obojí má své číslo).
+    // Když ve stejném snímku sebral srdce, ubylo o ránu méně léčení (obojí má své číslo). Regenerace léčí
+    // plynule a její zelené číslo ukazuje minulou chvíli, takže se počítá to, co vrátila v tomhle snímku.
     const tedCisla = hra.cisla.filter((c) => c.od === hra.cas);
-    const leceniTed = tedCisla.filter((c) => c.barva === 'leceni').reduce((a, c) => a + c.hodnota, 0);
-    if (tedCisla.some((c) => (c.barva === 'zraneni' || c.barva === 'jed') && c.hodnota - leceniTed === hpPred - hra.hrdina.hp)) cervenychCisel += 1;
+    const leceniTed = tedCisla.filter((c) => c.barva === 'leceni' && !c.regenerace).reduce((a, c) => a + c.hodnota, 0);
+    const regenTed = hra.vylecenoRegeneraci - regenPred;
+    if (tedCisla.some((c) => (c.barva === 'zraneni' || c.barva === 'jed') && Math.abs(c.hodnota - leceniTed - regenTed - (hpPred - hra.hrdina.hp)) < 1e-6)) cervenychCisel += 1;
     if (hra.tres === TRVANI_TRESU) tresu += 1;
     if (hra.hrdina.sit === TRVANI_SITE && !hra.konec) siti += 1;
   }
@@ -712,13 +715,14 @@ let oziveni = null;
 const sOzivenim = hrajKratce({ oziveni: 1 }, 1200, kamikaze, (h) => {
   if (h.oziveno && !oziveni) {
     const nejblizsi = Math.min(...h.nepratele.map((n) => Math.hypot(n.x - h.hrdina.x, n.y - h.hrdina.y)));
-    oziveni = { cas: h.cas, hp: h.hrdina.hp, nezranitelny: h.hrdina.nezranitelny, nejblizsi };
+    oziveni = { cas: h.cas, hp: h.hrdina.hp, maxHp: h.hrdina.maxHp, nezranitelny: h.hrdina.nezranitelny, nejblizsi };
   }
 });
 const bezOziveni = hrajKratce({}, 1200, kamikaze);
 if (!oziveni) chybyDusi.push('Oživení hrdinu nevrátilo');
 else {
-  if (oziveni.hp !== Math.round(sOzivenim.hrdina.maxHp * ZIVOTY_PO_OZIVENI)) chybyDusi.push(`po oživení ${oziveni.hp} životů`);
+  // (maxHp z chvíle oživení: karta Srdce po něm by ho změnila)
+  if (oziveni.hp !== Math.round(oziveni.maxHp * ZIVOTY_PO_OZIVENI)) chybyDusi.push(`po oživení ${oziveni.hp} životů`);
   if (oziveni.nezranitelny !== NEZRANITELNY_PO_OZIVENI) chybyDusi.push('po oživení hrdina není nezranitelný');
   if (oziveni.nejblizsi < ODHOZENI_PRI_OZIVENI - 4) chybyDusi.push(`po oživení zůstal nepřítel ${oziveni.nejblizsi.toFixed(1)} px od hrdiny`);
   if (!sOzivenim.konec || sOzivenim.oziveno !== 1) chybyDusi.push('Oživení platí víc než jednou za hru');
@@ -2227,6 +2231,87 @@ const pasivyZbrani = { zbrane: {} };
   }
 }
 
+// Pasivy pro přežití (Zbroj, Regenerace, Štěstí). Data a ikony sedí, Zbroj strop nemá a ostatní ano. Zbroj ubere
+// z dotyku i z jedového oblaku po houbákovi svůj počet (aspoň 1 projde, červené číslo ukáže zmenšenou ránu),
+// z bahenního oblaku nic (to je mapa, láva se hlídá u Sopky). Regenerace léčí přesně svůj počet za sekundu až po
+// plné životy, zelené číslo vyskočí nejvýš jednou za CISLO_REGENERACE. Štěstí ze stejných losů dá víc srdcí
+// a magnetů, nad stropem už ne, s trvalým Štěstím se násobí a šance na rarity karet nemění.
+const pasivyPreziti = {};
+const relBlizkoP = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
+{
+  for (const id of ['zbroj', 'regenerace', 'stesti']) {
+    const p = PASIVY[id];
+    if (!p || !jmenaSpritu.has(p.ikona) || !p.popis || !p.popisDal || !(p.pricti > 0)) chybyPasiv.push(`pasiva ${id}: chybí data nebo ikona`);
+  }
+  if (STROPY.pasivy.zbroj !== undefined || !(STROPY.pasivy.regenerace > 0) || !(STROPY.pasivy.stesti > 0)) chybyPasiv.push('Zbroj má mít min. ránu 1, Regenerace a Štěstí strop');
+  const ticha = () => {
+    const h = novaHra(vytvorRng(seminko));
+    h.zbrane = {};
+    Object.assign(h, { doSpawnu: Infinity, doBedny: Infinity, doZamcene: Infinity, dalsiBoss: Infinity, dalsiSmecka: null, dalsiKupec: Infinity });
+    return h;
+  };
+  const sUrovni = (h, id, urovni) => {
+    for (let u = 0; u < urovni; u++) vyber(h, karta(h, 'pasiva', id, 'bezna'));
+    return h;
+  };
+  // Zbroj: jedna rána kostlivce nebo oblaku, hrdina bez chvíle klidu.
+  const rana = (urovni, zdroj) => {
+    const h = sUrovni(ticha(), 'zbroj', urovni);
+    h.hrdina.nezranitelny = 0;
+    if (zdroj === 'kostlivec') pridejNepritele(h, 'kostlivec', 5, 0).rychlost = 0;
+    else h.oblaky.push({ x: 0, y: 0, zivot: TRVANI_OBLAKU - NAFUKOVANI_OBLAKU - 0.1, polomer: 36, ...(zdroj === 'bahno' ? { druh: 'bahno', jed: 9 } : {}) });
+    aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    const ubylo = h.hrdina.maxHp - h.hrdina.hp;
+    const cislo = h.cisla.find((c) => c.barva === 'zraneni' || c.barva === 'jed');
+    if (!cislo || cislo.hodnota !== ubylo) chybyPasiv.push(`Zbroj ${urovni} (${zdroj}): ubylo ${ubylo}, číslo ${cislo?.text}`);
+    return ubylo;
+  };
+  const rany = {};
+  for (const zdroj of ['kostlivec', 'houbak', 'bahno']) {
+    const plna = rana(0, zdroj);
+    rany[zdroj] = [plna, rana(3, zdroj), rana(99, zdroj)];
+    const cekam = zdroj === 'bahno' ? [plna, plna, plna] : [plna, Math.max(1, plna - 3), 1];
+    if (!(plna > 3) || rany[zdroj].join() !== cekam.join()) chybyPasiv.push(`Zbroj u ${zdroj}: rány ${rany[zdroj]} místo ${cekam}`);
+  }
+  pasivyPreziti.zbroj_rany_0_3_99 = rany;
+  // Regenerace: 5 úrovní = 2 životy za sekundu, ze 40 životů za 3 s na 46, pak po plné a dál nic.
+  const r = sUrovni(ticha(), 'regenerace', 5);
+  r.hrdina.nezranitelny = 1e9;
+  if (!relBlizkoP(r.hrdina.regenerace, PASIVY.regenerace.pricti * 5)) chybyPasiv.push(`Regenerace na 5. úrovni ${r.hrdina.regenerace}/s`);
+  r.hrdina.hp = 40;
+  const videnaZelena = new Set();
+  hraj(r, 3, (g) => { for (const c of g.cisla) if (c.barva === 'leceni' && c.regenerace) videnaZelena.add(c); });
+  const zelena = [...videnaZelena];
+  const odstupy = zelena.slice(1).map((c, i) => c.od - zelena[i].od);
+  if (Math.abs(r.hrdina.hp - (40 + r.hrdina.regenerace * 3)) > 1e-6) chybyPasiv.push(`Regenerace za 3 s: ${r.hrdina.hp} životů`);
+  if (zelena.length < 2 || zelena.length > 3 || odstupy.some((d) => d < CISLO_REGENERACE - 1e-6) || zelena.some((c) => !(c.hodnota >= 1))) {
+    chybyPasiv.push(`Regenerace: zelená čísla ${zelena.map((c) => `${c.text} v ${c.od.toFixed(2)}`)}`);
+  }
+  r.hrdina.hp = r.hrdina.maxHp - 0.5;
+  hraj(r, 2);
+  if (r.hrdina.hp !== r.hrdina.maxHp) chybyPasiv.push(`Regenerace přelezla plné životy (${r.hrdina.hp} z ${r.hrdina.maxHp})`);
+  const naStropu = sUrovni(ticha(), 'regenerace', 40).hrdina.regenerace;
+  if (!relBlizkoP(naStropu, STROPY.pasivy.regenerace)) chybyPasiv.push(`Regenerace na 40. úrovni ${naStropu}/s`);
+  pasivyPreziti.regenerace = { za_3_s_z_40: Math.round(r.vylecenoRegeneraci * 100) / 100, zelenych_cisel: zelena.length, na_40_urovni: naStropu };
+  // Štěstí: 3000 nepřátel padne naráz, stejné losy z rng.
+  const padloS = (urovni, vylepseni = {}) => {
+    const h = sUrovni(novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, vylepseni), 'stesti', urovni);
+    h.hrdina.nezranitelny = 10;
+    for (let i = 0; i < 3000; i++) h.nepratele.push({ druh: 'netopyr', x: 30, y: 0, hp: 0, maxHp: 1, rychlost: 0, poskozeni: 0, xp: 0, polomer: 1, zasazen: 0, zasahKrumpacem: 0 });
+    aktualizuj(h, 0.001, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    return h.predmety.filter((p) => p.druh === 'srdce' || p.druh === 'magnet').length;
+  };
+  const urovniNaStrop = Math.round(STROPY.pasivy.stesti / PASIVY.stesti.pricti);
+  const padloP = { 0: padloS(0), 5: padloS(5), [urovniNaStrop]: padloS(urovniNaStrop), 30: padloS(30) };
+  const sTrvalym = padloS(5, { stesti: VYLEPSENI.stesti.max });
+  if (!(padloP[0] > 0 && padloP[5] > padloP[0] * 1.4 && padloP[5] < padloP[0] * 2.6)) chybyPasiv.push(`Štěstí 5: ${padloP[0]} → ${padloP[5]} srdcí a magnetů`);
+  if (!(padloP[urovniNaStrop] > padloP[5]) || padloP[30] !== padloP[urovniNaStrop]) chybyPasiv.push(`Štěstí nad stropem: ${JSON.stringify(padloP)}`);
+  if (!(sTrvalym > padloP[5])) chybyPasiv.push(`Štěstí s trvalým Štěstím ${sTrvalym} (bez ${padloP[5]})`);
+  const stastna = sUrovni(ticha(), 'stesti', 30);
+  if (JSON.stringify(sanceRarit(stastna)) !== JSON.stringify(sanceRarit(ticha()))) chybyPasiv.push('pasiva Štěstí změnila rarity karet');
+  pasivyPreziti.stesti_srdce_a_magnety = { ...padloP, s_trvalym_max_a_5: sTrvalym };
+}
+
 // Úrovně bez stropu. Každá zbraň až do 200. úrovně: do 5. bez bonusu (stejně jako dřív), pak každá úroveň víc
 // poškození, každá třetí ještě kus, nabíjení nebo velikost, dokud to jde, a nic přes strop. Řádky karty sedí s tím,
 // co úroveň opravdu přidala. Data růstu (poradi, čísla, texty) musí k sobě pasovat.
@@ -3368,6 +3453,13 @@ for (const id of PORADI_MAP.filter((m) => MAPY[m].prekazky)) {
     Object.assign(hs.hrdina, skala);
     hraj(hs, 2);
     if (hs.popaleno || hs.hrdina.hp !== hs.hrdina.maxHp) chybyMap.push('skála vedle lávy pálí');
+    // Zbroj (pasiva) z lávy nic neubere, láva není nepřítel.
+    const hz = tichaMapa(id);
+    hz.hrdina.nezranitelny = 0;
+    hz.hrdina.pancir = 50;
+    Object.assign(hz.hrdina, lava);
+    hraj(hz, 2);
+    if (!hz.popaleno || hz.hrdina.hp !== hz.hrdina.maxHp - rana * hz.popaleno || hz.ubranoZbroji) chybyMap.push(`Zbroj ubrala z lávy (${hz.hrdina.hp} životů)`);
     if (naPlose(id, 0, 0) || plochaMapy(id).druh !== 'lava') chybyMap.push('hrdina na sopce začíná v lávě');
     vysledkyMap[id].lava = { ran_za_2_s: h.popaleno, rana };
   }
@@ -3627,6 +3719,17 @@ const vysledek = {
       kritu: hra.kritu, ozven_vystrelu: hra.ozvenVystrelu, ozven_zasahu: hra.ozvenZasahu, otreseno: hra.otreseno, zasahu_uhliky: hra.zasahuUhliky,
     },
     ...pasivyZbrani,
+  },
+  pasivy_preziti: {
+    hlavni_hra: {
+      pasivy: Object.fromEntries(['zbroj', 'regenerace', 'stesti'].map((id) => [id, hra.pasivy[id] ?? 0])),
+      ubrano_zbroji: hra.ubranoZbroji, zmenseno_ran: hra.zbrojiZasahu, vyleceno_regeneraci: Math.round(hra.vylecenoRegeneraci),
+    },
+    vse_vylepsene: {
+      pasivy: Object.fromEntries(['zbroj', 'regenerace', 'stesti'].map((id) => [id, vydrz.pasivy[id] ?? 0])),
+      ubrano_zbroji: vydrz.ubranoZbroji, zmenseno_ran: vydrz.zbrojiZasahu, vyleceno_regeneraci: Math.round(vydrz.vylecenoRegeneraci),
+    },
+    ...pasivyPreziti,
   },
   vybava_bossu: {
     otevreno_truhel: otevrenoTruhel,
