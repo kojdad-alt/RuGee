@@ -3,7 +3,7 @@ import {
   staty, TRVANI_TRESU, VYCHOZI_TRIDA, TRVANI_ZABLESKU, ODHOZENI_PRI_OZIVENI, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU,
   TRVANI_ZARU, TRVANI_VYBUCHU, bossBary, TRVANI_DOPADU, ZJEVENI_BLUDICKY, POLOMER_STRELY_BOSSU,
   RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, TRVANI_ODLESKU, poziceZrcadla, TRVANI_HLASENI_HROZBY, TRVANI_OTEVRENI,
-  KUPEC, CENA_ZAMCENE, POLOMER_ZAMCENE, zakladBosse,
+  KUPEC, CENA_ZAMCENE, POLOMER_ZAMCENE, zakladBosse, DOPAD_KRYSTALU, DOZNIVANI_MRAZU, TRVANI_TRISTENI,
 } from './hra.js';
 import { kresliPodlahu } from './louka.js';
 import { MAPY, VYCHOZI_MAPA, hash } from './mapy.js';
@@ -43,6 +43,8 @@ const BARVY_CASTIC = {
   sud: ['#a07e5c', '#6e6577', '#8a5a35'],
   trny: ['#4a3530', '#3f8a3c', '#a07e5c'],
   zrcadlo: ['#dfe8ff', '#b9c2cc', '#7f9cf0'],
+  led: ['#dfe8ff', '#b8fff5', '#7f9cf0'],
+  svetluska: ['#fff3b0', '#d8f7b0', '#9be08a'],
   zamcena: ['#a07e5c', '#8a5a35', '#f2c94c'],
 };
 const BARVA_SITE = 'rgba(236,236,244,0.8)';
@@ -95,6 +97,14 @@ const BARVA_ZURIVOSTI = 'rgba(229,72,77,0.45)';
 // TREPOT_ZRCADEL sekund se každé krátce zablýskne.
 const STOPY_ZRCADEL = [[0.3, 0.16], [0.15, 0.32]];
 const TREPOT_ZRCADEL = 1.1;
+// Nepřítel v mrazu se přebarví do modra, čím víc zpomalený, tím silněji (tři stupně, ať se přebarvené
+// sprity dají uložit). Krystal padá z VYSKA_PADU px, posledních PRASKANI z mrznutí zóna praská.
+const BARVY_MRAZU = ['rgba(160,210,255,0.3)', 'rgba(160,210,255,0.45)', 'rgba(180,225,255,0.6)'];
+const VYSKA_PADU = 90;
+const PRASKANI = 0.3;
+// Světluška za sebou nechává tři tečky (o kolik sekund letu zpátky) a zadeček jí bliká jednou za BLIK_SVETLUSKY s.
+const STOPA_SVETLUSKY = [0.018, 0.036, 0.054];
+const BLIK_SVETLUSKY = 0.9;
 
 // Světlo lucerny se kreslí po čtverečcích stejně velkých jako pixel spritu, ať nevypadá rozmazaně.
 // Jednou za PULZ_LUCERNY sekund vyjde od hrdiny vlna světla, na okraji dosahu prstenec zjasní.
@@ -164,6 +174,12 @@ function svetlaVeTme(ctx, zare, hra, naObrazovce) {
   for (const kr of hra.krystaly) {
     const p = naObrazovce(kr);
     ctx.drawImage(sprity.krystal, Math.round(p.x - 10), Math.round(p.y - 10), 20, 20);
+  }
+  // Světlušky ve tmě svítí jako malé lucerny.
+  ctx.globalAlpha = 1;
+  for (const l of hra.svetlusky ?? []) {
+    const p = naObrazovce(l);
+    zareSvetlusky(ctx, Math.round(p.x), Math.round(p.y) + 3, false);
   }
   ctx.restore();
 }
@@ -570,6 +586,173 @@ function odlesk(ctx, x, y, o) {
   ctx.fillRect(cx, cy - Math.round(delka / 2), 1, delka);
   ctx.fillRect(cx - 1, cy - 1, 3, 3);
   ctx.restore();
+}
+
+// Jak moc je nepřítel zamrzlý: 0 = vůbec, víc = víc zpomalený. Po vylezení ze zóny mráz bledne, jak dozní.
+function silaMrazu(n) {
+  if (!(n.mraz > 0)) return 0;
+  return (1 - (n.zpomaleniMrazem ?? 1)) * Math.min(1, n.mraz / DOZNIVANI_MRAZU);
+}
+
+// Barva přebarvení zamrzlého nepřítele (null = není zamrzlý).
+function barvaMrazu(n) {
+  const sila = silaMrazu(n);
+  return sila > 0 ? BARVY_MRAZU[Math.min(BARVY_MRAZU.length - 1, Math.floor(sila * 4))] : null;
+}
+
+// Ledová zóna na zemi. Než krystal dopadne, roste na zemi jeho stín. Pak se od krystalu rychle rozleze
+// jinovatka (bledě modrý pixelový kruh s jasným okrajem) a vyrůstají z ní ledové jehličky, každá až tam, kam
+// mráz došel. Krystal trčí uprostřed. Před roztříštěním zóna praská: od krystalu vybíhají bílé praskliny
+// a okraj s krystalem blikají.
+function ledovaZona(ctx, z, x, y, cas) {
+  ctx.save();
+  if (z.stari < DOPAD_KRYSTALU) {
+    const t = z.stari / DOPAD_KRYSTALU;
+    ctx.fillStyle = `rgba(20,40,70,${(0.15 + 0.25 * t).toFixed(3)})`;
+    kruhNaZemi(ctx, x, y, 6 + 8 * t, true);
+    ctx.restore();
+    return;
+  }
+  const t = Math.min(1, (z.stari - DOPAD_KRYSTALU) / z.trvani);
+  const r = z.polomer * Math.min(1, 0.35 + 2 * t);
+  const zbyva = (1 - t) * z.trvani;
+  const praska = zbyva < PRASKANI ? 1 - zbyva / PRASKANI : 0;
+  const blika = praska > 0 && Math.floor(cas * 20) % 2 === 0;
+  ctx.fillStyle = `rgba(150,200,255,${(0.16 + 0.12 * t).toFixed(3)})`;
+  kruhNaZemi(ctx, x, y, r, true);
+  ctx.fillStyle = 'rgba(200,235,255,0.3)';
+  kruhNaZemi(ctx, x, y, Math.max(MERITKO, r - MERITKO));
+  ctx.fillStyle = blika ? '#ffffff' : 'rgba(223,240,255,0.85)';
+  kruhNaZemi(ctx, x, y, r);
+  // dva šikmé odlesky na ledu (schůdky pixelů)
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  for (const [od, delka] of [[-0.45, 0.5], [-0.15, 0.3]]) {
+    for (let k = 0; k < delka * r; k += MERITKO) {
+      ctx.fillRect(Math.round(x + od * r + k - delka * r * 0.3), Math.round(y - od * r * 0.4 - k * 0.8 + delka * r * 0.2), MERITKO, MERITKO);
+    }
+  }
+  const zaklad = hash(Math.round(z.x), Math.round(z.y));
+  const jehlic = Math.round(z.polomer / 5);
+  for (let i = 0; i < jehlic; i++) {
+    const h = hash(zaklad, i);
+    const vzdal = (0.2 + 0.65 * ((h % 1000) / 1000)) * z.polomer;
+    if (vzdal > r - 4) continue;
+    const uhel = ((h >>> 10) % 628) / 100;
+    const jx = Math.round(x + Math.cos(uhel) * vzdal);
+    const jy = Math.round(y + Math.sin(uhel) * vzdal * 0.85);
+    const vyska = MERITKO * (1 + ((h >>> 20) % 3));
+    ctx.fillStyle = '#0b0a0f';
+    ctx.fillRect(jx - 1, jy - vyska - 1, MERITKO + 2, vyska + 2);
+    ctx.fillStyle = '#b8fff5';
+    ctx.fillRect(jx, jy - vyska, MERITKO, vyska);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(jx, jy - vyska, MERITKO, MERITKO);
+  }
+  if (praska > 0) {
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 5; i++) {
+      const uhel = i * 1.26 + (zaklad % 100) / 50;
+      for (let d = 6; d < r * praska; d += MERITKO) {
+        const kl = Math.sin(d * 0.35 + i * 2) * 3;
+        const px = x + Math.cos(uhel) * d - Math.sin(uhel) * kl;
+        const py = y + (Math.sin(uhel) * d + Math.cos(uhel) * kl) * 0.85;
+        ctx.fillRect(Math.round(px) - 1, Math.round(py) - 1, MERITKO - 1, MERITKO - 1);
+      }
+    }
+  }
+  const obr = sprity.ledovyKrystal;
+  const w = obr.width * MERITKO;
+  const v = obr.height * MERITKO;
+  ctx.drawImage(blika ? prebarvi(obr, 'rgba(255,255,255,0.6)') : obr, Math.round(x - w / 2), Math.round(y - v + 6), w, v);
+  ctx.restore();
+}
+
+// Ve vzduchu: krystal, který právě padá (zrychluje, za sebou dva bledé obrysy), a roztříštěné zóny: od středu
+// se rozběhne bílý prstenec s osmi střepy a bledne.
+function krystalyVeVzduchu(ctx, hra, naObrazovce) {
+  const obr = sprity.ledovyKrystal;
+  const w = obr.width * MERITKO;
+  const v = obr.height * MERITKO;
+  for (const z of hra.ledoveZony ?? []) {
+    if (z.stari >= DOPAD_KRYSTALU) continue;
+    const p = naObrazovce(z);
+    const t = z.stari / DOPAD_KRYSTALU;
+    const nad = (k) => Math.round(VYSKA_PADU * (1 - k * k));
+    ctx.save();
+    for (const [zpet, pruhlednost] of [[0.3, 0.2], [0.15, 0.4]]) {
+      ctx.globalAlpha = pruhlednost;
+      ctx.drawImage(prebarvi(obr, '#dfe8ff'), Math.round(p.x - w / 2), Math.round(p.y - v + 6 - nad(Math.max(0, t - zpet))), w, v);
+    }
+    ctx.globalAlpha = 1;
+    ctx.drawImage(obr, Math.round(p.x - w / 2), Math.round(p.y - v + 6 - nad(t)), w, v);
+    ctx.restore();
+  }
+  for (const r of hra.roztristeni ?? []) {
+    const p = naObrazovce(r);
+    const t = 1 - r.zivot / TRVANI_TRISTENI;
+    ctx.save();
+    ctx.globalAlpha = 1 - t;
+    // na začátku zóna zbělá, pak se rozběhne prstenec
+    ctx.fillStyle = `rgba(220,240,255,${(0.25 + 0.45 * Math.max(0, 1 - 3 * t)).toFixed(3)})`;
+    kruhNaZemi(ctx, p.x, p.y, r.polomer * (0.9 + 0.3 * t), true);
+    ctx.fillStyle = '#ffffff';
+    kruhNaZemi(ctx, p.x, p.y, r.polomer * (0.7 + 0.6 * t));
+    kruhNaZemi(ctx, p.x, p.y, r.polomer * (0.7 + 0.6 * t) - MERITKO);
+    const zaklad = hash(Math.round(r.x), Math.round(r.y));
+    for (let i = 0; i < 8; i++) {
+      const uhel = i * 0.785 + (zaklad % 100) / 100;
+      const d = r.polomer * (0.25 + 0.9 * t);
+      const sx = Math.round(p.x + Math.cos(uhel) * d);
+      const sy = Math.round(p.y + Math.sin(uhel) * d * 0.85 - 10 * Math.sin(t * Math.PI));
+      ctx.fillStyle = '#0b0a0f';
+      ctx.fillRect(sx - 1, sy - 1, MERITKO + 2, MERITKO * 2 + 2);
+      ctx.fillStyle = i % 2 ? '#b8fff5' : '#ffffff';
+      ctx.fillRect(sx, sy, MERITKO, MERITKO * 2);
+    }
+    ctx.restore();
+  }
+}
+
+// Žlutozelená záře kolem zadečku světlušky (sčítá světlo). Při bliknutí je větší a jasnější.
+function zareSvetlusky(ctx, x, y, blik) {
+  ctx.fillStyle = `rgba(190,235,110,${blik ? 0.3 : 0.16})`;
+  kruhNaZemi(ctx, x, y, blik ? 15 : 11, true);
+  ctx.fillStyle = `rgba(235,255,180,${blik ? 0.45 : 0.25})`;
+  kruhNaZemi(ctx, x, y, 5, true);
+}
+
+// Světlušky: každá žlutozeleně svítí, letící za sebou nechává tečky a kouká, kam letí. Zadeček jí jednou za
+// BLIK_SVETLUSKY s jasně blikne (každé jindy). vpredu = kreslí ty před hrdinou (letící a odpočívající pod ním),
+// jinak ty, které odpočívají za ním (výš než on), ať roj kolem hrdiny krouží dokola.
+function svetluskyRoje(ctx, hra, naObrazovce, vpredu) {
+  const obr = sprity.svetluska;
+  const w = obr.width * MERITKO;
+  const v = obr.height * MERITKO;
+  (hra.svetlusky ?? []).forEach((l, i) => {
+    const zaHrdinou = l.stav === 'kolem' && l.y < hra.hrdina.y - 6;
+    if (zaHrdinou === vpredu) return;
+    const p = naObrazovce(l);
+    const x = Math.round(p.x);
+    const y = Math.round(p.y);
+    const blik = ((hra.cas + i * 0.37) % BLIK_SVETLUSKY) / BLIK_SVETLUSKY < 0.2;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    zareSvetlusky(ctx, x, y + 3, blik);
+    if (l.vx || l.vy) {
+      STOPA_SVETLUSKY.forEach((zpet, k) => {
+        const velikost = k === 0 ? MERITKO : 2;
+        ctx.globalAlpha = 0.6 - k * 0.18;
+        ctx.fillStyle = '#d8f7b0';
+        ctx.fillRect(Math.round(x - l.vx * zpet - velikost / 2), Math.round(y + 3 - l.vy * zpet - velikost / 2), velikost, velikost);
+      });
+    }
+    ctx.restore();
+    ctx.save();
+    ctx.translate(x, y);
+    if (l.vx < 0) ctx.scale(-1, 1);
+    ctx.drawImage(blik ? prebarvi(obr, 'rgba(235,255,180,0.35)') : obr, -w / 2, -v / 2, w, v);
+    ctx.restore();
+  });
 }
 
 // Jak daleko je varování schopnosti: 0 na začátku, 1 těsně před provedením.
@@ -1181,6 +1364,11 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     if (p.x < -60 || p.y < -60 || p.x > sirka + 60 || p.y > vyska + 60) continue;
     trsTrnu(ctx, t, p.x, p.y);
   }
+  for (const z of hra.ledoveZony ?? []) {
+    const p = naObrazovce(z);
+    if (p.x < -z.polomer - 20 || p.y < -z.polomer - 40 || p.x > sirka + z.polomer + 20 || p.y > vyska + z.polomer + 20) continue;
+    ledovaZona(ctx, z, p.x, p.y, hra.cas);
+  }
   utokyNaZemi(ctx, hra, naObrazovce);
   vlnyHrdiny(ctx, hra, naObrazovce);
 
@@ -1193,7 +1381,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
       // duch se vznáší a kouká tam, kam letí (ne na hrdinu, letí kolem něj)
       ctx.globalAlpha = pruhlednostDucha(n);
       const vy = p.y + Math.sin(hra.cas * 4 + n.maxHp + n.x * 0.01) * 2;
-      sprite(ctx, obr, p.x, vy, n.smerX < 0 ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : null, velikost);
+      sprite(ctx, obr, p.x, vy, n.smerX < 0 ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : barvaMrazu(n), velikost);
       if (n.zar > 0) rozzar(ctx, obr, p.x, vy, n.smerX < 0 ? -1 : 1, velikost, n.zar / TRVANI_ZARU);
       ctx.globalAlpha = 1;
       if (n.trny > 0 && !n.skryty) sponaTrnu(ctx, n, p.x, vy, velikost);
@@ -1233,7 +1421,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     }
     if (n.elita) obrysElity(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, velikost, hra.cas);
     const rudne = n.zuri && (hra.cas % PULZ_ZURIVOSTI) < PULZ_ZURIVOSTI / 3;
-    const prekryv = n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : rudne ? BARVA_ZURIVOSTI : null;
+    const prekryv = n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : rudne ? BARVA_ZURIVOSTI : barvaMrazu(n);
     sprite(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, prekryv, velikost);
     if (n.zar > 0) rozzar(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, velikost, n.zar / TRVANI_ZARU);
     ctx.globalAlpha = 1;
@@ -1275,6 +1463,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
   ctx.globalAlpha = 1;
 
   utokyVeVzduchu(ctx, hra, naObrazovce);
+  krystalyVeVzduchu(ctx, hra, naObrazovce);
 
   ctx.fillStyle = '#ffd27a';
   for (const st of hra.strely) {
@@ -1357,6 +1546,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     ctx.restore();
   }
 
+  svetluskyRoje(ctx, hra, naObrazovce, false);
   // Zmizelý hrdina (Bludný plamen) nebliká, je průsvitný a modře se mihotá.
   const zmizel = hrdina.neviditelny > 0;
   const blika = !zmizel && hrdina.nezranitelny > 0 && Math.floor(hrdina.nezranitelny * 20) % 2 === 0;
@@ -1370,6 +1560,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
     ctx.drawImage(obr, lucerna.x - Math.round(obr.width * MERITKO / 2), lucerna.y - Math.round(obr.height * MERITKO / 2), obr.width * MERITKO, obr.height * MERITKO);
   }
   if (hrdina.sit > 0) sit(ctx, stred.x, stred.y, hrdina.sit);
+  svetluskyRoje(ctx, hra, naObrazovce, true);
 
   // životy pod hrdinou
   ctx.fillStyle = '#2a0f14';

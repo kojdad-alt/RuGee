@@ -60,6 +60,23 @@ export const ZBRANE = {
       texty: { pocet: '+1 zrcadlo', velikost: 'Větší zrcadla' },
     },
   },
+  svetlusky: {
+    nazev: 'Světlušky', ikona: 'svetlusky',
+    popis: ['Roj světlušek se sám vrhá na nepřátele a vrací se k tobě.', '+1 světluška', 'Rychlejší let, kratší odpočinek', '+1 světluška', 'Žhavější světlušky'],
+    dal: {
+      poradi: ['pocet', 'nabiti', 'velikost'], poskozeni: ['poskozeni'], pocet: 'pocet', nabiti: ['nabiti'], velikost: ['dosah'],
+      texty: { pocet: '+1 světluška', nabiti: 'Kratší odpočinek', velikost: 'Delší výlety' },
+    },
+  },
+  mraz: {
+    nazev: 'Mrazivý krystal', ikona: 'mraz',
+    popis: ['Krystal dopadne do hloučku nepřátel, mráz je zpomalí a pak je roztříští.', '+1 krystal', 'Větší zóna, roztříští dřív', '+1 krystal', 'Tvrdší mráz, víc poškození'],
+    // Kusů jen 8 jako u trnů: víc zón naráz by MAX_ZON nepustilo (nové krystaly by čekaly).
+    dal: {
+      poradi: ['pocet', 'velikost', 'nabiti'], poskozeni: ['poskozeni'], pocet: 'pocet', velikost: ['polomer'], nabiti: ['nabiti'], maxPocet: 8,
+      texty: { pocet: '+1 krystal', velikost: 'Větší ledová zóna', nabiti: 'Častější krystaly' },
+    },
+  },
 };
 
 // Pasivy: na úrovních 1–5 dá každá úroveň plný díl (násobí vlastnost hrdiny o nasobek, Srdce přičte pricti),
@@ -416,6 +433,25 @@ export const TRVANI_ODHOZENI = 0.2;
 export const ZRYCHLENI_ODRAZU = 1.3;
 const ZIVOT_ODRAZU = 2;
 export const TRVANI_ODLESKU = 0.25;
+// Světlušky: roj se vznáší kolem hrdiny. Odpočatá světluška si vybere nepřítele v dosahu (nejdřív toho, na
+// koho ještě žádná neletí), vyletí ven a zatáčí k němu (OTACENI_SVETLUSKY, s každou chvílí letu ostřeji, ať
+// nekrouží kolem cíle), po zásahu se vrátí a odpočívá. Když cíl zmizí, vezme nejbližšího jiného, jinak se
+// vrátí. Nejdéle letí MAX_LETU s. Bez nepřátel letí na bednu v dosahu.
+export const OTACENI_SVETLUSKY = 6;
+export const MAX_LETU = 3;
+export const NAVRAT_SVETLUSKY = 1.3;
+// Mrazivý krystal: dopadne (DOPAD_KRYSTALU s, ještě nic nedělá) doprostřed největšího hloučku v dosahu, pak
+// zóna mrzne: kdo v ní stojí, jde čím dál pomaleji (bossové napůl), zpomalení po vylezení chvíli dozní.
+// Na konci se zóna roztříští: rána všem uvnitř a obyčejného nepřítele (ne bosse), kterému zbude nanejvýš
+// PRAH_ROZTRISTENI životů, roztříští rovnou. Nová zóna nedopadne do jiné, která ještě mrzne. Nepřátelé jdou
+// za hrdinou, a tak krystal dopadne o PREDSTIH_ZONY poloměru blíž k němu: hlouček do zóny teprve vejde.
+export const DOPAD_KRYSTALU = 0.3;
+export const PREDSTIH_ZONY = 0.5;
+export const DOZNIVANI_MRAZU = 0.5;
+export const PRAH_ROZTRISTENI = 0.15;
+export const TRVANI_TRISTENI = 0.35;
+export const MAX_ZON = 30;
+const KANDIDATU_ZONY = 40;
 
 // Výbava bossů (data a staty v vystroj.js). Truhla bosse se po dotyku TRVANI_OTEVRENI s otevírá a svět mezitím
 // stojí, pak dá kus výbavy a kartu. Efekty sad: rázová vlna běží RYCHLOST_VLNY_HRDINY px/s a první vyběhne
@@ -557,6 +593,14 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     odlesky: [],
     odrazeno: 0,
     odhozeno: 0,
+    // Světlušky (roj) a ledové zóny Mrazivého krystalu, roztristeni = prstence po roztříštění zóny.
+    // zasahuSvetluskami, zon a roztristeno jsou počítadla pro simulaci.
+    svetlusky: [],
+    ledoveZony: [],
+    roztristeni: [],
+    zasahuSvetluskami: 0,
+    zon: 0,
+    roztristeno: 0,
     doSpawnu: 0,
     dalsiBoss: BOSS_KAZDYCH,
     bossu: 0,
@@ -798,9 +842,11 @@ export function pridejNepritele(hra, druh, x, y, elita = false) {
   const e = elita && !vzor.boss ? ELITA : null;
   const ob = obtiznostMapy(hra.mapa);
   const hp = Math.round(vzor.hp * (vzor.boss ? sila.bossZivoty : sila.zivoty) * (e ? e.zivoty : 1) * ob.zivoty);
-  // trny = jak dlouho ještě je zpomalený trny, zpomaleni = na kolik, odhozen = ještě letí od zrcadla
+  // trny = jak dlouho ještě je zpomalený trny, zpomaleni = na kolik, odhozen = ještě letí od zrcadla,
+  // mraz a zpomaleniMrazem totéž od ledové zóny Mrazivého krystalu
   const n = {
     druh, ...vzor, hp, maxHp: hp, zasazen: 0, zar: 0, zasahKrumpacem: 0, zasahZrcadlem: 0, trny: 0, zpomaleni: 1, odhozen: 0, x, y,
+    mraz: 0, zpomaleniMrazem: 1,
     poskozeni: Math.round(vzor.poskozeni * sila.poskozeni * (e ? e.poskozeni : 1) * ob.poskozeni),
     rychlost: vzor.rychlost * sila.rychlost,
   };
@@ -1336,8 +1382,8 @@ export function bossBary(hra) {
 }
 
 // Čísla zbraní na úrovních 1–5: u = úroveň (nad pátou platí čísla páté, růst přidá statyZbrane),
-// n = násobek nabíjení hrdiny. Kratší nabíjení zrychlí všechny zbraně: střelbu, údery, žár lucerny, trny
-// i otáčení krumpáčů a zrcadel.
+// n = násobek nabíjení hrdiny. Kratší nabíjení zrychlí všechny zbraně: střelbu, údery, žár lucerny, trny,
+// otáčení krumpáčů a zrcadel, odpočinek světlušek i krystaly.
 const CISLA_ZBRANI = {
   jiskra: (j, n) => ({ pocet: 1 + (j >= 2) + (j >= 4), nabiti: (j >= 3 ? 0.5 : 0.7) * n, poskozeni: j >= 5 ? 16 : 11 }),
   lucerna: (l, n) => ({ dosah: 56 + 22 * ((l >= 2) + (l >= 4)), zar: 14 + 9 * ((l >= 3) + (l >= 5)), tik: 0.3 * n }),
@@ -1352,6 +1398,17 @@ const CISLA_ZBRANI = {
   zrcadlo: (z, n) => ({
     pocet: 1 + (z >= 2) + (z >= 4), rychlost: 2.4 / n, polomer: 34, velikost: z >= 5 ? 14 : 10,
     poskozeni: z >= 5 ? 12 : 7, odhozeni: z >= 3 ? 110 : 70, odraz: z >= 5 ? 30 : 20,
+  }),
+  // svetlusky: pocet v roji, nabiti = odpočinek u hrdiny po návratu, rychlost letu (px/s), dosah = jak daleko
+  // od hrdiny si hledá cíl
+  svetlusky: (v, n) => ({
+    pocet: 3 + (v >= 2) + (v >= 4), nabiti: (v >= 3 ? 0.5 : 0.8) * n, rychlost: v >= 3 ? 300 : 240, poskozeni: v >= 5 ? 16 : 10, dosah: 260,
+  }),
+  // mraz: pocet zón naráz, trvani = jak dlouho zóna mrzne před roztříštěním, zpomaleni = násobek rychlosti
+  // nepřítele na konci mrznutí, poskozeni = rána při roztříštění
+  mraz: (m, n) => ({
+    pocet: 1 + (m >= 2) + (m >= 4), nabiti: 3.5 * n, dosah: 300, polomer: m >= 3 ? 56 : 44, trvani: m >= 3 ? 1.5 : 1.8,
+    poskozeni: m >= 5 ? 52 : 34, zpomaleni: m >= 5 ? 0.25 : 0.45,
   }),
 };
 
@@ -1518,6 +1575,223 @@ function zrcadla(hra, s) {
     }
   }
   if (hra.odlesky.length > 40) hra.odlesky.splice(0, hra.odlesky.length - 40);
+}
+
+// Kde se i-tá z pocet světlušek vznáší, když odpočívá: v kroužku kolem hrdiny (kousek nad ním), kroužek se
+// pomalu točí a každá světluška se k tomu sama pohupuje.
+export function mistoSvetlusky(hra, i, pocet) {
+  const uhel = (i / pocet) * Math.PI * 2 + hra.cas * 1.6;
+  const r = 30 + 5 * Math.sin(hra.cas * 2.3 + i * 1.7);
+  return { x: hra.hrdina.x + Math.cos(uhel) * r, y: hra.hrdina.y - 4 + Math.sin(uhel) * r * 0.7 };
+}
+
+// Cíl pro světlušku z místa od: nejbližší viditelný nepřítel v dosahu hrdiny, na kterého ještě žádná neletí
+// (letí-li už na všechny, tak nejbližší vůbec). Bez nepřátel bedna v dosahu. null = není na co letět.
+function cilSvetlusky(hra, st, od, obsazene) {
+  const { hrdina } = hra;
+  let volny = null;
+  let volnyD = Infinity;
+  let jakykoli = null;
+  let jakykoliD = Infinity;
+  for (const n of hra.nepratele) {
+    if (n.hp <= 0 || !viditelny(n) || vzdalenost(n, hrdina) > st.dosah) continue;
+    const d = vzdalenost(n, od);
+    if (d < jakykoliD) { jakykoli = n; jakykoliD = d; }
+    if (!obsazene.has(n) && d < volnyD) { volny = n; volnyD = d; }
+  }
+  if (volny ?? jakykoli) return { cil: volny ?? jakykoli, bedna: false };
+  let bedna = null;
+  let bednaD = Infinity;
+  for (const b of hra.bedny) {
+    if (b.rozbita || vzdalenost(b, hrdina) > st.dosah) continue;
+    const d = vzdalenost(b, od) + (obsazene.has(b) ? 1e6 : 0);
+    if (d < bednaD) { bedna = b; bednaD = d; }
+  }
+  return bedna ? { cil: bedna, bedna: true } : null;
+}
+
+// Roj světlušek: doplní se na počet podle úrovně, odpočaté vyletí, letící zatáčí k cíli a po zásahu se vrátí.
+// Zpátky letí aspoň o polovinu rychleji než hrdina, ať ho vždycky doženou.
+function rojSvetlusek(hra, dt, s) {
+  const roj = hra.svetlusky;
+  if (!hra.zbrane.svetlusky) {
+    roj.length = 0;
+    return;
+  }
+  const st = s.svetlusky;
+  const { hrdina } = hra;
+  // Nová světluška vylétne z hrdiny a první let si dá o chvilku později než ta před ní (ne všechny naráz).
+  while (roj.length < st.pocet) {
+    roj.push({ x: hrdina.x, y: hrdina.y, vx: 0, vy: 0, stav: 'kolem', cil: null, bedna: false, nabiti: 0.15 * roj.length, let: 0 });
+  }
+  if (roj.length > st.pocet) roj.length = st.pocet;
+  const obsazene = new Set(roj.filter((l) => l.stav === 'leti').map((l) => l.cil));
+  const platny = (l) => (l.bedna ? !l.cil.rozbita : l.cil.hp > 0 && viditelny(l.cil)) && vzdalenost(l.cil, hrdina) <= st.dosah * 1.5;
+  roj.forEach((l, i) => {
+    const doma = mistoSvetlusky(hra, i, roj.length);
+    if (l.stav === 'kolem') {
+      const k = Math.min(1, 14 * dt);
+      l.x += (doma.x - l.x) * k;
+      l.y += (doma.y - l.y) * k;
+      l.nabiti -= dt;
+      if (l.nabiti > 0) return;
+      const vyber = cilSvetlusky(hra, st, l, obsazene);
+      if (!vyber) return;
+      Object.assign(l, { stav: 'leti', cil: vyber.cil, bedna: vyber.bedna, let: 0 });
+      obsazene.add(vyber.cil);
+      // Vyletí ven z roje (od hrdiny) a k cíli teprve zatočí.
+      const d = vzdalenost(l, hrdina);
+      l.vx = (d > 0 ? (l.x - hrdina.x) / d : 1) * st.rychlost;
+      l.vy = (d > 0 ? (l.y - hrdina.y) / d : 0) * st.rychlost;
+      return;
+    }
+    if (l.stav === 'leti') {
+      l.let += dt;
+      if (!platny(l)) {
+        const novy = cilSvetlusky(hra, st, l, obsazene);
+        if (novy) {
+          Object.assign(l, { cil: novy.cil, bedna: novy.bedna });
+          obsazene.add(novy.cil);
+        } else l.stav = 'zpet';
+      }
+      if (l.let > MAX_LETU) l.stav = 'zpet';
+    }
+    if (l.stav === 'leti') {
+      const c = l.cil;
+      const dx = c.x - l.x;
+      const dy = c.y - l.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const k = Math.min(1, dt * (OTACENI_SVETLUSKY + 30 * l.let));
+      l.vx += ((dx / d) * st.rychlost - l.vx) * k;
+      l.vy += ((dy / d) * st.rychlost - l.vy) * k;
+      const v = Math.hypot(l.vx, l.vy) || 1;
+      const kus = Math.min(st.rychlost * dt, d);
+      l.x += (l.vx / v) * kus;
+      l.y += (l.vy / v) * kus;
+      if (vzdalenost(l, c) < (l.bedna ? POLOMER_BEDNY : c.polomer) + 5) {
+        if (l.bedna) rozbij(hra, c);
+        else {
+          zasah(hra, c, st.poskozeni);
+          hra.zasahuSvetluskami += 1;
+        }
+        rozprsk(hra, l.x, l.y, 'svetluska', 3);
+        Object.assign(l, { stav: 'zpet', cil: null, bedna: false });
+      }
+      return;
+    }
+    // Návrat k místu v roji, pak odpočinek.
+    const d = vzdalenost(l, doma);
+    const kus = Math.max(st.rychlost * NAVRAT_SVETLUSKY, Math.hypot(hrdina.vx, hrdina.vy) * 1.5) * dt;
+    if (d <= kus) {
+      Object.assign(l, { x: doma.x, y: doma.y, vx: 0, vy: 0, stav: 'kolem', cil: null, bedna: false, nabiti: st.nabiti });
+      return;
+    }
+    l.vx = ((doma.x - l.x) / d) * (kus / dt);
+    l.vy = ((doma.y - l.y) / d) * (kus / dt);
+    l.x += l.vx * dt;
+    l.y += l.vy * dt;
+  });
+}
+
+// O kolik mráz zpomalí nepřítele (bosse jen napůl). 1 = vůbec.
+function brzdaMrazu(n) {
+  if (!(n.mraz > 0)) return 1;
+  return n.boss ? 1 - (1 - n.zpomaleniMrazem) / 2 : n.zpomaleniMrazem;
+}
+
+// Kam dopadnou nové krystaly: doprostřed největších hloučků viditelných nepřátel v dosahu (každý hlouček jinde
+// a ne do zóny, která ještě mrzne). Hlouček se hledá kolem KANDIDATU_ZONY nejbližších nepřátel. Na co nezbyl
+// hlouček, to dopadne na bednu v dosahu. Víc než MAX_ZON zón naráz nebude. Vrací, kolik krystalů dopadlo.
+function hodKrystaly(hra, st) {
+  const { hrdina } = hra;
+  const volno = Math.min(st.pocet, MAX_ZON - hra.ledoveZony.length);
+  if (volno <= 0) return 0;
+  const obsazeno = hra.ledoveZony.map((z) => ({ x: z.x, y: z.y, polomer: z.polomer }));
+  const mimo = (o) => obsazeno.every((z) => vzdalenost(z, o) >= Math.max(z.polomer, st.polomer));
+  const blizko = hra.nepratele.filter((n) => n.hp > 0 && viditelny(n) && vzdalenost(n, hrdina) < st.dosah + st.polomer);
+  const kandidati = blizko
+    .filter((n) => vzdalenost(n, hrdina) < st.dosah)
+    .sort((a, b) => vzdalenost(a, hrdina) - vzdalenost(b, hrdina))
+    .slice(0, KANDIDATU_ZONY);
+  const mista = [];
+  const pridej = (m) => {
+    const misto = { x: m.x, y: m.y, polomer: st.polomer };
+    mista.push(misto);
+    obsazeno.push(misto);
+  };
+  while (mista.length < volno) {
+    let hloucek = null;
+    let kde = null;
+    for (const k of kandidati) {
+      if (!mimo(k)) continue;
+      const kolem = blizko.filter((n) => vzdalenost(n, k) < st.polomer);
+      if (!hloucek || kolem.length > hloucek.length) { hloucek = kolem; kde = k; }
+    }
+    if (!hloucek) break;
+    // Střed hloučku posunutý k hrdinovi, a když by padl do jiné zóny, tak přímo na nepřítele, kolem kterého
+    // se hledalo.
+    const stred = {
+      x: hloucek.reduce((a, n) => a + n.x, 0) / hloucek.length,
+      y: hloucek.reduce((a, n) => a + n.y, 0) / hloucek.length,
+    };
+    const d = vzdalenost(stred, hrdina);
+    const posun = d > 0 ? Math.min(st.polomer * PREDSTIH_ZONY, d / 2) / d : 0;
+    stred.x -= (stred.x - hrdina.x) * posun;
+    stred.y -= (stred.y - hrdina.y) * posun;
+    pridej(mimo(stred) ? stred : kde);
+  }
+  const bedny = hra.bedny
+    .filter((b) => !b.rozbita && vzdalenost(b, hrdina) < st.dosah)
+    .sort((a, b) => vzdalenost(a, hrdina) - vzdalenost(b, hrdina));
+  for (const b of bedny) {
+    if (mista.length >= volno) break;
+    if (mimo(b)) pridej(b);
+  }
+  for (const m of mista) {
+    hra.ledoveZony.push({ x: m.x, y: m.y, polomer: st.polomer, trvani: st.trvani, stari: 0, poskozeni: st.poskozeni, zpomaleni: st.zpomaleni });
+    hra.zon += 1;
+  }
+  return mista.length;
+}
+
+// Roztříštění: rána nepříteli v zóně. Obyčejný nepřítel, kterému zbude nanejvýš PRAH_ROZTRISTENI životů, se
+// roztříští rovnou (číslo ukáže celou ránu) a rozletí se na ledové střepy.
+function roztrist(hra, n, z) {
+  zasah(hra, n, z.poskozeni);
+  if (n.boss || n.hp <= 0 || n.hp > n.maxHp * PRAH_ROZTRISTENI) return;
+  const zbytek = Math.ceil(n.hp);
+  n.hp = 0;
+  cisloZasahu(hra, n, zbytek);
+  hra.roztristeno += 1;
+  rozprsk(hra, n.x, n.y, 'led', 4);
+}
+
+// Ledové zóny: krystal dopadne (ještě nic nedělá), zóna mrzne a zpomalí, kdo v ní stojí, čím dál víc
+// (hned 60 % zpomalení, plné od 40 % mrznutí). Na konci se roztříští, rozbije i bednu a zmizí.
+function mrznouZony(hra, dt) {
+  for (const z of hra.ledoveZony) {
+    z.stari += dt;
+    if (z.stari < DOPAD_KRYSTALU) continue;
+    const t = Math.min(1, (z.stari - DOPAD_KRYSTALU) / z.trvani);
+    const konec = z.stari >= DOPAD_KRYSTALU + z.trvani;
+    const brzda = 1 - (1 - z.zpomaleni) * Math.min(1, 0.6 + t);
+    for (const n of hra.nepratele) {
+      if (n.hp <= 0 || !viditelny(n) || vzdalenost(n, z) >= z.polomer + n.polomer / 2) continue;
+      n.zpomaleniMrazem = Math.min(n.mraz > 0 ? n.zpomaleniMrazem : 1, brzda);
+      n.mraz = DOZNIVANI_MRAZU;
+      if (konec) roztrist(hra, n, z);
+    }
+    if (!konec) continue;
+    for (const b of hra.bedny) {
+      if (vzdalenost(b, z) < z.polomer + POLOMER_BEDNY / 2) rozbij(hra, b);
+    }
+    hra.roztristeni.push({ x: z.x, y: z.y, polomer: z.polomer, zivot: TRVANI_TRISTENI });
+    rozprsk(hra, z.x, z.y, 'led', 10);
+    z.hotovo = true;
+  }
+  hra.ledoveZony = hra.ledoveZony.filter((z) => !z.hotovo);
+  for (const r of hra.roztristeni) r.zivot -= dt;
+  hra.roztristeni = hra.roztristeni.filter((r) => r.zivot > 0);
 }
 
 // Výbava bossů. Po každé změně výbavy se spočítá znovu, co celá dává (ucinekVystroje), a do vlastností hrdiny
@@ -1986,7 +2260,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   const naposledy = { x: hrdina.zmizelX, y: hrdina.zmizelY };
   for (const n of hra.nepratele) {
     const d = vzdalenost(n, hrdina) || 1;
-    const brzda = brzdaTrnu(n) * brzdaSite(n);
+    const brzda = brzdaTrnu(n) * brzdaSite(n) * brzdaMrazu(n);
     const nPredX = n.x;
     const nPredY = n.y;
     if (n.odhozen > 0) {
@@ -2026,6 +2300,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     n.zasahKrumpacem = Math.max(0, n.zasahKrumpacem - dt);
     n.zasahZrcadlem = Math.max(0, (n.zasahZrcadlem || 0) - dt);
     n.trny = Math.max(0, (n.trny || 0) - dt);
+    n.mraz = Math.max(0, (n.mraz || 0) - dt);
     if (d < n.polomer + 8 && hrdina.nezranitelny <= 0 && viditelny(n)) {
       if (n.sit) hrdina.sit = TRVANI_SITE;
       if (n.pan) hra.zasahyBossu.pomocnik += 1;
@@ -2163,6 +2438,17 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   }
   for (const o of hra.odlesky) o.zivot -= dt;
   hra.odlesky = hra.odlesky.filter((o) => o.zivot > 0);
+
+  // Světlušky
+  rojSvetlusek(hra, dt, s);
+
+  // Mrazivý krystal: když je nabitý a má kam dopadnout, dopadne. Bez cíle čeká nabitý.
+  const mr = hra.zbrane.mraz;
+  if (mr) {
+    mr.nabiti = (mr.nabiti ?? 0) - dt;
+    if (mr.nabiti <= 0 && hodKrystaly(hra, s.mraz)) mr.nabiti = s.mraz.nabiti;
+  }
+  mrznouZony(hra, dt);
   // Rázová vlna z výbavy Strážce
   razoveVlny(hra, dt);
   hra.bedny = hra.bedny.filter((b) => !b.rozbita);
