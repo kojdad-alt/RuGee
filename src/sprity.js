@@ -638,6 +638,46 @@ const SPRITY = {
     'puup',
     '.pp.',
   ],
+  // Světlušky: ikona je světluška s křidélky a svítícím zadečkem, kolem dvě další světýlka. Ve hře je každá
+  // světluška malý sprite (svetluska) se září kolem zadečku.
+  svetlusky: [
+    '.UU.....',
+    'UaaU..Y.',
+    'UaaUe...',
+    '.UUeek..',
+    '...ekkM.',
+    '....MYYM',
+    '....MYYM',
+    '.Y...MM.',
+  ],
+  svetluska: [
+    'U.U',
+    '.e.',
+    'MYM',
+    '.Y.',
+  ],
+  // Mrazivý krystal: ikona je ledový krystal zaražený do zamrzlé země, ve hře z výšky padá menší krystal
+  // (ledovyKrystal) a v zóně kolem něj vyrůstá jinovatka.
+  mraz: [
+    '...U....',
+    '..UCu...',
+    '..UCu.U.',
+    '.UCCcuCu',
+    '.UCCcuCu',
+    '.UCccbcb',
+    'AaUcbbaA',
+    '.AAAAAA.',
+  ],
+  ledovyKrystal: [
+    '..U..',
+    '.UCu.',
+    '.UCu.',
+    'UCCcu',
+    'UCccu',
+    '.Ccb.',
+    '.ucb.',
+    '..b..',
+  ],
   krumpac: [
     '.ppppp..',
     'p..h..p.',
