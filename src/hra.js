@@ -140,7 +140,60 @@ export function platnaTrida(id) {
   return typeof id === 'string' && Object.hasOwn(TRIDY, id) ? id : VYCHOZI_TRIDA;
 }
 
-const MAX_NEPRATEL = 350;
+// Hrozba: hra nemá konec, nepřátelé s časem plynule sílí. min = minuty hry i se zlomky, nahoře se ukazuje
+// Hrozba N = 1 + celé minuty (každou minutu +1 a krátké ohlášení). Celý vzorec je v téhle tabulce (silaHrozby):
+//   životy     × (1 + zivoty · min) · narustZivotu ^ (min − narustOd)   (exponent jen nad narustOd)
+//   bossové    × (1 + bossZivoty · min + bossNavic · (min − castejiOd)) · stejný nárůst   (bossNavic až od castejiOd)
+//   poškození  × (1 + poskozeni · min) · narustPoskozeni ^ (min − narustOd)   (dotyk, útoky bossů i jedový oblak)
+//   rychlost   × (1 + rychlost · min) · narustRychlosti ^ (min − narustOd), nanejvýš maxRychlost
+//   vlna každých max(nejkratsiVlna, prvniVlna − zkraceniVlny · min) s, v ní 1 + celé(davka · min) nepřátel, nanejvýš maxDavka
+//   na louce nejvýš maxNepratel + navicNepratel · min, nanejvýš stropNepratel
+//   elita: od elitaOd šance elitaSance na každého z vlny, od castejiOd navíc + elitaRust · (min − castejiOd), nanejvýš elitaMax
+// Exponenty od narustOd jsou pojistka, že nikdo nevydrží donekonečna: zbraně bez stropu úrovní by jinak lineární
+// růst přerostly, rychlý hrdina by nepřátelům utíkal napořád a srdce ze zabitých by doléčila každou ránu.
+// Vyváženo simulací (tests/simulace.mjs, hrozba.preziti_min): bot bez trvalých vylepšení vydrží zhruba 7–15 min,
+// se všemi na maximu 15–20 min. Brzký růst rychlosti je citlivý: už 0,015 místo 0,01 složí slabého bota v 6. minutě.
+export const HROZBA = {
+  zivoty: 0.1, narustOd: 8, narustZivotu: 1.25, bossZivoty: 0.2, bossNavic: 0.3,
+  poskozeni: 0.05, narustPoskozeni: 1.1,
+  rychlost: 0.01, narustRychlosti: 1.08, maxRychlost: 3,
+  prvniVlna: 1.2, zkraceniVlny: 1 / 3, nejkratsiVlna: 0.25, davka: 1, maxDavka: 40,
+  maxNepratel: 350, navicNepratel: 5, stropNepratel: 450,
+  elitaOd: 5, castejiOd: 10, elitaSance: 0.01, elitaRust: 0.01, elitaMax: 0.15,
+};
+// Elita je obyčejný nepřítel z vlny, jen o třetinu větší (kreslí se 4 px na pixel místo 3), s rudým obrysem
+// a mnohem odolnější. Za to nechá velký krystal.
+export const ELITA = { zivoty: 5, poskozeni: 1.5, velikost: 4 / 3, xp: 6 };
+export const TRVANI_HLASENI_HROZBY = 2.2;
+
+// Síla nepřátel v daném čase hry (sekundy) podle tabulky HROZBA.
+export function silaHrozby(cas) {
+  const h = HROZBA;
+  const min = Math.max(0, Number(cas) || 0) / 60;
+  const nad = Math.max(0, min - h.narustOd);
+  const narust = h.narustZivotu ** nad;
+  const casteji = Math.max(0, min - h.castejiOd);
+  return {
+    min,
+    uroven: 1 + Math.floor(min),
+    zivoty: (1 + h.zivoty * min) * narust,
+    bossZivoty: (1 + h.bossZivoty * min + h.bossNavic * casteji) * narust,
+    poskozeni: (1 + h.poskozeni * min) * h.narustPoskozeni ** nad,
+    rychlost: Math.min(h.maxRychlost, (1 + h.rychlost * min) * h.narustRychlosti ** nad),
+    vlna: Math.max(h.nejkratsiVlna, h.prvniVlna - h.zkraceniVlny * min),
+    davka: Math.min(h.maxDavka, 1 + Math.floor(h.davka * min)),
+    maxNepratel: Math.min(h.stropNepratel, Math.round(h.maxNepratel + h.navicNepratel * min)),
+    elita: min < h.elitaOd ? 0 : Math.min(h.elitaMax, h.elitaSance + h.elitaRust * casteji),
+  };
+}
+
+// Text ohlášení při nové úrovni hrozby. Na začátku častějších elit se řekne proč.
+export function textHrozby(uroven) {
+  if (uroven === HROZBA.castejiOd + 1) return `Hrozba ${uroven}: víc elit, silnější bossové`;
+  if (uroven === HROZBA.elitaOd + 1) return `Hrozba ${uroven}: přicházejí elity`;
+  return `Hrozba ${uroven}: nepřátelé sílí`;
+}
+
 const MAX_KRYSTALU = 300;
 const SANCE_SRDCE = 0.012;
 const SANCE_MAGNET = 0.003;
@@ -349,6 +402,12 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}) {
     smecek: 0,
     dalsiPrichod: 0,
     oznameni: null,
+    // hrozba = úroveň nahoře, hlaseniHrozby = krátké ohlášení po zvýšení, doElity = kolik už se našetřilo
+    // šance na elitu (při 1 přijde elita, bez losu z rng, ať se náhoda vln neposune)
+    hrozba: 1,
+    hlaseniHrozby: null,
+    doElity: 0,
+    elit: 0,
   };
 }
 
@@ -417,6 +476,11 @@ function zran(hra, kolik) {
   }
 }
 
+// Rána útokem bosse nebo jedem roste s hrozbou stejně jako dotyk nepřítele.
+function ranaHrozby(hra, kolik) {
+  return Math.round(kolik * silaHrozby(hra.cas).poskozeni);
+}
+
 function polomerSpawnu(sirka, vyska) {
   return Math.hypot(sirka, vyska) / 2 + 40;
 }
@@ -434,14 +498,20 @@ function zamir(n, hrdina) {
   n.smerY = (hrdina.y - n.y) / d;
 }
 
-// Nový nepřítel na daném místě. Životy rostou s časem (bossové pomaleji). Exportované kvůli simulaci.
-export function pridejNepritele(hra, druh, x, y) {
+// Nový nepřítel na daném místě. Životy, poškození a rychlost rostou s hrozbou (silaHrozby), elita (jen z vlny)
+// má navíc ELITA. Exportované kvůli simulaci.
+export function pridejNepritele(hra, druh, x, y, elita = false) {
   const vzor = NEPRATELE[druh];
-  const hp = Math.round(vzor.hp * (1 + hra.cas / (vzor.boss ? 300 : 150)));
+  const sila = silaHrozby(hra.cas);
+  const e = elita && !vzor.boss ? ELITA : null;
+  const hp = Math.round(vzor.hp * (vzor.boss ? sila.bossZivoty : sila.zivoty) * (e ? e.zivoty : 1));
   // trny = jak dlouho ještě je zpomalený trny, zpomaleni = na kolik, odhozen = ještě letí od zrcadla
   const n = {
     druh, ...vzor, hp, maxHp: hp, zasazen: 0, zar: 0, zasahKrumpacem: 0, zasahZrcadlem: 0, trny: 0, zpomaleni: 1, odhozen: 0, x, y,
+    poskozeni: Math.round(vzor.poskozeni * sila.poskozeni * (e ? e.poskozeni : 1)),
+    rychlost: vzor.rychlost * sila.rychlost,
   };
+  if (e) Object.assign(n, { elita: true, polomer: Math.round(vzor.polomer * e.velikost), xp: vzor.xp * e.xp });
   if (n.duch) {
     n.skryty = false;
     n.duchCas = VIDITELNY_DUCH;
@@ -454,30 +524,40 @@ export function pridejNepritele(hra, druh, x, y) {
   return n;
 }
 
+// Vlna z okraje. Elitou se stane ten, na koho připadne našetřená šance (duch ne, toho jde i tak těžko trefit).
 function spawn(hra, sirka, vyska) {
   const { rng, cas } = hra;
-  if (hra.nepratele.length >= MAX_NEPRATEL) return;
+  const sila = silaHrozby(cas);
+  if (hra.nepratele.length >= sila.maxNepratel) return;
   const druhy = ['netopyr'];
   if (cas > 60) druhy.push('slizak');
   if (cas > OD_DUCHU) druhy.push('duch');
   if (cas > OD_HOUBAKU) druhy.push('houbak');
   if (cas > 150) druhy.push('kostlivec');
   if (cas > OD_PAVOUKU) druhy.push('pavouk');
-  const davka = 1 + Math.floor(cas / 60);
   let duchu = hra.nepratele.filter((n) => n.duch).length;
-  for (let i = 0; i < davka; i++) {
+  for (let i = 0; i < sila.davka; i++) {
     let druh = rng.vyber(druhy);
     if (druh === 'duch' && duchu >= MAX_DUCHU) druh = 'netopyr';
     if (druh === 'duch') duchu += 1;
     const { x, y } = naOkraji(hra, sirka, vyska);
-    pridejNepritele(hra, druh, x, y);
+    let elita = false;
+    if (druh !== 'duch' && sila.elita > 0) {
+      hra.doElity += sila.elita;
+      if (hra.doElity >= 1) {
+        hra.doElity -= 1;
+        hra.elit += 1;
+        elita = true;
+      }
+    }
+    pridejNepritele(hra, druh, x, y, elita);
   }
 }
 
 // Smečka vlků vyleze pohromadě na jednom místě okraje, v kroužku kolem vůdce. Přijde i při plné
 // louce (obyčejné vlny ji drží na maximu), jen o pár smeček víc už ne.
 function smecka(hra, sirka, vyska) {
-  if (hra.nepratele.length >= MAX_NEPRATEL + SMECKA_DO * 3) return;
+  if (hra.nepratele.length >= silaHrozby(hra.cas).maxNepratel + SMECKA_DO * 3) return;
   const pocet = hra.rng.cele(SMECKA_OD, SMECKA_DO);
   const { x, y } = naOkraji(hra, sirka, vyska);
   pridejNepritele(hra, 'vlk', x, y);
@@ -688,7 +768,7 @@ function strelyBossu(hra, dt) {
     if (!v.zasahla && d >= pred - 10 && d <= v.r + 10 && muzeDostat()) {
       v.zasahla = true;
       hra.zasahyBossu.dupnuti += 1;
-      zran(hra, DUPNUTI);
+      zran(hra, ranaHrozby(hra, DUPNUTI));
     }
     if (v.r >= v.max) v.konec = true;
   }
@@ -700,7 +780,7 @@ function strelyBossu(hra, dt) {
     rozprsk(hra, k.x, k.y, 'kamen', 6);
     if (vzdalenost(k, hrdina) < POLOMER_KAMENE && muzeDostat()) {
       hra.zasahyBossu.kamen += 1;
-      zran(hra, KAMEN);
+      zran(hra, ranaHrozby(hra, KAMEN));
     }
   }
   hra.kameny = hra.kameny.filter((k) => !k.dopadl);
@@ -723,7 +803,7 @@ function strelyBossu(hra, dt) {
       st.zivot = 0;
       if (muzeDostat()) {
         hra.zasahyBossu.strela += 1;
-        zran(hra, STRELA_BLUDICKY);
+        zran(hra, ranaHrozby(hra, STRELA_BLUDICKY));
       }
     }
   }
@@ -951,7 +1031,17 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   hra.doSpawnu -= dt;
   if (hra.doSpawnu <= 0) {
     spawn(hra, sirka, vyska);
-    hra.doSpawnu = Math.max(0.25, 1.2 - hra.cas / 180);
+    hra.doSpawnu = silaHrozby(hra.cas).vlna;
+  }
+  // Každou minutu hrozba o stupeň výš a krátké ohlášení (vlastní řádek, nepřepíše příchod bosse).
+  const hrozba = silaHrozby(hra.cas).uroven;
+  if (hrozba > hra.hrozba) {
+    hra.hrozba = hrozba;
+    hra.hlaseniHrozby = { uroven: hrozba, text: textHrozby(hrozba), zivot: TRVANI_HLASENI_HROZBY };
+  }
+  if (hra.hlaseniHrozby) {
+    hra.hlaseniHrozby.zivot -= dt;
+    if (hra.hlaseniHrozby.zivot <= 0) hra.hlaseniHrozby = null;
   }
   // Kdo zůstal daleko za hrdinou, vrátí se na okraj obrazovky, aby se nepřátelé nehromadili mimo dohled.
   const daleko = polomerSpawnu(sirka, vyska) * 1.5;
@@ -1034,8 +1124,9 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   for (const o of hra.oblaky) {
     const pali = TRVANI_OBLAKU - o.zivot >= NAFUKOVANI_OBLAKU;
     if (pali && hrdina.nezranitelny <= 0 && !hra.konec && vzdalenost(o, hrdina) < o.polomer) {
-      zran(hra, JED_OBLAKU);
-      hra.cisla.push({ x: hrdina.x, y: hrdina.y - 18, text: `-${JED_OBLAKU}`, zivot: 0.6, barva: 'jed' });
+      const jed = ranaHrozby(hra, JED_OBLAKU);
+      zran(hra, jed);
+      hra.cisla.push({ x: hrdina.x, y: hrdina.y - 18, text: `-${jed}`, zivot: 0.6, barva: 'jed' });
     }
   }
 

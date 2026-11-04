@@ -31,6 +31,9 @@
 // neškodí, pak zraňuje a zpomalí (bosse napůl), zpomalení po vylezení dozní a trs zmizí. Zrcadlo odhodí, koho se
 // dotkne (bosse ne, schovaného ducha ani nevidí), a střelu bosse pošle zpátky, kde zraní nepřítele a ne hrdinu.
 // Každá zbraň má 5 řádků popisu a ikonu se spritem.
+// Hrozba: hra nekončí, každou minutu je hrozba o stupeň výš (s ohlášením) a noví nepřátelé mají životy, poškození
+// a rychlost podle tabulky HROZBA. Elity nechodí před 5. minutou, od 10. přibývají, bossové nejsou nikdy elitou.
+// Na vyvážení hraje plně vylepšený bot až do konce: musí padnout do 30 minut (nikdo nevydrží donekonečna).
 import { readFileSync } from 'node:fs';
 import { vytvorRng } from '../src/rng.js';
 import {
@@ -45,6 +48,7 @@ import {
   POLOMER_KAMENE, KAMEN, NABITI_BLUDICKY, STREL_BLUDICKY, STRELA_BLUDICKY, SALV_BLUDICKY, MEZI_SALVAMI,
   VYRAZENI_PAVOUCKU, RYCHLOST_VYRAZENI,
   RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, MAX_TRNU, TRVANI_ODHOZENI, ZRYCHLENI_ODRAZU, poziceZrcadla,
+  HROZBA, ELITA, silaHrozby, textHrozby, POLOMER_OBLAKU,
 } from '../src/hra.js';
 import {
   VYLEPSENI, DUSE_ZA, dusZaHru, cenaVylepseni, kupVylepseni, vratDuse, utraceno,
@@ -88,6 +92,13 @@ const videneBedny = new WeakSet();
 let maxBeden = 0;
 const prisliBossove = [];
 const chybyBossu = [];
+const chybyHrozby = [];
+let ohlaseniHrozby = 0;
+let prvniElita = null;
+// Kolik nepřátel z vln (duch, vlci ze smečky a pavoučci od Matky elitou být nemůžou) a kolik z nich elit:
+// před elitaOd, mezi elitaOd a castejiOd, po castejiOd.
+const elityPodleCasu = { pred: [0, 0], stred: [0, 0], pozde: [0, 0] };
+const muzeBytElitou = (n) => !n.boss && !['duch', 'vlk', 'pavoucek'].includes(n.druh);
 let maxPavoucku = 0;
 let maxTrsu = 0;
 // Bedna je celá mimo obrazovku, když její sprite (30 px) nezasahuje do výřezu kolem hrdiny.
@@ -209,7 +220,16 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
   const sitPred = hra.hrdina.sit;
   const { x: xPred, y: yPred } = hra.hrdina;
   const schovani = hra.nepratele.filter((n) => n.skryty).map((n) => [n, n.hp]);
+  const hrozbaPred = hra.hrozba;
   aktualizuj(hra, DT, rozhodni(hra, t), SIRKA, VYSKA);
+  // Hrozba = 1 + celé minuty, každé zvýšení s ohlášením.
+  if (hra.hrozba !== 1 + Math.floor(hra.cas / 60)) chybyHrozby.push(`hrozba ${hra.hrozba} v čase ${hra.cas.toFixed(1)} s`);
+  if (hra.hrozba > hrozbaPred) {
+    ohlaseniHrozby += 1;
+    if (hra.hrozba !== hrozbaPred + 1 || hra.hlaseniHrozby?.uroven !== hra.hrozba || !hra.hlaseniHrozby.text.startsWith(`Hrozba ${hra.hrozba}`)) {
+      chybyHrozby.push(`hrozba ${hrozbaPred} → ${hra.hrozba} bez ohlášení (${hra.hlaseniHrozby?.text})`);
+    }
+  }
   // Schovaného ducha (před krokem i po něm) nesmí nic zasáhnout.
   for (const [n, hp] of schovani) {
     if (!n.skryty) continue;
@@ -222,6 +242,14 @@ for (let t = 0; t < delka && !hra.konec; t += DT) {
     if (videni.has(n)) continue;
     videni.add(n);
     if (n.druh in prvni && prvni[n.druh] === null) prvni[n.druh] = hra.cas;
+    if (n.elita && prvniElita === null) prvniElita = hra.cas;
+    if (n.elita && !muzeBytElitou(n)) chybyHrozby.push(`elitou se stal ${n.druh}`);
+    if (muzeBytElitou(n)) {
+      const min = hra.cas / 60;
+      const kos = elityPodleCasu[min < HROZBA.elitaOd ? 'pred' : min < HROZBA.castejiOd ? 'stred' : 'pozde'];
+      kos[0] += 1;
+      if (n.elita) kos[1] += 1;
+    }
     if (n.druh === 'vlk') noviVlci.push(n);
     if (n.boss) {
       prisliBossove.push({ druh: n.druh, s: Math.round(hra.cas) });
@@ -1141,6 +1169,75 @@ for (const n of [1, ...Object.values(TRIDY).map((t) => t.nasobky.nabijeni ?? 1)]
 }
 const silnaStaty = staty(silna);
 
+// Hrozba v tabulce: na začátku nic nezesílí, nic neubývá, vlna se nezrychlí pod nejkratší a čísla zůstanou konečná.
+const nula = silaHrozby(0);
+if (nula.uroven !== 1 || nula.zivoty !== 1 || nula.bossZivoty !== 1 || nula.poskozeni !== 1 || nula.rychlost !== 1 || nula.elita !== 0) {
+  chybyHrozby.push(`hrozba na začátku něco mění: ${JSON.stringify(nula)}`);
+}
+const rostou = ['zivoty', 'bossZivoty', 'poskozeni', 'rychlost', 'davka', 'maxNepratel', 'elita', 'uroven'];
+let predHrozba = nula;
+for (let min = 0.25; min <= 120; min += 0.25) {
+  const h = silaHrozby(min * 60);
+  for (const co of rostou) if (!(h[co] >= predHrozba[co]) || !Number.isFinite(h[co])) chybyHrozby.push(`hrozba: ${co} v ${min}. min ubyla nebo není číslo`);
+  if (!(h.vlna <= predHrozba.vlna) || h.vlna < HROZBA.nejkratsiVlna) chybyHrozby.push(`hrozba: vlna v ${min}. min ${h.vlna}`);
+  if (h.rychlost > HROZBA.maxRychlost || h.elita > HROZBA.elitaMax || h.maxNepratel > HROZBA.stropNepratel || h.davka > HROZBA.maxDavka) chybyHrozby.push(`hrozba v ${min}. min přes strop`);
+  if (h.uroven !== 1 + Math.floor(min)) chybyHrozby.push(`hrozba v ${min}. min má úroveň ${h.uroven}`);
+  predHrozba = h;
+}
+if (silaHrozby(HROZBA.castejiOd * 60 + 600).elita <= silaHrozby(HROZBA.castejiOd * 60 - 1).elita) chybyHrozby.push('po castejiOd elit nepřibývá');
+if (!textHrozby(7).startsWith('Hrozba 7') || !textHrozby(HROZBA.castejiOd + 1).includes('bossové')) chybyHrozby.push('texty hrozby nesedí');
+// Noví nepřátelé dostanou životy, poškození a rychlost podle hrozby, elita víc, boss elitou nebude.
+const pozdni = novaHra(vytvorRng(seminko));
+pozdni.cas = 15 * 60;
+const sila15 = silaHrozby(pozdni.cas);
+const kost = pridejNepritele(pozdni, 'kostlivec', 9000, 0);
+const elitniKost = pridejNepritele(pozdni, 'kostlivec', 9000, 50, true);
+const elitniBoss = pridejNepritele(pozdni, 'obr', 9000, 100, true);
+const zakladKostlivce = pridejNepritele(novaHra(vytvorRng(seminko)), 'kostlivec', 0, 0);
+if (kost.hp !== Math.round(zakladKostlivce.hp * sila15.zivoty) || kost.poskozeni !== Math.round(zakladKostlivce.poskozeni * sila15.poskozeni)
+  || Math.abs(kost.rychlost - RYCHLOST_NEPRATEL.kostlivec * sila15.rychlost) > 1e-9 || kost.elita) {
+  chybyHrozby.push(`kostlivec v 15. min: ${kost.hp} životů, ${kost.poskozeni} poškození, rychlost ${kost.rychlost}`);
+}
+if (!elitniKost.elita || elitniKost.hp !== Math.round(zakladKostlivce.hp * sila15.zivoty * ELITA.zivoty) || elitniKost.xp !== zakladKostlivce.xp * ELITA.xp
+  || !(elitniKost.polomer > kost.polomer) || !(elitniKost.poskozeni > kost.poskozeni)) {
+  chybyHrozby.push('elita nemá víc životů, poškození, velikosti a zkušeností');
+}
+if (elitniBoss.elita || elitniBoss.maxHp !== Math.round(420 * sila15.bossZivoty)) chybyHrozby.push(`boss jako elita nebo se špatnými životy (${elitniBoss.maxHp})`);
+// Jedový oblak v 20. minutě pálí víc (stejně jako dotyk).
+const pozdniJed = novaHra(vytvorRng(seminko));
+pozdniJed.cas = 20 * 60;
+pozdniJed.hrozba = silaHrozby(pozdniJed.cas).uroven;
+pozdniJed.oblaky.push({ x: 0, y: 0, zivot: TRVANI_OBLAKU - NAFUKOVANI_OBLAKU - 0.1, polomer: POLOMER_OBLAKU });
+aktualizuj(pozdniJed, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+const ocekavanyJed = Math.round(JED_OBLAKU * silaHrozby(pozdniJed.cas).poskozeni);
+if (pozdniJed.hrdina.maxHp - pozdniJed.hrdina.hp !== ocekavanyJed || !(ocekavanyJed > JED_OBLAKU)) chybyHrozby.push(`oblak ve 20. min ubral ${pozdniJed.hrdina.maxHp - pozdniJed.hrdina.hp}, má ${ocekavanyJed}`);
+// Hra nekončí po pevném čase: nezranitelný hrdina v 60. minutě hraje dál, hrozba 61, čísla nepřátel jsou konečná.
+// Bossové a smečky se posunou za 60. minutu, jinak by se všechny zmeškané vyvalily naráz.
+const hodina = novaHra(vytvorRng(seminko));
+hodina.cas = 3600;
+hodina.dalsiBoss = 3600 + 60;
+hodina.dalsiSmecka = 3600 + 5;
+let maxNaHodine = 0;
+let hlaseniNaHodine = null;
+for (let t = 0; t < 10; t += DT) {
+  hodina.hrdina.nezranitelny = 1;
+  aktualizuj(hodina, DT, rozhodni(hodina, t), SIRKA, VYSKA);
+  if (hodina.volby) vyber(hodina, zvol(hodina.volby));
+  hlaseniNaHodine ??= hodina.hlaseniHrozby?.text ?? null;
+  maxNaHodine = Math.max(maxNaHodine, hodina.nepratele.length);
+}
+if (hodina.konec || hodina.hrozba !== 61 || !hlaseniNaHodine?.startsWith('Hrozba 61')) chybyHrozby.push(`hodina hry: konec ${hodina.konec}, hrozba ${hodina.hrozba}, ohlášení ${hlaseniNaHodine}`);
+if (!hodina.nepratele.length || hodina.nepratele.some((n) => !Number.isFinite(n.hp) || !(n.hp > 0) || !Number.isFinite(n.poskozeni) || !Number.isFinite(n.rychlost))) chybyHrozby.push('v 60. minutě nepřátelé bez konečných čísel');
+if (maxNaHodine > HROZBA.stropNepratel + SMECKA_DO * 3 + SNUSKA * 4) chybyHrozby.push(`v 60. minutě ${maxNaHodine} nepřátel naráz`);
+// Elity v hlavní hře: před elitaOd žádná, mezi elitaOd a castejiOd zhruba elitaSance, potom víc.
+const podil = ([kolik, elit]) => (kolik ? elit / kolik : null);
+if (elityPodleCasu.pred[1]) chybyHrozby.push(`${elityPodleCasu.pred[1]} elit před ${HROZBA.elitaOd}. minutou`);
+if (elityPodleCasu.stred[0] > 500 && Math.abs(podil(elityPodleCasu.stred) - HROZBA.elitaSance) > HROZBA.elitaSance / 2) chybyHrozby.push(`podíl elit před ${HROZBA.castejiOd}. min ${podil(elityPodleCasu.stred)}`);
+if (elityPodleCasu.pozde[0] > 500 && !(podil(elityPodleCasu.pozde) > podil(elityPodleCasu.stred))) chybyHrozby.push('po 10. minutě elit nepřibylo');
+// Vyvážení: plně vylepšený bot hraje až do konce, nejvýš 30 minut. Bez vylepšení je to hlavní hra (nejvýš delka).
+const vydrz = hrajKratce(plna, 1800);
+if (!vydrz.konec) chybyHrozby.push('plně vylepšený bot přežil 30 minut, hrozba neroste dost');
+
 const zaokrouhli = (s) => Object.fromEntries(Object.entries(s).map(([id, p]) => [id, Math.round(p * 1000) / 10]));
 
 const vysledek = {
@@ -1199,6 +1296,22 @@ const vysledek = {
       dosah_lucerny: Math.round(silnaStaty.lucerna.dosah), poskozeni_jiskry: Math.round(silnaStaty.jiskra.poskozeni),
     },
   },
+  hrozba: {
+    konecna: hra.hrozba,
+    ohlaseni: ohlaseniHrozby,
+    prvni_elita_s: prvniElita === null ? null : Math.round(prvniElita),
+    elit: hra.elit,
+    podil_elit_procenta: Object.fromEntries(Object.entries(elityPodleCasu).map(([k, v]) => [k, v[0] ? Math.round(podil(v) * 1000) / 10 : null])),
+    preziti_min: {
+      bez_vylepseni: hra.konec ? Math.round(hra.cas / 6) / 10 : `přes ${Math.round(delka / 6) / 10}`,
+      vse_vylepsene: vydrz.konec ? Math.round(vydrz.cas / 6) / 10 : 'přes 30',
+      vse_vylepsene_uroven: vydrz.hrdina.uroven,
+    },
+    tabulka: Object.fromEntries([0, 5, 10, 15, 20, 25].map((min) => {
+      const h = silaHrozby(min * 60);
+      return [`${min}_min`, { zivoty: +h.zivoty.toFixed(2), bossove: +h.bossZivoty.toFixed(2), poskozeni: +h.poskozeni.toFixed(2), rychlost: +h.rychlost.toFixed(2), naraz: h.maxNepratel, elita_procent: +(h.elita * 100).toFixed(1) }];
+    })),
+  },
   trny_a_zrcadlo: {
     hlavni_hra: { max_trsu_naraz: maxTrsu, odrazeno_strel: hra.odrazeno, odhozeno_nepratel: hra.odhozeno },
     trny: trnovePokusy, zrcadlo: zrcadlovePokusy,
@@ -1208,7 +1321,7 @@ console.log(JSON.stringify(vysledek, null, 2));
 
 const chyby = [
   ...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel), ...chybyVybavy, ...chybyLucerny, ...new Set(chybyBeden),
-  ...new Set(chybyBossu), ...chybyZbrani, ...new Set(chybyUrovni),
+  ...new Set(chybyBossu), ...chybyZbrani, ...new Set(chybyUrovni), ...new Set(chybyHrozby),
 ];
 if (maxTrsu > MAX_TRNU) chyby.push(`trsů trnů naráz ${maxTrsu}`);
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);
@@ -1228,10 +1341,10 @@ function nahradUloziste(uloziste) {
 }
 const mapa = new Map();
 nahradUloziste({ getItem: (k) => mapa.get(k) ?? null, setItem: (k, v) => mapa.set(k, String(v)) });
-const vysledekHry = { cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito };
+const vysledekHry = { cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito, hrozba: hra.hrozba };
 if (nactiRekord() !== null) chyby.push('prázdné úložiště má mít žádný rekord');
 if (!zapisVysledek(vysledekHry).novy) chyby.push('první hra nebyla rekord');
-if (nactiRekord()?.cas !== vysledekHry.cas) chyby.push('rekord se neuložil');
+if (nactiRekord()?.cas !== vysledekHry.cas || nactiRekord()?.hrozba !== hra.hrozba) chyby.push('rekord se neuložil i s hrozbou');
 if (zapisVysledek({ ...vysledekHry, cas: vysledekHry.cas - 1 }).novy) chyby.push('kratší hra přepsala rekord');
 if (!zapisVysledek({ ...vysledekHry, cas: vysledekHry.cas + 1 }).novy) chyby.push('delší hra nebyla nový rekord');
 mapa.set('hlubiny.rekord', '{rozbité');

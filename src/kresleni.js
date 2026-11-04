@@ -3,11 +3,14 @@ import {
   staty, TRVANI_TRESU, VYCHOZI_TRIDA, TRVANI_ZABLESKU, ODHOZENI_PRI_OZIVENI, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU,
   TRVANI_ZARU, TRVANI_VYBUCHU, bossBary, POLOMER_DUPNUTI, NAPRAH_DUPNUTI, LET_KAMENE, POLOMER_KAMENE,
   NABITI_BLUDICKY, ZJEVENI_BLUDICKY, POLOMER_STRELY_BOSSU, RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, TRVANI_ODLESKU,
-  poziceZrcadla,
+  poziceZrcadla, TRVANI_HLASENI_HROZBY,
 } from './hra.js';
 import { dlazdiceLouky, ozdobyLouky } from './louka.js';
 
 const MERITKO = 3;
+// Elita se kreslí po 4 px na pixel spritu (o třetinu větší, ale pořád ostrá) s rudým obrysem.
+const MERITKO_ELITY = 4;
+const OBRYS_ELITY = '#e5484d';
 const DLAZDICE = 48;
 const SILA_TRESU = 5;
 // Barvy úlomků podle toho, z čeho je nepřítel (stejné odstíny jako jeho sprite).
@@ -43,8 +46,8 @@ const BARVY_BOSSU = {
   obr: { pruh: '#7fc46a', tmava: '#2f5a2a', text: '#c8f0b0' },
   bludicka: { pruh: '#8fb4ff', tmava: '#2c3f7a', text: '#dfe8ff' },
 };
-// Pruhy bossů nahoře: začínají pod horní lištou (úroveň, čas), každý další o VYSKA_BARU níž.
-const HORNI_BARY = 66;
+// Pruhy bossů nahoře: začínají pod horní lištou (úroveň, čas a pod ním hrozba), každý další o VYSKA_BARU níž.
+const HORNI_BARY = 76;
 const VYSKA_BARU = 48;
 const PORTRET = 40;
 // Úbytek životů v pruhu se chvíli drží světlý a pak doběhne (ať je vidět, kolik rána vzala).
@@ -116,6 +119,17 @@ function sprite(ctx, obr, x, y, otoceny = 1, prekryv = null, velikost = obr.widt
   if (otoceny < 0) ctx.scale(-1, 1);
   ctx.drawImage(prekryv ? prebarvi(obr, prekryv) : obr, -velikost / 2, -velikost / 2, velikost, velikost);
   ctx.restore();
+}
+
+// Rudý obrys elity: přebarvený sprite posunutý o pixel na všechny čtyři strany, pod ním pulzující záře.
+function obrysElity(ctx, obr, x, y, otoceny, velikost, cas) {
+  const krok = velikost / obr.width;
+  ctx.save();
+  ctx.globalAlpha = 0.35 + 0.2 * Math.sin(cas * 6);
+  ctx.fillStyle = OBRYS_ELITY;
+  kruhNaZemi(ctx, x, y + velikost * 0.35, velikost * 0.45, true);
+  ctx.restore();
+  for (const [dx, dy] of [[-krok, 0], [krok, 0], [0, -krok], [0, krok]]) sprite(ctx, obr, x + dx, y + dy, otoceny, OBRYS_ELITY, velikost);
 }
 
 // Pavoučí síť přes hrdinu: paprsky a dva kruhy, s koncem sítě bledne.
@@ -587,7 +601,7 @@ export function kresli(ctx, hra) {
     const p = naObrazovce(n);
     if (p.x < -40 || p.y < -40 || p.x > sirka + 40 || p.y > vyska + 40) continue;
     const obr = sprity[n.druh];
-    const velikost = obr.width * MERITKO;
+    const velikost = obr.width * (n.elita ? MERITKO_ELITY : MERITKO);
     if (n.duch) {
       // duch se vznáší a kouká tam, kam letí (ne na hrdinu, letí kolem něj)
       ctx.globalAlpha = pruhlednostDucha(n);
@@ -613,10 +627,19 @@ export function kresli(ctx, hra) {
         ctx.restore();
       }
     }
+    if (n.elita) obrysElity(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, velikost, hra.cas);
     sprite(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, n.zasazen > 0 ? 'rgba(255,255,255,0.7)' : null, velikost);
     if (n.zar > 0) rozzar(ctx, obr, x, y, n.x > hrdina.x ? -1 : 1, velikost, n.zar / TRVANI_ZARU);
     ctx.globalAlpha = 1;
     if (n.trny > 0) sponaTrnu(ctx, n, x, y, velikost);
+    if (n.elita && n.hp < n.maxHp) {
+      // malý pruh životů nad zraněnou elitou
+      const nad = Math.round(y - velikost / 2 - 5);
+      ctx.fillStyle = '#0b0a0f';
+      ctx.fillRect(Math.round(x - 15), nad - 1, 30, 5);
+      ctx.fillStyle = OBRYS_ELITY;
+      ctx.fillRect(Math.round(x - 14), nad, Math.round(28 * Math.max(0, n.hp) / n.maxHp), 3);
+    }
     if (n.boss) {
       const nad = Math.round(y - velikost / 2 - 7);
       ctx.fillStyle = '#0b0a0f';
@@ -800,6 +823,27 @@ export function kresli(ctx, hra) {
     ctx.fillText(hra.oznameni.text, sirka / 2, yNapisu);
     ctx.restore();
   }
+  if (hra.hlaseniHrozby) hlaseniHrozby(ctx, hra, sirka, Math.max(90, HORNI_BARY + bary.length * VYSKA_BARU + 26) + (hra.oznameni ? 30 : 0));
+}
+
+// Krátké ohlášení vyšší hrozby: menší rudý nápis pod hlavním (příchod bosse ani nového druhu nepřepíše).
+// Na začátku krátce poskočí a ke konci zprůhlední.
+function hlaseniHrozby(ctx, hra, sirka, y) {
+  const { text, zivot } = hra.hlaseniHrozby;
+  const stari = TRVANI_HLASENI_HROZBY - zivot;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, Math.min(1, zivot * 2, stari * 6));
+  ctx.font = 'bold 16px ui-monospace, Menlo, monospace';
+  const sirkaNapisu = ctx.measureText(text).width;
+  if (sirkaNapisu > sirka - 24) ctx.font = `bold ${Math.max(10, Math.floor((16 * (sirka - 24)) / sirkaNapisu))}px ui-monospace, Menlo, monospace`;
+  ctx.textAlign = 'center';
+  const yNapisu = Math.round(y - 6 * Math.max(0, 1 - stari * 5));
+  // tmavý pruh pod nápisem, ať je čitelný i přes nepřátele
+  const pruh = Math.min(sirka, ctx.measureText(text).width + 24);
+  ctx.fillStyle = 'rgba(11,10,15,0.6)';
+  ctx.fillRect(Math.round((sirka - pruh) / 2), yNapisu - 17, Math.round(pruh), 24);
+  napis(ctx, text, sirka / 2, yNapisu, '#f08a8d');
+  ctx.restore();
 }
 
 // Pozadí hlavního menu: louka pomalu ujíždí, dole přes ni utíká hrdina (zvolená třída) před hloučkem
