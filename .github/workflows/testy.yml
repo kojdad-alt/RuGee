@@ -1,0 +1,55 @@
+# Testy na každou PR a push do main: otisky v index.html musí být aktuální a simulace hry musí projít.
+# Simulace jede se semínkem 1, takže dopadne pokaždé stejně (žádná náhoda, žádný čas).
+name: Testy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testy-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  testy:
+    name: Otisky a simulace
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Otisky v index.html jsou aktuální
+        run: |
+          node nastroje/verze.mjs
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error file=index.html,title=Otisky::Otisky nejsou aktuální. Spusť node nastroje/verze.mjs a změnu přidej do commitu."
+            git diff
+            exit 1
+          fi
+
+      - name: Simulace hry (semínko 1, 600 s)
+        run: |
+          set +e
+          node tests/simulace.mjs 1 600 > simulace.json 2> chyby.txt
+          stav=$?
+          set -e
+          cat chyby.txt >&2
+          exit $stav
+
+      - name: Shrnutí simulace
+        if: always()
+        run: node .github/shrnuti-simulace.mjs simulace.json chyby.txt

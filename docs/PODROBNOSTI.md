@@ -195,3 +195,7 @@ Potřebuje Python 3.9+ s Pillow, Node, ffmpeg a Playwright s Chromiem (`npm i pl
 ## Nová verze
 
 Po každé změně kódu spusť `node nastroje/verze.mjs`. Do `index.html` zapíše otisky souborů (`?v=…`), aby hráči po nasazení nedostali z cache starý modul, a do `sw.js` novou verzi se seznamem souborů pro hraní bez internetu (viz [Aplikace](#aplikace-a-hraní-bez-internetu)).
+
+## Testy na GitHubu
+
+Na každou PR a každý push do `main` se sám spustí `.github/workflows/testy.yml` (Node 24): nejdřív `node nastroje/verze.mjs` a když něco změní, běh spadne, protože otisky v `index.html` nejsou aktuální. Pak `node tests/simulace.mjs 1 600`. Simulace jede se semínkem 1, takže dopadne pokaždé stejně a nespadne kvůli náhodě. Chyby simulace se ukážou jako poznámky u PR a souhrn běhu má tabulku přežití, úrovně a zabitých pro každou mapu. Stav posledního běhu na `main` ukazuje odznak v README (u „Pro vývojáře“).
