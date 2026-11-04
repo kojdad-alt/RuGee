@@ -205,6 +205,11 @@ const PISMENA = {
   I: ['XX', 'XX', 'XX', 'XX', 'XX', 'XX', 'XX', 'XX'],
   N: ['XX...XX', 'XXX..XX', 'XXXX.XX', 'XX.XXXX', 'XX..XXX', 'XX...XX', 'XX...XX', 'XX...XX'],
   Y: ['XX..XX', 'XX..XX', 'XX..XX', '.XXXX.', '..XX..', '..XX..', '..XX..', '..XX..'],
+  R: ['XXXXXX.', 'XX...XX', 'XX...XX', 'XXXXXX.', 'XXXXX..', 'XX.XXX.', 'XX..XXX', 'XX...XX'],
+  G: ['.XXXXX.', 'XXXXXXX', 'XX.....', 'XX.....', 'XX..XXX', 'XX...XX', 'XXXXXXX', '.XXXXX.'],
+  // Malá písmena sedí na stejné spodní čáře, nahoře mají prázdné řádky.
+  u: ['......', '......', '......', 'XX..XX', 'XX..XX', 'XX..XX', 'XXXXXX', '.XXXXX'],
+  e: ['......', '......', '......', '.XXXX.', 'XX..XX', 'XXXXXX', 'XX....', '.XXXXX'],
 };
 // Zlato světlé nahoře a tmavší dolů, pod písmeny hnědá hloubka a kolem tmavý obrys jako u spritů.
 const BARVY_RADKU = ['#fff1c4', '#ffe08a', '#f4cf6e', '#e9c46a', '#e0b155', '#d39a3e', '#c4862f', '#b07428'];
@@ -303,7 +308,7 @@ export function vytvorMenu({ hrat }) {
   const logo = document.getElementById('logo');
   let otevrena = null;
 
-  nakresliLogo(logo, 'HLUBINY');
+  nakresliLogo(logo, 'RuGee');
   upravLogo(logo);
   addEventListener('resize', () => upravLogo(logo));
 
