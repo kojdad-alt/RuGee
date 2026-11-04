@@ -1,8 +1,9 @@
 // Simulace hry bez prohlížeče: node tests/simulace.mjs [seminko] [sekund]
 // Jednoduchý hráč utíká od nepřátel a sbírá krystaly, na úrovni bere nejdřív zbraně. Hlídá, že čísla zůstanou
 // rozumná (žádné NaN, nepřátel nepřibývá donekonečna) a že se hra dá hrát a prohrát.
+// Hlídá i ozdoby: úlomky po zabití a třes obrazovky po zásahu hrdiny.
 import { vytvorRng } from '../src/rng.js';
-import { novaHra, aktualizuj, vyber } from '../src/hra.js';
+import { novaHra, aktualizuj, vyber, TRVANI_TRESU } from '../src/hra.js';
 
 const seminko = Number(process.argv[2] ?? 1);
 const delka = Number(process.argv[3] ?? 600);
@@ -13,6 +14,9 @@ const VYSKA = 720;
 const hra = novaHra(vytvorRng(seminko));
 let maxNepratel = 0;
 let volby = 0;
+let maxCastic = 0;
+let zasahu = 0;
+let tresu = 0;
 
 // Jednoduchý hráč: utíká od nepřátel v blízkosti a jinak jde pro nejbližší krystal.
 function rozhodni(hra, t) {
@@ -47,7 +51,16 @@ function zvol(volby) {
 }
 
 for (let t = 0; t < delka && !hra.konec; t += DT) {
+  const hpPred = hra.hrdina.hp;
   aktualizuj(hra, DT, rozhodni(hra, t), SIRKA, VYSKA);
+  if (hra.hrdina.hp < hpPred) {
+    zasahu += 1;
+    if (hra.tres === TRVANI_TRESU) tresu += 1;
+  }
+  maxCastic = Math.max(maxCastic, hra.castice.length);
+  if (hra.castice.some((c) => !Number.isFinite(c.x) || !Number.isFinite(c.y))) {
+    throw new Error(`NaN u úlomku v čase ${t.toFixed(1)} s`);
+  }
   if (hra.volby) {
     volby += 1;
     vyber(hra, zvol(hra.volby));
@@ -69,6 +82,9 @@ const vysledek = {
   zabito_bossu: hra.zabitoBossu,
   vyber_vylepseni: volby,
   max_nepratel_najednou: maxNepratel,
+  max_ulomku_najednou: maxCastic,
+  zasahu_hrdiny: zasahu,
+  tresu_obrazovky: tresu,
   zbrane: Object.fromEntries(Object.entries(hra.zbrane).map(([id, z]) => [id, z.uroven])),
 };
 console.log(JSON.stringify(vysledek, null, 2));
@@ -77,6 +93,9 @@ const chyby = [];
 if (hra.zabito === 0) chyby.push('nikdo nezemřel, zbraně asi nestřílí');
 if (hra.hrdina.uroven < 3) chyby.push('hrdina skoro nepostoupil, krystaly se asi nesbírají');
 if (maxNepratel > 1500) chyby.push(`příliš mnoho nepřátel najednou (${maxNepratel})`);
+if (hra.zabito > 0 && maxCastic === 0) chyby.push('po zabití nevyletěly žádné úlomky');
+if (maxCastic > 400) chyby.push(`příliš mnoho úlomků najednou (${maxCastic})`);
+if (tresu !== zasahu) chyby.push(`třes obrazovky jen u ${tresu} z ${zasahu} zásahů hrdiny`);
 if (chyby.length) {
   console.error('CHYBA:', chyby.join('; '));
   process.exit(1);

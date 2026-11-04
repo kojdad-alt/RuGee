@@ -1,9 +1,17 @@
 import { sprity } from './sprity.js';
-import { staty } from './hra.js';
+import { staty, TRVANI_TRESU } from './hra.js';
 import { dlazdiceLouky, ozdobyLouky } from './louka.js';
 
 const MERITKO = 3;
 const DLAZDICE = 48;
+const SILA_TRESU = 5;
+// Barvy úlomků podle toho, z čeho je nepřítel (stejné odstíny jako jeho sprite).
+const BARVY_CASTIC = {
+  netopyr: ['#6b4c8a', '#ff5a5a', '#3b2a4a'],
+  slizak: ['#5fae4e', '#9be08a', '#5fae4e'],
+  kostlivec: ['#e8e2d0', '#b9c2cc', '#e8e2d0'],
+  strazce: ['#6e6577', '#8f86a0', '#ffb347'],
+};
 
 function hash(x, y) {
   let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
@@ -46,8 +54,11 @@ function sprite(ctx, obr, x, y, otoceny = 1, bila = false, velikost = obr.width 
 export function kresli(ctx, hra) {
   const { width: sirka, height: vyska } = ctx.canvas;
   const { hrdina } = hra;
-  const kx = hrdina.x - sirka / 2;
-  const ky = hrdina.y - vyska / 2;
+  // Po zásahu hrdiny se celý svět krátce otřese, slábne k nule. V pauze a ve volbě stojí.
+  const bezi = !hra.pauza && !hra.volby && !hra.konec;
+  const tres = bezi ? (hra.tres / TRVANI_TRESU) * SILA_TRESU : 0;
+  const kx = hrdina.x - sirka / 2 + (tres ? Math.round((Math.random() * 2 - 1) * tres) : 0);
+  const ky = hrdina.y - vyska / 2 + (tres ? Math.round((Math.random() * 2 - 1) * tres) : 0);
   const naObrazovce = (o) => ({ x: o.x - kx, y: o.y - ky });
   const s = staty(hra);
 
@@ -89,6 +100,21 @@ export function kresli(ctx, hra) {
       ctx.fillRect(Math.round(p.x - 24), Math.round(p.y - 34), Math.round(48 * Math.max(0, n.hp) / n.maxHp), 5);
     }
   }
+
+  // úlomky zabitých nepřátel: čtvereček o velikosti pixelu spritu s tmavým obrysem
+  for (const c of hra.castice) {
+    const p = naObrazovce(c);
+    if (p.x < -10 || p.y < -10 || p.x > sirka + 10 || p.y > vyska + 10) continue;
+    const barvy = BARVY_CASTIC[c.druh] ?? BARVY_CASTIC.netopyr;
+    const x = Math.round(p.x - MERITKO / 2);
+    const y = Math.round(p.y - MERITKO / 2);
+    ctx.globalAlpha = Math.min(1, c.zivot * 5);
+    ctx.fillStyle = '#0b0a0f';
+    ctx.fillRect(x - 1, y - 1, MERITKO + 2, MERITKO + 2);
+    ctx.fillStyle = barvy[c.odstin % barvy.length];
+    ctx.fillRect(x, y, MERITKO, MERITKO);
+  }
+  ctx.globalAlpha = 1;
 
   ctx.fillStyle = '#ffd27a';
   for (const st of hra.strely) {
