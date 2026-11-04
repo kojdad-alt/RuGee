@@ -2,7 +2,7 @@
 // Novou záložku přidáš do ZALOZKY (nazev + vypln(panel)), tlačítko i ovládání šipkami se udělají samy.
 // Tlačítka, která záložka do panelu přidá, jdou taky vybírat šipkami a Enterem.
 import { sprity } from './sprity.js';
-import { TRIDY, ZBRANE, platnaTrida } from './hra.js';
+import { TRIDY, ZBRANE, platnaTrida, silaHrozby } from './hra.js';
 import { nactiRekord, nactiTridu, ulozTridu, nactiDuse, ulozDuse } from './ulozeni.js';
 import { VYLEPSENI, cenaVylepseni, kupVylepseni, vratDuse, utraceno } from './duse.js';
 import { odemkniZvuk, zvukNakupu, zvukOdmitnuti } from './zvuk.js';
@@ -155,6 +155,8 @@ function vyplnRekordy(panel) {
   const radky = [
     ['Nejdelší přežití', formatCas(rekord.cas)],
     ...(Object.hasOwn(TRIDY, rekord.trida ?? '') ? [['Postava', TRIDY[rekord.trida].nazev]] : []),
+    // Starší rekordy hrozbu nemají, ta se dopočítá z času (každá minuta +1).
+    ['Hrozba', Number.isInteger(rekord.hrozba) ? rekord.hrozba : silaHrozby(rekord.cas).uroven],
     ['Úroveň', rekord.uroven ?? '–'],
     ['Zabito', rekord.zabito ?? '–'],
   ];

@@ -126,10 +126,10 @@ function zvol(i) {
 // Rekord se drží jen v tomhle prohlížeči (ulozeni.js), v menu ho ukazuje záložka Rekordy.
 function zapisKonec() {
   const vysledek = {
-    cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito, trida: hra.trida, datum: new Date().toISOString(),
+    cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito, hrozba: hra.hrozba, trida: hra.trida, datum: new Date().toISOString(),
   };
   const { novy, rekord } = zapisVysledek(vysledek);
-  const text = `${TRIDY[hra.trida].nazev} přežil ${formatCas(hra.cas)}, úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}, bossů ${hra.zabitoBossu}.`;
+  const text = `${TRIDY[hra.trida].nazev} přežil ${formatCas(hra.cas)} (hrozba ${hra.hrozba}), úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}, bossů ${hra.zabitoBossu}.`;
   const radekRekordu = novy
     ? 'Nový rekord!'
     : `Rekord: ${formatCas(rekord.cas)}, úroveň ${rekord.uroven}, zabito ${rekord.zabito}.`;
@@ -153,12 +153,27 @@ function textovyPrvek(znacka, text) {
   return e;
 }
 
+// Hrozba pod časem: číslo se mění jednou za minutu a štítek přitom krátce poskočí (CSS animace .roste).
+let ukazanaHrozba = null;
+function ukazHrozbu(uroven) {
+  if (uroven === ukazanaHrozba) return;
+  const stitek = el('hrozba');
+  el('hrozba-cislo').textContent = uroven;
+  stitek.classList.remove('roste');
+  if (ukazanaHrozba !== null && uroven > ukazanaHrozba) {
+    void stitek.offsetWidth;
+    stitek.classList.add('roste');
+  }
+  ukazanaHrozba = uroven;
+}
+
 function hud() {
   const { hrdina } = hra;
   el('uroven').textContent = hrdina.uroven;
   el('zabito').textContent = hra.zabito;
   el('zlataky').textContent = hra.zlataky;
   el('cas').textContent = formatCas(hra.cas);
+  ukazHrozbu(hra.hrozba);
   el('xp-pruh').style.width = `${Math.min(100, (hrdina.xp / hrdina.potreba) * 100)}%`;
   // Překreslí se jen když se výbava změnila (po výběru vylepšení nebo v nové hře).
   ukazVybavu(vybava, hra);
