@@ -7,6 +7,7 @@ const PALETA = {
   c: '#4fd6c9', C: '#b8fff5',
   p: '#b9c2cc', h: '#8a5a35',
   s: '#6e6577', S: '#8f86a0',
+  n: '#a07e5c', N: '#4a3530',
 };
 
 const SPRITY = {
@@ -49,6 +50,16 @@ const SPRITY = {
     '...WW...',
     '..W..W..',
     '.WW..WW.',
+  ],
+  pavouk: [
+    'n......n',
+    '.n.NN.n.',
+    'nnNrrNnn',
+    '..NNNN..',
+    'nnNooNnn',
+    '..NNNN..',
+    '.n.NN.n.',
+    'n......n',
   ],
   krystal: [
     '........',

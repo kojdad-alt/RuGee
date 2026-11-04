@@ -36,11 +36,16 @@ const BOSS_KAZDYCH = 180;
 const MAX_CASTIC = 400;
 const ZIVOT_CASTICE = 0.45;
 export const TRVANI_TRESU = 0.15;
+// Pavouk zalepí hrdinu sítí: na chvíli zpomalí. Opakovaný zásah síť obnoví, nesčítá se.
+export const OD_PAVOUKU = 240;
+export const TRVANI_SITE = 1.5;
+export const ZPOMALENI_SITI = 0.6;
 
 const NEPRATELE = {
   netopyr: { hp: 10, rychlost: 72, poskozeni: 5, xp: 1, polomer: 10 },
   slizak: { hp: 32, rychlost: 42, poskozeni: 10, xp: 2, polomer: 12 },
   kostlivec: { hp: 60, rychlost: 58, poskozeni: 14, xp: 3, polomer: 11 },
+  pavouk: { hp: 8, rychlost: 100, poskozeni: 4, xp: 2, polomer: 9, sit: true },
   strazce: { hp: 320, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
 };
 
@@ -54,7 +59,7 @@ export function novaHra(rng) {
     volby: null,
     hrdina: {
       x: 0, y: 0, hp: 100, maxHp: 100, rychlost: 110, magnet: 64,
-      sila: 1, uroven: 1, xp: 0, potreba: potrebaNaUroven(1), nezranitelny: 0, otoceny: 1,
+      sila: 1, uroven: 1, xp: 0, potreba: potrebaNaUroven(1), nezranitelny: 0, otoceny: 1, sit: 0,
     },
     zbrane: { jiskra: { uroven: 1, nabiti: 0 } },
     pasivy: {},
@@ -69,6 +74,7 @@ export function novaHra(rng) {
     uhelKrumpacu: 0,
     doSpawnu: 0,
     dalsiBoss: BOSS_KAZDYCH,
+    pavouciOhlaseni: false,
     oznameni: null,
   };
 }
@@ -121,6 +127,7 @@ function spawn(hra, sirka, vyska) {
   const druhy = ['netopyr'];
   if (cas > 60) druhy.push('slizak');
   if (cas > 150) druhy.push('kostlivec');
+  if (cas > OD_PAVOUKU) druhy.push('pavouk');
   const davka = 1 + Math.floor(cas / 60);
   for (let i = 0; i < davka; i++) {
     const druh = rng.vyber(druhy);
@@ -165,11 +172,13 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   if (delka > 0) {
     dx /= delka;
     dy /= delka;
-    hrdina.x += dx * hrdina.rychlost * dt;
-    hrdina.y += dy * hrdina.rychlost * dt;
+    const rychlost = hrdina.rychlost * (hrdina.sit > 0 ? ZPOMALENI_SITI : 1);
+    hrdina.x += dx * rychlost * dt;
+    hrdina.y += dy * rychlost * dt;
     if (dx !== 0) hrdina.otoceny = Math.sign(dx);
   }
   hrdina.nezranitelny = Math.max(0, hrdina.nezranitelny - dt);
+  hrdina.sit = Math.max(0, hrdina.sit - dt);
   hra.tres = Math.max(0, hra.tres - dt);
 
   // nepřátelé
@@ -190,6 +199,10 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     hra.dalsiBoss += BOSS_KAZDYCH;
     hra.oznameni = { text: 'Přichází Strážce hlubin', zivot: 3 };
   }
+  if (!hra.pavouciOhlaseni && hra.cas > OD_PAVOUKU) {
+    hra.pavouciOhlaseni = true;
+    hra.oznameni = { text: 'Z hlubin lezou pavouci', zivot: 3 };
+  }
   if (hra.oznameni) {
     hra.oznameni.zivot -= dt;
     if (hra.oznameni.zivot <= 0) hra.oznameni = null;
@@ -204,6 +217,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       hrdina.hp -= n.poskozeni;
       hrdina.nezranitelny = 0.5;
       hra.tres = TRVANI_TRESU;
+      if (n.sit) hrdina.sit = TRVANI_SITE;
       if (hrdina.hp <= 0) hra.konec = true;
     }
   }
