@@ -18,6 +18,7 @@ export default {
     popis: 'Survive in the depths as long as you can. A pixel game in your browser that also works offline.',
     napovedaKlavesnice: 'Move: WASD, arrows or swipe · weapons fire on their own · P pause · N sound',
     napovedaDotyk: 'Move: swipe · weapons fire on their own · pause at top left',
+    napovedaOvladac: 'Move: {packa} or {kriz} · weapons fire on their own · {start} pause · {zpet} sound',
   },
   hud: {
     pauza: 'Pause',
@@ -33,6 +34,8 @@ export default {
     zpet: 'Back',
     pataKlavesnice: 'Arrows and Enter, click or tap',
     pataDotyk: 'Tap a button to choose',
+    pataOvladac: 'Choose with {packa} or {kriz}, {a} to confirm, {b} to go back, {start} to play',
+    pataZvuk: 'The browser only starts sound after your first click or key press.',
     hrat: 'Play',
     profilCedulka: 'Profile: ',
     duse: '{n} {n|soul|souls}',
@@ -77,7 +80,7 @@ export default {
     ovladani: {
       podtitul: 'Weapons fire on their own, you just dodge and collect crystals.',
       pata: 'Volume, damage numbers and lights are in Settings.',
-      skupiny: { pohyb: 'Movement', veHre: 'In game', menu: 'Menu and game over' },
+      skupiny: { pohyb: 'Movement', veHre: 'In game', menu: 'Menu and game over', ovladac: 'Controller' },
       klavesy: { sipky: 'arrows', tah: 'swipe' },
       radky: {
         pohyb: 'move',
@@ -92,6 +95,15 @@ export default {
         zpetMenu: 'back in the menu',
         znovu: 'try again after losing',
         menuPoProhre: 'menu after losing',
+      },
+      ovladac: {
+        pohyb: 'move, choose in menus and windows',
+        potvrdit: 'confirm: take a card, buy, press a button',
+        zpet: 'back (resume when paused, leave the merchant, menu after losing)',
+        prehodit: 'reroll cards',
+        pauza: 'pause (Play in the main menu)',
+        zvuk: 'mute or unmute sound',
+        zadny: 'Connect a controller and press any button on it. The browser only shows it after the first press, then you will see what each button does here.',
       },
     },
     nastaveni: {
@@ -221,6 +233,13 @@ export default {
     bossove: 'Bosses',
     vybava: 'Boss gear',
   },
+  ovladac: {
+    znaky: {
+      xbox: { a: 'A', b: 'B', x: 'X', y: 'Y', start: 'Start', zpet: 'Back', packa: 'left stick', kriz: 'D-pad' },
+      playstation: { a: 'cross', b: 'circle', x: 'square', y: 'triangle', start: 'Options', zpet: 'Share', packa: 'left stick', kriz: 'D-pad' },
+      nintendo: { a: 'B', b: 'A', x: 'Y', y: 'X', start: '+', zpet: '−', packa: 'left stick', kriz: 'D-pad' },
+    },
+  },
   profil: {
     vychoziJmeno: 'Player',
     cislo: 'Profile {n}',
@@ -233,6 +252,7 @@ export default {
   volba: {
     napovedaKlavesnice: 'Pick one upgrade (keys 1–3, or arrows and Enter)',
     napovedaDotyk: 'Tap one upgrade',
+    napovedaOvladac: 'Pick one upgrade ({a} takes it, {x} rerolls the cards)',
     novaUroven: 'Level up',
     truhlaBosse: 'Boss chest',
     zamcenaTruhla: 'Locked chest',
@@ -255,6 +275,7 @@ export default {
   porovnani: {
     napovedaKlavesnice: '1 = Take, 2 = Keep (or arrows and Enter)',
     napovedaDotyk: 'Tap the piece you want to keep',
+    napovedaOvladac: 'Pick the piece you want to keep and press {a}',
     nadpis: 'Boss gear',
     koupeno: 'Bought from the merchant',
     podtitul: 'Your {slot} slot is taken. The piece you don\'t keep is broken down into gold.',
@@ -268,6 +289,7 @@ export default {
   obchod: {
     napovedaKlavesnice: 'Buy with gold (keys 1–5, or arrows and Enter), Esc = leave',
     napovedaDotyk: 'Tap the goods you want to buy',
+    napovedaOvladac: 'Buy with gold ({a} buys), {b} = leave',
     odejit: 'Leave',
     nadpis: 'Merchant wagon',
     stitek: 'The merchant leaves in {n}s',
@@ -282,6 +304,7 @@ export default {
     pokracovat: 'Resume',
     napovedaKlavesnice: 'The game is paused. <kbd>P</kbd>, <kbd>Esc</kbd> or Resume gets it going again.',
     napovedaDotyk: 'The game is paused, Resume gets it going again.',
+    napovedaOvladac: 'The game is paused. {start}, {b} or Resume gets it going again.',
   },
   konec: {
     nadpis: 'The horde got you',

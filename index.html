@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<link rel="stylesheet" href="style.css?v=aa3685c1">
+<link rel="stylesheet" href="style.css?v=4c779511">
 </head>
 <body class="v-menu">
 <canvas id="platno" aria-label="RuGee"></canvas>
@@ -36,17 +36,17 @@
     <div id="menu-zalozka" class="menu-zalozka ram" hidden>
       <h2 id="menu-nadpis"></h2>
       <div id="menu-panel"></div>
-      <button id="menu-zpet" class="menu-tlacitko" type="button" data-t="menu.zpet">Zpět<span class="jen-klavesnice"> (Esc)</span></button>
+      <button id="menu-zpet" class="menu-tlacitko" type="button" data-t="menu.zpet">Zpět<span class="jen-klavesnice"> (Esc)</span><span class="jen-ovladac" data-tl="b"></span></button>
     </div>
   </div>
-  <p class="menu-pata"><span class="jen-klavesnice" data-t="menu.pataKlavesnice">Šipky a Enter, klik nebo dotyk</span><span class="jen-dotyk" data-t="menu.pataDotyk">Vyber klepnutím na tlačítko</span></p>
+  <p class="menu-pata"><span class="jen-klavesnice" data-t="menu.pataKlavesnice">Šipky a Enter, klik nebo dotyk</span><span class="jen-dotyk" data-t="menu.pataDotyk">Vyber klepnutím na tlačítko</span><span class="jen-ovladac"><span data-t-ovladac="menu.pataOvladac"></span><span id="pata-zvuk" class="pata-zvuk" data-t="menu.pataZvuk" hidden>Zvuk prohlížeč pustí až po prvním kliknutí nebo stisku klávesy.</span></span></p>
 </section>
 
 <section id="volba" class="vyber" hidden>
   <div class="vyber-panel ram">
     <p id="volba-stitek" class="vyber-stitek"></p>
     <h2 id="volba-nadpis"></h2>
-    <p class="podtitul"><span class="jen-klavesnice" data-t="volba.napovedaKlavesnice">Vyber jedno vylepšení (klávesy 1–3 nebo šipky a Enter)</span><span class="jen-dotyk" data-t="volba.napovedaDotyk">Klepni na jedno vylepšení</span></p>
+    <p class="podtitul"><span class="jen-klavesnice" data-t="volba.napovedaKlavesnice">Vyber jedno vylepšení (klávesy 1–3 nebo šipky a Enter)</span><span class="jen-dotyk" data-t="volba.napovedaDotyk">Klepni na jedno vylepšení</span><span class="jen-ovladac" data-t-ovladac="volba.napovedaOvladac"></span></p>
     <p id="volba-kus" class="volba-kus" hidden></p>
     <div id="karty" class="karty"></div>
     <div class="radek-prehodit"><button id="prehodit" class="menu-tlacitko prehodit" type="button"></button></div>
@@ -59,7 +59,7 @@
     <p id="porovnani-stitek" class="vyber-stitek"></p>
     <h2 id="porovnani-nadpis"></h2>
     <p id="porovnani-podtitul" class="podtitul"></p>
-    <p class="podtitul porovnani-napoveda"><span class="jen-klavesnice" data-t="porovnani.napovedaKlavesnice">1 = Vzít, 2 = Nechat (nebo šipky a Enter)</span><span class="jen-dotyk" data-t="porovnani.napovedaDotyk">Klepni na kus, který si necháš</span></p>
+    <p class="podtitul porovnani-napoveda"><span class="jen-klavesnice" data-t="porovnani.napovedaKlavesnice">1 = Vzít, 2 = Nechat (nebo šipky a Enter)</span><span class="jen-dotyk" data-t="porovnani.napovedaDotyk">Klepni na kus, který si necháš</span><span class="jen-ovladac" data-t-ovladac="porovnani.napovedaOvladac"></span></p>
     <div id="porovnani-kusy" class="karty porovnani-kusy"></div>
   </div>
 </section>
@@ -68,17 +68,17 @@
   <div class="vyber-panel ram ram-mosaz">
     <p id="obchod-stitek" class="vyber-stitek"></p>
     <h2 id="obchod-nadpis"></h2>
-    <p class="podtitul"><span class="jen-klavesnice" data-t="obchod.napovedaKlavesnice">Kupuj za zlaťáky (klávesy 1–5 nebo šipky a Enter), Esc = odejít</span><span class="jen-dotyk" data-t="obchod.napovedaDotyk">Klepni na zboží, které chceš koupit</span></p>
+    <p class="podtitul"><span class="jen-klavesnice" data-t="obchod.napovedaKlavesnice">Kupuj za zlaťáky (klávesy 1–5 nebo šipky a Enter), Esc = odejít</span><span class="jen-dotyk" data-t="obchod.napovedaDotyk">Klepni na zboží, které chceš koupit</span><span class="jen-ovladac" data-t-ovladac="obchod.napovedaOvladac"></span></p>
     <p id="obchod-penize" class="obchod-penize"></p>
     <div id="zbozi" class="karty zbozi-karty"></div>
     <p id="obchod-nakup" class="obchod-nakup"></p>
-    <div class="radek-tlacitek"><button id="odejit" class="menu-tlacitko" type="button" data-t="obchod.odejit">Odejít<span class="jen-klavesnice"> (Esc)</span></button></div>
+    <div class="radek-tlacitek"><button id="odejit" class="menu-tlacitko" type="button" data-t="obchod.odejit">Odejít<span class="jen-klavesnice"> (Esc)</span><span class="jen-ovladac" data-tl="b"></span></button></div>
   </div>
 </section>
 
 <section id="pauza" class="okno pauza ram" hidden>
   <h2 id="pauza-nadpis"></h2>
-  <p class="podtitul"><span class="jen-klavesnice" data-t-html="pauza.napovedaKlavesnice">Hra stojí. <kbd>P</kbd>, <kbd>Esc</kbd> nebo Pokračovat ji pustí dál.</span><span class="jen-dotyk" data-t="pauza.napovedaDotyk">Hra stojí, Pokračovat ji pustí dál.</span></p>
+  <p class="podtitul"><span class="jen-klavesnice" data-t-html="pauza.napovedaKlavesnice">Hra stojí. <kbd>P</kbd>, <kbd>Esc</kbd> nebo Pokračovat ji pustí dál.</span><span class="jen-dotyk" data-t="pauza.napovedaDotyk">Hra stojí, Pokračovat ji pustí dál.</span><span class="jen-ovladac" data-t-ovladac="pauza.napovedaOvladac"></span></p>
   <div id="pauza-volby" class="radek-tlacitek"></div>
 </section>
 
@@ -89,11 +89,11 @@
   <p id="konec-duse" class="konec-duse"></p>
   <div class="radek-tlacitek">
     <button id="znovu" class="menu-tlacitko hlavni" type="button" data-t="konec.znovu">Znovu<span class="jen-klavesnice"> (R)</span></button>
-    <button id="do-menu" class="menu-tlacitko" type="button" data-t="konec.menu">Menu<span class="jen-klavesnice"> (M)</span></button>
+    <button id="do-menu" class="menu-tlacitko" type="button" data-t="konec.menu">Menu<span class="jen-klavesnice"> (M)</span><span class="jen-ovladac" data-tl="b"></span></button>
   </div>
 </section>
 
-<p class="napoveda"><span class="jen-klavesnice" data-t="stranka.napovedaKlavesnice">Pohyb: WASD, šipky nebo tah prstem · zbraně střílí samy · P pauza · N zvuk</span><span class="jen-dotyk" data-t="stranka.napovedaDotyk">Pohyb: tah prstem · zbraně střílí samy · pauza vlevo nahoře</span></p>
+<p class="napoveda"><span class="jen-klavesnice" data-t="stranka.napovedaKlavesnice">Pohyb: WASD, šipky nebo tah prstem · zbraně střílí samy · P pauza · N zvuk</span><span class="jen-dotyk" data-t="stranka.napovedaDotyk">Pohyb: tah prstem · zbraně střílí samy · pauza vlevo nahoře</span><span class="jen-ovladac" data-t-ovladac="stranka.napovedaOvladac"></span></p>
 <p id="zvuk-hlaseni" class="zvuk-hlaseni" role="status" hidden></p>
 <script type="importmap">
 {
@@ -103,24 +103,25 @@
     "./src/hra.js": "./src/hra.js?v=9e51e941",
     "./src/kresleni.js": "./src/kresleni.js?v=80344da3",
     "./src/louka.js": "./src/louka.js?v=90e08feb",
-    "./src/main.js": "./src/main.js?v=26ea3d70",
+    "./src/main.js": "./src/main.js?v=fe35f16c",
     "./src/mapy.js": "./src/mapy.js?v=1a20c8fc",
-    "./src/menu.js": "./src/menu.js?v=3ed3cbe2",
-    "./src/obchod.js": "./src/obchod.js?v=44e7db4c",
+    "./src/menu.js": "./src/menu.js?v=4fa965e4",
+    "./src/obchod.js": "./src/obchod.js?v=c39b438d",
     "./src/osvetleni.js": "./src/osvetleni.js?v=5f86fef8",
+    "./src/ovladac.js": "./src/ovladac.js?v=2ac9ac15",
     "./src/pismo.js": "./src/pismo.js?v=910d689d",
     "./src/prenos.js": "./src/prenos.js?v=3c1510a2",
     "./src/rng.js": "./src/rng.js?v=60bdabbe",
     "./src/sprity.js": "./src/sprity.js?v=9dd6beb8",
     "./src/svetla.js": "./src/svetla.js?v=ceb602f8",
     "./src/texty.js": "./src/texty.js?v=fa3abc7b",
-    "./src/ulozeni.js": "./src/ulozeni.js?v=8dfa028d",
-    "./src/volba.js": "./src/volba.js?v=66f7ed6d",
+    "./src/ulozeni.js": "./src/ulozeni.js?v=73f3dbdb",
+    "./src/volba.js": "./src/volba.js?v=43d750a5",
     "./src/vybava.js": "./src/vybava.js?v=ad7ca2a5",
     "./src/vystroj.js": "./src/vystroj.js?v=c932169c",
-    "./src/zvuk.js": "./src/zvuk.js?v=b1a2d247",
-    "./src/texty/cs.js": "./src/texty/cs.js?v=0d3cb030",
-    "./src/texty/en.js": "./src/texty/en.js?v=5c349fcc",
+    "./src/zvuk.js": "./src/zvuk.js?v=30fa5aaa",
+    "./src/texty/cs.js": "./src/texty/cs.js?v=50ea2dbb",
+    "./src/texty/en.js": "./src/texty/en.js?v=0a15b7e2",
     "./src/shadery/obraz-pixel.glsl": "./src/shadery/obraz-pixel.glsl?v=ccac4bd3",
     "./src/shadery/obraz-vrchol.glsl": "./src/shadery/obraz-vrchol.glsl?v=e885302b",
     "./src/shadery/svetla-pixel.glsl": "./src/shadery/svetla-pixel.glsl?v=64aeaa2c",
@@ -128,6 +129,6 @@
   }
 }
 </script>
-<script type="module" src="src/main.js?v=26ea3d70"></script>
+<script type="module" src="src/main.js?v=fe35f16c"></script>
 </body>
 </html>

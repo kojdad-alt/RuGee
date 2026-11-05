@@ -114,6 +114,11 @@
 // podle čísla sedí a texty kreslené pixelovým písmem písmo umí. Angličtina má každý klíč češtiny se stejnými
 // parametry, bez českých písmen, data i kopie po přepnutí vrací anglické texty, čísla a datum podle jazyka, jazyk
 // prohlížeče a uložený jazyk sedí a hra v angličtině hraje stejně.
+// Ovladač: druh podle id (Xbox, PlayStation, Nintendo), mrtvá zóna páčky (pohyb nepřeleze 1, NaN stojí, hrdina
+// jde plnou rychlostí), výběr páčkou s hysterezí (necuká), stisk je jedna událost, držený směr opakuje po 0,4 s
+// a pak po 0,12 s, směr držený ve hře okno neposune, dva ovladače naráz a odpojení. Nápovědy se značkami tlačítek
+// mají jen známé značky ve všech jazycích, každé okno s klávesovou nápovědou má i nápovědu pro ovladač, každý
+// druh ovladače má jméno a obrázek každé značky (ramy.mjs → style.css), stav ovladače a myš.
 import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 import { crc32 as crc32Zlib, inflateSync } from 'node:zlib';
@@ -178,6 +183,12 @@ import {
   MAPY, PORADI_MAP, VYCHOZI_MAPA, ODEMKNUTI_MAPY, VELIKOST_DLAZDICE, PRICHODY_MAP, naLedu, ledovaDlazdice, odKdy, platnaMapa,
   plochaMapy, dlazdicePlochy, naPlose, prekazkaNaDlazdici, kruhPrekazky, hloubkaVPrekazce, VOLNO_U_STARTU,
 } from '../src/mapy.js';
+import {
+  MRTVA_ZONA, PRAH_VYBERU, PRAH_PUSTENI, PRVNI_OPAKOVANI, OPAKOVANI, TLACITKA, STISKY, SMERY, RODINY, ZNACKY, OBRAZKY_ZNACEK,
+  rodina as rodinaOvladace, pohybPacky, smerPacky, vytvorCtecku, rozdelNapovedu, obrazekZnacky, stavOvladace, nastavOvladac,
+  priZmeneOvladace, mysVybira,
+} from '../src/ovladac.js';
+import { OBRAZKY as OBRAZKY_RAMU } from '../nastroje/ramy.mjs';
 
 const seminko = Number(process.argv[2] ?? 1);
 const delka = Number(process.argv[3] ?? 600);
@@ -4883,6 +4894,11 @@ for (const m of blokOvladani.matchAll(/^ {2}\['(\w+)', \[/gm)) pouziteKlice.add(
 for (const m of blokOvladani.matchAll(/\], '(\w+)'\]/g)) pouziteKlice.add(`menu.ovladani.radky.${m[1]}`);
 for (const m of blokOvladani.matchAll(/'@(\w+)'/g)) pouziteKlice.add(`menu.ovladani.klavesy.${m[1]}`);
 if (!blokOvladani.includes("'@sipky'")) chybyPrekladu.push('nenašel jsem Ovládání v menu.js');
+const blokOvladace = /const OVLADANI_OVLADACE = \[([\s\S]*?)\n\];/.exec(zdrojeSrc['menu.js'])?.[1] ?? '';
+for (const m of blokOvladace.matchAll(/\], '(\w+)'\]/g)) pouziteKlice.add(`menu.ovladani.ovladac.${m[1]}`);
+if (!blokOvladace.includes("'potvrdit'")) chybyPrekladu.push('nenašel jsem Ovladač v Ovládání (menu.js)');
+pouziteKlice.add('menu.ovladani.ovladac.zadny');
+for (const r of RODINY) for (const z of ZNACKY) pouziteKlice.add(`ovladac.znaky.${r}.${z}`);
 for (const kde of /const kde = ([^;]+);/.exec(zdrojeSrc['aplikace.js'])?.[1].match(/'\w+'/g) ?? []) pouziteKlice.add(`menu.plocha.kde.${kde.slice(1, -1)}`);
 for (const r of REZIMY_SVETEL) pouziteKlice.add(`menu.svetla.rezimy.${r}`);
 const duvodySvetel = new Set(['auto', 'zap', 'vypnuto']);
@@ -5422,6 +5438,201 @@ const pojistkaZa = (sekund, fps, { pauzy = false } = {}) => {
   }
 }
 chyby.push(...chybySvetel);
+
+// Ovladač (src/ovladac.js): čtečka bez DOM, nápovědy a značky.
+const chybyOvladace = [];
+{
+  const pad = (tlacitka = [], axes = [0, 0], id = 'Xbox Wireless Controller (STANDARD GAMEPAD Vendor: 045e Product: 0b13)') => ({
+    id, connected: true, mapping: 'standard', axes: [...axes, 0, 0],
+    buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: tlacitka.includes(i), value: tlacitka.includes(i) ? 1 : 0 })),
+  });
+  // druh ovladače podle id (Chrome i Firefox)
+  for (const [id, cekam] of [
+    ['Xbox 360 Controller (XInput STANDARD GAMEPAD)', 'xbox'], ['054c-0ce6-DualSense Wireless Controller', 'playstation'],
+    ['Wireless Controller (STANDARD GAMEPAD Vendor: 054c Product: 09cc)', 'playstation'], ['Pro Controller (STANDARD GAMEPAD Vendor: 057e Product: 2009)', 'nintendo'],
+    ['057e-2006-Joy-Con (L)', 'nintendo'], ['Steam Deck Controller', 'xbox'], ['', 'xbox'], [undefined, 'xbox'], [null, 'xbox'],
+  ]) if (rodinaOvladace(id) !== cekam) chybyOvladace.push(`ovladač „${id}“ je ${rodinaOvladace(id)}, ne ${cekam}`);
+  // páčka: mrtvá zóna, velikost nejvýš 1, směr zůstane, NaN stojí
+  for (const [x, y] of [[0, 0], [MRTVA_ZONA * 0.9, 0], [0.1, -0.15], [NaN, 0.5], [0.5, NaN], [Infinity, 0]]) {
+    const p = pohybPacky(x, y);
+    if (p.dx !== 0 || p.dy !== 0) chybyOvladace.push(`páčka ${x},${y} v mrtvé zóně (nebo NaN) hýbe ${p.dx},${p.dy}`);
+  }
+  const rngOvladace = vytvorRng(7);
+  for (let i = 0; i < 2000; i++) {
+    const x = rngOvladace.dalsi() * 2.4 - 1.2;
+    const y = rngOvladace.dalsi() * 2.4 - 1.2;
+    const p = pohybPacky(x, y);
+    const d = Math.hypot(p.dx, p.dy);
+    if (!(d <= 1 + 1e-9) || !Number.isFinite(d)) { chybyOvladace.push(`páčka ${x},${y} dá pohyb ${d}`); break; }
+    if (d > 0 && Math.abs(Math.atan2(p.dy, p.dx) - Math.atan2(y, x)) > 1e-9) { chybyOvladace.push(`páčka ${x},${y} mění směr`); break; }
+    if (Math.hypot(x, y) > MRTVA_ZONA + 0.01 && d === 0) { chybyOvladace.push(`páčka ${x},${y} za mrtvou zónou stojí`); break; }
+  }
+  if (Math.abs(pohybPacky(1, 0).dx - 1) > 1e-9 || Math.abs(pohybPacky(0, -1).dy + 1) > 1e-9) chybyOvladace.push('plná páčka nedá plný pohyb');
+  // hysterze výběru páčkou
+  const smery = [[[0.6, 0], null, 'vpravo'], [[0.4, 0], null, null], [[0.4, 0], 'vpravo', 'vpravo'], [[PRAH_PUSTENI - 0.01, 0], 'vpravo', null],
+    [[0.6, 0.58], 'vpravo', 'vpravo'], [[0.58, 0.6], null, 'dolu'], [[0, -0.9], null, 'nahoru'], [[-0.7, 0.2], null, 'vlevo'],
+    [[0.2, 0.7], 'vpravo', 'dolu'], [[NaN, NaN], null, null]];
+  for (const [[x, y], pred, cekam] of smery) if (smerPacky(x, y, pred) !== cekam) chybyOvladace.push(`výběr páčkou ${x},${y} (předtím ${pred}) = ${smerPacky(x, y, pred)}, ne ${cekam}`);
+  if (!(PRAH_PUSTENI < PRAH_VYBERU && MRTVA_ZONA < PRAH_PUSTENI)) chybyOvladace.push('prahy páčky nejsou mrtvá zóna < puštění < výběr');
+
+  // čtečka po snímcích (60 za sekundu): hraj(snímky) = [[gamepady, ui], …] → události po snímcích
+  const SNIMEK = 1 / 60;
+  const hraj = (ctecka, kroky, od = 0) => kroky.map(([pady, ui = true], i) => ctecka.precti(pady, od + i * SNIMEK, ui));
+  const udalosti = (vysledky) => vysledky.flatMap((r) => r.udalosti);
+  // čtečka, která už ovladač zná (první snímek s ovladačem jen ohlásí, viz níž)
+  const novaCtecka = (pocet = 1) => {
+    const ctecka = vytvorCtecku();
+    ctecka.precti(Array.from({ length: pocet }, () => pad()), -1, true);
+    return ctecka;
+  };
+  let c = vytvorCtecku();
+  for (const prazdne of [undefined, null, [], [null, null, null, null], [{ ...pad(), connected: false }]]) {
+    const r = c.precti(prazdne, 0, true);
+    if (r.pohyb.dx || r.pohyb.dy || r.udalosti.length || r.pripojeno || r.aktivita) chybyOvladace.push(`bez ovladače (${JSON.stringify(prazdne)}) čtečka hlásí ${JSON.stringify(r)}`);
+  }
+  // stisk, kterým se ovladač ohlásil (prohlížeč ho ukáže až po stisku), nic nespustí, jen je aktivita; další ano
+  c = vytvorCtecku();
+  const ohlaseni = hraj(c, [[[pad([TLACITKA.a, TLACITKA.dolu])]], [[pad([TLACITKA.a, TLACITKA.dolu])]], [[pad()]], [[pad([TLACITKA.a])]]]);
+  if (udalosti(ohlaseni).join() !== 'a' || !ohlaseni[3].udalosti.includes('a') || !ohlaseni[0].aktivita || ohlaseni[0].pripojeno !== 1) chybyOvladace.push(`stisk, kterým se ovladač ohlásil: ${udalosti(ohlaseni).join()}`);
+  // stisk = jedna událost, držení nic nepřidá, puštění taky ne
+  c = novaCtecka();
+  const drzeneA = udalosti(hraj(c, [...Array(30).fill([[pad([TLACITKA.a])]]), ...Array(5).fill([[pad()]])]));
+  if (drzeneA.join() !== 'a') chybyOvladace.push(`držené A dá ${drzeneA.join() || 'nic'}, ne jedno a`);
+  for (const jmeno of STISKY) {
+    c = novaCtecka();
+    const u = udalosti(hraj(c, [[[pad()]], [[pad([TLACITKA[jmeno]])]], [[pad([TLACITKA[jmeno]])]]]));
+    if (u.join() !== jmeno) chybyOvladace.push(`tlačítko ${jmeno} dá ${u.join()}`);
+  }
+  // tlačítko jako číslo (starší prohlížeče) i jako objekt s value (analogová spoušť nad polovinou)
+  c = vytvorCtecku();
+  c.precti([{ id: 'x', axes: [0, 0], buttons: [0, 0, 0, 0] }], -1, true);
+  const ciselne = { id: 'x', axes: [0, 0], buttons: [1, 0, 0, 0] };
+  if (c.precti([ciselne], 0, true).udalosti.join() !== 'a') chybyOvladace.push('tlačítko zapsané číslem se nepočítá');
+  // držený kříž v okně: hned, pak po PRVNI_OPAKOVANI a dál po OPAKOVANI
+  c = novaCtecka();
+  const drzenyKriz = hraj(c, Array(60).fill([[pad([TLACITKA.dolu])]]));
+  const casy = drzenyKriz.map((r, i) => (r.udalosti.includes('dolu') ? i * SNIMEK : null)).filter((x) => x !== null);
+  const cekaneCasy = [0];
+  for (let tt = PRVNI_OPAKOVANI; tt < 60 * SNIMEK - 1e-9; tt += OPAKOVANI) cekaneCasy.push(tt);
+  if (casy.length !== cekaneCasy.length || casy.some((tt, i) => Math.abs(tt - cekaneCasy[i]) > SNIMEK + 1e-9)) chybyOvladace.push(`držený kříž: výběr v ${casy.map((x) => x.toFixed(2))} místo ${cekaneCasy.map((x) => x.toFixed(2))}`);
+  if (drzenyKriz.some((r) => Math.abs(r.pohyb.dy - 1) > 1e-9 || r.pohyb.dx !== 0)) chybyOvladace.push('kříž dolů nedá pohyb dolů');
+  // kříž šikmo: pohyb má velikost 1
+  c = novaCtecka();
+  const sikmo = c.precti([pad([TLACITKA.nahoru, TLACITKA.vpravo])], 0, false).pohyb;
+  if (Math.abs(Math.hypot(sikmo.dx, sikmo.dy) - 1) > 1e-9 || sikmo.dx <= 0 || sikmo.dy >= 0) chybyOvladace.push(`kříž šikmo dá ${JSON.stringify(sikmo)}`);
+  // páčka má přednost před křížem
+  if (c.precti([pad([TLACITKA.vlevo], [0.9, 0])], SNIMEK, false).pohyb.dx <= 0) chybyOvladace.push('páčka nemá přednost před křížem');
+  // páčka na hraně (0,36–0,6) necuká: jeden výběr, pak jen opakování po držení
+  c = novaCtecka();
+  const hrana = udalosti(hraj(c, Array.from({ length: 20 }, (_, i) => [[pad([], [i % 2 ? 0.37 : 0.6, 0])]])));
+  if (hrana.join() !== 'vpravo') chybyOvladace.push(`páčka na hraně cuká: ${hrana.join()}`);
+  // směr držený ve hře okno, které se mezitím otevřelo, neposune, dokud ho hráč nepustí
+  c = novaCtecka();
+  const zBehu = hraj(c, [...Array(30).fill([[pad([], [1, 0])], false]), ...Array(90).fill([[pad([], [1, 0])], true]),
+    [[pad()], true], [[pad([], [1, 0])], true]]);
+  const vOkne = udalosti(zBehu);
+  if (vOkne.join() !== 'vpravo' || !zBehu.at(-1).udalosti.includes('vpravo')) chybyOvladace.push(`páčka držená z běhu posune výběr v okně: ${vOkne.join()}`);
+  c = novaCtecka();
+  const krizZBehu = udalosti(hraj(c, [...Array(10).fill([[pad([TLACITKA.dolu])], false]), ...Array(60).fill([[pad([TLACITKA.dolu])], true])]));
+  if (krizZBehu.length) chybyOvladace.push(`kříž držený z běhu posune výběr v okně: ${krizZBehu.join()}`);
+  // ve hře (ui = false) žádné směry, stisky ano (Start = pauza)
+  c = novaCtecka();
+  const veHre = udalosti(hraj(c, [[[pad([], [0, 1])], false], [[pad([TLACITKA.start], [0, 1])], false], [[pad([TLACITKA.start, TLACITKA.dolu])], false]]));
+  if (veHre.join() !== 'start') chybyOvladace.push(`ve hře čtečka hlásí ${veHre.join()}, ne jen start`);
+  // nově stisknutý směr kříže má přednost před drženým
+  c = novaCtecka();
+  const dva = udalosti(hraj(c, [[[pad([TLACITKA.dolu])]], [[pad([TLACITKA.dolu, TLACITKA.vpravo])]]]));
+  if (dva.join() !== 'dolu,vpravo') chybyOvladace.push(`nový směr kříže: ${dva.join()}`);
+  // dva ovladače: stisk na kterémkoli, značky podle toho, na kterém se hraje; odpojení
+  c = novaCtecka(2);
+  const ps = pad([TLACITKA.b], [0, 0], 'DualSense Wireless Controller (STANDARD GAMEPAD Vendor: 054c Product: 0ce6)');
+  const r2 = c.precti([pad(), ps], 0, true);
+  if (r2.udalosti.join() !== 'b' || r2.rodina !== 'playstation' || r2.pripojeno !== 2 || !r2.aktivita) chybyOvladace.push(`dva ovladače: ${JSON.stringify({ ...r2, pohyb: 0 })}`);
+  const r3 = c.precti([pad()], SNIMEK, true);
+  if (!r3.udalosti.includes('odpojen') || r3.pripojeno !== 1) chybyOvladace.push('odpojený ovladač se nehlásí');
+  if (c.precti([pad()], 2 * SNIMEK, true).udalosti.length) chybyOvladace.push('odpojení se hlásí víckrát');
+  const r4 = c.precti([null, null], 3 * SNIMEK, true);
+  if (r4.udalosti.join() !== 'odpojen' || r4.pripojeno !== 0) chybyOvladace.push('poslední odpojený ovladač se nehlásí');
+  // klidný ovladač není aktivita (nápovědy se nepřepnou samy), páčka v mrtvé zóně taky ne
+  if (novaCtecka().precti([pad([], [0.1, 0.1])], 0, true).aktivita) chybyOvladace.push('klidný ovladač je aktivita');
+  // hrdina s páčkou do půlky jde plnou rychlostí, se stojící stojí
+  const hraPacka = novaHra(vytvorRng(3));
+  const x0 = hraPacka.hrdina.x;
+  aktualizuj(hraPacka, 0.05, pohybPacky(0.5, 0), SIRKA, VYSKA);
+  const ujel = hraPacka.hrdina.x - x0;
+  if (Math.abs(ujel - hraPacka.hrdina.rychlost * 0.05) > 0.5) chybyOvladace.push(`páčka do půlky: hrdina ujel ${ujel}, ne ${hraPacka.hrdina.rychlost * 0.05}`);
+  const x1 = hraPacka.hrdina.x;
+  aktualizuj(hraPacka, 0.05, pohybPacky(0.1, 0.1), SIRKA, VYSKA);
+  if (Math.abs(hraPacka.hrdina.x - x1) > 1e-6) chybyOvladace.push('páčka v mrtvé zóně hýbe hrdinou');
+
+  // nápovědy se značkami: rozdělení textu, známé značky, stejné ve všech jazycích
+  const kusy = rozdelNapovedu('Vyber {a} nebo {foo}, {start}');
+  if (JSON.stringify(kusy) !== JSON.stringify([{ text: 'Vyber ' }, { tlacitko: 'a' }, { text: ' nebo {foo}, ' }, { tlacitko: 'start' }])) chybyOvladace.push(`rozdělení nápovědy: ${JSON.stringify(kusy)}`);
+  if (rozdelNapovedu('').length || rozdelNapovedu('bez značek')[0].text !== 'bez značek') chybyOvladace.push('nápověda bez značek se rozdělí špatně');
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  const klicNapoved = [...html.matchAll(/data-t-ovladac="([^"]+)"/g)].map((m) => m[1]);
+  for (const jazyk of JAZYKY) {
+    for (const klic of klicNapoved) {
+      const text = hodnota(klic, jazyk);
+      const znacky = [...String(text).matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+      if (typeof text !== 'string' || !znacky.length || znacky.some((z) => !ZNACKY.includes(z))) chybyOvladace.push(`${jazyk} ${klic}: ${text}`);
+      const cesky = [...String(hodnota(klic, VYCHOZI_JAZYK)).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join();
+      if (znacky.sort().join() !== cesky) chybyOvladace.push(`${jazyk} ${klic} má jiné značky než čeština`);
+    }
+    for (const r of RODINY) for (const z of ZNACKY) if (typeof hodnota(`ovladac.znaky.${r}.${z}`, jazyk) !== 'string') chybyOvladace.push(`${jazyk}: ovladač ${r} nemá jméno ${z}`);
+  }
+  // každá klávesová nápověda okna má vedle sebe nápovědu pro ovladač, tlačítka s (Esc) a (M) mají (B)
+  for (const [, obsah] of html.matchAll(/<p class="[^"]*(?:podtitul|napoveda|menu-pata)[^"]*">(.*?)<\/p>/g)) {
+    if (obsah.includes('jen-klavesnice') && !obsah.includes('jen-ovladac')) chybyOvladace.push(`nápověda bez ovladače: ${obsah.slice(0, 60)}`);
+  }
+  if (klicNapoved.length < 6) chybyOvladace.push(`index.html má jen ${klicNapoved.length} nápověd pro ovladač`);
+  for (const [, tlacitko] of html.matchAll(/<button[^>]*>([^]*?)<\/button>/g)) {
+    if (/\((Esc|M)\)/.test(tlacitko) && !tlacitko.includes('class="jen-ovladac" data-tl="b"')) chybyOvladace.push(`tlačítko bez (B): ${tlacitko.slice(0, 50)}`);
+  }
+  for (const [, tl] of html.matchAll(/data-tl="(\w+)"/g)) if (!ZNACKY.includes(tl)) chybyOvladace.push(`neznámá značka ${tl} v index.html`);
+  // CSS: nápovědy pro ovladač jen v body.ovladac, klávesové a dotykové tam schované
+  if (!/body\.ovladac \.jen-ovladac \{ display: inline; \}/.test(css) || !/\.jen-ovladac \{ display: none; \}/.test(css)
+    || !/body\.ovladac \.jen-klavesnice, body\.ovladac \.jen-dotyk, body\.ovladac \.karta-klavesa \{ display: none; \}/.test(css)) chybyOvladace.push('style.css neschovává nápovědy podle ovladače');
+  // značky: každý druh má pro A/B/X/Y jiný obrázek, páčka a kříž všude, obrázek je v ramy.mjs i style.css
+  for (const r of RODINY) {
+    const obrazky = ['a', 'b', 'x', 'y'].map((z) => obrazekZnacky(z, r));
+    if (new Set(obrazky).size !== 4 || obrazky.includes(null)) chybyOvladace.push(`${r}: značky A/B/X/Y ${obrazky}`);
+    for (const o of [...obrazky, obrazekZnacky('packa', r), obrazekZnacky('kriz', r)]) {
+      if (!OBRAZKY_RAMU[`tl-${o}`]) chybyOvladace.push(`ramy.mjs nemá značku tl-${o}`);
+      if (!css.includes(`--tl-${o}: url(`) || !css.includes(`[data-znak="${o}"] { background-image: var(--tl-${o}); }`)) chybyOvladace.push(`style.css nemá značku ${o}`);
+    }
+    if (obrazekZnacky('start', r) !== null || obrazekZnacky('zpet', r) !== null) chybyOvladace.push(`${r}: Start a Back mají být nápis`);
+  }
+  if (Object.keys(OBRAZKY_ZNACEK).join() !== RODINY.join()) chybyOvladace.push('značky nemají všechny druhy ovladačů');
+  for (const [jmeno, radky] of Object.entries(OBRAZKY_RAMU)) {
+    if (!jmeno.startsWith('tl-')) continue;
+    if (radky.length !== 11 || radky.some((r) => r.length !== 11)) chybyOvladace.push(`značka ${jmeno} není 11×11`);
+    try { svgRamu(radky); } catch (e) { chybyOvladace.push(`značka ${jmeno}: ${e.message}`); }
+  }
+  // standardní rozložení tlačítek
+  if (JSON.stringify(TLACITKA) !== JSON.stringify({ a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, zpet: 8, start: 9, nahoru: 12, dolu: 13, vlevo: 14, vpravo: 15 })
+    || SMERY.some((s) => TLACITKA[s] === undefined)) chybyOvladace.push('rozložení tlačítek není standardní');
+  // stav ovladače: posluchači dostanou jen změny, bez ovladače není aktivní, myš vybírá jen bez ovladače
+  const zmeny = [];
+  const odhlas = priZmeneOvladace((z) => zmeny.push(JSON.stringify(z)));
+  nastavOvladac({ pripojeno: 1, rodina: 'playstation', aktivni: true });
+  nastavOvladac({ pripojeno: 1, rodina: 'playstation', aktivni: undefined });
+  if (mysVybira()) chybyOvladace.push('myš vybírá i při hraní na ovladači');
+  nastavOvladac({ pripojeno: 0 });
+  if (stavOvladace().aktivni || !mysVybira()) chybyOvladace.push('bez ovladače zůstal aktivní');
+  odhlas();
+  nastavOvladac({ rodina: 'xbox' });
+  if (zmeny.join('|') !== '{"pripojeno":1,"rodina":"playstation","aktivni":true}|{"pripojeno":0,"aktivni":false}') chybyOvladace.push(`změny ovladače: ${zmeny.join('|')}`);
+  // menu.js: nový profil z ovladače dostane volné jméno, výběr chodí i po polích pro text, Enter z ovladače stiskne
+  const menuJs = zdrojeSrc['menu.js'];
+  if (!/stavOvladace\(\)\.aktivni\) \{\s*if \(!profil\) pole\.value = volneJmeno\(''\);/.test(menuJs)) chybyOvladace.push('nový profil z ovladače nemá navržené jméno');
+  if (!/zamerene >= 0 && !e\.zOvladace/.test(menuJs)) chybyOvladace.push('Enter z ovladače nestiskne zaměřené tlačítko');
+  // main.js: každý stisk čtečky, který hra používá, má akci
+  const mainJs = zdrojeSrc['main.js'];
+  for (const u of ['zpet', 'odpojen', 'start', 'b', 'x', 'a']) if (!mainJs.includes(`u === '${u}'`)) chybyOvladace.push(`main.js neobslouží ${u}`);
+}
+chyby.push(...chybyOvladace);
 if (chyby.length) {
   console.error('CHYBA:', chyby.join('; '));
   process.exit(1);

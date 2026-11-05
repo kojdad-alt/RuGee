@@ -50,6 +50,17 @@ export function odemkniZvuk() {
   }
 }
 
+// Hraje zvuk? Prohlížeč ho pustí až po kliknutí, dotyku nebo klávese (stisk na ovladači se nepočítá), do té doby
+// je kontext pozastavený nebo není (menu to hráči na ovladači řekne).
+export function zvukBezi() {
+  return kontext?.state === 'running';
+}
+
+// Kontext už je, ale prohlížeč ho pozastavil (založil ho stisk na ovladači): klik nebo klávesa ho pustí.
+export function probudZvuk() {
+  if (kontext?.state === 'suspended') odemkniZvuk();
+}
+
 function postavVystup() {
   const c = kontext;
   const omezovac = c.createDynamicsCompressor();
