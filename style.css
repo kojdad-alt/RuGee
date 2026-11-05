@@ -279,20 +279,6 @@ html, body {
 
 .z-truhly .vyber-panel.ram { border-image-source: var(--ram-mosaz); }
 
-/* Okna, která ještě nejsou v tématu (porovnání výbavy, kupec): šedý panel s rámečkem ze stínů. */
-.vyber-panel:not(.ram) {
-  --c: var(--okraj);
-  padding: 18px 20px 16px;
-  background: var(--panel);
-  box-shadow:
-    0 -3px 0 var(--c), 0 3px 0 var(--c), -3px 0 0 var(--c), 3px 0 0 var(--c),
-    -3px -3px 0 #0b0a0f, 3px -3px 0 #0b0a0f, -3px 3px 0 #0b0a0f, 3px 3px 0 #0b0a0f,
-    0 -6px 0 #0b0a0f, 0 6px 0 #0b0a0f, -6px 0 0 #0b0a0f, 6px 0 0 #0b0a0f,
-    0 10px 0 rgba(0, 0, 0, 0.5);
-}
-
-.z-truhly .vyber-panel:not(.ram) { --c: #8a6a2a; }
-
 /* Štítek nad nadpisem: cedulka s leskem nahoře a obrysem. Úroveň v barvě zkušeností, truhla a kupec mosazné. */
 .vyber-stitek {
   --stitek: var(--xp);
@@ -312,16 +298,7 @@ html, body {
 
 .z-truhly .vyber-stitek { --stitek: var(--mosaz); --stitek-lesk: var(--mosaz-lesk); --stitek-stin: var(--mosaz-stin); }
 
-.vyber-panel h2:not(.nadpis-pixel) {
-  margin: 0;
-  font-size: 28px;
-  color: var(--zlata);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  text-shadow: 0 3px 0 #6b3f1d, 0 5px 0 #000;
-}
-
-.vyber-panel h2.nadpis-pixel { margin: 0 0 2px; }
+.vyber-panel h2 { margin: 0 0 2px; }
 .ram .podtitul { color: var(--pergamen-tlumeny); text-shadow: 0 2px 0 var(--noc); }
 .vyber-panel .podtitul { margin: 10px 0 18px; }
 .jen-dotyk { display: none; }
@@ -581,8 +558,6 @@ html, body {
 @media (max-width: 600px) {
   .vyber { padding: 12px; }
   .vyber-panel { padding: 8px 10px 12px; }
-  .vyber-panel:not(.ram) { padding: 14px 12px 12px; }
-  .vyber-panel h2:not(.nadpis-pixel) { font-size: 24px; }
   .vyber-panel .podtitul { margin: 8px 0 12px; }
   .karty { flex-direction: column; gap: 22px; padding: 12px 10px; }
 
@@ -1724,56 +1699,102 @@ kbd {
 
 .cena-zlato canvas { flex: none; }
 
-/* Obchod kupce: zlatý panel, nahoře kolik má hrdina zlaťáků (a klíčů), zboží jako karty se zlatým pruhem
-   s cenou. Zboží, které koupit nejde, je bledé a při kliknutí se zatřese. */
-.obchod .vyber-panel { --c: #8a6a2a; width: min(980px, 100%); }
-.obchod .vyber-stitek { background: var(--zlata); }
+/* Obchod kupce: mosazné okno (vzácné jako truhla), nadpis Vůz kupce pixelovým písmem, mosazný štítek s odpočtem.
+   Nahoře zapuštěná pokladnička se zlaťáky, klíči a přehozením zdarma (jako duše ve Vylepšeních). Zboží jsou karty
+   z kitu s mosazným rámečkem a mosaznou cenovkou místo pruhu rarity, dole zapuštěné počítadlo kusů na voze. Na co
+   zlaťáky nestačí, je tmavé dřevo s tlumenou ikonou a cenou v barvě chyby a při kliknutí se zatřese. Po nákupu se
+   pod zbožím ukáže hlášení se zelenou kontrolkou. */
+.obchod .vyber-panel { width: min(1024px, 100%); }
+.obchod .vyber-stitek { --stitek: var(--mosaz); --stitek-lesk: var(--mosaz-lesk); --stitek-stin: var(--mosaz-stin); }
 
 .obchod-penize {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 6px 16px;
-  margin: -6px 0 16px;
-  font-size: 16px;
-  color: var(--text-tlumeny);
+  gap: 4px 18px;
+  width: fit-content;
+  max-width: 100%;
+  margin: -6px auto 16px;
+  padding: 5px 16px 6px 12px;
+  font-size: 15px;
+  color: var(--pergamen-tlumeny);
+  background: var(--drevo-0) padding-box;
+  border: calc(2 * var(--px)) solid transparent;
+  border-image: var(--ram-tenky) 2 / calc(2 * var(--px)) repeat;
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.45);
+  text-shadow: 0 2px 0 var(--noc);
 }
 
-.obchod-penize .cena-zlato b { font-size: 20px; }
-.obchod-klice { display: inline-flex; align-items: center; gap: 5px; color: var(--zlata); font-size: 18px; }
-.obchod-penize small { color: #7cf08a; font-size: 13px; }
+.obchod-penize .cena-zlato b { font-size: 22px; }
+.obchod-klice { display: inline-flex; align-items: center; gap: 5px; color: var(--mosaz); font-size: 20px; }
+.obchod-penize small { color: var(--ok); font-size: 13px; }
 
-.zbozi-karty { flex-wrap: wrap; gap: 16px; }
+.zbozi-karty { flex-wrap: wrap; gap: 24px 20px; }
 .zbozi-karty.bez-prichodu .karta { animation: none; }
 
 .karta.zbozi {
-  --c: #8a6a2a;
-  --c-svetla: #ffe08a;
-  --c-pozadi: #2a2214;
-  --c-zar: rgba(233, 196, 106, 0.25);
+  --c: var(--mosaz);
+  --c-svetla: var(--mosaz-lesk);
+  --c-pozadi: var(--drevo-2);
+  --c-zar: rgba(0, 0, 0, 0);
+  --c-pas: #2a1708;
   --zar: 0px;
   flex: 0 1 168px;
 }
 
+.karta.zbozi .karta-text { flex: 1; }
+.karta.zbozi .karta-nazev { color: var(--mosaz-svetla); }
 .karta.zbozi .karta-rarita { display: flex; justify-content: center; }
-.karta.zbozi .karta-rarita .cena-zlato { color: #0b0a0f; font-size: 15px; }
-.karta.zbozi.nejde { --c: #4a4238; --c-svetla: #b8ae9c; --c-pozadi: #1d1a16; }
+.karta.zbozi .karta-rarita .cena-zlato { color: #2a1708; font-size: 15px; }
+.karta.zbozi.nejde { --c: var(--drevo-3); --c-svetla: var(--pergamen-tlumeny); --c-pozadi: var(--drevo-1); --c-pas: var(--pergamen); }
+.karta.zbozi.nejde .karta-nazev { color: var(--pergamen-tlumeny); }
+.karta.zbozi.nejde .karta-rarita { background: var(--drevo-2); box-shadow: inset 0 2px 0 var(--drevo-3), 0 3px 0 var(--noc); }
+.karta.zbozi.nejde .karta-rarita .cena-zlato { color: var(--chyba); }
 .karta.zbozi.nejde .karta-ikona canvas { opacity: 0.5; }
 .karta.zbozi.zatrast { animation: zatrast 0.25s steps(4); }
-.zbozi-prekazka { color: #f08a8d; font-size: 12px; font-weight: bold; }
+.zbozi-prekazka { color: var(--chyba); font-size: 12px; font-weight: bold; text-shadow: 0 2px 0 var(--noc); }
+
+/* počítadlo kusů na voze: zapuštěné do destičky, vyprodané v barvě chyby */
+.zbozi-zasoba {
+  margin-top: auto;
+  padding: 1px 8px 2px;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--pergamen-tlumeny);
+  background: var(--drevo-0);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px var(--noc);
+}
+
+.zbozi-zasoba b { color: var(--mosaz); }
+.zbozi-zasoba.vyprodano { color: var(--chyba); }
 
 .obchod-nakup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
   min-height: 1.4em;
   margin: 16px 0 6px;
-  color: #7cf08a;
+  color: var(--ok);
   font-weight: bold;
+  text-shadow: 0 2px 0 var(--noc);
+}
+
+.obchod-nakup:not(:empty)::before {
+  content: '';
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--ok);
+  box-shadow: inset 2px 2px 0 #d8ffdc, inset -2px -2px 0 #2f9a45, 0 0 0 2px var(--noc);
 }
 
 .obchod .radek-tlacitek { margin-top: 6px; }
 
 @media (max-width: 600px) {
   .karta.zbozi { min-height: 0; }
+  .zbozi-zasoba { margin-top: 2px; }
 }
 
 /* Konec hry: kolik zlaťáků zbylo a kolik z nich je duší. */

@@ -1,8 +1,9 @@
 // Okno kupce: zboží jako karty (ikona, jméno, co udělá, cena se zlaťákem, kolik má kupec ještě na voze).
 // Jen DOM: co zboží stojí a co udělá, je v hra.js (nabidkaKupce, kup). Vzhled karet je stejný jako u karet
-// vylepšení, jen zlatý (style.css, .zbozi).
+// vylepšení, jen s mosazným rámečkem a cenovkou místo rarity (style.css, .zbozi). Nadpis je pixelovým písmem.
 import { nabidkaKupce } from './hra.js';
 import { obrazekSpritu, vyberTlacitko } from './menu.js';
+import { pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
 
 function prvek(znacka, trida = '', text = null) {
   const e = document.createElement(znacka);
@@ -34,13 +35,12 @@ function kartaZbozi(z, i) {
   const ikona = prvek('span', 'karta-ikona');
   ikona.append(obrazekSpritu(z.ikona, 6));
   const text = prvek('span', 'karta-text');
-  text.append(
-    prvek('b', 'karta-nazev', z.nazev),
-    prvek('span', 'karta-popis', null),
-    prvek('span', 'karta-uroven', z.zbyva > 0 ? `Na voze: ${z.zbyva}` : 'Vyprodáno'),
-  );
+  const zasoba = prvek('span', `zbozi-zasoba${z.zbyva > 0 ? '' : ' vyprodano'}`, z.zbyva > 0 ? 'Na voze: ' : 'Vyprodáno');
+  if (z.zbyva > 0) zasoba.append(prvek('b', '', String(z.zbyva)));
+  text.append(prvek('b', 'karta-nazev', z.nazev), prvek('span', 'karta-popis', null));
   text.querySelector('.karta-popis').append(prvek('small', '', z.popis));
   if (z.prekazka && z.zbyva > 0) text.append(prvek('span', 'zbozi-prekazka', z.prekazka));
+  text.append(zasoba);
   karta.append(pruh, ikona, text, prvek('kbd', 'karta-klavesa', String(i + 1)));
   karta.setAttribute('aria-label', `${i + 1}. ${z.nazev} za ${textZlataku(z.cena)}. ${z.popis}.${z.prekazka ? ` ${z.prekazka}.` : ''}`);
   return karta;
@@ -71,7 +71,9 @@ export function ukazObchod(okno, hra, kup, vybrat = null) {
   // Po nákupu se karty jen překreslí (bez animace příchodu), ať okno neposkakuje.
   zbozi.classList.toggle('bez-prichodu', !okno.hidden);
   zbozi.replaceChildren(...karty);
+  pixelovyNadpis(okno.querySelector('#obchod-nadpis'), 'Vůz kupce', { min: 2, max: 4 });
   okno.hidden = false;
+  prizpusobNadpisy(okno);
   const vybrana = karty.find((karta) => karta.dataset.id === vybrat);
   if (vybrana) vyberTlacitko(vybrana);
 }
