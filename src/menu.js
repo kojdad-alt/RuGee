@@ -10,14 +10,14 @@ import {
 } from './ulozeni.js';
 import { kodProfilu, souborProfilu, nazevSouboru, prectiKod, PRIPONA_SOUBORU, MAX_DELKA_KODU } from './prenos.js';
 import { MAPY, PORADI_MAP, ODEMKNUTI_MAPY, predchoziMapa } from './mapy.js';
-import { nahledMapy } from './louka.js';
+import { nahledMapy, kresliPodlahu } from './louka.js';
 import { VYLEPSENI, cenaVylepseni, kupVylepseni, vratDuse, utraceno } from './duse.js';
 import {
   VYBAVA, PORADI_SAD, PORADI_SLOTU, SLOTY, VSECHNY_KUSY, RARITY_VYBAVY, EFEKTY_VYBAVY, idKusu, vytvorKus, radkyStatu,
   popisEfektu, popisSady,
 } from './vystroj.js';
 import { odemkniZvuk, zvukNakupu, zvukOdmitnuti, zvukHry, nastavZvuk, ukazkaHudby } from './zvuk.js';
-import { nakresliText, STYL_LOGA } from './pismo.js';
+import { nakresliText, STYL_LOGA, pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
 
 // Profily: při prvním spuštění se stará uložení převedou do prvního profilu (ulozeni.js), pak se načte zvolený.
 zajistiProfily();
@@ -65,6 +65,61 @@ export function obrazekSpritu(jmeno, meritko = 4) {
   c.getContext('2d').drawImage(zdroj, 0, 0);
   c.style.width = `${zdroj.width * meritko}px`;
   c.style.height = `${zdroj.height * meritko}px`;
+  return c;
+}
+
+// Ikona mapy do cedulky v menu: kousek podlahy té mapy 8×8 s tmavým obrysem, ve stejném měřítku jako sprity.
+// Z podlahy 64×64 se vezme výřez s největším kontrastem (květina v trávě, láva ve skále, krystal v jeskyni),
+// ať je mapa poznat i tam, kde je podlaha tmavá.
+const ikonyMap = new Map();
+
+function vyrezMapy(id) {
+  if (ikonyMap.has(id)) return ikonyMap.get(id);
+  const S = 64;
+  const podlaha = document.createElement('canvas');
+  podlaha.width = S;
+  podlaha.height = S;
+  const g = podlaha.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  kresliPodlahu(g, id, 0, 0, S, S, 16);
+  const data = g.getImageData(0, 0, S, S).data;
+  const jas = (x, y) => {
+    const i = (y * S + x) * 4;
+    return 0.3 * data[i] + 0.59 * data[i + 1] + 0.11 * data[i + 2];
+  };
+  let nej = [0, 0, -1];
+  for (let y = 0; y <= S - 8; y += 2) {
+    for (let x = 0; x <= S - 8; x += 2) {
+      let soucet = 0;
+      let ctverce = 0;
+      for (let dy = 0; dy < 8; dy++) {
+        for (let dx = 0; dx < 8; dx++) {
+          const j = jas(x + dx, y + dy);
+          soucet += j;
+          ctverce += j * j;
+        }
+      }
+      const prumer = soucet / 64;
+      const skore = Math.sqrt(Math.max(0, ctverce / 64 - prumer * prumer)) + prumer * 0.25;
+      if (skore > nej[2]) nej = [x, y, skore];
+    }
+  }
+  const vyrez = [podlaha, nej[0], nej[1]];
+  ikonyMap.set(id, vyrez);
+  return vyrez;
+}
+
+function ikonaMapy(id, meritko = 3) {
+  const [podlaha, x, y] = vyrezMapy(id);
+  const c = prvek('canvas', 'pixel');
+  c.width = 10;
+  c.height = 10;
+  const o = c.getContext('2d');
+  o.fillStyle = '#140c08';
+  o.fillRect(0, 0, 10, 10);
+  o.drawImage(podlaha, x, y, 8, 8, 1, 1, 8, 8);
+  c.style.width = `${10 * meritko}px`;
+  c.style.height = `${10 * meritko}px`;
   return c;
 }
 
@@ -887,9 +942,12 @@ export const ZALOZKY = {
   profil: { nazev: 'Profil', vypln: (panel) => vyplnProfil(panel), zpet: zpetZProfilu },
 };
 
-// Logo se zvětšuje jen celými násobky, aby pixely zůstaly ostré.
+// Logo se zvětšuje jen celými násobky, aby pixely zůstaly ostré. Na nízké obrazovce (telefon na šířku, malý
+// notebook) je menší, ať se pod něj vejde deska s tlačítky.
 function upravLogo(platno) {
-  const meritko = Math.max(3, Math.min(9, Math.floor(Math.min(560, innerWidth - 32) / platno.width)));
+  const podleSirky = Math.floor(Math.min(560, innerWidth - 32) / platno.width);
+  const podleVysky = Math.floor((innerHeight * 0.16) / platno.height);
+  const meritko = Math.max(3, Math.min(9, podleSirky, podleVysky));
   platno.style.width = `${platno.width * meritko}px`;
   platno.style.height = `${platno.height * meritko}px`;
 }
@@ -949,23 +1007,41 @@ export function vytvorMenu({ hrat }) {
     { id: 'hrat', nazev: 'Hrát', hlavni: true, akce: hrat },
     ...Object.entries(ZALOZKY).map(([id, z]) => ({ id, nazev: z.nazev, akce: () => otevri(id) })),
   ];
-  const radekPostavy = prvek('p', 'menu-postava');
+  // Cedulka pod Hrát: zvolený profil a s čím se půjde hrát (postava, mapa, duše), každé s pixelovou ikonou.
+  const radekPostavy = prvek('div', 'menu-postava ram-tenky');
+  const udaj = (ikona, text, trida = '') => {
+    const u = prvek('span', `menu-udaj ${trida}`.trim());
+    u.append(ikona, prvek('span', '', text));
+    return u;
+  };
   const ukazPostavu = () => {
     const { duse } = nactiDuse();
     const profil = prvek('span', 'menu-profil', 'Profil: ');
     profil.append(prvek('b', '', aktivniProfil().jmeno));
-    radekPostavy.replaceChildren(profil, prvek('span', '', `${TRIDY[trida].nazev} · ${MAPY[mapa].nazev} · ${duse} ${pocetDusi(duse)}`));
+    const udaje = prvek('span', 'menu-udaje');
+    const naMape = udaj(ikonaMapy(mapa), MAPY[mapa].nazev, 'menu-mapa');
+    naMape.style.setProperty('--mapa', MAPY[mapa].barva);
+    udaje.append(
+      udaj(obrazekSpritu(trida, 3), TRIDY[trida].nazev, 'menu-trida'),
+      naMape,
+      udaj(obrazekSpritu('duse', 3), `${duse} ${pocetDusi(duse)}`, 'menu-duse'),
+    );
+    radekPostavy.replaceChildren(profil, udaje);
   };
   ukazPostavu();
-  volby.replaceChildren(...polozky.map((p) => {
+  const tlacitkoMenu = (p) => {
     const b = prvek('button', p.hlavni ? 'menu-tlacitko hlavni' : 'menu-tlacitko', p.nazev);
     b.type = 'button';
     b.dataset.id = p.id;
     // Tlačítko schovaného menu (zaměřené z dřívějška) nesmí spustit nic uprostřed hry.
     b.addEventListener('click', () => { if (!koren.hidden) p.akce(); });
     return b;
-  }));
-  volby.firstChild.after(radekPostavy);
+  };
+  // Záložky jsou ve dvou sloupcích po sobě (šipky jdou dolů prvním sloupcem a pak druhým, pořadí se nemění).
+  const mrizka = prvek('div', 'menu-mrizka');
+  mrizka.style.setProperty('--radku', String(Math.ceil((polozky.length - 1) / 2)));
+  mrizka.append(...polozky.slice(1).map(tlacitkoMenu));
+  volby.replaceChildren(tlacitkoMenu(polozky[0]), radekPostavy, mrizka);
   document.getElementById('menu-zpet').addEventListener('click', () => zpet());
   // Najetí myší vybere tlačítko, jen ne když se píše do pole (jméno profilu, kód), to by mu vzalo klávesnici.
   koren.addEventListener('pointerover', (e) => {
@@ -976,12 +1052,13 @@ export function vytvorMenu({ hrat }) {
   function otevri(id) {
     const z = ZALOZKY[id];
     otevrena = id;
-    document.getElementById('menu-nadpis').textContent = z.nazev;
+    pixelovyNadpis(document.getElementById('menu-nadpis'), z.nazev, { max: innerWidth > 600 ? 4 : 3 });
     const panel = document.getElementById('menu-panel');
     panel.replaceChildren();
     z.vypln(panel);
     volby.hidden = true;
     zalozka.hidden = false;
+    prizpusobNadpisy(zalozka);
     vyberTlacitko(zalozka.querySelector('.zvolena') ?? zalozka.querySelector('button'));
   }
 
