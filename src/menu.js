@@ -5,8 +5,10 @@ import { sprity } from './sprity.js';
 import { TRIDY, ZBRANE, BOSSOVE, platnaTrida, silaHrozby, obtiznostMapy, poradiBossu } from './hra.js';
 import {
   nactiRekord, nactiTridu, ulozTridu, nactiDuse, ulozDuse, nactiNastaveni, ulozNastaveni, nactiSbirku, nactiMapu, ulozMapu,
-  odemceneMapy,
+  odemceneMapy, zajistiProfily, seznamProfilu, aktivniProfil, vytvorProfil, prejmenujProfil, prepniProfil, smazProfil,
+  dataProfilu, importujProfil, prehledProfilu, prehledDat, MAX_PROFILU, MAX_JMENA,
 } from './ulozeni.js';
+import { kodProfilu, souborProfilu, nazevSouboru, prectiKod, PRIPONA_SOUBORU, MAX_DELKA_KODU } from './prenos.js';
 import { MAPY, PORADI_MAP, ODEMKNUTI_MAPY, predchoziMapa } from './mapy.js';
 import { nahledMapy } from './louka.js';
 import { VYLEPSENI, cenaVylepseni, kupVylepseni, vratDuse, utraceno } from './duse.js';
@@ -16,7 +18,10 @@ import {
 } from './vystroj.js';
 import { odemkniZvuk, zvukNakupu, zvukOdmitnuti, zvukHry, nastavZvuk, ukazkaHudby } from './zvuk.js';
 
-// Zvolená třída hrdiny: načte se z prohlížeče a mění se v záložce Postavy. Hra ji bere při startu.
+// Profily: při prvním spuštění se stará uložení převedou do prvního profilu (ulozeni.js), pak se načte zvolený.
+zajistiProfily();
+
+// Zvolená třída hrdiny: načte se z prohlížeče (ze zvoleného profilu) a mění se v záložce Postavy. Hra ji bere při startu.
 let trida = nactiTridu();
 
 export function zvolenaTrida() {
@@ -272,7 +277,7 @@ function vyplnSbirku(panel) {
 // Rekordy: každá mapa má svůj blok (v barvě mapy), zamčená mapa jen řekne, že je zamčená.
 function vyplnRekordy(panel) {
   const odemcene = odemceneMapy();
-  panel.append(prvek('p', 'podtitul', 'Tvoje nejlepší výpravy v tomhle prohlížeči, každá mapa zvlášť'));
+  panel.append(prvek('p', 'podtitul', `Nejlepší výpravy profilu ${aktivniProfil().jmeno}, každá mapa zvlášť`));
   for (const id of PORADI_MAP) {
     const blok = prvek('section', 'rekord-mapy');
     blok.style.setProperty('--mapa', MAPY[id].barva);
@@ -459,10 +464,413 @@ function vyplnNastaveni(panel) {
   const radek = prvek('div', 'radek-tlacitek nastaveni-radek');
   radek.append(prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'));
   panel.append(
-    prvek('p', 'podtitul', 'Volby se hned uloží v tomhle prohlížeči. Stejné najdeš i v pauze.'),
+    prvek('p', 'podtitul', 'Volby se hned uloží v tomhle prohlížeči a platí pro všechny profily. Stejné najdeš i v pauze.'),
     prvek('h3', 'nastaveni-nadpis', 'Zvuk'), ovladaniZvuku(),
     prvek('h3', 'nastaveni-nadpis', 'Hra'), radek,
   );
+}
+
+// Profil: každý profil má svoje duše, vylepšení, rekordy, sbírku a mapy (ulozeni.js), nastavení je společné.
+// Karta profilu je tlačítko: klik (nebo Enter) na ni profil zvolí. Tlačítka pod kartami pracují se zvoleným
+// profilem. Nový profil, přejmenování, export a import se otevřou ve stejném panelu, Esc nebo Zpět vrátí seznam.
+// Smazat a přepsat chtějí dva stisky, první se jen zeptá. Nic se neposílá na server (prenos.js).
+const TEXTY_CHYB = {
+  jmeno: 'Napiš jméno (aspoň jeden znak).',
+  obsazene: 'Tohle jméno už má jiný profil.',
+  plno: `Víc než ${MAX_PROFILU} profilů nejde. Nějaký smaž nebo přepiš.`,
+  uloziste: 'Prohlížeč nedovolí ukládat (anonymní okno?), profil se neuloží.',
+  neni: 'Ten profil už neexistuje.',
+  prazdny: `Vlož kód uložení, nebo vyber soubor ${PRIPONA_SOUBORU}.`,
+  format: 'Tohle není kód uložení RuGee.',
+  soucet: 'Kód je poškozený nebo neúplný (nesedí kontrolní součet). Zkopíruj ho celý znovu.',
+  verze: 'Kód je z jiné verze hry. Obnov stránku a zkus to znovu.',
+  obsah: 'Kód je poškozený, data v něm nejdou přečíst.',
+  soubor: 'Soubor nejde přečíst.',
+};
+
+// Panel záložky Profil, jestli je v něm otevřené podokno a z kterého tlačítka (po Zpět se na něj vrátí výběr).
+let panelProfilu = null;
+let podokno = null;
+
+// Po přepnutí, smazání nebo importu profilu se načte jeho postava a mapa.
+function obnovProfil() {
+  trida = nactiTridu();
+  mapa = nactiMapu();
+}
+
+function tlacitko(text, trida = '') {
+  const b = prvek('button', `menu-tlacitko ${trida}`.trim(), text);
+  b.type = 'button';
+  return b;
+}
+
+function zatres(cil) {
+  cil.classList.remove('zatrast');
+  void cil.offsetWidth;
+  cil.classList.add('zatrast');
+}
+
+function odmitni(cil) {
+  odemkniZvuk();
+  zvukOdmitnuti();
+  zatres(cil);
+}
+
+function hlaseniProfilu(text = '', chyba = false) {
+  const p = prvek('p', 'profil-hlaseni');
+  p.setAttribute('role', 'status');
+  ukazHlaseni(p, text, chyba);
+  return p;
+}
+
+function ukazHlaseni(p, text, chyba = false) {
+  p.textContent = text;
+  p.classList.toggle('chyba', chyba);
+}
+
+function radekTlacitek(...tlacitka) {
+  const radek = prvek('div', 'radek-tlacitek profil-radek');
+  radek.append(...tlacitka);
+  return radek;
+}
+
+// Do textového pole se píše, takže výběr šipkami z tlačítek zmizí (klávesy patří poli, viz main.js).
+function zamerPole(pole) {
+  for (const b of document.querySelectorAll('.vybrano')) b.classList.remove('vybrano');
+  pole.focus();
+}
+
+// Obsah karty profilu (i náhledu importu): sprite postavy, jméno, duše, mapy, sbírka a nejdelší přežití.
+function obsahKarty(karta, prehled, jmeno, stitek) {
+  const text = prvek('span', 'trida-text');
+  text.append(
+    prvek('b', 'profil-jmeno', jmeno),
+    prvek('small', 'profil-duse', `${prehled.duse} ${pocetDusi(prehled.duse)} · ${TRIDY[prehled.trida].nazev}`),
+    prvek('small', '', `Mapy ${prehled.mapy}/${PORADI_MAP.length} · sbírka ${prehled.sbirka}/${VSECHNY_KUSY.length}`),
+    prvek('small', 'profil-rekord', prehled.rekord ? `Nejdelší přežití ${formatCas(prehled.rekord)}` : 'Zatím bez rekordu'),
+  );
+  karta.append(obrazekSpritu(prehled.trida, 4), text, prvek('span', 'trida-stitek', stitek));
+}
+
+function nahledDat(data) {
+  const nahled = prvek('div', 'trida profil nahled zvolena');
+  const prehled = prehledDat(data);
+  obsahKarty(nahled, prehled, prehled.jmeno, 'V kódu');
+  return nahled;
+}
+
+function vyplnProfil(panel, zprava = '', chyba = false) {
+  panelProfilu = panel;
+  podokno = null;
+  panel.replaceChildren();
+  const profily = seznamProfilu();
+  const zvoleny = profily.find((p) => p.aktivni) ?? profily[0];
+  const mrizka = prvek('div', 'mrizka-profilu');
+  for (const p of profily) {
+    const karta = prvek('button', 'trida profil');
+    karta.type = 'button';
+    karta.dataset.profil = String(p.slot);
+    obsahKarty(karta, prehledProfilu(p.slot), p.jmeno, 'Hraješ');
+    karta.classList.toggle('zvolena', p.aktivni);
+    karta.setAttribute('aria-pressed', String(p.aktivni));
+    karta.addEventListener('click', () => {
+      if (p.aktivni) return;
+      if (!prepniProfil(p.slot)) {
+        vyplnProfil(panel, TEXTY_CHYB.neni, true);
+        vyberTlacitko(panel.querySelector('.zvolena'));
+        return;
+      }
+      obnovProfil();
+      vyplnProfil(panel, `Hraješ za profil ${p.jmeno}.`);
+      vyberTlacitko(panel.querySelector(`[data-profil="${p.slot}"]`));
+    });
+    mrizka.append(karta);
+  }
+  const plno = profily.length >= MAX_PROFILU;
+  const novy = tlacitko(plno ? `Plno (${MAX_PROFILU}/${MAX_PROFILU})` : 'Nový profil');
+  novy.disabled = plno;
+  novy.addEventListener('click', () => podoknoJmena(panel, null));
+  const prejmenovat = tlacitko('Přejmenovat');
+  prejmenovat.addEventListener('click', () => podoknoJmena(panel, zvoleny));
+  const smazat = tlacitko('Smazat');
+  smazat.disabled = profily.length < 2;
+  if (smazat.disabled) smazat.title = 'Poslední profil smazat nejde';
+  smazat.addEventListener('click', () => {
+    if (!smazat.classList.contains('potvrdit')) {
+      smazat.classList.add('potvrdit');
+      smazat.textContent = `Opravdu smazat ${zvoleny.jmeno}?`;
+      return;
+    }
+    if (!smazProfil(zvoleny.slot)) {
+      vyplnProfil(panel, 'Profil nejde smazat.', true);
+    } else {
+      obnovProfil();
+      vyplnProfil(panel, `Profil ${zvoleny.jmeno} je smazaný. Hraješ za ${aktivniProfil().jmeno}.`);
+    }
+    vyberTlacitko(panel.querySelector('.zvolena'));
+  });
+  const exportovat = tlacitko('Exportovat');
+  exportovat.addEventListener('click', () => podoknoExportu(panel));
+  const importovat = tlacitko('Importovat');
+  importovat.addEventListener('click', () => podoknoImportu(panel));
+  const akce = prvek('div', 'profil-akce');
+  for (const [id, b] of Object.entries({ novy, prejmenovat, smazat, exportovat, importovat })) {
+    b.dataset.akce = id;
+    akce.append(b);
+  }
+  panel.append(
+    prvek('p', 'podtitul', 'Každý profil má vlastní duše, vylepšení, rekordy, sbírku a mapy. Nastavení zvuku je společné.'),
+    mrizka,
+    hlaseniProfilu(zprava, chyba),
+    akce,
+    prvek('p', 'podtitul profil-pata', `Exportovat dá kód uložení a soubor ${PRIPONA_SOUBORU}, Importovat je nahraje v jiném prohlížeči nebo zařízení. Nic se neposílá na server.`),
+  );
+}
+
+function otevriPodokno(panel, odkud) {
+  podokno = odkud;
+  panel.replaceChildren();
+}
+
+// Esc nebo Zpět v podokně: zpátky na seznam profilů, výběr na tlačítku, které podokno otevřelo.
+function zpetZProfilu() {
+  if (!podokno || !panelProfilu) return false;
+  const odkud = podokno;
+  vyplnProfil(panelProfilu);
+  vyberTlacitko(panelProfilu.querySelector(`[data-akce="${odkud}"]:not(:disabled)`) ?? panelProfilu.querySelector('.zvolena'));
+  return true;
+}
+
+// V textovém poli: Esc = zpět (klávesy z pole hra ani menu nedostanou).
+function escZpet(pole) {
+  pole.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      zpetZProfilu();
+    }
+  });
+}
+
+// Nový profil (profil = null) nebo přejmenování. Enter v poli potvrdí, i na mobilní klávesnici.
+function podoknoJmena(panel, profil) {
+  otevriPodokno(panel, profil ? 'prejmenovat' : 'novy');
+  const formular = prvek('form', 'profil-formular');
+  formular.noValidate = true;
+  const pole = prvek('input', 'profil-pole');
+  Object.assign(pole, {
+    type: 'text', maxLength: MAX_JMENA, value: profil?.jmeno ?? '', placeholder: 'Jméno profilu', autocomplete: 'off', spellcheck: false,
+  });
+  pole.setAttribute('aria-label', 'Jméno profilu');
+  pole.setAttribute('enterkeyhint', 'done');
+  const hlaseni = hlaseniProfilu();
+  const potvrdit = prvek('button', 'menu-tlacitko hlavni', profil ? 'Uložit jméno' : 'Založit profil');
+  potvrdit.type = 'submit';
+  formular.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const vysledek = profil ? prejmenujProfil(profil.slot, pole.value) : vytvorProfil(pole.value);
+    if (vysledek.chyba) {
+      ukazHlaseni(hlaseni, TEXTY_CHYB[vysledek.chyba], true);
+      odmitni(pole);
+      zamerPole(pole);
+      return;
+    }
+    if (!profil) {
+      prepniProfil(vysledek.slot);
+      obnovProfil();
+    }
+    vyplnProfil(panel, profil ? `Profil se teď jmenuje ${vysledek.jmeno}.` : `Profil ${vysledek.jmeno} je založený a hraješ za něj.`);
+    vyberTlacitko(panel.querySelector('.zvolena'));
+  });
+  escZpet(pole);
+  pole.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      vyberTlacitko(potvrdit);
+    }
+  });
+  formular.append(pole, hlaseni, radekTlacitek(potvrdit));
+  panel.append(
+    prvek('p', 'podtitul', profil
+      ? `Nové jméno pro profil ${profil.jmeno}, nejvýš ${MAX_JMENA} znaků.`
+      : `Nový profil začne od nuly: bez duší, vylepšení, rekordů a sbírky. Jméno má nejvýš ${MAX_JMENA} znaků.`),
+    formular,
+  );
+  zamerPole(pole);
+  pole.select();
+}
+
+async function zkopiruj(text, pole) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      pole.focus();
+      pole.select();
+      return document.execCommand('copy');
+    } catch {
+      return false;
+    }
+  }
+}
+
+function stahniSoubor(nazev, text) {
+  try {
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
+    const odkaz = prvek('a');
+    odkaz.href = url;
+    odkaz.download = nazev;
+    odkaz.hidden = true;
+    document.body.append(odkaz);
+    odkaz.click();
+    odkaz.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Export zvoleného profilu: kód v poli (klepnutí ho celý označí), Kopírovat a Stáhnout soubor.
+function podoknoExportu(panel) {
+  otevriPodokno(panel, 'exportovat');
+  const data = dataProfilu();
+  const kod = kodProfilu(data);
+  const pole = prvek('textarea', 'profil-kod');
+  Object.assign(pole, { readOnly: true, rows: 5, value: kod, spellcheck: false });
+  pole.setAttribute('aria-label', 'Kód uložení');
+  pole.addEventListener('focus', () => pole.select());
+  escZpet(pole);
+  const hlaseni = hlaseniProfilu();
+  const kopirovat = tlacitko('Kopírovat kód', 'hlavni');
+  kopirovat.dataset.export = 'kopirovat';
+  kopirovat.addEventListener('click', async () => {
+    const povedlo = await zkopiruj(kod, pole);
+    ukazHlaseni(hlaseni, povedlo
+      ? 'Kód je ve schránce. V jiném zařízení ho vlož do Profil → Importovat.'
+      : 'Zkopírovat nejde. Označ kód v poli a zkopíruj ho sám.', !povedlo);
+    vyberTlacitko(kopirovat);
+  });
+  const soubor = nazevSouboru(data.jmeno);
+  const stahnout = tlacitko(`Stáhnout ${PRIPONA_SOUBORU}`);
+  stahnout.dataset.export = 'stahnout';
+  stahnout.addEventListener('click', () => {
+    const povedlo = stahniSoubor(soubor, souborProfilu(data));
+    ukazHlaseni(hlaseni, povedlo ? `Stahuje se soubor ${soubor}.` : 'Stáhnout nejde, zkopíruj kód.', !povedlo);
+  });
+  panel.append(
+    prvek('p', 'podtitul', 'Tenhle kód přenese profil do jiného prohlížeče nebo zařízení: tam dej Profil → Importovat a kód vlož, nebo vyber stažený soubor. Nic se neposílá na server.'),
+    nahledDat(data),
+    pole,
+    hlaseni,
+    radekTlacitek(kopirovat, stahnout),
+  );
+  // Pole je vysoké přesně na celý kód (nejvýš 240 px, pak se v něm posouvá).
+  pole.style.height = `${Math.min(240, pole.scrollHeight + 6)}px`;
+  vyberTlacitko(kopirovat);
+}
+
+// Import: kód vložený do pole nebo soubor .rugee. Nejdřív se ukáže, co v kódu je, a pak se vybere, kam ho nahrát:
+// jako nový profil, nebo přes existující (dva stisky).
+function podoknoImportu(panel) {
+  otevriPodokno(panel, 'importovat');
+  const pole = prvek('textarea', 'profil-kod');
+  Object.assign(pole, { rows: 4, placeholder: 'Sem vlož kód uložení (RUGEE1.…)', spellcheck: false });
+  for (const [nazev, hodnota] of [['aria-label', 'Kód uložení'], ['autocomplete', 'off'], ['autocapitalize', 'off'], ['autocorrect', 'off']]) {
+    pole.setAttribute(nazev, hodnota);
+  }
+  const hlaseni = hlaseniProfilu();
+  const cile = prvek('div', 'profil-import');
+  const precti = (text) => {
+    const { data, chyba } = prectiKod(text);
+    cile.replaceChildren();
+    if (chyba) {
+      ukazHlaseni(hlaseni, TEXTY_CHYB[chyba], true);
+      odmitni(pole);
+      return;
+    }
+    ukazHlaseni(hlaseni, 'Kód je v pořádku. Kam ho nahrát?');
+    ukazCileImportu(panel, cile, data);
+  };
+  const nacist = tlacitko('Načíst kód', 'hlavni');
+  nacist.dataset.import = 'nacist';
+  nacist.addEventListener('click', () => precti(pole.value));
+  const vstup = prvek('input');
+  vstup.type = 'file';
+  vstup.hidden = true;
+  const vybrat = tlacitko(`Vybrat soubor ${PRIPONA_SOUBORU}`);
+  vybrat.dataset.import = 'soubor';
+  vybrat.addEventListener('click', () => vstup.click());
+  vstup.addEventListener('change', async () => {
+    const soubor = vstup.files?.[0];
+    vstup.value = '';
+    if (!soubor) return;
+    try {
+      if (soubor.size > MAX_DELKA_KODU * 4) throw new Error('soubor je moc velký');
+      const text = await soubor.text();
+      pole.value = text.trim();
+      precti(text);
+    } catch {
+      cile.replaceChildren();
+      ukazHlaseni(hlaseni, TEXTY_CHYB.soubor, true);
+    }
+  });
+  escZpet(pole);
+  pole.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      precti(pole.value);
+    }
+  });
+  panel.append(
+    prvek('p', 'podtitul', `Vlož kód uložení z jiného zařízení, nebo vyber stažený soubor ${PRIPONA_SOUBORU}. Než se cokoli přepíše, uvidíš, co v kódu je.`),
+    pole,
+    hlaseni,
+    radekTlacitek(nacist, vybrat),
+    vstup,
+    cile,
+  );
+  // S myší se rovnou dá vložit (Ctrl+V), na dotykovém displeji by vyskočila klávesnice přes tlačítko souboru.
+  if (globalThis.matchMedia?.('(pointer: fine)').matches) zamerPole(pole);
+  else vyberTlacitko(nacist);
+}
+
+function ukazCileImportu(panel, cile, data) {
+  const profily = seznamProfilu();
+  const plno = profily.length >= MAX_PROFILU;
+  const tlacitka = prvek('div', 'profil-akce');
+  const novy = tlacitko(plno ? `Plno (${MAX_PROFILU}/${MAX_PROFILU})` : 'Jako nový profil', 'hlavni');
+  novy.disabled = plno;
+  novy.dataset.cil = 'novy';
+  novy.addEventListener('click', () => dokonciImport(panel, data, null));
+  tlacitka.append(novy);
+  for (const p of profily) {
+    const prepsat = tlacitko(`Přepsat ${p.jmeno}`);
+    prepsat.dataset.cil = String(p.slot);
+    prepsat.addEventListener('click', () => {
+      if (!prepsat.classList.contains('potvrdit')) {
+        prepsat.classList.add('potvrdit');
+        prepsat.textContent = `Opravdu přepsat ${p.jmeno}?`;
+        return;
+      }
+      dokonciImport(panel, data, p.slot);
+    });
+    tlacitka.append(prepsat);
+  }
+  cile.append(nahledDat(data), tlacitka);
+  vyberTlacitko(tlacitka.querySelector('button:not(:disabled)'), true);
+}
+
+function dokonciImport(panel, data, slot) {
+  const vysledek = importujProfil(data, slot);
+  if (vysledek.chyba) {
+    vyplnProfil(panel, TEXTY_CHYB[vysledek.chyba], true);
+  } else {
+    prepniProfil(vysledek.slot);
+    obnovProfil();
+    vyplnProfil(panel, `Nahráno do profilu ${vysledek.jmeno}. Hraješ za něj.`);
+  }
+  vyberTlacitko(panel.querySelector('.zvolena'));
 }
 
 export const ZALOZKY = {
@@ -473,6 +881,8 @@ export const ZALOZKY = {
   rekordy: { nazev: 'Rekordy', vypln: vyplnRekordy },
   ovladani: { nazev: 'Ovládání', vypln: vyplnOvladani },
   nastaveni: { nazev: 'Nastavení', vypln: vyplnNastaveni },
+  // zpet: Esc nebo Zpět v podokně záložky vrátí její hlavní obsah (vrací true), jinak se záložka zavře.
+  profil: { nazev: 'Profil', vypln: (panel) => vyplnProfil(panel), zpet: zpetZProfilu },
 };
 
 // Pixelové písmo loga: X je plný pixel, tahy široké 2 pixely.
@@ -598,7 +1008,9 @@ export function vytvorMenu({ hrat }) {
   const radekPostavy = prvek('p', 'menu-postava');
   const ukazPostavu = () => {
     const { duse } = nactiDuse();
-    radekPostavy.textContent = `Hraješ za: ${TRIDY[trida].nazev} · ${MAPY[mapa].nazev} · ${duse} ${pocetDusi(duse)}`;
+    const profil = prvek('span', 'menu-profil', 'Profil: ');
+    profil.append(prvek('b', '', aktivniProfil().jmeno));
+    radekPostavy.replaceChildren(profil, prvek('span', '', `${TRIDY[trida].nazev} · ${MAPY[mapa].nazev} · ${duse} ${pocetDusi(duse)}`));
   };
   ukazPostavu();
   volby.replaceChildren(...polozky.map((p) => {
@@ -610,10 +1022,11 @@ export function vytvorMenu({ hrat }) {
     return b;
   }));
   volby.firstChild.after(radekPostavy);
-  document.getElementById('menu-zpet').addEventListener('click', () => zavri());
+  document.getElementById('menu-zpet').addEventListener('click', () => zpet());
+  // Najetí myší vybere tlačítko, jen ne když se píše do pole (jméno profilu, kód), to by mu vzalo klávesnici.
   koren.addEventListener('pointerover', (e) => {
     const b = e.target.closest('button');
-    if (b && !b.classList.contains('vybrano')) vyberTlacitko(b);
+    if (b && !b.disabled && !b.classList.contains('vybrano') && !document.activeElement?.matches?.('input, textarea')) vyberTlacitko(b);
   });
 
   function otevri(id) {
@@ -626,6 +1039,10 @@ export function vytvorMenu({ hrat }) {
     volby.hidden = true;
     zalozka.hidden = false;
     vyberTlacitko(zalozka.querySelector('.zvolena') ?? zalozka.querySelector('button'));
+  }
+
+  function zpet() {
+    if (!ZALOZKY[otevrena]?.zpet?.()) zavri();
   }
 
   function zavri() {
@@ -653,7 +1070,7 @@ export function vytvorMenu({ hrat }) {
       const k = e.key.toLowerCase();
       if (otevrena && (k === 'escape' || k === 'backspace')) {
         e.preventDefault();
-        zavri();
+        zpet();
         return;
       }
       ovladejTlacitka(koren, e);

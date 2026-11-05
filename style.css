@@ -1263,3 +1263,88 @@ kbd {
 
 .rekord-mapy .tabulka { margin-bottom: 8px; }
 .rekord-prazdny { margin: 0 0 8px; color: var(--text-tlumeny); font-size: 13px; }
+
+/* Profil: karty profilů jako karty postav (sprite postavy profilu, jméno, duše, mapy, sbírka, rekord), pod nimi
+   hlášení a tlačítka akcí v mřížce, na telefonu po dvou. Pole pro jméno a kód jako pruh hlasitosti: tmavá
+   prohlubeň s okrajem, zaměřené zlatě. Písmo polí 16 px, ať iPhone při psaní nepřibližuje stránku. */
+.menu-postava > span { display: block; }
+.menu-postava b { color: var(--zlata); }
+
+.mrizka-profilu {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.trida.profil .profil-jmeno { overflow-wrap: anywhere; }
+.trida .profil-duse { color: var(--duse); }
+.trida .profil-rekord { color: var(--text); }
+.trida.profil.nahled { cursor: default; margin: 0 0 12px; text-align: left; }
+.trida.profil.nahled .trida-stitek { background: var(--xp); }
+
+.profil-hlaseni {
+  min-height: 1.4em;
+  margin: 0 0 10px;
+  color: #7cf08a;
+  font-size: 13px;
+}
+
+.profil-hlaseni:empty { margin: 0; min-height: 0; }
+.profil-hlaseni.chyba { color: #f08a8d; }
+
+.profil-akce {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.profil-akce .menu-tlacitko, .profil-radek .menu-tlacitko {
+  min-width: 0;
+  font-size: 14px;
+  padding: 8px 28px 10px;
+  overflow-wrap: anywhere;
+}
+
+.profil-radek { margin: 0 0 12px; }
+.menu-tlacitko.potvrdit { border-color: #b0707a; color: #f0b4bc; }
+.menu-tlacitko:disabled { color: var(--text-tlumeny); background: #1a1820; box-shadow: none; cursor: default; }
+.profil-pata { font-size: 12px; margin-bottom: 14px; }
+
+.profil-pole, .profil-kod {
+  display: block;
+  width: 100%;
+  margin: 0 0 10px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: #15131b;
+  border: 3px solid var(--okraj);
+  box-shadow: inset 0 3px 0 #000;
+  padding: 10px 12px;
+}
+
+.profil-pole::placeholder, .profil-kod::placeholder { color: #6f6880; }
+.profil-pole:focus, .profil-kod:focus { outline: none; border-color: var(--zlata); }
+.profil-pole.zatrast, .profil-kod.zatrast { animation: zatrast 0.25s steps(4); }
+
+.profil-kod {
+  min-height: 96px;
+  resize: vertical;
+  font-size: 13px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.profil-kod[readonly] { color: var(--zlata); }
+
+@media (hover: none) and (pointer: coarse) {
+  .profil-kod { font-size: 16px; }
+}
+
+@media (max-width: 520px) {
+  .profil-akce { grid-template-columns: 1fr 1fr; }
+  .profil-akce .menu-tlacitko, .profil-radek .menu-tlacitko { padding: 8px 18px 10px; letter-spacing: 0.04em; }
+  .profil-akce .menu-tlacitko.vybrano::before, .profil-radek .menu-tlacitko.vybrano::before { left: 5px; }
+}
