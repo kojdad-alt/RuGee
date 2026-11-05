@@ -405,36 +405,50 @@ function vyplnSbirku(panel) {
   }
 }
 
-// Rekordy: každá mapa má svůj blok (v barvě mapy), zamčená mapa jen řekne, že je zamčená.
+// Rekordy: každá mapa má svou destičku. Hlavička: ikona mapy (kousek její podlahy), jméno v barvě mapy a kdy.
+// Vlevo nejdelší přežití velkým pixelovým písmem jako nadpisy, vpravo postava (se spritem), hrozba, úroveň
+// a zabití. Mapa bez rekordu to jen řekne, zamčená má šedou ikonu, zámek a co ji odemkne.
 function vyplnRekordy(panel) {
   const odemcene = odemceneMapy();
   panel.append(prvek('p', 'podtitul', `Nejlepší výpravy profilu ${aktivniProfil().jmeno}, každá mapa zvlášť`));
   for (const id of PORADI_MAP) {
-    const blok = prvek('section', 'rekord-mapy');
+    const odemcena = odemcene.includes(id);
+    const rekord = odemcena ? nactiRekord(id) : null;
+    const blok = prvek('section', `rekord-mapy${odemcena ? '' : ' zamcena'}${rekord ? '' : ' prazdna'}`);
     blok.style.setProperty('--mapa', MAPY[id].barva);
-    blok.append(prvek('h3', '', MAPY[id].nazev));
-    const rekord = nactiRekord(id);
-    if (!odemcene.includes(id)) blok.append(prvek('p', 'rekord-prazdny', 'Zamčeno'));
+    const hlava = prvek('div', 'rekord-hlava');
+    hlava.append(ikonaMapy(id, 3), prvek('h3', '', MAPY[id].nazev));
+    const kdy = rekord?.datum ? new Date(rekord.datum) : null;
+    if (kdy && !Number.isNaN(kdy.getTime())) hlava.append(prvek('span', 'rekord-kdy', kdy.toLocaleDateString('cs-CZ')));
+    if (!odemcena) hlava.append(obrazekSpritu('zamek', 2));
+    blok.append(hlava);
+    if (!odemcena) blok.append(prvek('p', 'rekord-prazdny', `Zamčeno: přežij ${formatCas(ODEMKNUTI_MAPY)} na mapě ${MAPY[predchoziMapa(id)].nazev}`));
     else if (!rekord) blok.append(prvek('p', 'rekord-prazdny', 'Zatím žádný rekord. Dej Hrát a vydrž co nejdéle.'));
-    else blok.append(tabulkaRekordu(rekord));
+    else blok.append(teloRekordu(rekord));
     panel.append(blok);
   }
 }
 
-function tabulkaRekordu(rekord) {
-  const radky = [
-    ['Nejdelší přežití', formatCas(rekord.cas)],
-    ...(Object.hasOwn(TRIDY, rekord.trida ?? '') ? [['Postava', TRIDY[rekord.trida].nazev]] : []),
-    // Starší rekordy hrozbu nemají, ta se dopočítá z času (každá minuta +1).
-    ['Hrozba', Number.isInteger(rekord.hrozba) ? rekord.hrozba : silaHrozby(rekord.cas).uroven],
-    ['Úroveň', rekord.uroven ?? '–'],
-    ['Zabito', rekord.zabito ?? '–'],
-  ];
-  const kdy = new Date(rekord.datum);
-  if (rekord.datum && !Number.isNaN(kdy.getTime())) radky.push(['Kdy', kdy.toLocaleDateString('cs-CZ')]);
-  const tabulka = prvek('dl', 'tabulka');
-  for (const [nazev, hodnota] of radky) tabulka.append(prvek('dt', '', nazev), prvek('dd', '', String(hodnota)));
-  return tabulka;
+function teloRekordu(rekord) {
+  const telo = prvek('div', 'rekord-telo');
+  const cas = prvek('div', 'rekord-cas');
+  const cislo = prvek('span', 'rekord-cas-cislo');
+  pixelovyNadpis(cislo, formatCas(rekord.cas), { min: 3, max: 4 });
+  cas.append(prvek('small', '', 'Nejdelší přežití'), cislo);
+  const staty = prvek('dl', 'rekord-staty');
+  const pridej = (nazev, hodnota, ikona = null) => {
+    const dd = prvek('dd');
+    if (ikona) dd.append(ikona);
+    dd.append(String(hodnota));
+    staty.append(prvek('dt', '', nazev), dd);
+  };
+  if (Object.hasOwn(TRIDY, rekord.trida ?? '')) pridej('Postava', TRIDY[rekord.trida].nazev, obrazekSpritu(rekord.trida, 2));
+  // Starší rekordy hrozbu nemají, ta se dopočítá z času (každá minuta +1).
+  pridej('Hrozba', Number.isInteger(rekord.hrozba) ? rekord.hrozba : silaHrozby(rekord.cas).uroven);
+  pridej('Úroveň', rekord.uroven ?? '–');
+  pridej('Zabito', rekord.zabito ?? '–');
+  telo.append(cas, staty);
+  return telo;
 }
 
 const OVLADANI = [
