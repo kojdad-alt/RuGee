@@ -1436,7 +1436,7 @@ body.ovladac .jen-ovladac { display: inline; }
   margin-bottom: 16px;
 }
 
-.trida, .vylepseni {
+.trida {
   --karta-ram: var(--ram-tenky);
   --karta-lice: var(--drevo-2);
   position: relative;
@@ -1487,14 +1487,14 @@ body.ovladac .jen-ovladac { display: inline; }
   box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.45), inset 0 -11px 0 var(--drevo-3), inset 0 -13px 0 var(--noc);
 }
 
-:is(.trida, .vylepseni).vybrano, :is(.trida, .vylepseni):focus-visible {
+.trida.vybrano, .trida:focus-visible {
   outline: none;
   --karta-ram: var(--ram-karta-vybrana);
   --karta-lice: var(--karta-vybrana);
 }
 
 /* Šipka u vybrané karty: stejná pixelová šipka jako u tlačítek, jen v pixelu rámu (--px), hrotem na rámu zleva. */
-:is(.trida, .vylepseni).vybrano::before, :is(.trida, .vylepseni):focus-visible::before {
+.trida.vybrano::before, .trida:focus-visible::before {
   content: '';
   position: absolute;
   left: calc(-8 * var(--px));
@@ -1508,7 +1508,7 @@ body.ovladac .jen-ovladac { display: inline; }
 
 .trida.zvolena { --karta-ram: var(--ram-karta-zvolena); }
 .trida.zvolena.vybrano, .trida.zvolena:focus-visible { --karta-ram: var(--ram-karta-zvolena-vybrana); }
-:is(.trida, .vylepseni):active { translate: 0 var(--px); }
+.trida:active { translate: 0 var(--px); }
 
 /* Cedulka Zvoleno: mosazný štítek přibitý na horní hranu karty. */
 .trida-stitek {
@@ -1548,102 +1548,177 @@ body.ovladac .jen-ovladac { display: inline; }
 
 .duse-stav b { color: var(--duse); font-size: 22px; }
 
-.mrizka-vylepseni {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 14px calc(6 * var(--px) + 4px);
-  margin-bottom: 16px;
-}
+/* Strom vylepšení (src/strom.js): záložka je širší, nahoře lišta (pokladnička s dušemi, kolik je koupeno,
+   tlačítka − + Střed a Vrátit duše), pod ní zapuštěné okno se stromem, které jde táhnout a přibližovat,
+   pod oknem cedulka s popisem vybraného uzlu a tlačítkem Koupit. Uzly jsou pixelové rámečky s ikonou spritu:
+   zamčený tmavý se šedou ikonou, dostupný dřevěný (zelený roh = na něj máš duše), rozkoupaný a hotový v mosazi,
+   klíčový větší ve velkém mosazném rámu. Čáry: zamčená tmavá čárkovaná, dostupná světlé dřevo, koupená mosaz. */
+.menu-zalozka.siroka { width: min(980px, 100%); }
 
-/* Karta vylepšení: ikona ve výklenku přes dva řádky (jméno s úrovní, dílky), pod tím popis a cenovka. */
-.vylepseni {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: 'ikona nazev' 'ikona dilky' 'popis popis' 'cena cena';
-  gap: 5px 9px;
+.strom-lista {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  padding: 7px 8px 0;
+  justify-content: center;
+  gap: 8px 14px;
+  margin: 4px 0 10px;
 }
 
-/* Oživení má jen jednu úroveň a je nejdražší: přes celou šířku pod ostatními. */
-.vylepseni.jednou { grid-column: 1 / -1; }
+.strom-lista .duse-stav { margin: 0; }
+.strom-postup { color: var(--pergamen-tlumeny); font-size: 13px; text-shadow: 0 2px 0 var(--noc); }
+.strom-tlacitka { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.menu-tlacitko.strom-ovladani { font-size: 14px; padding: 7px 16px 9px; }
+.menu-tlacitko.oddalit, .menu-tlacitko.priblizit { min-width: 46px; padding: 5px 10px 8px; font-size: 20px; line-height: 1; }
 
-.vylepseni-ikona {
-  grid-area: ikona;
+.strom-okno {
+  position: relative;
+  height: clamp(280px, 54vh, 560px);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  background: var(--drevo-0) padding-box;
+  border: calc(2 * var(--px)) solid transparent;
+  border-image: var(--ram-tenky) 2 / calc(2 * var(--px)) repeat;
+  box-shadow: inset 0 6px 0 rgba(0, 0, 0, 0.5);
+}
+
+.strom-okno.tahne { cursor: grabbing; }
+.strom-platno { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
+.strom-platno.plynule { transition: transform 0.18s steps(6); }
+.strom-cary { position: absolute; overflow: visible; shape-rendering: crispEdges; pointer-events: none; }
+.strom-cary line { stroke-linecap: square; }
+.strom-cary .obrys { stroke: var(--noc); stroke-width: 9; }
+.strom-cary .cara { stroke: var(--drevo-3); stroke-width: 3; stroke-dasharray: 6 6; }
+.strom-cary .cara.dostupna { stroke: var(--drevo-6); stroke-dasharray: none; }
+.strom-cary .cara.koupena { stroke: var(--mosaz); stroke-width: 5; stroke-dasharray: none; }
+.strom-kruh { fill: none; stroke: var(--drevo-2); stroke-width: 4; stroke-dasharray: 4 8; }
+
+.strom-vetev {
+  position: absolute;
+  translate: -50% -50%;
+  padding: 3px 9px 4px;
+  white-space: nowrap;
+  color: var(--mosaz);
+  font-size: 15px;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 var(--noc);
+  background: var(--drevo-1);
+  border: 2px solid var(--noc);
+  pointer-events: none;
+}
+
+.uzel {
+  --uzel: 50px;
+  position: absolute;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  background: var(--drevo-0);
+  width: var(--uzel);
+  height: var(--uzel);
+  margin: calc(var(--uzel) / -2) 0 0 calc(var(--uzel) / -2);
+  padding: 0;
+  font: inherit;
+  color: var(--pergamen);
+  background: var(--drevo-2) padding-box;
+  border: 6px solid transparent;
+  border-image: var(--ram-tenky) 2 / 6px repeat;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.uzel canvas { pointer-events: none; }
+.uzel.zamceny { background-color: var(--drevo-0); box-shadow: none; }
+.uzel.zamceny canvas { filter: grayscale(1) brightness(0.45); }
+.uzel.rozkoupany, .uzel.koupeny { border-image-source: var(--ram-karta-zvolena); }
+.uzel.koupeny { background-color: var(--karta-vybrana); }
+.uzel.klicovy { --uzel: 68px; border: 9px solid transparent; border-image: var(--ram-mosaz) 6 / 9px repeat; }
+.uzel.klicovy.zamceny { filter: grayscale(0.85) brightness(0.6); }
+.uzel.klicovy.zamceny canvas { filter: none; }
+.uzel.stred { --uzel: 80px; border: 9px solid transparent; border-image: var(--ram-mosaz) 6 / 9px repeat; background-color: var(--drevo-1); grid-template-rows: auto auto; align-content: center; gap: 1px; }
+.uzel-duse { color: var(--duse); font-size: 14px; line-height: 1; text-shadow: 0 2px 0 var(--noc); }
+
+/* Vybraný uzel: světlý mosazný rám a o kus větší, nad ostatními. */
+.uzel.vybrano, .uzel:focus-visible { outline: none; z-index: 2; scale: 1.14; border-image-source: var(--ram-karta-zvolena-vybrana); }
+.uzel.klicovy.vybrano, .uzel.klicovy:focus-visible, .uzel.stred.vybrano, .uzel.stred:focus-visible {
+  border-image-source: var(--ram-mosaz);
+  box-shadow: 0 0 0 3px var(--mosaz-svetla), 0 3px 0 4px var(--noc);
+}
+
+/* Na uzel máš duše: zelený pixelový roh. */
+.uzel.na-to-mas::after {
+  content: '';
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  width: 8px;
+  height: 8px;
+  background: var(--ok);
   border: 2px solid var(--noc);
-  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 2px 0 #d8ffdd;
 }
 
-.vylepseni-hlava {
-  grid-area: nazev;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
+.uzel-urovne { position: absolute; left: 50%; bottom: -13px; translate: -50% 0; display: flex; gap: 1px; }
+.uzel-urovne i { width: 7px; height: 6px; background: var(--drevo-0); border: 1px solid var(--noc); }
+.uzel-urovne i.plny { background: var(--duse); }
+.uzel.koupeny .uzel-urovne i.plny { background: var(--mosaz); }
+.uzel.zatrast { animation: zatrast-uzel 0.25s steps(4); }
+.uzel.koupeno-ted { animation: koupeno-uzel 0.35s steps(5); }
+
+@keyframes zatrast-uzel {
+  0%, 100% { translate: 0 0; }
+  25% { translate: -4px 0; }
+  75% { translate: 4px 0; }
 }
 
-.vylepseni-hlava b { color: var(--mosaz); font-size: 15px; text-shadow: 0 2px 0 var(--noc); }
-.vylepseni-uroven { margin-left: auto; color: var(--pergamen-tlumeny); font-size: 12px; }
-.vylepseni .ctverecky { grid-area: dilky; }
-.vylepseni .vylepseni-popis { grid-area: popis; align-self: start; color: var(--pergamen-tlumeny); font-size: 12px; line-height: 1.35; }
-
-/* Dílky úrovní: zapuštěné prázdné, koupené v barvě duší s leskem nahoře. */
-.ctverecky { display: flex; align-items: center; gap: 3px; }
-
-.ctverecky i {
-  flex: none;
-  width: 14px;
-  height: 10px;
-  background: var(--drevo-0);
-  border: 2px solid var(--noc);
+@keyframes koupeno-uzel {
+  0% { scale: 1.35; }
+  100% { scale: 1.14; }
 }
 
-.ctverecky i.plny {
-  background: var(--duse);
-  box-shadow: inset 0 2px 0 #dfe8ff, inset 0 -2px 0 #5d79c4;
-}
-
-/* Cenovka: tmavší pruh přes celý spodek karty, duše a cena, případně kolik chybí. */
-.cena {
-  grid-area: cena;
-  align-self: end;
-  display: flex;
+/* Popis vybraného uzlu: cedulka pod stromem s pevnou výškou, ať okno při výběru neposkakuje. */
+.strom-popis {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
-  margin: 2px -8px 0;
-  padding: 4px 8px 5px;
-  color: var(--duse);
-  font-weight: bold;
-  background: rgba(20, 12, 8, 0.45);
-  border-top: 2px solid var(--noc);
+  gap: 8px 12px;
+  min-height: 84px;
+  margin: 10px 0 6px;
+  padding: 8px 10px;
+  text-align: left;
+  background: var(--drevo-1) padding-box;
+  border: calc(2 * var(--px)) solid transparent;
+  border-image: var(--ram-tenky) 2 / calc(2 * var(--px)) repeat;
 }
 
-.cena b { font-size: 15px; color: inherit; }
-.cena-chybi { margin-left: auto; color: var(--pergamen-tlumeny); font-size: 11px; font-weight: normal; }
-.vylepseni.drahe .cena { color: var(--chyba); }
-.vylepseni.hotovo { --karta-ram: var(--ram-karta-zvolena); }
-.vylepseni.hotovo.vybrano, .vylepseni.hotovo:focus-visible { --karta-ram: var(--ram-karta-zvolena-vybrana); }
-.vylepseni.hotovo .cena { color: var(--ok); letter-spacing: 0.08em; text-transform: uppercase; font-size: 13px; }
-.vylepseni.hotovo .ctverecky i.plny { background: var(--mosaz); box-shadow: inset 0 2px 0 var(--mosaz-lesk), inset 0 -2px 0 var(--mosaz-stin); }
-.vylepseni.zatrast { animation: zatrast 0.25s steps(4); }
+.strom-popis-ikona { display: grid; place-items: center; width: 48px; height: 48px; background: var(--drevo-0); border: 2px solid var(--noc); }
+.strom-popis-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.strom-popis-hlava { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.strom-popis-nazev { color: var(--mosaz); font-size: 16px; text-shadow: 0 2px 0 var(--noc); }
+.strom-popis-vetev { color: var(--pergamen-tlumeny); font-size: 12px; }
+.strom-popis-radek { font-size: 13px; line-height: 1.3; }
+.strom-popis-radek.dalsi { color: var(--duse); }
+.strom-popis-radek.tlumeny { color: var(--pergamen-tlumeny); }
+.strom-popis-radek.zamceno { color: var(--chyba); }
+.menu-tlacitko.strom-koupit { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; padding: 8px 16px 10px; }
+.menu-tlacitko.strom-koupit[hidden] { display: none; }
+.menu-tlacitko.strom-koupit.drahe b { color: var(--chyba); }
+.strom-koupit .cena-chybi { color: var(--pergamen-tlumeny); font-size: 11px; font-weight: normal; letter-spacing: 0; text-transform: none; }
+.strom-napoveda { margin: 0 0 10px; color: var(--pergamen-tlumeny); font-size: 12px; text-shadow: 0 2px 0 var(--noc); }
 
-/* Telefon: karty pod sebou, cenovka vpravo vedle jména a dílků, ať je seznam kratší. */
+/* Telefon: menší okno, popis pod sebou (tlačítko Koupit přes celou šířku). */
 @media (max-width: 600px) {
-  .vylepseni { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'ikona nazev cena' 'ikona dilky cena' 'popis popis popis'; padding-bottom: 8px; }
-  .vylepseni .cena { align-self: stretch; flex-direction: column; justify-content: center; gap: 2px; min-width: 70px; margin: 0; padding: 4px 8px; border: 2px solid var(--noc); }
-  .cena-chybi { margin-left: 0; }
+  .strom-okno { height: clamp(240px, 46vh, 420px); }
+  .strom-popis { grid-template-columns: auto minmax(0, 1fr); }
+  .menu-tlacitko.strom-koupit { grid-column: 1 / -1; justify-content: center; }
+  .menu-tlacitko.strom-ovladani { padding: 6px 12px 8px; }
 }
 
-/* Úzký telefon (320 px): úroveň může pod jméno, jméno a cenovka o kousek menší. */
-@media (max-width: 360px) {
-  .vylepseni-hlava { flex-wrap: wrap; }
-  .vylepseni-hlava b { font-size: 14px; }
-  .vylepseni .cena { min-width: 58px; padding: 4px 6px; }
+@media (prefers-reduced-motion: reduce) {
+  .strom-platno.plynule { transition: none; }
+  .uzel.zatrast, .uzel.koupeno-ted { animation: none; }
 }
 
 @keyframes zatrast {
@@ -1652,7 +1727,6 @@ body.ovladac .jen-ovladac { display: inline; }
   75% { transform: translateX(4px); }
 }
 
-.vratit-radek { margin-bottom: 12px; }
 .menu-tlacitko.vratit { font-size: 14px; padding: 8px 28px 10px; }
 
 /* Přepínač nastavení (Nastavení i pauza): za dvojtečkou stav s pixelovou kontrolkou, zapnuto zelená s leskem,

@@ -14,7 +14,7 @@ Survivors hra v prohlížeči, jde i na mobilu nebo s ovladačem. Přidáš si j
 - **Hrozba** roste každou minutu, od 5. minuty chodí elity a kdo stojí na místě, toho nepřátelé obklíčí.
 - **6 map**: Louka, Jeskyně hlubin, Zamrzlé jezero, Sopka, Bažina a Hřbitov za noci. Každá má svého bosse a svoje nástrahy, ve tmě svítí lucerna, krystaly i oheň.
 - **4 postavy**: Lovec, Havíř, Světlonoš a Bouřlivák.
-- **Zlaťáky** na kupce, přehazování karet a zamčené truhly. Z **duší** si koupíš trvalá vylepšení.
+- **Zlaťáky** na kupce, přehazování karet a zamčené truhly. Z **duší** si koupíš trvalá vylepšení ve stromu se 72 uzly.
 - **Zvuky a hudba** ze syntezátoru, každá mapa má svou náladu. Hlasitost je v Nastavení, N ztlumí.
 - **Až 5 profilů** na jednom zařízení. Uložení přeneseš jinam kódem nebo souborem, bez serveru.
 - **Česky i anglicky** (English) a s **režimem pro barvoslepé**: jazyk se poprvé vezme z prohlížeče, obojí přepneš v Nastavení.
