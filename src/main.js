@@ -154,7 +154,8 @@ function nastavPauzu(zapnout) {
     document.activeElement?.blur?.();
     return;
   }
-  const pokracovat = textovyPrvek('button', 'Pokračovat (P)');
+  const pokracovat = textovyPrvek('button', 'Pokračovat');
+  pokracovat.append(jenKlavesnice(' (P)'));
   pokracovat.className = 'menu-tlacitko hlavni';
   pokracovat.type = 'button';
   pokracovat.addEventListener('click', () => { if (hra?.pauza) nastavPauzu(false); });
@@ -335,6 +336,13 @@ function zapisKonec() {
 function textovyPrvek(znacka, text) {
   const e = document.createElement(znacka);
   e.textContent = text;
+  return e;
+}
+
+// Klávesová zkratka v popisku tlačítka, třeba „ (P)“: na dotykovém displeji se schová (CSS .jen-klavesnice).
+function jenKlavesnice(text) {
+  const e = textovyPrvek('span', text);
+  e.className = 'jen-klavesnice';
   return e;
 }
 

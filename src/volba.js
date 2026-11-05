@@ -87,7 +87,7 @@ function radekKusu(prvekRadku, kus) {
 export function ukazPrehozeni(tlacitko, hra) {
   const cena = cenaPrehozeni(hra);
   tlacitko.classList.toggle('nejde', cena > hra.zlataky);
-  tlacitko.replaceChildren(prvek('span', '', 'Přehodit karty'), prvek('kbd', '', 'R'));
+  tlacitko.replaceChildren(prvek('span', '', 'Přehodit karty'), prvek('kbd', 'jen-klavesnice', 'R'));
   if (cena === 0) tlacitko.append(prvek('b', 'prehodit-zdarma', `zdarma ×${hra.prehozeniZdarma}`));
   else tlacitko.append(cenaSMinci(cena));
   tlacitko.setAttribute('aria-label', cena === 0 ? `Přehodit karty zdarma, zbývá ${hra.prehozeniZdarma}` : `Přehodit karty za ${cena} zlaťáků`);
