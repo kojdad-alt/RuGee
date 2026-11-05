@@ -1034,34 +1034,38 @@ kbd {
 
 .radek-tlacitek .menu-tlacitko { min-width: 170px; }
 
-/* Karta volby (Postavy, Mapy, Profil): dřevěná destička v tenkém rámu, vlevo výklenek s postavou stojící na
-   podlaze, vpravo text. Vybraná karta (šipky, myš, dotyk) má mosazný obrys, světlejší dřevo a pixelovou šipku
-   jako tlačítka, zvolená (za koho se hraje) mosazné kování a cedulku Zvoleno. Rámečky jsou pixel art z nastroje/ramy.mjs (--karta-*), barvy jen
-   z proměnných, stisk posune kartu o pixel rámu dolů (translate, ať se nebije se zatřesením). */
+/* Karta (Postavy, Mapy, Profil, Vylepšení): dřevěná destička v tenkém rámu. Vybraná karta (šipky, myš, dotyk) má
+   mosazný obrys, světlejší dřevo a pixelovou šipku jako tlačítka, zvolená (za koho a kde se hraje, koupené
+   naplno) mosazné kování. Rámečky jsou pixel art z nastroje/ramy.mjs (--ram-tenky, --ram-karta-*), barvy jen
+   z proměnných, stisk posune kartu o pixel rámu dolů (translate, ať se nebije se zatřesením). Mezi sloupci karet
+   je místo na šipku (6 pixelů rámu), ať nepřekryje sousední kartu. */
 .menu-zalozka .podtitul { color: var(--pergamen-tlumeny); text-shadow: 0 2px 0 var(--noc); }
 
 .mrizka-trid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px 12px;
+  gap: 14px calc(6 * var(--px) + 4px);
   margin-bottom: 16px;
 }
 
-.trida {
+.trida, .vylepseni {
   --karta-ram: var(--ram-tenky);
   --karta-lice: var(--drevo-2);
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
   font: inherit;
   color: var(--pergamen);
   text-align: left;
   background: var(--karta-lice) padding-box;
   border: calc(2 * var(--px)) solid transparent;
   border-image: var(--karta-ram) 2 / calc(2 * var(--px)) repeat;
-  padding: 7px 10px 9px 7px;
   cursor: pointer;
+}
+
+.trida {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px 9px 7px;
 }
 
 .trida canvas { flex: none; }
@@ -1095,14 +1099,14 @@ kbd {
   box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.45), inset 0 -11px 0 var(--drevo-3), inset 0 -13px 0 var(--noc);
 }
 
-.trida.vybrano, .trida:focus-visible {
+:is(.trida, .vylepseni).vybrano, :is(.trida, .vylepseni):focus-visible {
   outline: none;
   --karta-ram: var(--ram-karta-vybrana);
   --karta-lice: var(--karta-vybrana);
 }
 
 /* Šipka u vybrané karty: stejná pixelová šipka jako u tlačítek, jen v pixelu rámu (--px), hrotem na rámu zleva. */
-.trida.vybrano::before, .trida:focus-visible::before {
+:is(.trida, .vylepseni).vybrano::before, :is(.trida, .vylepseni):focus-visible::before {
   content: '';
   position: absolute;
   left: calc(-8 * var(--px));
@@ -1116,7 +1120,7 @@ kbd {
 
 .trida.zvolena { --karta-ram: var(--ram-karta-zvolena); }
 .trida.zvolena.vybrano, .trida.zvolena:focus-visible { --karta-ram: var(--ram-karta-zvolena-vybrana); }
-.trida:active { translate: 0 var(--px); }
+:is(.trida, .vylepseni):active { translate: 0 var(--px); }
 
 /* Cedulka Zvoleno: mosazný štítek přibitý na horní hranu karty. */
 .trida-stitek {
@@ -1136,87 +1140,123 @@ kbd {
 
 .trida.zvolena .trida-stitek { display: block; }
 
-/* Obchod s trvalými vylepšeními: karta = tlačítko, úrovně jako čtverečky, cena v duších. */
+/* Obchod s trvalými vylepšeními: nahoře zapuštěná pokladnička s dušemi, karty (kit výš) s ikonou ve výklenku,
+   úrovně jako dílky duší a dole cenovka. Na co duše nestačí, má cenu v barvě chyby a kolik chybí, koupené naplno
+   má mosazné kování a nápis Hotovo. */
 .duse-stav {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 14px;
-  padding: 4px 14px 4px 10px;
-  font-size: 18px;
-  background: #221f2b;
-  border: 2px solid var(--okraj);
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 5px 16px 6px 10px;
+  font-size: 15px;
+  color: var(--pergamen-tlumeny);
+  background: var(--drevo-0) padding-box;
+  border: calc(2 * var(--px)) solid transparent;
+  border-image: var(--ram-tenky) 2 / calc(2 * var(--px)) repeat;
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.45);
+  text-shadow: 0 2px 0 var(--noc);
 }
 
-.duse-stav b { color: var(--duse); }
+.duse-stav b { color: var(--duse); font-size: 22px; }
 
 .mrizka-vylepseni {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 14px calc(6 * var(--px) + 4px);
   margin-bottom: 16px;
 }
 
+/* Karta vylepšení: ikona ve výklenku přes dva řádky (jméno s úrovní, dílky), pod tím popis a cenovka. */
 .vylepseni {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font: inherit;
-  color: var(--text);
-  text-align: left;
-  background: #221f2b;
-  border: 2px solid var(--okraj);
-  box-shadow: inset 0 -3px 0 #15131b;
-  padding: 10px 10px 12px;
-  cursor: pointer;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: 'ikona nazev' 'ikona dilky' 'popis popis' 'cena cena';
+  gap: 5px 9px;
+  align-items: center;
+  padding: 7px 8px 0;
 }
 
 /* Oživení má jen jednu úroveň a je nejdražší: přes celou šířku pod ostatními. */
 .vylepseni.jednou { grid-column: 1 / -1; }
 
-.vylepseni-hlava {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 6px;
+.vylepseni-ikona {
+  grid-area: ikona;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  background: var(--drevo-0);
+  border: 2px solid var(--noc);
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.45);
 }
 
-.vylepseni b { color: var(--zlata); font-size: 15px; }
-.vylepseni-uroven { color: var(--text-tlumeny); font-size: 12px; }
-.vylepseni small { flex: 1; color: var(--text-tlumeny); font-size: 12px; line-height: 1.35; }
+.vylepseni-hlava {
+  grid-area: nazev;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
 
-.ctverecky { display: flex; gap: 3px; }
+.vylepseni-hlava b { color: var(--mosaz); font-size: 15px; text-shadow: 0 2px 0 var(--noc); }
+.vylepseni-uroven { margin-left: auto; color: var(--pergamen-tlumeny); font-size: 12px; }
+.vylepseni .ctverecky { grid-area: dilky; }
+.vylepseni .vylepseni-popis { grid-area: popis; align-self: start; color: var(--pergamen-tlumeny); font-size: 12px; line-height: 1.35; }
+
+/* Dílky úrovní: zapuštěné prázdné, koupené v barvě duší s leskem nahoře. */
+.ctverecky { display: flex; align-items: center; gap: 3px; }
 
 .ctverecky i {
-  width: 12px;
-  height: 8px;
-  background: #15131b;
-  border: 1px solid var(--okraj);
+  flex: none;
+  width: 14px;
+  height: 10px;
+  background: var(--drevo-0);
+  border: 2px solid var(--noc);
 }
 
 .ctverecky i.plny {
   background: var(--duse);
-  border-color: #dfe8ff;
+  box-shadow: inset 0 2px 0 #dfe8ff, inset 0 -2px 0 #5d79c4;
 }
 
+/* Cenovka: tmavší pruh přes celý spodek karty, duše a cena, případně kolik chybí. */
 .cena {
+  grid-area: cena;
+  align-self: end;
   display: flex;
   align-items: center;
   gap: 6px;
-  font-weight: bold;
+  margin: 2px -8px 0;
+  padding: 4px 8px 5px;
   color: var(--duse);
+  font-weight: bold;
+  background: rgba(20, 12, 8, 0.45);
+  border-top: 2px solid var(--noc);
 }
 
-.vylepseni.drahe .cena { color: #b0707a; }
-.vylepseni.hotovo { background: #1c2230; border-color: #3d4b70; }
-.vylepseni.hotovo .cena { color: var(--text-tlumeny); }
-
-.vylepseni.vybrano, .vylepseni:focus-visible {
-  outline: none;
-  border-color: var(--zlata);
-}
-
+.cena b { font-size: 15px; color: inherit; }
+.cena-chybi { margin-left: auto; color: var(--pergamen-tlumeny); font-size: 11px; font-weight: normal; }
+.vylepseni.drahe .cena { color: var(--chyba); }
+.vylepseni.hotovo { --karta-ram: var(--ram-karta-zvolena); }
+.vylepseni.hotovo.vybrano, .vylepseni.hotovo:focus-visible { --karta-ram: var(--ram-karta-zvolena-vybrana); }
+.vylepseni.hotovo .cena { color: var(--ok); letter-spacing: 0.08em; text-transform: uppercase; font-size: 13px; }
+.vylepseni.hotovo .ctverecky i.plny { background: var(--mosaz); box-shadow: inset 0 2px 0 var(--mosaz-lesk), inset 0 -2px 0 var(--mosaz-stin); }
 .vylepseni.zatrast { animation: zatrast 0.25s steps(4); }
+
+/* Telefon: karty pod sebou, cenovka vpravo vedle jména a dílků, ať je seznam kratší. */
+@media (max-width: 600px) {
+  .vylepseni { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'ikona nazev cena' 'ikona dilky cena' 'popis popis popis'; padding-bottom: 8px; }
+  .vylepseni .cena { align-self: stretch; flex-direction: column; justify-content: center; gap: 2px; min-width: 70px; margin: 0; padding: 4px 8px; border: 2px solid var(--noc); }
+  .cena-chybi { margin-left: 0; }
+}
+
+/* Úzký telefon (320 px): úroveň může pod jméno, jméno a cenovka o kousek menší. */
+@media (max-width: 360px) {
+  .vylepseni-hlava { flex-wrap: wrap; }
+  .vylepseni-hlava b { font-size: 14px; }
+  .vylepseni .cena { min-width: 58px; padding: 4px 6px; }
+}
 
 @keyframes zatrast {
   0%, 100% { transform: translateX(0); }

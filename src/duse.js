@@ -1,16 +1,17 @@
 // Duše a trvalá vylepšení: po každé hře přibudou duše, v menu Vylepšení se za ně kupují úrovně,
 // které platí od začátku každé další hry. Jen pravidla, bez DOM a bez úložiště (to je ulozeni.js).
-// Nové vylepšení přidáš do VYLEPSENI: vlastnost hrdiny, o kolik se mění za úroveň, počet úrovní a základní cena.
+// Nové vylepšení přidáš do VYLEPSENI: vlastnost hrdiny, o kolik se mění za úroveň, počet úrovní, základní cena
+// a ikona (jméno spritu ze src/sprity.js, ukáže ji karta v menu).
 // nasobek: vlastnost × (1 + nasobek × úroveň), pricti: vlastnost + pricti × úroveň.
 
 export const VYLEPSENI = {
-  sila: { nazev: 'Síla', popis: '+5 % poškození všech zbraní', vlastnost: 'sila', nasobek: 0.05, max: 5, cena: 30 },
-  zivoty: { nazev: 'Životy', popis: '+10 max. životů', vlastnost: 'maxHp', pricti: 10, max: 5, cena: 25 },
-  rychlost: { nazev: 'Rychlost', popis: '+4 % rychlost pohybu', vlastnost: 'rychlost', nasobek: 0.04, max: 5, cena: 25 },
-  magnet: { nazev: 'Magnet', popis: '+10 % dosah sběru krystalů', vlastnost: 'magnet', nasobek: 0.1, max: 5, cena: 20 },
-  stesti: { nazev: 'Štěstí', popis: '+20 % šance na srdce, magnet a vzácnější karty', vlastnost: 'stesti', nasobek: 0.2, max: 5, cena: 30 },
-  zkusenosti: { nazev: 'Zkušenosti', popis: '+5 % zkušeností z krystalů', vlastnost: 'zkusenosti', nasobek: 0.05, max: 5, cena: 35 },
-  oziveni: { nazev: 'Oživení', popis: 'Jednou za hru tě duše vrátí s půlkou životů', vlastnost: 'oziveni', pricti: 1, max: 1, cena: 150 },
+  sila: { nazev: 'Síla', ikona: 'sila', popis: '+5 % poškození všech zbraní', vlastnost: 'sila', nasobek: 0.05, max: 5, cena: 30 },
+  zivoty: { nazev: 'Životy', ikona: 'srdce', popis: '+10 max. životů', vlastnost: 'maxHp', pricti: 10, max: 5, cena: 25 },
+  rychlost: { nazev: 'Rychlost', ikona: 'boty', popis: '+4 % rychlost pohybu', vlastnost: 'rychlost', nasobek: 0.04, max: 5, cena: 25 },
+  magnet: { nazev: 'Magnet', ikona: 'magnet', popis: '+10 % dosah sběru krystalů', vlastnost: 'magnet', nasobek: 0.1, max: 5, cena: 20 },
+  stesti: { nazev: 'Štěstí', ikona: 'stesti', popis: '+20 % šance na srdce, magnet a vzácnější karty', vlastnost: 'stesti', nasobek: 0.2, max: 5, cena: 30 },
+  zkusenosti: { nazev: 'Zkušenosti', ikona: 'moudrost', popis: '+5 % zkušeností z krystalů', vlastnost: 'zkusenosti', nasobek: 0.05, max: 5, cena: 35 },
+  oziveni: { nazev: 'Oživení', ikona: 'duse', popis: 'Jednou za hru tě duše vrátí s půlkou životů', vlastnost: 'oziveni', pricti: 1, max: 1, cena: 150 },
 };
 
 // Za kolik se hra promění v duše: 1 duše za každých sekund přežití, za každých zabitych zabitých, strazce duší
