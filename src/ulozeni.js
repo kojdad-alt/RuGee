@@ -31,9 +31,14 @@ const SBIRKA = 'sbirka';
 const MAPA = 'mapa';
 const MAPY = 'mapy';
 
-// Nastavení z menu a pauzy: přepínače ano/ne a hlasitosti zvuku v procentech (efekty 60 %, hudba 40 %,
-// ztlumeno = klávesa N). Co v záznamu chybí nebo má špatný druh, platí výchozí, procenta se zaokrouhlí do 0–100.
-export const VYCHOZI_NASTAVENI = { cislaPoskozeni: true, efekty: 60, hudba: 40, ztlumeno: false };
+// Nastavení z menu a pauzy: přepínače ano/ne, hlasitosti zvuku v procentech (efekty 60 %, hudba 40 %,
+// ztlumeno = klávesa N) a volby z výčtu (MOZNOSTI_NASTAVENI: světla auto / zap / vyp). Co v záznamu chybí nebo má
+// špatný druh, platí výchozí, procenta se zaokrouhlí do 0–100.
+export const VYCHOZI_NASTAVENI = { cislaPoskozeni: true, efekty: 60, hudba: 40, ztlumeno: false, svetla: 'auto' };
+export const MOZNOSTI_NASTAVENI = { svetla: ['auto', 'zap', 'vyp'] };
+// Kdy pojistka světel naposledy zjistila, že s nimi hra zpomalila (ms). Auto pak POMALA_SVETLA_PLATI ms nesvítí.
+const KLIC_POMALA_SVETLA = 'hlubiny.pomalaSvetla';
+export const POMALA_SVETLA_PLATI = 14 * 24 * 3600 * 1000;
 
 function surove(klic) {
   try {
@@ -293,6 +298,7 @@ function platnaNastaveni(zaznam) {
     const hodnota = zaznam[nazev];
     if (typeof vychozi === 'boolean' && typeof hodnota === 'boolean') nastaveni[nazev] = hodnota;
     else if (typeof vychozi === 'number' && Number.isFinite(hodnota)) nastaveni[nazev] = Math.min(100, Math.max(0, Math.round(hodnota)));
+    else if (MOZNOSTI_NASTAVENI[nazev]?.includes(hodnota)) nastaveni[nazev] = hodnota;
   }
   return nastaveni;
 }
@@ -303,6 +309,18 @@ export function nactiNastaveni() {
 
 export function ulozNastaveni(nastaveni) {
   uloz(KLIC_NASTAVENI, platnaNastaveni(nastaveni));
+}
+
+// Zpomalila hra se světly v posledních POMALA_SVETLA_PLATI ms? (ted = teď v ms, kvůli testu)
+export function pomalaSvetla(ted = Date.now()) {
+  const kdy = nacti(KLIC_POMALA_SVETLA);
+  return Number.isFinite(kdy) && kdy <= ted && ted - kdy < POMALA_SVETLA_PLATI;
+}
+
+// Zapamatuje si, že hra se světly zpomalila (kdy v ms), nebo to zapomene (null).
+export function zapisPomalaSvetla(kdy) {
+  if (kdy === null) smaz(KLIC_POMALA_SVETLA);
+  else uloz(KLIC_POMALA_SVETLA, kdy);
 }
 
 // ---------- Celý profil naráz (export, import, přehled) ----------

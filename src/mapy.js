@@ -26,6 +26,8 @@ export function hash(x, y) {
 // (nepřátelé je obejdou). Duchové jimi proletí (nemají tělo) a střely přes ně přeletí (letí vzduchem, překážky jsou
 // nízké). hustota = kolik promile dlaždic ji dostane, než se vyřadí sousedky, kusy = obrázky 16×16 jako ozdoby
 // (stejná paleta) a kruh = [x, y, poloměr] kolize v pixelech obrázku (pixel obrázku jsou 3 px světa).
+// Světla (svetla, kreslí je osvetleni.js ve WebGL): zare = kolik ze světla se přičte navíc jako záře (výbuchy, oheň,
+// láva, blesky). Ve tmě (tma) svítí i hrdina, lucerna, krystaly ve skále a na zemi. Bez svetla jen viněta (Louka).
 // Zvláštní plocha (led, lava nebo bahno, nejvýš jedna na mapě): bunka = jak velké plochy jsou, prah = čím vyšší,
 // tím jich je míň, sul = jiná mřížka šumu (každá mapa má plochy jinde), volnoUStartu = kolem startu hrdiny není.
 // Dlaždice plochy jsou v podlahaPlochy (okraj = hrana okolní země přes okraj plochy a čára pod ní).
@@ -146,6 +148,7 @@ export const MAPY = {
     smecky: null,
     obtiznost: { zivoty: 1.35, poskozeni: 1.3 },
     tma: { sila: 0.84, svetlo: 170, lucerna: 70, barva: '6,5,14' },
+    svetla: { zare: 0.08 },
     dosahLucerny: 1.3,
     okraje: 'rgba(0,0,0,0.3)',
     podlaha: {
@@ -272,6 +275,7 @@ export const MAPY = {
     obtiznost: { zivoty: 1.4, poskozeni: 1.3 },
     led: { bunka: 7, prah: 0.56, prilnavost: 2.6 },
     snezeni: 70,
+    svetla: { zare: 0.25 },
     okraje: 'rgba(20,40,70,0.4)',
     menuTma: 0.5,
     podlaha: {
@@ -410,6 +414,7 @@ export const MAPY = {
     obtiznost: { zivoty: 1.4, poskozeni: 1.3 },
     lava: { bunka: 6, prah: 0.63, sul: 5, poskozeni: 3, zhave: true, volnoUStartu: true },
     jiskry: 48,
+    svetla: { zare: 0.35 },
     okraje: 'rgba(40,6,0,0.45)',
     menuTma: 0.45,
     podlaha: {
@@ -587,6 +592,7 @@ export const MAPY = {
     obtiznost: { zivoty: 1.5, poskozeni: 1.4 },
     bahno: { bunka: 6, prah: 0.575, sul: 9, zpomaleni: 0.6, volnoUStartu: true },
     bubliny: { kazdych: 1.6, dosah: 320, varovani: 1, polomer: 30, jed: 4 },
+    svetla: { zare: 0.3 },
     okraje: 'rgba(10,30,10,0.45)',
     podlaha: {
       seminko: 20261110,
@@ -742,6 +748,7 @@ export const MAPY = {
     obtiznost: { zivoty: 1.6, poskozeni: 1.45 },
     tma: { sila: 0.62, svetlo: 240, lucerna: 60, barva: '8,10,26' },
     mlha: { pocet: 9, barva: '196,206,226', sila: 0.12 },
+    svetla: { zare: 0.1 },
     okraje: 'rgba(8,10,26,0.35)',
     podlaha: {
       seminko: 20261112,

@@ -1511,6 +1511,15 @@ kbd {
 .menu-tlacitko.prepinac.vypnuto .prepinac-stav::before { background: #5a1f1a; box-shadow: inset 2px 2px 0 #7a2c24, inset -2px -2px 0 #3a120e, 0 0 0 2px var(--noc); }
 .nastaveni-radek { margin: 2px 0 0; }
 
+/* Světla (Nastavení i pauza): stejný přepínač, jen se třemi stavy (Auto → Zap → Vyp), auto má mosaznou kontrolku.
+   Pod ním tlumený řádek, co se zrovna děje (svítí, prohlížeč neumí WebGL, pojistka je vypnula). */
+.svetla-volba { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 12px 0 0; }
+/* oba přepínače skupiny Hra stejně široké */
+.nastaveni-radek .prepinac, .svetla-volba .prepinac { width: min(100%, 320px); }
+.svetla-text { margin: 0; max-width: 34em; font-size: 13px; text-align: center; color: var(--pergamen-tlumeny); text-shadow: 0 2px 0 var(--noc); }
+.menu-tlacitko.prepinac.auto .prepinac-stav { color: var(--mosaz-svetla); }
+.menu-tlacitko.prepinac.auto .prepinac-stav::before { background: var(--mosaz); box-shadow: inset 2px 2px 0 var(--mosaz-lesk), inset -2px -2px 0 var(--mosaz-stin), 0 0 0 2px var(--noc); }
+
 /* Nastavení a pauza. Zvuk: řádek hlasitosti = název, −, pruh (klik nebo tah), procenta, +. Pruh je zapuštěný
    jako pruh postupu: mosazná výplň s leskem, po 10 % dílky a na konci výplně mosazný jezdec. Ztlumený zvuk (N)
    celé ovládání ztlumí. */
@@ -1644,6 +1653,7 @@ kbd {
 .pauza .radek-tlacitek { flex-direction: column; align-items: stretch; gap: 14px; }
 .pauza .skupina { margin: 0; }
 .pauza .skupina .prepinac { width: 100%; }
+.pauza .svetla-volba { align-items: stretch; margin: 10px 0 0; }
 
 @media (max-width: 600px) {
   .okno.pauza { padding: 8px 10px 12px; }

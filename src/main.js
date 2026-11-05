@@ -4,7 +4,7 @@ import { kresli, kresliMenu } from './kresleni.js';
 import { dusZaHru, DUSE_ZA } from './duse.js';
 import {
   vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, zvolenaMapa, obrazekSpritu, pocetDusi, cislaPoskozeni,
-  prepinacNastaveni, ovladaniZvuku, prepniZtlumeni, skupina, ikonaMapy,
+  prepinacNastaveni, prepinacSvetel, ovladaniZvuku, prepniZtlumeni, skupina, ikonaMapy,
 } from './menu.js';
 import { pixelovyNadpis, prizpusobNadpisy, STYL_KREV } from './pismo.js';
 import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu } from './ulozeni.js';
@@ -16,6 +16,7 @@ import { ukazVolby, ukazPorovnani } from './volba.js';
 import { ukazObchod, zatresZbozim, textZlataku } from './obchod.js';
 import { ukazVybavu } from './vybava.js';
 import { registruj as registrujAplikaci, novaVerze, priZmene as priZmeneAplikace } from './aplikace.js';
+import { svetlaProSnimek } from './osvetleni.js';
 
 const platno = document.getElementById('platno');
 const ctx = platno.getContext('2d');
@@ -153,7 +154,7 @@ function vybavaUJoysticku() {
 }
 
 // Pauza (P nebo Esc): hra stojí a okno z trámů nabídne Pokračovat a pod ním skupiny jako v Nastavení: Hra (čísla
-// poškození) a Zvuk (hlasitost, ztlumení). Pořadí šipek je stejné jako dřív. Volby se staví pokaždé znovu, ať
+// poškození, světla) a Zvuk (hlasitost, ztlumení). Pořadí šipek je stejné jako dřív. Volby se staví pokaždé znovu, ať
 // ukazují, co je zrovna uložené (mohlo se změnit v menu).
 function nastavPauzu(zapnout) {
   hra.pauza = zapnout;
@@ -168,7 +169,7 @@ function nastavPauzu(zapnout) {
   pokracovat.type = 'button';
   pokracovat.addEventListener('click', () => { if (hra?.pauza) nastavPauzu(false); });
   const volbyHry = skupina('Hra');
-  volbyHry.append(prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'));
+  volbyHry.append(prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'), prepinacSvetel());
   const zvuk = skupina('Zvuk');
   zvuk.append(ovladaniZvuku());
   el('pauza-volby').replaceChildren(pokracovat, volbyHry, zvuk);
@@ -421,7 +422,9 @@ function prepniZvuk() {
 const omezenyPohyb = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 
 function smycka(t) {
-  const dt = Math.min(0.05, (t - posledni) / 1000 || 0);
+  // Skutečný odstup snímků (pojistka světel podle něj měří FPS), hra počítá nejvýš s 0,05 s.
+  const odstup = (t - posledni) / 1000 || 0;
+  const dt = Math.min(0.05, odstup);
   posledni = t;
   if (vMenu) {
     hudba(null);
@@ -449,7 +452,7 @@ function smycka(t) {
     prizpusobNadpisy(el('konec'));
     vyberTlacitko(el('znovu'));
   }
-  kresli(ctx, hra, { cislaPoskozeni: cislaPoskozeni(), horni: horniOkraj });
+  kresli(ctx, hra, { cislaPoskozeni: cislaPoskozeni(), horni: horniOkraj, svetla: svetlaProSnimek(odstup, document.visibilityState === 'visible') });
   kresliJoystick();
   vybavaUJoysticku();
   hud();

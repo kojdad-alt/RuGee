@@ -186,7 +186,13 @@ function ozdoba(kus, paleta) {
     });
   });
   let zare = null;
+  // barva = průměrná barva svítících pixelů (0–1), tou svítí ozdoba ve světlech (osvetleni.js)
+  let barva = null;
   if (svetla.length) {
+    barva = [0, 0, 0];
+    for (const [, , hex] of svetla) {
+      for (let k = 0; k < 3; k++) barva[k] += parseInt(hex.slice(1 + 2 * k, 3 + 2 * k), 16) / 255 / svetla.length;
+    }
     zare = platno();
     const z = zare.getContext('2d');
     z.globalAlpha = 0.35;
@@ -200,7 +206,7 @@ function ozdoba(kus, paleta) {
       z.fillRect(x, y, 1, 1);
     }
   }
-  return { obr: c, zare, kde: kus.kde ?? null };
+  return { obr: c, zare, barva, kde: kus.kde ?? null };
 }
 
 // Okraj dlaždice zvláštní plochy ze strany, kde sousedí s obyčejnou zemí: zubatý pruh okolní země (sníh u ledu,
@@ -250,7 +256,9 @@ const SOUSEDE = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
 // Podlaha mapy od bodu (kx, ky) přes celé plátno, dlaždice velké velikost px. Nejdřív všechny dlaždice, pak
 // ozdoby a překážky (ať je nepřekryje dlaždice vedle). Žhavá plocha (láva) pomalu pulzuje podle času cas.
-// Vrací svítící ozdoby a překážky na obrazovce ({ obr, x, y, velikost }), které se ve tmě kreslí ještě jednou přes ni.
+// Vrací svítící ozdoby a překážky na obrazovce ({ obr, x, y, velikost, barva }), které se ve tmě kreslí ještě jednou
+// přes ni. K poli jsou připsané žhavé dlaždice na obrazovce (zare.zhave = [px, py, h], zare.dlazdice = velikost),
+// ze kterých svítí láva (svetla.js).
 export function kresliPodlahu(ctx, mapa, kx, ky, sirka, vyska, velikost = VELIKOST_DLAZDICE, cas = 0) {
   const v = vzhled(mapa);
   const plocha = plochaMapy(mapa);
@@ -289,26 +297,27 @@ export function kresliPodlahu(ctx, mapa, kx, ky, sirka, vyska, velikost = VELIKO
     ctx.restore();
   }
   const zare = [];
+  zare.zhave = zhave;
+  zare.dlazdice = velikost;
   const meritko = velikost / P;
-  const nakresli = (obr, svetlo, px, py) => {
-    const w = obr.width * meritko;
-    ctx.drawImage(obr, px, py, w, obr.height * meritko);
-    if (svetlo) zare.push({ obr: svetlo, x: px, y: py, velikost: w });
+  const nakresli = (ozd, px, py) => {
+    const w = ozd.obr.width * meritko;
+    ctx.drawImage(ozd.obr, px, py, w, ozd.obr.height * meritko);
+    if (ozd.zare) zare.push({ obr: ozd.zare, x: px, y: py, velikost: w, barva: ozd.barva });
   };
   for (let ty = y0; ty < y1; ty++) {
     for (let tx = x0; tx < x1; tx++) {
       const [px, py] = naObrazovce(tx, ty);
       const prekazka = prekazkaNaDlazdici(mapa, tx, ty);
       if (prekazka >= 0) {
-        const p = v.prekazky[prekazka];
-        nakresli(p.obr, p.zare, px, py);
+        nakresli(v.prekazky[prekazka], px, py);
         continue;
       }
       const h = hash(tx, ty);
       if ((h >>> 16) % 100 >= v.hustota) continue;
       const ozd = v.ozdoby[(h >>> 20) % v.ozdoby.length];
       if (ozd.kde && ozd.kde !== (jePlocha(tx, ty) ? 'plocha' : 'mimo')) continue;
-      nakresli(ozd.obr, ozd.zare, px, py);
+      nakresli(ozd, px, py);
     }
   }
   return zare;
