@@ -23,6 +23,7 @@ export default {
     popis: 'Přežij v hlubinách co nejdéle. Pixelová hra v prohlížeči, jde hrát i bez internetu.',
     napovedaKlavesnice: 'Pohyb: WASD, šipky nebo tah prstem · zbraně střílí samy · P pauza · N zvuk',
     napovedaDotyk: 'Pohyb: tah prstem · zbraně střílí samy · pauza vlevo nahoře',
+    napovedaOvladac: 'Pohyb: {packa} nebo {kriz} · zbraně střílí samy · {start} pauza · {zpet} zvuk',
   },
   hud: {
     pauza: 'Pauza',
@@ -39,6 +40,8 @@ export default {
     zpet: 'Zpět',
     pataKlavesnice: 'Šipky a Enter, klik nebo dotyk',
     pataDotyk: 'Vyber klepnutím na tlačítko',
+    pataOvladac: 'Výběr {packa} nebo {kriz}, {a} potvrdí, {b} zpět, {start} hrát',
+    pataZvuk: 'Zvuk prohlížeč pustí až po prvním kliknutí nebo stisku klávesy.',
     hrat: 'Hrát',
     profilCedulka: 'Profil: ',
     duse: '{n} {n|duše|duše|duší}',
@@ -83,7 +86,7 @@ export default {
     ovladani: {
       podtitul: 'Zbraně střílí samy, ty jen uhýbáš a sbíráš krystaly.',
       pata: 'Hlasitost, čísla poškození a světla najdeš v Nastavení.',
-      skupiny: { pohyb: 'Pohyb', veHre: 'Ve hře', menu: 'Menu a konec hry' },
+      skupiny: { pohyb: 'Pohyb', veHre: 'Ve hře', menu: 'Menu a konec hry', ovladac: 'Ovladač' },
       klavesy: { sipky: 'šipky', tah: 'tah prstem' },
       radky: {
         pohyb: 'pohyb',
@@ -98,6 +101,16 @@ export default {
         zpetMenu: 'zpět v menu',
         znovu: 'znovu po prohře',
         menuPoProhre: 'menu po prohře',
+      },
+      // Skupina Ovladač: ukáže se se značkami připojeného ovladače, bez něj jen řádek, jak ho připojit.
+      ovladac: {
+        pohyb: 'pohyb, výběr v menu a v oknech',
+        potvrdit: 'potvrdit: vzít kartu, koupit, stisknout tlačítko',
+        zpet: 'zpět (v pauze pokračovat, u kupce odejít, po prohře menu)',
+        prehodit: 'přehodit karty',
+        pauza: 'pauza (v hlavním menu Hrát)',
+        zvuk: 'ztlumit nebo zapnout zvuk',
+        zadny: 'Připoj ovladač a stiskni na něm jakékoli tlačítko. Prohlížeč ho ukáže až po prvním stisku, pak tu uvidíš, co které tlačítko dělá.',
       },
     },
     nastaveni: {
@@ -231,6 +244,14 @@ export default {
     bossove: 'Bossové',
     vybava: 'Výbava bossů',
   },
+  // Ovladač (ovladac.js): jména tlačítek podle druhu ovladače (čtečka, nápis Start/Back), pozice jsou stejné.
+  ovladac: {
+    znaky: {
+      xbox: { a: 'A', b: 'B', x: 'X', y: 'Y', start: 'Start', zpet: 'Back', packa: 'levá páčka', kriz: 'kříž' },
+      playstation: { a: 'křížek', b: 'kolečko', x: 'čtverec', y: 'trojúhelník', start: 'Options', zpet: 'Share', packa: 'levá páčka', kriz: 'kříž' },
+      nintendo: { a: 'B', b: 'A', x: 'Y', y: 'X', start: '+', zpet: '−', packa: 'levá páčka', kriz: 'kříž' },
+    },
+  },
   profil: {
     vychoziJmeno: 'Hráč',
     cislo: 'Profil {n}',
@@ -244,6 +265,7 @@ export default {
   volba: {
     napovedaKlavesnice: 'Vyber jedno vylepšení (klávesy 1–3 nebo šipky a Enter)',
     napovedaDotyk: 'Klepni na jedno vylepšení',
+    napovedaOvladac: 'Vyber jedno vylepšení ({a} vezme, {x} přehodí karty)',
     novaUroven: 'Nová úroveň',
     truhlaBosse: 'Truhla bosse',
     zamcenaTruhla: 'Zamčená truhla',
@@ -266,6 +288,7 @@ export default {
   porovnani: {
     napovedaKlavesnice: '1 = Vzít, 2 = Nechat (nebo šipky a Enter)',
     napovedaDotyk: 'Klepni na kus, který si necháš',
+    napovedaOvladac: 'Vyber kus, který si necháš, a stiskni {a}',
     nadpis: 'Výbava bosse',
     koupeno: 'Koupeno u kupce',
     podtitul: 'Slot {slot} už je obsazený. Kus, který si nenecháš, se rozloží na zlaťáky.',
@@ -279,6 +302,7 @@ export default {
   obchod: {
     napovedaKlavesnice: 'Kupuj za zlaťáky (klávesy 1–5 nebo šipky a Enter), Esc = odejít',
     napovedaDotyk: 'Klepni na zboží, které chceš koupit',
+    napovedaOvladac: 'Kupuj za zlaťáky ({a} koupí), {b} = odejít',
     odejit: 'Odejít',
     nadpis: 'Vůz kupce',
     stitek: 'Kupec tu bude ještě {n} s',
@@ -293,6 +317,7 @@ export default {
     pokracovat: 'Pokračovat',
     napovedaKlavesnice: 'Hra stojí. <kbd>P</kbd>, <kbd>Esc</kbd> nebo Pokračovat ji pustí dál.',
     napovedaDotyk: 'Hra stojí, Pokračovat ji pustí dál.',
+    napovedaOvladac: 'Hra stojí. {start}, {b} nebo Pokračovat ji pustí dál.',
   },
   konec: {
     nadpis: 'Horda tě pohltila',

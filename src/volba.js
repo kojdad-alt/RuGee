@@ -11,6 +11,7 @@ import {
   zlatakyZaKus,
 } from './vystroj.js';
 import { obrazekSpritu, vyberTlacitko } from './menu.js';
+import { jenOvladac, mysVybira } from './ovladac.js';
 import { cenaSMinci } from './obchod.js';
 import { pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
 import { t, desetinne, procenta as procentaTextu } from './texty.js';
@@ -87,7 +88,7 @@ function radekKusu(prvekRadku, kus) {
 export function ukazPrehozeni(tlacitko, hra) {
   const cena = cenaPrehozeni(hra);
   tlacitko.classList.toggle('nejde', cena > hra.zlataky);
-  tlacitko.replaceChildren(prvek('span', '', t('volba.prehodit')), prvek('kbd', 'jen-klavesnice', 'R'));
+  tlacitko.replaceChildren(prvek('span', '', t('volba.prehodit')), prvek('kbd', 'jen-klavesnice', 'R'), jenOvladac('x'));
   if (cena === 0) tlacitko.append(prvek('b', 'prehodit-zdarma', t('volba.zdarma', { n: hra.prehozeniZdarma })));
   else tlacitko.append(cenaSMinci(cena));
   tlacitko.setAttribute('aria-label', cena === 0 ? t('volba.prehoditZdarmaAria', { n: hra.prehozeniZdarma }) : t('volba.prehoditZaAria', { n: cena }));
@@ -110,7 +111,7 @@ export function ukazVolby(okno, hra, zvol) {
   const karty = hra.volby.map((v, i) => {
     const karta = vytvorKartu(v, i);
     karta.addEventListener('click', () => zvol(i));
-    karta.addEventListener('pointerover', () => { if (!karta.classList.contains('vybrano')) vyberTlacitko(karta); });
+    karta.addEventListener('pointerover', () => { if (mysVybira() && !karta.classList.contains('vybrano')) vyberTlacitko(karta); });
     return karta;
   });
   okno.querySelector('#karty').replaceChildren(...karty);
@@ -192,7 +193,7 @@ export function ukazPorovnani(okno, hra, rozhodni) {
   ];
   karty.forEach((karta, i) => {
     karta.addEventListener('click', () => rozhodni(i === 0));
-    karta.addEventListener('pointerover', () => { if (!karta.classList.contains('vybrano')) vyberTlacitko(karta); });
+    karta.addEventListener('pointerover', () => { if (mysVybira() && !karta.classList.contains('vybrano')) vyberTlacitko(karta); });
   });
   const vymena = prvek('div', 'porovnani-vymena');
   vymena.setAttribute('aria-hidden', 'true');

@@ -10,14 +10,15 @@ import { pixelovyNadpis, prizpusobNadpisy, STYL_KREV } from './pismo.js';
 import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu } from './ulozeni.js';
 import { MAPY, ODEMKNUTI_MAPY, dalsiMapa } from './mapy.js';
 import {
-  odemkniZvuk, zvukHry, hudba, zvukStartu, zvukVolby, zvukVyberu, zvukNakupu, zvukOdmitnuti, zvukPrehozeni,
+  odemkniZvuk, zvukHry, hudba, zvukStartu, zvukVolby, zvukVyberu, zvukNakupu, zvukOdmitnuti, zvukPrehozeni, zvukBezi, probudZvuk,
 } from './zvuk.js';
 import { ukazVolby, ukazPorovnani } from './volba.js';
 import { ukazObchod, zatresZbozim, textZlataku } from './obchod.js';
 import { ukazVybavu } from './vybava.js';
 import { registruj as registrujAplikaci, novaVerze, priZmene as priZmeneAplikace } from './aplikace.js';
 import { svetlaProSnimek } from './osvetleni.js';
-import { t, prelozStranku } from './texty.js';
+import { t, prelozStranku, priZmeneJazyka } from './texty.js';
+import { vytvorCtecku, stavOvladace, nastavOvladac, priZmeneOvladace, vyplnNapovedy, jenOvladac } from './ovladac.js';
 
 const platno = document.getElementById('platno');
 const ctx = platno.getContext('2d');
@@ -107,6 +108,10 @@ const menu = vytvorMenu({
 const dotyk = { aktivni: false, id: null, sx: 0, sy: 0, x: 0, y: 0 };
 const POLOMER_JOYSTICKU = 50;
 
+// Ovladač (ovladac.js): čtečka se ptá prohlížeče jednou za snímek, pohyb páčky platí místo kláves.
+const ctecka = vytvorCtecku();
+let pohybOvladace = { dx: 0, dy: 0 };
+
 function vstup() {
   if (dotyk.aktivni) {
     const dx = dotyk.x - dotyk.sx;
@@ -116,6 +121,7 @@ function vstup() {
     const sila = Math.min(1, d / POLOMER_JOYSTICKU);
     return { dx: (dx / d) * sila, dy: (dy / d) * sila };
   }
+  if (pohybOvladace.dx || pohybOvladace.dy) return pohybOvladace;
   const drzi = (...klavesy) => klavesy.some((k) => stisknute.has(k));
   return {
     dx: (drzi('d', 'arrowright') ? 1 : 0) - (drzi('a', 'arrowleft') ? 1 : 0),
@@ -165,7 +171,7 @@ function nastavPauzu(zapnout) {
     return;
   }
   const pokracovat = textovyPrvek('button', t('pauza.pokracovat'));
-  pokracovat.append(jenKlavesnice(' (P)'));
+  pokracovat.append(jenKlavesnice(' (P)'), jenOvladac('start'));
   pokracovat.className = 'menu-tlacitko hlavni';
   pokracovat.type = 'button';
   pokracovat.addEventListener('click', () => { if (hra?.pauza) nastavPauzu(false); });
@@ -422,6 +428,70 @@ function prepniZvuk() {
   hlaseniZvuku = setTimeout(() => { hlaseni.hidden = true; }, 1400);
 }
 
+// Okno nad hrou (konec, pauza, karty, porovnání, kupec): ovladač v něm vybírá místo pohybu.
+function oknoHry() {
+  return Boolean(hra && (hra.konec || hra.pauza || hra.volby || hra.porovnani || hra.obchod));
+}
+
+// Ovladač jednou za snímek: pohyb pro hru, stisky jako klávesy. Hraje-li hráč na ovladači (body.ovladac), ukazují
+// nápovědy jeho tlačítka; dokud prohlížeč nepustil zvuk (stisk na ovladači nestačí), menu to řekne.
+let zamcenyZvuk = null;
+function ctiOvladac() {
+  let pady = [];
+  try {
+    pady = navigator.getGamepads?.() ?? [];
+  } catch {
+    pady = [];
+  }
+  const ui = vMenu || oknoHry();
+  const bylAktivni = stavOvladace().aktivni;
+  const r = ctecka.precti(pady, performance.now() / 1000, ui);
+  nastavOvladac({ pripojeno: r.pripojeno, rodina: r.rodina, aktivni: r.aktivita ? true : undefined });
+  pohybOvladace = r.pohyb;
+  for (const u of r.udalosti) akceOvladace(u, bylAktivni);
+  const zamceno = stavOvladace().aktivni && !zvukBezi();
+  if (zamceno !== zamcenyZvuk) {
+    el('pata-zvuk').hidden = !zamceno;
+    zamcenyZvuk = zamceno;
+  }
+}
+
+const SMER_KLAVESY = { nahoru: 'ArrowUp', dolu: 'ArrowDown', vlevo: 'ArrowLeft', vpravo: 'ArrowRight' };
+const umelaKlavesa = (key) => ({ key, repeat: false, zOvladace: true, preventDefault() {} });
+
+// Co stisk na ovladači udělá: v menu jako šipky a Enter (menu.js), ve hře podle okna. A potvrdí, B zpět
+// (pauza pokračuje, kupec odejde, po prohře menu), X přehodí karty, Start pauza, Back zvuk. Odpojený ovladač
+// uprostřed hry ji zastaví (hráč by jinak nemohl řídit).
+function akceOvladace(u, bylAktivni) {
+  if (u === 'zpet') return prepniZvuk();
+  if (u === 'odpojen') {
+    if (!vMenu && hra && !oknoHry() && bylAktivni) nastavPauzu(true);
+    return;
+  }
+  if (vMenu) return menu.ovladac(u);
+  if (!hra) return;
+  const smer = SMER_KLAVESY[u];
+  const tlacitka = (kontejner) => ovladejTlacitka(kontejner, umelaKlavesa(smer ?? 'Enter'));
+  // Karty a porovnání: A bez vybrané karty jen vybere první, naslepo nic nevezme (jako Enter).
+  const karty = (kontejner) => ovladejTlacitka(kontejner, umelaKlavesa(smer ?? (kontejner.querySelector('.vybrano') ? 'Enter' : 'ArrowRight')));
+  const vyber = smer || u === 'a';
+  if (hra.konec) {
+    if (u === 'b') doMenu();
+    else if (vyber) tlacitka(el('konec'));
+  } else if (hra.porovnani) {
+    if (vyber) karty(el('porovnani-kusy'));
+  } else if (hra.volby) {
+    if (u === 'x') prehodKarty();
+    else if (vyber) karty(el('karty'));
+  } else if (hra.obchod) {
+    if (u === 'b') odejdi();
+    else if (vyber) tlacitka(el('obchod'));
+  } else if (hra.pauza) {
+    if (u === 'b' || u === 'start') nastavPauzu(false);
+    else if (vyber) tlacitka(el('pauza'));
+  } else if (u === 'start') nastavPauzu(true);
+}
+
 const omezenyPohyb = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 
 function smycka(t) {
@@ -429,6 +499,7 @@ function smycka(t) {
   const odstup = (t - posledni) / 1000 || 0;
   const dt = Math.min(0.05, odstup);
   posledni = t;
+  ctiOvladac();
   if (vMenu) {
     hudba(null);
     // Kdo má v systému omezený pohyb, tomu pozadí menu stojí (hrdina uprostřed honičky, mapa neujíždí).
@@ -462,7 +533,18 @@ function smycka(t) {
   requestAnimationFrame(smycka);
 }
 
+// Klávesa, myš nebo dotyk vrátí nápovědy na klávesnici (dotyk) a pustí zvuk pozastavený od ovladače.
+const bezOvladace = () => {
+  nastavOvladac({ aktivni: false });
+  probudZvuk();
+};
+addEventListener('pointerdown', bezOvladace, true);
+// Pohnutá myš taky (stojící myš dostane od Chrome po změně stránky pohyb bez posunu, ten se nepočítá).
+addEventListener('pointermove', (e) => {
+  if (stavOvladace().aktivni && (e.movementX || e.movementY)) nastavOvladac({ aktivni: false });
+}, true);
 addEventListener('keydown', (e) => {
+  bezOvladace();
   // Psaní do pole v menu (jméno profilu, kód uložení): klávesy patří poli. N by jinak ztlumil zvuk, WASD posouvaly
   // výběr a Backspace zavřel záložku. Enter a Esc si pole obslouží samo.
   if (e.target instanceof Element && e.target.matches('input, textarea')) return;
@@ -550,8 +632,14 @@ el('odejit').addEventListener('click', odejdi);
 el('lebka-ikona').replaceWith(obrazekSpritu('lebka', 2));
 el('zlato-ikona').replaceWith(obrazekSpritu('zlatak', 2));
 el('klic-ikona').replaceWith(obrazekSpritu('klic', 2));
-// Statické texty stránky (data-t v index.html) ve zvoleném jazyce.
+// Statické texty stránky (data-t v index.html) ve zvoleném jazyce, nápovědy pro ovladač se značkami tlačítek.
 prelozStranku();
+vyplnNapovedy();
+priZmeneJazyka(() => vyplnNapovedy());
+priZmeneOvladace((zmena, stav) => {
+  if ('rodina' in zmena) vyplnNapovedy();
+  document.body.classList.toggle('ovladac', stav.aktivni);
+});
 zmenVelikost();
 doMenu();
 registrujAplikaci();

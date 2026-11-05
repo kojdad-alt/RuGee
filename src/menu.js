@@ -6,7 +6,7 @@ import { TRIDY, ZBRANE, BOSSOVE, platnaTrida, silaHrozby, obtiznostMapy, poradiB
 import {
   nactiRekord, nactiTridu, ulozTridu, nactiDuse, ulozDuse, nactiNastaveni, ulozNastaveni, nactiSbirku, nactiMapu, ulozMapu,
   odemceneMapy, zajistiProfily, seznamProfilu, aktivniProfil, vytvorProfil, prejmenujProfil, prepniProfil, smazProfil,
-  dataProfilu, importujProfil, prehledProfilu, prehledDat, MAX_PROFILU, MAX_JMENA,
+  dataProfilu, importujProfil, prehledProfilu, prehledDat, volneJmeno, MAX_PROFILU, MAX_JMENA,
 } from './ulozeni.js';
 import { kodProfilu, souborProfilu, nazevSouboru, prectiKod, PRIPONA_SOUBORU, MAX_DELKA_KODU } from './prenos.js';
 import { MAPY, PORADI_MAP, ODEMKNUTI_MAPY, predchoziMapa } from './mapy.js';
@@ -23,6 +23,7 @@ import { nakresliText, STYL_LOGA, STYL_PERGAMEN, pixelovyNadpis, prizpusobNadpis
 import {
   t, pripojTexty, procenta, datum, hodnota, nastavJazyk, aktualniJazyk, jazykProhlizece, priZmeneJazyka, prelozStranku, JAZYKY,
 } from './texty.js';
+import { stavOvladace, priZmeneOvladace, znackaTlacitka, jenOvladac, mysVybira } from './ovladac.js';
 
 // Nastavení (čísla poškození, hlasitost efektů a hudby, ztlumení, světla, jazyk): načte se z prohlížeče, mění ho
 // Nastavení nebo pauza (a klávesa N). Hlasitosti se hned předají zvuku. Jazyk se při prvním spuštění vezme z prohlížeče
@@ -490,6 +491,17 @@ const OVLADANI = [
   ]],
 ];
 
+// Ovladač (ovladac.js): [tlačítka, co dělají]. Značky tlačítek podle připojeného ovladače, texty ve slovníku
+// (menu.ovladani.ovladac). Bez připojeného ovladače skupina jen řekne, jak ho připojit.
+const OVLADANI_OVLADACE = [
+  [['packa', 'kriz'], 'pohyb'],
+  [['a'], 'potvrdit'],
+  [['b'], 'zpet'],
+  [['x'], 'prehodit'],
+  [['start'], 'pauza'],
+  [['zpet'], 'zvuk'],
+];
+
 // Skupina v Ovládání, Nastavení a pauze: destička v tenkém rámu s nadpisem světlým pixelovým písmem.
 export function skupina(nazev, trida = '') {
   const sekce = prvek('section', `skupina ${trida}`.trim());
@@ -639,7 +651,7 @@ export function ovladaniZvuku() {
   prepinac.type = 'button';
   const stav = prvek('span', 'prepinac-stav');
   // „(N)“ je klávesa, na dotykovém displeji se schová (.jen-klavesnice), dvojtečka zůstane
-  prepinac.append(prvek('span', '', t('menu.zvuk.nazev')), prvek('span', 'jen-klavesnice', ' (N)'), prvek('span', '', ': '), stav);
+  prepinac.append(prvek('span', '', t('menu.zvuk.nazev')), prvek('span', 'jen-klavesnice', ' (N)'), jenOvladac('zpet'), prvek('span', '', ': '), stav);
   const ukaz = () => {
     const zapnuto = !nastaveni.ztlumeno;
     stav.textContent = zapnuto ? t('menu.zvuk.zapnuty') : t('menu.zvuk.vypnuty');
@@ -661,6 +673,19 @@ export function ovladaniZvuku() {
 // Ovládání: skupiny Pohyb, Ve hře a Menu pod sebou. Řádek = dřevěné klávesy vpravo zarovnané, vedle co dělají.
 function vyplnOvladani(panel) {
   const mrizka = prvek('div', 'ovladani');
+  // Připojený ovladač je nahoře (hráč na něm zrovna hraje), bez něj dole jako rada.
+  const ovladac = skupina(t('menu.ovladani.skupiny.ovladac'), 'skupina-ovladac');
+  const { pripojeno, rodina } = stavOvladace();
+  if (pripojeno) {
+    for (const [tlacitka, co] of OVLADANI_OVLADACE) {
+      const radek = prvek('div', 'ovladani-radek');
+      const kde = prvek('span', 'klavesy');
+      kde.append(...tlacitka.map((tl) => znackaTlacitka(tl, rodina)));
+      radek.append(kde, prvek('span', '', t(`menu.ovladani.ovladac.${co}`)));
+      ovladac.append(radek);
+    }
+    mrizka.append(ovladac);
+  } else ovladac.append(prvek('p', 'ovladac-zadny', t('menu.ovladani.ovladac.zadny')));
   for (const [nazev, radky] of OVLADANI) {
     const sekce = skupina(t(`menu.ovladani.skupiny.${nazev}`));
     for (const [klavesy, co] of radky) {
@@ -672,6 +697,7 @@ function vyplnOvladani(panel) {
     }
     mrizka.append(sekce);
   }
+  if (!pripojeno) mrizka.append(ovladac);
   panel.append(
     prvek('p', 'podtitul', t('menu.ovladani.podtitul')), mrizka,
     prvek('p', 'podtitul ovladani-pata', t('menu.ovladani.pata')),
@@ -970,6 +996,13 @@ function podoknoJmena(panel, profil) {
       : t('menu.profil.novyOdNuly', { max: MAX_JMENA })),
     sekce,
   );
+  // Na ovladači se psát nedá: nový profil dostane volné jméno (Hráč 2…) a výběr je na Založit. Pole jde vybrat
+  // taky (kde má systém klávesnici na obrazovce, A ho otevře).
+  if (stavOvladace().aktivni) {
+    if (!profil) pole.value = volneJmeno('');
+    vyberTlacitko(potvrdit);
+    return;
+  }
   zamerPole(pole);
   pole.select();
 }
@@ -1101,7 +1134,7 @@ function podoknoImportu(panel) {
     sekce,
   );
   // S myší se rovnou dá vložit (Ctrl+V), na dotykovém displeji by vyskočila klávesnice přes tlačítko souboru.
-  if (globalThis.matchMedia?.('(pointer: fine)').matches) zamerPole(pole);
+  if (globalThis.matchMedia?.('(pointer: fine)').matches && !stavOvladace().aktivni) zamerPole(pole);
   else vyberTlacitko(nacist);
 }
 
@@ -1178,10 +1211,14 @@ const DALSI = ['arrowdown', 'arrowright', 's', 'd'];
 const PREDCHOZI = ['arrowup', 'arrowleft', 'w', 'a'];
 
 // Šipky (i WASD) posouvají výběr mezi viditelnými tlačítky v kontejneru, Enter nebo mezerník ho stiskne.
-// Když je tlačítko zaměřené, stiskne ho prohlížeč sám, takže se nic nespustí dvakrát.
+// Když je tlačítko zaměřené, stiskne ho prohlížeč sám, takže se nic nespustí dvakrát. Ovladač (e.zOvladace,
+// main.js) posílá umělé klávesy: Enter tlačítko stiskne vždy (prohlížeč u nich nic nedělá) a výběr chodí i po
+// polích pro text (jméno profilu, kód), kde má systém klávesnici na obrazovce.
+const VYBER_OVLADACEM = 'button, input.profil-pole, textarea.profil-kod:not([readonly])';
+
 export function ovladejTlacitka(kontejner, e) {
   const k = e.key.toLowerCase();
-  const tlacitka = [...kontejner.querySelectorAll('button')].filter((b) => !b.disabled && b.getClientRects().length);
+  const tlacitka = [...kontejner.querySelectorAll(e.zOvladace ? VYBER_OVLADACEM : 'button')].filter((b) => !b.disabled && b.getClientRects().length);
   if (!tlacitka.length) return false;
   const zamerene = tlacitka.indexOf(document.activeElement);
   const i = zamerene >= 0 ? zamerene : tlacitka.findIndex((b) => b.classList.contains('vybrano'));
@@ -1199,9 +1236,11 @@ export function ovladejTlacitka(kontejner, e) {
       e.preventDefault();
       return true;
     }
-    if (zamerene >= 0) return true;
+    if (zamerene >= 0 && !e.zOvladace) return true;
     e.preventDefault();
-    (tlacitka[i] ?? tlacitka[0]).click();
+    const cil = tlacitka[i] ?? tlacitka[0];
+    if (cil.matches('input, textarea')) cil.focus();
+    else cil.click();
     return true;
   }
   return false;
@@ -1289,10 +1328,15 @@ export function vytvorMenu({ hrat }) {
     otevri(otevrena);
     vyberTlacitko(zalozka.querySelector(`[data-jazyk="${jazyk}"]`) ?? zalozka.querySelector('button'));
   });
-  // Najetí myší vybere tlačítko, jen ne když se píše do pole (jméno profilu, kód), to by mu vzalo klávesnici.
+  // Připojený nebo odpojený ovladač (jiný druh): otevřené Ovládání se překreslí se značkami tlačítek.
+  priZmeneOvladace((zmena) => {
+    if (otevrena === 'ovladani' && ('rodina' in zmena || 'pripojeno' in zmena)) otevri('ovladani');
+  });
+  // Najetí myší vybere tlačítko, jen ne když se píše do pole (jméno profilu, kód), to by mu vzalo klávesnici,
+  // a ne když se hraje na ovladači (mysVybira).
   koren.addEventListener('pointerover', (e) => {
     const b = e.target.closest('button');
-    if (b && !b.disabled && !b.classList.contains('vybrano') && !document.activeElement?.matches?.('input, textarea')) vyberTlacitko(b);
+    if (b && mysVybira() && !b.disabled && !b.classList.contains('vybrano') && !document.activeElement?.matches?.('input, textarea')) vyberTlacitko(b);
   });
 
   function otevri(id) {
@@ -1341,6 +1385,21 @@ export function vytvorMenu({ hrat }) {
         return;
       }
       ovladejTlacitka(koren, e);
+    },
+    // Ovladač v menu (main.js): směry a A jako šipky a Enter, B zpět ze záložky (podokna Profilu), Start v hlavním
+    // menu Hrát.
+    ovladac(akce) {
+      if (koren.hidden) return;
+      if (akce === 'b') {
+        if (otevrena) zpet();
+        return;
+      }
+      if (akce === 'start') {
+        if (!otevrena) hrat();
+        return;
+      }
+      const klavesa = { nahoru: 'ArrowUp', dolu: 'ArrowDown', vlevo: 'ArrowLeft', vpravo: 'ArrowRight', a: 'Enter' }[akce];
+      if (klavesa) ovladejTlacitka(koren, { key: klavesa, repeat: false, zOvladace: true, preventDefault() {} });
     },
   };
 }

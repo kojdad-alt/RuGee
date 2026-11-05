@@ -95,6 +95,28 @@ Hra je česky a anglicky. Všechny texty jsou ve slovnících [`src/texty/cs.js`
 
 Test hlídá, že angličtina (i každý další jazyk) má každý klíč češtiny a nic navíc, stejného druhu (text, seznam stejné délky, větev, tvary podle počtu tvarů jazyka) se stejnými parametry `{…}` a značkami `<kbd>`, že anglické texty nemají česká písmena, že po přepnutí do angličtiny nezůstane čeština nikde v datech, kopiích ani textech z funkcí (karty, kusy, sady, ohlášení, schopnosti, hrozba, jméno profilu), že tvary, čísla, procenta a datum jsou podle jazyka, že chybějící anglický klíč vezme češtinu, jazyk prohlížeče, uložení jazyka (rozbitý = nezvolený) a že hra v angličtině hraje přesně stejně jako česky. Dále hlídá, že každý klíč z kódu (i skládaný za běhu: skupiny Ovládání, stavy Na plochu a Světel, chyby profilu) a každé `data-t` je ve slovníku, že české texty v `index.html` sedí se slovníkem, že v kódu mimo slovník už není žádný český text, že data vrací texty své větve slovníku a kopie jsou gettery a že texty kreslené pixelovým písmem (nadpisy oken, záložky, skupiny, jména a nápisy bossů, ohlášení, kusy výbavy) písmo umí. Při převodu do slovníku se nezměnil ani jeden text: test vypsal stejný výsledek do čísla, 26 her `--json` dopadlo stejně, data a karty vyšly stejně do písmene a v prohlížeči (Playwright, desktop i telefon) mají všechny obrazovky menu, záložky, podokna profilu, okna ve hře, pauza a konec stejné HTML a stejné pixely jako dřív.
 
+## Ovladač
+
+Hra jde hrát s ovladačem (Gamepad API, [`src/ovladac.js`](../src/ovladac.js)): Xbox, PlayStation, Nintendo Pro i Steam Deck, cokoli, co prohlížeč hlásí. Prohlížeč ovladač ukáže až po prvním stisku tlačítka na něm, do té doby o něm hra neví (Ovládání to napíše).
+
+| tlačítko | co dělá |
+|---|---|
+| levá páčka, kříž | pohyb, ve všech oknech a v menu výběr (jako šipky) |
+| A | potvrdí: vezme kartu, koupí zboží, stiskne tlačítko |
+| B | zpět: zavře záložku nebo podokno Profilu, v pauze pokračuje, u kupce odejde, po prohře do menu |
+| X | přehodí karty |
+| Start | pauza, v hlavním menu Hrát |
+| Back | ztlumí nebo zapne zvuk |
+
+- **Čtečka bez DOM:** `vytvorCtecku().precti(navigator.getGamepads(), cas, ui)` vrátí pohyb a stisky (hrana, ne držení). Páčka má mrtvou zónu 0,25, za ní jde hrdina plnou rychlostí směrem páčky. Ve výběru se směr chytí nad 0,55 a pustí pod 0,35 (necuká na hraně), držený směr opakuje výběr po 0,4 s a pak po 0,12 s. Směr držený ve hře okno, které se mezitím otevřelo (nová úroveň), neposune, dokud ho hráč nepustí. Dva ovladače naráz fungují oba.
+- **Okna:** karty a porovnání výbavy naslepo nic nevezmou: A bez vybrané karty jen vybere první. Kupec má výběr na prvním zboží jako s klávesnicí. Odpojený ovladač uprostřed hry ji zastaví pauzou.
+- **Profil:** psát se na ovladači nedá, takže Nový profil dostane volné jméno (Hráč 2…) a výběr je rovnou na Založit. Výběr chodí i po polích pro jméno a kód, kde má systém klávesnici na obrazovce.
+- **Nápovědy:** kdo hraje na ovladači (`body.ovladac`), tomu se místo klávesových nápověd (`.jen-klavesnice`, `.jen-dotyk`) ukážou `.jen-ovladac` se značkami tlačítek: pata menu, okna karet, porovnání, kupce, pauzy, nápověda dole ve hře a přípony „ (B)“ u tlačítek Zpět, Odejít a Menu. Texty jsou ve slovníku se značkami `{a}`, `{b}`, `{x}`, `{start}`, `{zpet}`, `{packa}`, `{kriz}` (`data-t-ovladac` v `index.html`). Klávesa, klik, dotyk nebo pohnutá myš vrátí nápovědy na klávesnici, další stisk na ovladači zase na ovladač. Najetí myší tlačítka nevybírá, dokud se hraje na ovladači (Chrome jinak po otevření okna pošle najetí i myši, která stojí, a ta by brala výběr).
+- **Značky podle ovladače:** pozice jsou stejné, nápisy podle druhu (z id): Xbox a ostatní A/B/X/Y, Start, Back; PlayStation křížek, kolečko, čtverec, Options, Share; Nintendo B/A/Y/X, +, −. Kulatá tlačítka, páčka a kříž jsou pixelové obrázky 11×11 z [`nastroje/ramy.mjs`](../nastroje/ramy.mjs) (`--tl-*` ve `style.css`), Start a Back dřevěná klávesa s nápisem. V Ovládání je připojený ovladač nahoře, bez něj dole řádek, jak ho připojit.
+- **Zvuk:** prohlížeč pustí zvuk až po kliknutí, dotyku nebo klávese, stisk na ovladači se nepočítá. Dokud zvuk nehraje, pata menu to hráči na ovladači napíše a první klik nebo klávesa ho pustí.
+
+Test hlídá druh ovladače podle id (Chrome i Firefox), mrtvou zónu (pohyb nepřeleze 1, směr zůstane, NaN a nekonečno stojí, hrdina jde s páčkou do půlky plnou rychlostí), hysterezi výběru páčkou, že stisk je jedna událost (i tlačítko zapsané číslem), že držený kříž opakuje přesně po 0,4 s a pak po 0,12 s, že směr držený ve hře okno neposune, že ve hře chodí jen stisky, dva ovladače, odpojení, že nápovědy mají jen známé značky ve všech jazycích stejné, že každá klávesová nápověda okna má nápovědu pro ovladač a tlačítka s (Esc) a (M) příponu (B), že každý druh ovladače má jméno a obrázek každé značky v `ramy.mjs` i `style.css` a že stav ovladače hlásí jen změny. V prohlížeči (Playwright s náhradou `navigator.getGamepads`) prošlo celé menu, Ovládání se značkami všech tří druhů, Nastavení, Profil (nový, přejmenování, smazání), hra, pauza, karty, kupec, porovnání, konec, odpojení a návrat na klávesnici, na desktopu i telefonu.
+
 ## Pro vývoj
 
 Čistý HTML, CSS a JavaScript bez build kroku. Spuštění u sebe:

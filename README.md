@@ -1,7 +1,7 @@
 <!-- README drž krátké. Podrobnosti o nových věcech patří do docs/PODROBNOSTI.md. -->
 # RuGee
 
-Survivors hra v prohlížeči, jde i na mobilu. Přidáš si ji na plochu a hraje se i bez internetu. Ty se jen hýbeš, zbraně střílí samy a hordy nepřátel nekončí. Vydržíš co nejdéle?
+Survivors hra v prohlížeči, jde i na mobilu nebo s ovladačem. Přidáš si ji na plochu a hraje se i bez internetu. Ty se jen hýbeš, zbraně střílí samy a hordy nepřátel nekončí. Vydržíš co nejdéle?
 
 ### ▶ [Hrát](https://kojdad-alt.github.io/RuGee/)
 
@@ -23,7 +23,7 @@ Survivors hra v prohlížeči, jde i na mobilu. Přidáš si ji na plochu a hraj
 
 | | |
 |---|---|
-| Pohyb | WASD nebo šipky, na mobilu tah prstem |
+| Pohyb | WASD, šipky nebo páčka ovladače, na mobilu tah prstem |
 | Výběr karty | 1–3 nebo klik |
 | Přehodit karty | R |
 | Pauza | P |

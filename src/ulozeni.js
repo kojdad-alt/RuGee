@@ -157,7 +157,7 @@ function jmenoObsazene(jmeno, kromeSlotu = null) {
 }
 
 // Jméno, které ještě žádný jiný profil nemá: Hráč, Hráč 2, Hráč 3…
-function volneJmeno(jmeno, kromeSlotu = null) {
+export function volneJmeno(jmeno, kromeSlotu = null) {
   const zaklad = platneJmeno(jmeno) || vychoziJmeno();
   if (!jmenoObsazene(zaklad, kromeSlotu)) return zaklad;
   for (let n = 2; ; n++) {

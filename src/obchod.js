@@ -3,6 +3,7 @@
 // vylepšení, jen s mosazným rámečkem a cenovkou místo rarity (style.css, .zbozi). Nadpis je pixelovým písmem.
 import { nabidkaKupce } from './hra.js';
 import { obrazekSpritu, vyberTlacitko } from './menu.js';
+import { mysVybira } from './ovladac.js';
 import { pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
 import { t } from './texty.js';
 
@@ -64,7 +65,7 @@ export function ukazObchod(okno, hra, kup, vybrat = null) {
   const karty = nabidkaKupce(hra).map((z, i) => {
     const karta = kartaZbozi(z, i);
     karta.addEventListener('click', () => kup(z.id));
-    karta.addEventListener('pointerover', () => { if (!karta.classList.contains('vybrano')) vyberTlacitko(karta); });
+    karta.addEventListener('pointerover', () => { if (mysVybira() && !karta.classList.contains('vybrano')) vyberTlacitko(karta); });
     return karta;
   });
   const zbozi = okno.querySelector('#zbozi');

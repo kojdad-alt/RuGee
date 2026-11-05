@@ -164,6 +164,65 @@ const VYMENA = [
   '....K.......',
 ];
 
+// Značky tlačítek ovladače (nápovědy, Ovládání): kulaté tmavé dřevěné tlačítko 11×11 s obrysem, světlou hranou
+// vlevo nahoře a stínem vpravo dole, na něm mosazné písmeno 5×7 (A, B, X, Y) nebo symbol 5×5 (PlayStation).
+const TLACITKO = [
+  '...KKKKK...',
+  '.KKwwwwwKK.',
+  '.KwdddddDK.',
+  'KwddddddddK',
+  'KwddddddddK',
+  'KwddddddddK',
+  'KwddddddddK',
+  'KwddddddDDK',
+  '.KdddddDDK.',
+  '.KKDDDDDKK.',
+  '...KKKKK...',
+];
+const ZNAKY_TLACITEK = {
+  a: ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+  b: ['####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.'],
+  x: ['#...#', '#...#', '.#.#.', '..#..', '.#.#.', '#...#', '#...#'],
+  y: ['#...#', '#...#', '.#.#.', '..#..', '..#..', '..#..', '..#..'],
+  'ps-krizek': ['#...#', '.#.#.', '..#..', '.#.#.', '#...#'],
+  'ps-kolecko': ['.###.', '#...#', '#...#', '#...#', '.###.'],
+  'ps-ctverec': ['#####', '#...#', '#...#', '#...#', '#####'],
+  'ps-trojuhelnik': ['..#..', '.#.#.', '.#.#.', '#...#', '#####'],
+};
+function tlacitkoSeZnakem(znak) {
+  const radky = TLACITKO.map((r) => [...r]);
+  const shora = znak.length === 7 ? 2 : 3;
+  znak.forEach((r, y) => [...r].forEach((z, x) => { if (z === '#') radky[shora + y][3 + x] = 'g'; }));
+  return radky.map((r) => r.join(''));
+}
+// Kříž (směrové tlačítko) s mosaznými šipkami a páčka s mosaznou hlavou v tmavé jamce.
+const TL_KRIZ = [
+  '...KKKKK...',
+  '...KwgwK...',
+  '...KwwdK...',
+  'KKKKwwdKKKK',
+  'KwwwwwwwwdK',
+  'KgwwwDwwwgK',
+  'KwddddddddK',
+  'KKKKwwdKKKK',
+  '...KwwdK...',
+  '...KdgdK...',
+  '...KKKKK...',
+];
+const TL_PACKA = [
+  '...KKKKK...',
+  '.KKDDDDDKK.',
+  '.KDKKKKKDK.',
+  'KDKDYggDKDK',
+  'KDKYgggoKDK',
+  'KDKggggoKDK',
+  'KDKgggooKDK',
+  'KDKDoooDKDK',
+  '.KDKKKKKDK.',
+  '.KKDDDDDKK.',
+  '...KKKKK...',
+];
+
 export const OBRAZKY = {
   'ram-drevo': RAM_DREVO,
   'ram-mosaz': RAM_MOSAZ,
@@ -174,6 +233,9 @@ export const OBRAZKY = {
   deska: DESKA,
   sipka: SIPKA,
   vymena: VYMENA,
+  ...Object.fromEntries(Object.entries(ZNAKY_TLACITEK).map(([id, znak]) => [`tl-${id}`, tlacitkoSeZnakem(znak)])),
+  'tl-kriz': TL_KRIZ,
+  'tl-packa': TL_PACKA,
 };
 
 // Řádky téže barvy jdou do jedné cesty (úseky vedle sebe se spojí), ať je SVG malé.
