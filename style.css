@@ -346,8 +346,10 @@ html, body {
   initial-value: 0px;
 }
 
-/* --c-pas = text na pruhu rarity (tmavý, nebo světlý tam, kde by tmavý nebyl čitelný) */
-.rarita-bezna { --c: #6e6577; --c-svetla: #f3efe6; --c-pozadi: #221f2b; --c-zar: rgba(0, 0, 0, 0); --c-pas: #fffaf0; }
+/* --c-pas = text na pruhu rarity (tmavý, nebo světlý tam, kde by tmavý nebyl čitelný).
+   --c (rámeček, pruh) je barva rarity jako ve hře. --c-pozadi tónuje líc karty, kusu ve Sbírce a jamky výbavy;
+   běžná rarita líc netónuje, je to čisté dřevo se železným kováním (dřív šedofialový podklad #221f2b). */
+.rarita-bezna { --c: #6e6577; --c-svetla: #f3efe6; --c-pozadi: var(--drevo-1); --c-zar: rgba(0, 0, 0, 0); --c-pas: #fffaf0; }
 .rarita-vzacna { --c: #3d7fd9; --c-svetla: #9fd0ff; --c-pozadi: #172236; --c-zar: rgba(80, 160, 255, 0.4); --zar: 4px; --c-pas: var(--noc); }
 .rarita-epicka { --c: #9a4fd8; --c-svetla: #dcb0ff; --c-pozadi: #241835; --c-zar: rgba(185, 100, 255, 0.5); --zar: 6px; --c-pas: #fffaf0; }
 .rarita-legendarni { --c: #e8962a; --c-svetla: #ffd27a; --c-pozadi: #33230d; --c-zar: rgba(255, 180, 60, 0.6); --zar: 8px; --c-pas: var(--noc); }
