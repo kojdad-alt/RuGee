@@ -5,6 +5,7 @@
 // Jen pravidla, bez DOM a bez úložiště (to je ulozeni.js).
 import { platnaDataProfilu } from './ulozeni.js';
 import { VSECHNY_KUSY } from './vystroj.js';
+import { VYLEPSENI } from './duse.js';
 import { t } from './texty.js';
 
 export const VERZE_KODU = 1;
@@ -19,6 +20,27 @@ const PISMENO_RARITY = { bezna: 'b', vzacna: 'v', epicka: 'e', legendarni: 'l' }
 const SLOT_PISMENA = Object.fromEntries(Object.entries(PISMENO_SLOTU).map(([slot, p]) => [p, slot]));
 const RARITA_PISMENA = Object.fromEntries(Object.entries(PISMENO_RARITY).map(([rarita, p]) => [p, rarita]));
 const KUSY = new Map(VSECHNY_KUSY.map((kus) => [kus.id, kus]));
+// Trvalá vylepšení jsou v kódu jako řetězec úrovní (jeden znak 0–9 a–z na uzel) v tomhle pořadí. Pořadí je napevno,
+// nikdy ho neměň a nic z něj nemaž (staré kódy by se přečetly špatně), nový uzel stromu přidej na konec. Kódy
+// z doby před stromem mají vylepšení jako objekt { id: úroveň }, ty se čtou dál.
+export const PORADI_V_KODU = [
+  'sila', 'zivoty', 'rychlost', 'magnet', 'stesti', 'zkusenosti', 'oziveni',
+  'ostri', 'oko', 'tezkaRuka', 'presnost', 'rozhodnost', 'krvaveOstri', 'rozmach', 'vytrvalost', 'ozvena', 'zlost', 'popravci',
+  'hbitost', 'zasoba', 'zrucnost', 'dosah', 'kovar', 'mistrovstvi', 'prival', 'vybiravost', 'druhyPohled', 'vzacnost', 'dozvuk', 'arzenal',
+  'mesec', 'smlouvani', 'klicnik', 'sberatel', 'sklizen', 'pritazlivost', 'leciva', 'lakota', 'hutne', 'bourka',
+  'vycvik', 'stezka', 'drina', 'lampa', 'hnev', 'mistr', 'lovecBossu', 'lovecElit', 'premozitel', 'postrach', 'trofeje',
+  'lehkost', 'brodeni', 'ostruhy', 'otuzilost', 'cistyDech', 'poutnik', 'unik', 'zvedavost', 'vitr', 'klickovani', 'bludnyKrok',
+  'odolnost', 'hojeni', 'houzevnatost', 'obnova', 'posledniVzdor', 'pancir', 'trny', 'upir', 'dobiti', 'bublina',
+];
+
+function zkratVylepseni(vylepseni) {
+  return PORADI_V_KODU.map((id) => (vylepseni[id] ?? 0).toString(36)).join('').replace(/0+$/, '');
+}
+
+function rozbalVylepseni(u) {
+  if (typeof u !== 'string') return u;
+  return Object.fromEntries([...u].map((znak, i) => [PORADI_V_KODU[i], parseInt(znak, 36)]).filter(([id, uroven]) => id && uroven > 0));
+}
 
 const TABULKA_CRC = Array.from({ length: 256 }, (_, n) => {
   let c = n;
@@ -60,7 +82,7 @@ function zkrat(d) {
     r[mapa] = [z.cas, z.uroven ?? null, z.zabito ?? null, z.hrozba ?? null, z.trida ?? null, z.datum ? Date.parse(z.datum) : null];
   }
   return {
-    v: VERZE_KODU, j: d.jmeno, t: d.trida, m: d.mapa, o: d.mapy, d: d.duse.duse, u: d.duse.vylepseni, s,
+    v: VERZE_KODU, j: d.jmeno, t: d.trida, m: d.mapa, o: d.mapy, d: d.duse.duse, u: zkratVylepseni(d.duse.vylepseni), s,
     ...(Object.keys(s2).length ? { s2 } : {}), r,
   };
 }
@@ -82,7 +104,7 @@ function rozbal(z) {
     if (!Array.isArray(p)) continue;
     rekordy[mapa] = { cas: p[0], uroven: p[1], zabito: p[2], hrozba: p[3], trida: p[4], datum: p[5] };
   }
-  return { jmeno: z.j, trida: z.t, mapa: z.m, mapy: z.o, duse: { duse: z.d, vylepseni: z.u }, sbirka, rekordy };
+  return { jmeno: z.j, trida: z.t, mapa: z.m, mapy: z.o, duse: { duse: z.d, vylepseni: rozbalVylepseni(z.u) }, sbirka, rekordy };
 }
 
 // Kód uložení z dat profilu (ulozeni.dataProfilu).

@@ -11,7 +11,7 @@ import {
 import { kodProfilu, souborProfilu, nazevSouboru, prectiKod, PRIPONA_SOUBORU, MAX_DELKA_KODU } from './prenos.js';
 import { MAPY, PORADI_MAP, ODEMKNUTI_MAPY, predchoziMapa } from './mapy.js';
 import { nahledMapy, kresliPodlahu } from './louka.js';
-import { VYLEPSENI, cenaVylepseni, kupVylepseni, vratDuse, utraceno } from './duse.js';
+import { VYLEPSENI, cenaVylepseni, kupVylepseni, vratDuse, utraceno, stavUzlu, popisVylepseni } from './duse.js';
 import {
   VYBAVA, PORADI_SAD, PORADI_SLOTU, SLOTY, VSECHNY_KUSY, RARITY_VYBAVY, EFEKTY_VYBAVY, idKusu, vytvorKus, radkyStatu,
   popisEfektu, popisSady,
@@ -306,7 +306,9 @@ function vyplnVylepseni(panel) {
     vyplnVylepseni(panel);
     vyberTlacitko(panel.querySelector(`${vybrat}:not(:disabled)`) ?? panel.querySelector('button'));
   };
+  // Strom vylepšení: zatím jako karty, jen uzly, které jdou koupit nebo už jsou koupené.
   for (const [id, v] of Object.entries(VYLEPSENI)) {
+    if (stavUzlu(stav.vylepseni, id) === 'zamceny') continue;
     const uroven = stav.vylepseni[id] ?? 0;
     const cena = cenaVylepseni(id, uroven);
     const karta = prvek('button', 'vylepseni');
@@ -327,7 +329,7 @@ function vyplnVylepseni(panel) {
       cenovka.append(obrazekSpritu('duse', 2), prvek('b', '', String(cena)));
       if (cena > stav.duse) cenovka.append(prvek('small', 'cena-chybi', t('menu.vylepseni.chybi', { n: cena - stav.duse })));
     }
-    karta.append(ikona, nazev, ctverecky, prvek('small', 'vylepseni-popis', v.popis), cenovka);
+    karta.append(ikona, nazev, ctverecky, prvek('small', 'vylepseni-popis', popisVylepseni(id, cena === null ? uroven : uroven + 1)), cenovka);
     const stavKarty = cena === null ? t('menu.vylepseni.ariaHotovo')
       : `${t('menu.vylepseni.ariaCena', { n: cena })}${cena > stav.duse ? t('menu.vylepseni.ariaChybi', { n: cena - stav.duse }) : ''}`;
     karta.setAttribute('aria-label', t('menu.vylepseni.aria', { nazev: v.nazev, uroven, max: v.max, stav: stavKarty }));

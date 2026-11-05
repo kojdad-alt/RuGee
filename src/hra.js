@@ -1,5 +1,5 @@
 // Pravidla hry: pohyb, zbraně, nepřátelé, krystaly zkušeností a vylepšení.
-import { pouzijVylepseni, platnaVylepseni, VYLEPSENI } from './duse.js';
+import { pouzijVylepseni, navicHre, soucetEfektu, utraceno, CENA_STROMU } from './duse.js';
 import { t, pripojTexty } from './texty.js';
 import { PORADI_SLOTU, ucinekVystroje, losujKus, zlatakyZaKus, RARITY_VYBAVY } from './vystroj.js';
 import {
@@ -356,7 +356,7 @@ export function textHrozby(uroven) {
 //   (vlna mapy podle hrozby). Průměr za posledních okno s.
 // Slabší hrdina naskok nemá (nic se mu neulehčí). Do od s se nepočítá nic (začátek je pro všechny stejný).
 export const PRIZPUSOBENI = {
-  vylepseni: 1, uroven: 2, dps: 1.6, max: 7, rust: 1 / 30, pokles: 1 / 30, okno: 15, od: 180,
+  vylepseni: 3, uroven: 2, dps: 1.6, max: 7, rust: 1 / 30, pokles: 1 / 30, okno: 15, od: 180,
 };
 // Úroveň, kterou hrající bot bez vylepšení v průměru má v dané minutě (docs/BALANC.md): do 4. minuty 4 za minutu,
 // pak 8,5 za minutu.
@@ -415,13 +415,15 @@ function prizpusobHrozbu(hra, dt) {
 // kruhPolomer: kruhPocet + kruhNavic za každou minutu hrozby, nejvýš kruhMax. Pohyb obklíčení rozpustí za
 // vyprchani s.
 export const OBKLICENI = {
-  od: 1.5, naplno: 3, pohyb: 0.3, vyprchani: 1.2, silneOd: 2, plnaOd: 6, rana: 2, zbroj: 0.75, nezranitelnost: 0.6,
+  od: 1.5, naplno: 3, pohyb: 0.3, vyprchani: 1.2, silneOd: 2, plnaOd: 6, rana: 2, ranaVylepseni: 8, drive: 2, zbroj: 0.75, nezranitelnost: 0.6,
   kruhOd: 3, kruhPrvni: 0.5, kruhKazdych: 5, kruhPolomer: 230, kruhPocet: 4, kruhNavic: 1.2, kruhMax: 30,
 };
-// Jak silné je obklíčení v tuhle chvíli hry: 0..1 podle minuty (od silneOd do plnaOd roste rovnoměrně).
+// Jak silné je obklíčení v tuhle chvíli hry: 0..1 podle minuty (od silneOd do plnaOd roste rovnoměrně). S trvalými
+// vylepšeními začne a dojde naplno dřív, o drive minut × podíl vylepšení.
 export function silaObkliceni(hra) {
   const o = OBKLICENI;
-  return Math.max(0, Math.min(1, (hra.cas / 60 - o.silneOd) / (o.plnaOd - o.silneOd)));
+  const drive = o.drive * (hra.podilVylepseni ?? 0);
+  return Math.max(0, Math.min(1, (hra.cas / 60 - o.silneOd + drive) / (o.plnaOd - o.silneOd)));
 }
 function obklicuj(hra, dt, ujito, sirka, vyska) {
   const { hrdina } = hra;
@@ -471,9 +473,11 @@ function kruhNepratel(hra, sirka, vyska) {
   hra.kruhu += 1;
   hra.tres = Math.max(hra.tres, TRVANI_TRESU);
 }
-// Rána od nepřítele obklíčenému hrdinovi: větší podle obklíčení.
-function ranaObklicenemu(hrdina, kolik) {
-  return kolik * (1 + OBKLICENI.rana * (hrdina.silaObkliceni ?? 0));
+// Rána od nepřítele obklíčenému hrdinovi: větší podle obklíčení, a čím víc trvalých vylepšení, tím ještě větší
+// (ranaVylepseni × podíl vylepšení navíc k rana): se stromem vylepšení by se jinak dalo zase jen stát.
+function ranaObklicenemu(hra, kolik) {
+  const { hrdina } = hra;
+  return kolik * (1 + (OBKLICENI.rana + OBKLICENI.ranaVylepseni * (hra.podilVylepseni ?? 0)) * (hrdina.silaObkliceni ?? 0));
 }
 
 // Nadbíhání: obyčejný nepřítel nejde na místo, kde hrdina je, ale kam doběhne za čas, než k němu dojde (nejvýš
@@ -951,11 +955,35 @@ function pridelSchopnosti(hra, dt) {
   }
 }
 
-// Podíl trvalých vylepšení: koupené úrovně / všechny úrovně (0 = žádné, 1 = všechna na maximu).
+// Podíl trvalých vylepšení: duše v koupených úrovních / cena celého stromu (0 = žádné, 1 = všechno na maximu).
+// Podle duší, ne podle počtu úrovní: klíčový uzel na konci větve je jedna úroveň, ale stojí a dává jako deset.
 export function podilTrvalych(vylepseni) {
-  const koupeno = Object.values(platnaVylepseni(vylepseni)).reduce((a, b) => a + b, 0);
-  const vse = Object.values(VYLEPSENI).reduce((a, v) => a + v.max, 0);
-  return vse > 0 ? koupeno / vse : 0;
+  return CENA_STROMU > 0 ? utraceno(vylepseni) / CENA_STROMU : 0;
+}
+
+// Klíčové uzly stromu (src/duse.js) s vlastním pravidlem. Bludný krok: po ráně hrdina na trvani s zmizí (jako
+// s Bludným plamenem z výbavy, ten má přednost), nejvýš jednou za pauza s. Arzenál: druhá zbraň na začátku je
+// zbraň další postavy v pořadí TRIDY. Poutník: bahno nezpomalí, led neklouže a láva pálí × lava.
+export const BLUDNY_KROK = { trvani: 1, pauza: 10 };
+// Bublina: Štít bez pasivy se dobije za dobiti s (Rychlé dobití ho zkrátí), s pasivou platí dobíjení pasivy.
+export const BUBLINA = { dobiti: 30 };
+// Poslední vzdor: Oživení vrátí hrdinu s plnými životy a na nezranitelny s nezranitelného.
+export const POSLEDNI_VZDOR = { nezranitelny: 5 };
+export const POUTNIK = { lava: 0.5 };
+export function zbranArzenalu(trida) {
+  const poradi = Object.keys(TRIDY);
+  return TRIDY[poradi[(poradi.indexOf(trida) + 1) % poradi.length]].zbran;
+}
+// Štít je kolem hrdiny s pasivou Štít nebo s trvalou Bublinou.
+export function maStit(hra) {
+  return hra.pasivy?.stit > 0 || hra.hrdina?.bublina > 0;
+}
+// Za kolik sekund se štít dobije: s pasivou podle dobitiStitu, jen s Bublinou za BUBLINA.dobiti (o to, co ubere
+// Rychlé dobití, dřív), nikdy rychleji než MIN_DOBITI_STITU.
+export function dobitiStitu(hra) {
+  const { hrdina } = hra;
+  const dobiti = hra.pasivy?.stit > 0 ? hrdina.dobitiStitu : BUBLINA.dobiti + hrdina.dobitiStitu - (DOBITI_STITU + UBYTEK_STITU);
+  return Math.max(MIN_DOBITI_STITU, dobiti);
 }
 
 // vylepseni: trvalá vylepšení z menu ({ id: úroveň }), bez nich je hra stejná jako dřív.
@@ -986,11 +1014,31 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     // Obklíčení: stani = jak dlouho už stojí na místě, obkliceni = 0..1 (OBKLICENI).
     // silaObkliceni = obklíčení × jak silné je v tuhle chvíli hry (silaObkliceni), podle toho rostou rány.
     stani: 0, obkliceni: 0, silaObkliceni: 0,
+    // Ze stromu trvalých vylepšení (src/duse.js), bez nich nic nemění: kritNavic = o kolik víc bolí kritický
+    // zásah (k NASOBEK_KRITU), popravci = pod jakým podílem životů obyčejný nepřítel po zásahu padne, stestiKaret =
+    // násobek šance na vzácnější karty (jen karty, ne srdce), startUrovne = o kolik úrovní výš začíná startovní
+    // zbraň, arzenal = začne i se zbraní další postavy, poRane = násobek chvíle bez zranění po ráně, brodeni /
+    // ostruhy = o kolik méně zpomalí bahno / klouže led (0–1), odolnostLave / odolnostJedu = o kolik méně pálí láva /
+    // jedové oblaky, poutnik = klíčový uzel Poutník, bludnyKrok = Bludný krok, bublina = Štít bez pasivy, posledniVzdor =
+    // Poslední vzdor (Oživení s plnými životy),
+    // leceniSrdce = násobek léčení ze srdce, sleva = o kolik levněji prodává kupec, bourka = po kolika sekundách se
+    // slétnou všechny krystaly (0 = nikdy), mistrPostavy = o kolik je výhoda postavy větší, silaNaBosse /
+    // silaNaElity = násobek poškození bossům / elitám, trofeje = o kolik zesílí každý zabitý boss.
+    kritNavic: 0, popravci: 0, stestiKaret: 1, startUrovne: 0, arzenal: 0, poRane: 1, brodeni: 0, ostruhy: 0,
+    odolnostLave: 0, odolnostJedu: 0, poutnik: 0, bludnyKrok: 0, bublina: 0, posledniVzdor: 0, leceniSrdce: 1, sleva: 0, bourka: 0,
+    mistrPostavy: 0, silaNaBosse: 1, silaNaElity: 1, trofeje: 0,
   };
-  for (const [vlastnost, nasobek] of Object.entries(TRIDY[trida].nasobky)) hrdina[vlastnost] *= nasobek;
-  pouzijVylepseni(hrdina, vylepseni);
+  // Výhoda postavy (s Mistrem postavy o jeho díl větší), pak trvalá vylepšení.
+  const mistr = soucetEfektu(vylepseni, 'mistrPostavy');
+  for (const [vlastnost, nasobek] of Object.entries(TRIDY[trida].nasobky)) {
+    hrdina[vlastnost] *= mistr > 0 ? 1 + (nasobek - 1) * (1 + mistr) : nasobek;
+  }
+  pouzijVylepseni(hrdina, vylepseni, trida);
   hrdina.hp = hrdina.maxHp;
   const podilVylepseni = podilTrvalych(vylepseni);
+  const navic = navicHre(vylepseni);
+  const zbrane = { [TRIDY[trida].zbran]: { uroven: 1 + Math.max(0, Math.floor(hrdina.startUrovne)), nabiti: 0 } };
+  if (hrdina.arzenal > 0) zbrane[zbranArzenalu(trida)] ??= { uroven: 1, nabiti: 0 };
   return {
     rng,
     trida,
@@ -1005,7 +1053,7 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     zTruhly: false,
     truhlaOd: null,
     hrdina,
-    zbrane: { [TRIDY[trida].zbran]: { uroven: 1, nabiti: 0 } },
+    zbrane,
     pasivy: {},
     nepratele: [],
     strely: [],
@@ -1033,7 +1081,7 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     beden: 0,
     rozbitoBeden: 0,
     zBeden: Object.fromEntries(Object.keys(KORIST_BEDEN).map((id) => [id, 0])),
-    zlataky: 0,
+    zlataky: navic.zlataky ?? 0,
     bomb: 0,
     vybuch: 0,
     tres: 0,
@@ -1170,8 +1218,8 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     mesec: MESEC.strop,
     utraceno: { kupec: 0, prehozeni: 0, zamcene: 0 },
     nakupy: Object.fromEntries(PORADI_ZBOZI.map((id) => [id, 0])),
-    klice: 0,
-    prehozeniZdarma: 0,
+    klice: navic.klice ?? 0,
+    prehozeniZdarma: navic.prehozeniZdarma ?? 0,
     prehozeno: 0,
     prehozeniCelkem: 0,
     kupec: null,
@@ -1185,6 +1233,13 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     zamcenych: 0,
     otevrenoZamcenych: { klic: 0, zlato: 0 },
     odemceno: null,
+    // Klíčové uzly stromu: doBourky = za jak dlouho se slétnou krystaly (Magnetická bouře), počítadla pro
+    // simulaci: popraveno (Popravčí), bourek, trofeji (zabití bossové s Trofejemi), bludnychKroku.
+    doBourky: hrdina.bourka,
+    popraveno: 0,
+    bourek: 0,
+    trofeji: 0,
+    bludnychKroku: 0,
     // Zvuky pro prohlížeč: co se od posledního snímku stalo (id → { pocet, sila }), viz zvuk().
     zvuky: {},
   };
@@ -1256,11 +1311,18 @@ function cisloZasahu(hra, n, poskozeni, krit = false) {
 // (bez losu z rng, ať se náhoda vln neposune). Kdo už v síti je, šanci nebere.
 // Kritický zásah (pasiva) ránu zdvojnásobí, los je z losPasiv.
 export function zasah(hra, n, kolik, zar = false) {
-  const krit = hra.hrdina.krit > 0 && kolik > 0 && losPasiv(hra) < hra.hrdina.krit;
-  const poskozeni = Math.round(kolik * hra.hrdina.sila * (krit ? NASOBEK_KRITU : 1));
+  const h = hra.hrdina;
+  const krit = h.krit > 0 && kolik > 0 && losPasiv(hra) < h.krit;
+  const proti = n.boss ? h.silaNaBosse : n.elita ? h.silaNaElity : 1;
+  const poskozeni = Math.round(kolik * h.sila * (krit ? NASOBEK_KRITU + h.kritNavic : 1) * proti);
   // Pro převahu (přizpůsobení hrozby) se počítá celá rána, i co přeteče přes životy, jen do živého nepřítele.
   if (n.hp > 0 && poskozeni > 0) hra.soucetPoskozeni += poskozeni;
   n.hp -= poskozeni;
+  // Popravčí (strom): obyčejný nepřítel nebo elita, kterému po zásahu zbyde málo životů, padne hned.
+  if (h.popravci > 0 && poskozeni > 0 && n.hp > 0 && !n.boss && n.hp <= n.maxHp * h.popravci) {
+    n.hp = 0;
+    hra.popraveno += 1;
+  }
   if (zar) n.zar = TRVANI_ZARU;
   else n.zasazen = 0.1;
   if (krit) hra.kritu += 1;
@@ -1397,8 +1459,10 @@ function oziv(hra) {
   const { hrdina } = hra;
   hrdina.oziveni -= 1;
   hra.oziveno += 1;
-  hrdina.hp = Math.round(hrdina.maxHp * ZIVOTY_PO_OZIVENI);
-  hrdina.nezranitelny = NEZRANITELNY_PO_OZIVENI;
+  // Poslední vzdor (strom): s plnými životy a déle nezranitelný.
+  const vzdor = hrdina.posledniVzdor > 0;
+  hrdina.hp = Math.round(hrdina.maxHp * (vzdor ? 1 : ZIVOTY_PO_OZIVENI));
+  hrdina.nezranitelny = vzdor ? POSLEDNI_VZDOR.nezranitelny : NEZRANITELNY_PO_OZIVENI;
   hrdina.sit = 0;
   hra.zablesk = TRVANI_ZABLESKU;
   for (const n of hra.nepratele) {
@@ -1433,7 +1497,7 @@ function zran(hra, kolik, barva = 'zraneni', odNepritele = true, utocnik = null,
       return;
     }
   }
-  if (odNepritele && kolik > 0 && hrdina.silaObkliceni > 0) kolik = Math.round(ranaObklicenemu(hrdina, kolik));
+  if (odNepritele && kolik > 0 && hrdina.silaObkliceni > 0) kolik = Math.round(ranaObklicenemu(hra, kolik));
   if (hrdina.zbroj > 0 && kolik > 0) kolik = Math.max(1, Math.round(kolik * (1 - hrdina.zbroj)));
   if (odNepritele && hrdina.pancir > 0 && kolik > 1) {
     const pancir = hrdina.pancir * (1 - OBKLICENI.zbroj * hrdina.silaObkliceni);
@@ -1447,7 +1511,7 @@ function zran(hra, kolik, barva = 'zraneni', odNepritele = true, utocnik = null,
     zvuk(hra, 'zraneni');
   }
   hrdina.hp -= kolik;
-  hrdina.nezranitelny = NEZRANITELNY_PO_RANE * (1 - OBKLICENI.nezranitelnost * hrdina.silaObkliceni);
+  hrdina.nezranitelny = NEZRANITELNY_PO_RANE * hrdina.poRane * (1 - OBKLICENI.nezranitelnost * hrdina.silaObkliceni);
   hra.tres = TRVANI_TRESU;
   if (hrdina.hp <= 0) {
     if (hrdina.oziveni > 0) oziv(hra);
@@ -1456,14 +1520,16 @@ function zran(hra, kolik, barva = 'zraneni', odNepritele = true, utocnik = null,
       zvuk(hra, 'smrtHrdiny');
     }
   }
-  const zmizeni = hra.ucinekVystroje?.efekty.zmizeni;
+  const zVystroje = hra.ucinekVystroje?.efekty.zmizeni;
+  const zmizeni = zVystroje ?? (hrdina.bludnyKrok > 0 ? BLUDNY_KROK : null);
   if (zmizeni && !hra.konec && hrdina.doZmizeni <= 0) {
     hrdina.neviditelny = zmizeni.trvani;
     hrdina.nezranitelny = Math.max(hrdina.nezranitelny, zmizeni.trvani);
     hrdina.doZmizeni = zmizeni.pauza;
     hrdina.zmizelX = hrdina.x;
     hrdina.zmizelY = hrdina.y;
-    hra.efektyPouzito.zmizeni += 1;
+    if (zVystroje) hra.efektyPouzito.zmizeni += 1;
+    else hra.bludnychKroku += 1;
     rozprsk(hra, hrdina.x, hrdina.y, 'bludicka', 8);
   }
   if (hra.ranyZ) hra.ranyZ[zdroj] = (hra.ranyZ[zdroj] ?? 0) + Math.max(0, hpPred - Math.max(0, hrdina.hp));
@@ -1493,7 +1559,7 @@ export const TRVANI_PRASKNUTI = 0.35;
 function zablokuj(hra, kolik) {
   const { hrdina } = hra;
   hrdina.stitHotov = false;
-  hrdina.doStitu = hrdina.dobitiStitu;
+  hrdina.doStitu = dobitiStitu(hra);
   hrdina.nezranitelny = 0.5;
   hra.zablokovano += 1;
   hra.ubranoStitem += kolik;
@@ -1503,13 +1569,14 @@ function zablokuj(hra, kolik) {
   rozprsk(hra, hrdina.x, hrdina.y, 'stit', 10);
 }
 
-// Dobíjení štítu: jen s pasivou, bublina se nafoukne, až doběhne dobitiStitu (další úroveň zkrátí i rozběhnuté
-// dobíjení). Hned po vybrání první úrovně je hotový.
+// Dobíjení štítu: jen s pasivou (nebo trvalou Bublinou), bublina se nafoukne, až doběhne dobitiStitu (další
+// úroveň zkrátí i rozběhnuté dobíjení), nejrychleji za MIN_DOBITI_STITU. Hned po vybrání první úrovně (a na
+// začátku hry s Bublinou) je hotový.
 function dobijStit(hra, dt) {
   const { hrdina } = hra;
   hra.prasklStit = Math.max(0, hra.prasklStit - dt);
-  if (!(hra.pasivy.stit > 0) || hrdina.stitHotov) return;
-  hrdina.doStitu = Math.min(hrdina.doStitu, hrdina.dobitiStitu) - dt;
+  if (!maStit(hra) || hrdina.stitHotov) return;
+  hrdina.doStitu = Math.min(hrdina.doStitu, dobitiStitu(hra)) - dt;
   if (hrdina.doStitu > 0) return;
   hrdina.doStitu = 0;
   hrdina.stitHotov = true;
@@ -3523,7 +3590,10 @@ function jedeKupec(hra, dt, sirka, vyska) {
 export function cenaZbozi(hra, id) {
   const z = ZBOZI[id];
   if (!z) return null;
-  return z.rust === false ? z.cena : Math.round(z.cena * (1 + RUST_CEN) ** (Math.max(1, hra.hrozba) - 1));
+  const cena = z.rust === false ? z.cena : Math.round(z.cena * (1 + RUST_CEN) ** (Math.max(1, hra.hrozba) - 1));
+  // Smlouvání (strom) zlevní všechno zboží, aspoň za 1 zlaťák.
+  const sleva = Math.min(0.9, hra.hrdina?.sleva ?? 0);
+  return sleva > 0 ? Math.max(1, Math.round(cena * (1 - sleva))) : cena;
 }
 
 // Proč zboží teď koupit nejde, nebo null, když jde.
@@ -3688,7 +3758,10 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   const mapa = MAPY[hra.mapa];
   hrdina.plocha = naPlose(hra.mapa, hrdina.x, hrdina.y);
   hrdina.naLedu = hrdina.plocha === 'led';
-  const vBahne = hrdina.plocha === 'bahno' ? mapa.bahno.zpomaleni : 1;
+  // Brodění a Poutník (strom) zpomalení bahnem zmenší, Ostruhy a Poutník klouzání po ledu.
+  let vBahne = hrdina.plocha === 'bahno' ? mapa.bahno.zpomaleni : 1;
+  if (vBahne < 1 && (hrdina.brodeni > 0 || hrdina.poutnik > 0)) vBahne = hrdina.poutnik > 0 ? 1 : 1 - (1 - vBahne) * (1 - Math.min(1, hrdina.brodeni));
+  const klouze = hrdina.naLedu && !(hrdina.poutnik > 0);
   const predX = hrdina.x;
   const predY = hrdina.y;
   if (hrdina.odhozen > 0) {
@@ -3698,13 +3771,13 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     hrdina.odhozen -= kus;
     hrdina.vx = hrdina.odhozVx;
     hrdina.vy = hrdina.odhozVy;
-  } else if (hrdina.naLedu) {
+  } else if (klouze) {
     // Na ledu se rychlost k řízení jen přibližuje (o led.prilnavost za sekundu): hrdina se rozjíždí pomalu,
     // po puštění dál klouže a zatáčí obloukem. Po odhození klouže dál směrem rány.
     const rychlost = hrdina.rychlost * (hrdina.sit > 0 ? ZPOMALENI_SITI : 1);
     const cilX = delka > 0 ? (dx / delka) * rychlost : 0;
     const cilY = delka > 0 ? (dy / delka) * rychlost : 0;
-    const k = 1 - Math.exp(-mapa.led.prilnavost * dt);
+    const k = 1 - Math.exp(-(mapa.led.prilnavost / (1 - Math.min(0.9, hrdina.ostruhy))) * dt);
     hrdina.vx += (cilX - hrdina.vx) * k;
     hrdina.vy += (cilY - hrdina.vy) * k;
     hrdina.x += hrdina.vx * dt;
@@ -3757,7 +3830,9 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   // Láva pálí, dokud v ní hrdina stojí (po každé ráně chvíle klidu jako u jedu), rána roste s hrozbou.
   if (mapa.lava && naPlose(hra.mapa, hrdina.x, hrdina.y) === 'lava' && hrdina.nezranitelny <= 0 && !hra.konec) {
     hra.popaleno += 1;
-    zran(hra, ranaHrozby(hra, mapa.lava.poskozeni), 'ohen', false, null, 'lava');
+    const odolnost = (1 - Math.min(0.9, hrdina.odolnostLave)) * (hrdina.poutnik > 0 ? POUTNIK.lava : 1);
+    const rana = ranaHrozby(hra, mapa.lava.poskozeni);
+    zran(hra, odolnost < 1 ? Math.max(1, Math.round(rana * odolnost)) : rana, 'ohen', false, null, 'lava');
     rozprsk(hra, hrdina.x, hrdina.y + 8, 'lava', 5);
   }
   bublinyBahna(hra, dt);
@@ -3902,7 +3977,9 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   for (const o of hra.oblaky) {
     const pali = TRVANI_OBLAKU - o.zivot >= NAFUKOVANI_OBLAKU;
     if (pali && hrdina.nezranitelny <= 0 && !hra.konec && vzdalenost(o, hrdina) < o.polomer) {
-      zran(hra, ranaHrozby(hra, o.jed ?? JED_OBLAKU), 'jed', o.druh !== 'bahno', null, 'jed');
+      const rana = ranaHrozby(hra, o.jed ?? JED_OBLAKU);
+      const odolnost = 1 - Math.min(0.9, hrdina.odolnostJedu);
+      zran(hra, odolnost < 1 ? Math.max(1, Math.round(rana * odolnost)) : rana, 'jed', o.druh !== 'bahno', null, 'jed');
     }
   }
 
@@ -4058,7 +4135,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       p.sebran = true;
       if (p.druh === 'srdce') {
         const pred = hrdina.hp;
-        hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + LECENI_SRDCE);
+        hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + LECENI_SRDCE * hrdina.leceniSrdce);
         cisloLeceni(hra, hrdina.hp - pred);
         zvuk(hra, 'srdce');
       } else if (p.druh === 'zlatak') {
@@ -4074,6 +4151,17 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     }
   }
   hra.predmety = hra.predmety.filter((p) => !p.sebran);
+  // Magnetická bouře (strom): každých bourka s se k hrdinovi slétnou všechny krystaly a zlaťáky jako po magnetu.
+  if (hrdina.bourka > 0) {
+    hra.doBourky -= dt;
+    if (hra.doBourky <= 0) {
+      hra.doBourky += hrdina.bourka;
+      hra.bourek += 1;
+      zvuk(hra, 'magnet');
+      for (const kr of hra.krystaly) kr.pritahovan = true;
+      for (const q of hra.predmety) if (q.druh === 'zlatak') q.pritahovan = true;
+    }
+  }
   // Kdo padl bombou, umře hned v tomhle snímku (jinak by ještě stihl hrdinu kousnout).
   if (bouchlo) pohrbi(hra);
   zamceneTruhly(hra);
@@ -4247,6 +4335,11 @@ function pohrbi(hra) {
       }
       if (n.boss) {
         hra.zabitoBossu += 1;
+        // Trofeje (strom): každý zabitý boss přidá poškození do konce hry.
+        if (hrdina.trofeje > 0) {
+          hrdina.sila *= 1 + hrdina.trofeje;
+          hra.trofeji += 1;
+        }
         hra.predmety.push({ druh: 'truhla', x: n.x, y: n.y, od: n.druh });
         continue;
       }
@@ -4274,7 +4367,7 @@ function pohrbi(hra) {
 // Šance na každou raritu (součet 1). minimum: horší rarity než tahle nepadnou (truhla bosse).
 export function sanceRarit(hra, minimum = 'bezna') {
   const cas = Math.min(Math.max(0, hra.cas), CAS_PLNYCH_RARIT);
-  const nasobek = (1 + cas / CAS_PLNYCH_RARIT) * Math.max(1, hra.hrdina.stesti ?? 1);
+  const nasobek = (1 + cas / CAS_PLNYCH_RARIT) * Math.max(1, (hra.hrdina.stesti ?? 1) * (hra.hrdina.stestiKaret ?? 1));
   const od = Math.max(0, PORADI_RARIT.indexOf(minimum));
   const vahy = PORADI_RARIT.map((id, i) => (i < od ? 0 : RARITY[id].vaha * (i > 0 ? nasobek : 1)));
   const soucet = vahy.reduce((a, b) => a + b, 0);
