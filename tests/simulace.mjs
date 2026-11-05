@@ -5598,7 +5598,8 @@ const chybyOvladace = [];
   for (const [, obsah] of html.matchAll(/<p class="[^"]*(?:podtitul|napoveda|menu-pata)[^"]*">(.*?)<\/p>/g)) {
     if (obsah.includes('jen-klavesnice') && !obsah.includes('jen-ovladac')) chybyOvladace.push(`nápověda bez ovladače: ${obsah.slice(0, 60)}`);
   }
-  if (klicNapoved.length < 6) chybyOvladace.push(`index.html má jen ${klicNapoved.length} nápověd pro ovladač`);
+  // dole ve hře je místo nápovědy pruh životů, nápovědu pro ovladač mají okna (úroveň, porovnání, kupec, pauza, menu)
+  if (klicNapoved.length < 5) chybyOvladace.push(`index.html má jen ${klicNapoved.length} nápověd pro ovladač`);
   for (const [, tlacitko] of html.matchAll(/<button[^>]*>([^]*?)<\/button>/g)) {
     if (/\((Esc|M)\)/.test(tlacitko) && !tlacitko.includes('class="jen-ovladac" data-tl="b"')) chybyOvladace.push(`tlačítko bez (B): ${tlacitko.slice(0, 50)}`);
   }
