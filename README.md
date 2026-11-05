@@ -30,7 +30,7 @@ Survivors hra v prohlížeči, jde i na mobilu nebo s ovladačem. Přidáš si j
 
 ## Pro vývojáře
 
-Čisté HTML, CSS a JavaScript, bez build kroku.
+Čisté HTML, CSS a JavaScript, bez build kroku. [![Testy](https://github.com/kojdad-alt/RuGee/actions/workflows/testy.yml/badge.svg)](https://github.com/kojdad-alt/RuGee/actions/workflows/testy.yml)
 ```bash
 python3 -m http.server 8000      # pak http://localhost:8000
 node tests/simulace.mjs 1 600    # simulace hry bez prohlížeče
