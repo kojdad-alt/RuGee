@@ -11,7 +11,7 @@ Survivors hra v prohlížeči, jde i na mobilu nebo s ovladačem. Přidáš si j
 
 - **14 zbraní**, od Jiskry a Lucerny po Cep na řetězu a Odrazný kámen. Úrovně nemají strop.
 - **Bossové každé 3 minuty.** Dupou, hází kameny, dělají výpady a vyvolávají pomocníky. Po nich zůstane truhla s výbavou.
-- **Hrozba** roste každou minutu a od 5. minuty chodí elity.
+- **Hrozba** roste každou minutu, od 5. minuty chodí elity a kdo stojí na místě, toho nepřátelé obklíčí.
 - **6 map**: Louka, Jeskyně hlubin, Zamrzlé jezero, Sopka, Bažina a Hřbitov za noci. Každá má svého bosse a svoje nástrahy, ve tmě svítí lucerna, krystaly i oheň.
 - **4 postavy**: Lovec, Havíř, Světlonoš a Bouřlivák.
 - **Zlaťáky** na kupce, přehazování karet a zamčené truhly. Z **duší** si koupíš trvalá vylepšení.

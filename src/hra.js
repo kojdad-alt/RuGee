@@ -1,5 +1,5 @@
 // Pravidla hry: pohyb, zbraně, nepřátelé, krystaly zkušeností a vylepšení.
-import { pouzijVylepseni } from './duse.js';
+import { pouzijVylepseni, platnaVylepseni, VYLEPSENI } from './duse.js';
 import { t, pripojTexty } from './texty.js';
 import { PORADI_SLOTU, ucinekVystroje, losujKus, zlatakyZaKus, RARITY_VYBAVY } from './vystroj.js';
 import {
@@ -293,20 +293,23 @@ export function platnaTrida(id) {
 //   elita: od elitaOd šance elitaSance na každého z vlny, od castejiOd navíc + elitaRust · (min − castejiOd), nanejvýš elitaMax
 // Exponenty od narustOd jsou pojistka, že nikdo nevydrží donekonečna: zbraně bez stropu úrovní by jinak lineární
 // růst přerostly, rychlý hrdina by nepřátelům utíkal napořád a srdce ze zabitých by doléčila každou ránu.
-// Od pozdeOd se životy i poškození (i bossů) násobí ještě narustPozde za minutu: se zlaťáky (vylepšení od kupce,
-// zamčené truhly) vydržel bot se všemi trvalými vylepšeními místo 19–21 min až 30. S pasivami pro zbraně (krit,
-// ozvěna, rychlé ruce, příval …) zase místo 21–24 min 27–30+, proto 1,3 místo 1,15. S Pasivami II (hlavně Štít
-// a Moudrost) vydržel 25–34 min, proto 1,36 místo 1,3. Bez trvalých vylepšení se tam nikdo nedostane, takže se
-// mu nic nemění.
-// Vyváženo simulací (tests/simulace.mjs, hrozba.preziti_min): bot bez trvalých vylepšení vydrží zhruba 4–15 min,
-// se všemi na maximu (s výbavou bossů z truhel, se zlaťáky, s pasivami pro zbraně, pro přežití i s Pasivami II)
-// 24–29 min. Brzký růst rychlosti je citlivý: už 0,015 místo 0,01 složí slabého bota v 6. minutě.
+// Od pozdeOd se životy i poškození (i bossů) násobí ještě narustPozde za minutu: zlaťáky (vylepšení od kupce,
+// zamčené truhly), pasivy pro zbraně (krit, ozvěna, rychlé ruce, příval …) a Pasivy II (hlavně Štít a Moudrost)
+// by jinak plně vylepšeného hrdinu držely nad vodou mnohem déle.
+// Těžší hra (zadání 5. 11. 2026: „mobové jsou fakt slabí, postupně je zrychlovat, přidávat jim životy, sílu“):
+// dřív nárůst začínal až v 8. minutě a pozdní v 18., bot bez vylepšení na Louce vydržel 15+ min a se všemi
+// vylepšeními 28. Teď roste všechno (životy ×1,25, poškození ×1,1, rychlost +2 % a ×1,03 za minutu) už od 3.
+// minuty a pozdní nárůst ×1,3 od 10., takže každá minuta je aspoň o 15 % těžší než předchozí (test to hlídá).
+// Louka se plní pomaleji (maxNepratel 120 + 25 za minutu místo 350 + 5): slabý hrdina nepadne na zaplněné louce
+// ve 3. minutě, ale na síle nepřátel. Cíl (medián Louky přes postavy, docs/BALANC.md, sekce Stání a vylepšení):
+// hrající bot bez vylepšení 5–7 min, se všemi vylepšeními 12–16 min, stojící se všemi do 5 min. Stání trestá
+// obklíčení (OBKLICENI), silného hrdinu přizpůsobení hrozby (PRIZPUSOBENI).
 export const HROZBA = {
-  zivoty: 0.1, narustOd: 8, narustZivotu: 1.25, bossZivoty: 0.2, bossNavic: 0.3, pozdeOd: 18, narustPozde: 1.36,
+  zivoty: 0.1, narustOd: 3, narustZivotu: 1.25, bossZivoty: 0.2, bossNavic: 0.3, pozdeOd: 10, narustPozde: 1.3,
   poskozeni: 0.05, narustPoskozeni: 1.1,
-  rychlost: 0.01, narustRychlosti: 1.08, maxRychlost: 3,
+  rychlost: 0.02, narustRychlosti: 1.03, maxRychlost: 3,
   prvniVlna: 1.2, zkraceniVlny: 1 / 3, nejkratsiVlna: 0.25, davka: 1, maxDavka: 40,
-  maxNepratel: 350, navicNepratel: 5, stropNepratel: 450,
+  maxNepratel: 120, navicNepratel: 25, stropNepratel: 450,
   elitaOd: 5, castejiOd: 10, elitaSance: 0.01, elitaRust: 0.01, elitaMax: 0.15,
 };
 // Elita je obyčejný nepřítel z vlny, jen o třetinu větší (kreslí se 4 px na pixel místo 3), s rudým obrysem
@@ -342,6 +345,148 @@ export function textHrozby(uroven) {
   if (uroven === HROZBA.elitaOd + 1) return t('hra.hrozba.elity', { n: uroven });
   return t('hra.hrozba.sili', { n: uroven });
 }
+
+// Přizpůsobení hrozby síle hrdiny: silný hrdina má hrozbu o naskok minut dál, než by odpovídalo času (víc životů,
+// poškození, rychlosti, větší vlny, víc elit a silnější bossové, všechno přes silaHrozby). Cíl naskoku se skládá ze
+// tří dílů a hrozba k němu jde postupně (rust minut za sekundu nahoru, pokles dolů), nejvýš max minut:
+//   vylepseni × podíl trvalých vylepšení (0 = žádné, 1 = všechna na maximu),
+//   uroven × ln(úroveň / ocekavanaUroven) nad očekávanou úrovní (ta je z bota bez vylepšení),
+//   dps × ln(převaha), když je převaha nad 1. Převaha = poškození zbraní za sekundu (i to, co přeteče přes životy:
+//   kdo nepřátele kosí jednou ranou, má převahu velkou) proti tomu, kolik životů nepřátel za sekundu přichází
+//   (vlna mapy podle hrozby). Průměr za posledních okno s.
+// Slabší hrdina naskok nemá (nic se mu neulehčí). Do od s se nepočítá nic (začátek je pro všechny stejný).
+export const PRIZPUSOBENI = {
+  vylepseni: 1, uroven: 2, dps: 1.6, max: 7, rust: 1 / 30, pokles: 1 / 30, okno: 15, od: 180,
+};
+// Úroveň, kterou hrající bot bez vylepšení v průměru má v dané minutě (docs/BALANC.md): do 4. minuty 4 za minutu,
+// pak 8,5 za minutu.
+export function ocekavanaUroven(min) {
+  const m = Math.max(0, Number(min) || 0);
+  return m <= 4 ? 1 + 4 * m : 17 + 8.5 * (m - 4);
+}
+// Kolik životů nepřátel za sekundu přichází: vlna (davka za vlna s) × průměrné životy druhů, které už na mapě chodí
+// (podle vah), × hrozba a obtížnost mapy.
+export function prisunZivotu(hra) {
+  const sila = silaHry(hra);
+  const druhy = MAPY[hra.mapa].nepratele.filter((d) => d.od <= 0 || hra.cas > d.od);
+  const vahy = druhy.reduce((a, d) => a + d.vaha, 0) || 1;
+  const prumer = druhy.reduce((a, d) => a + NEPRATELE[d.druh].hp * d.vaha, 0) / vahy;
+  return (sila.davka / sila.vlna) * prumer * sila.zivoty * obtiznostMapy(hra.mapa).zivoty;
+}
+// Převaha hrdiny: poškození za sekundu (průměr za okno) proti přísunu životů.
+export function prevaha(hra) {
+  const prisun = prisunZivotu(hra);
+  return prisun > 0 ? (hra.soucetPoskozeni ?? 0) / PRIZPUSOBENI.okno / prisun : 0;
+}
+// Cíl naskoku (v minutách) podle síly hrdiny, rozpis po dílech kvůli přehledu a simulaci.
+export function cilNaskoku(hra) {
+  const p = PRIZPUSOBENI;
+  if (!(hra.cas >= p.od)) return { vylepseni: 0, uroven: 0, dps: 0, celkem: 0 };
+  const vylepseni = p.vylepseni * (hra.podilVylepseni ?? 0);
+  const uroven = p.uroven * Math.max(0, Math.log(hra.hrdina.uroven / ocekavanaUroven(hra.cas / 60)));
+  const dps = p.dps * Math.max(0, Math.log(prevaha(hra)));
+  return { vylepseni, uroven, dps, celkem: Math.min(p.max, vylepseni + uroven + dps) };
+}
+// Kolik minut hrozby má hra opravdu (čas + naskok) a síla nepřátel podle toho.
+export function casHrozby(hra) {
+  return hra.cas + 60 * (hra.naskok ?? 0);
+}
+export function silaHry(hra) {
+  return silaHrozby(casHrozby(hra));
+}
+// Celé stupně hrozby navíc za sílu hrdiny (ukáže se v liště jako „+N“).
+export function hrozbaNavic(hra) {
+  return Math.max(0, silaHry(hra).uroven - silaHrozby(hra.cas).uroven);
+}
+function prizpusobHrozbu(hra, dt) {
+  const p = PRIZPUSOBENI;
+  // Poškození za okno s: zasah() přičítá, každou sekundu ubude 1/okno (klouzavý průměr).
+  hra.soucetPoskozeni *= Math.exp(-dt / p.okno);
+  const cil = cilNaskoku(hra).celkem;
+  if (cil > hra.naskok) hra.naskok = Math.min(cil, hra.naskok + p.rust * dt);
+  else hra.naskok = Math.max(cil, hra.naskok - p.pokles * dt);
+}
+
+// Obklíčení: kdo stojí na místě (ujde míň než pohyb × své rychlosti), tomu po od s začne obklíčení růst a za naplno s
+// je plné. Obklíčenému dávají nepřátelé větší rány (× 1 + rana), zbroj (pasiva) mu ubere jen (1 − zbroj) svého
+// a chvíle bez zranění po ráně je o nezranitelnost kratší. Všechno podle toho, jak je obklíčení plné, a sílí to
+// s časem: do silneOd. minuty nic, naplno od plnaOd. minuty (silaObkliceni). Plně obklíčeného hrdinu od kruhOd.
+// minuty každých kruhKazdych s (první po kruhPrvni s) obklíčí kruh nepřátel z mixu mapy ve vzdálenosti
+// kruhPolomer: kruhPocet + kruhNavic za každou minutu hrozby, nejvýš kruhMax. Pohyb obklíčení rozpustí za
+// vyprchani s.
+export const OBKLICENI = {
+  od: 1.5, naplno: 3, pohyb: 0.3, vyprchani: 1.2, silneOd: 2, plnaOd: 6, rana: 2, zbroj: 0.75, nezranitelnost: 0.6,
+  kruhOd: 3, kruhPrvni: 0.5, kruhKazdych: 5, kruhPolomer: 230, kruhPocet: 4, kruhNavic: 1.2, kruhMax: 30,
+};
+// Jak silné je obklíčení v tuhle chvíli hry: 0..1 podle minuty (od silneOd do plnaOd roste rovnoměrně).
+export function silaObkliceni(hra) {
+  const o = OBKLICENI;
+  return Math.max(0, Math.min(1, (hra.cas / 60 - o.silneOd) / (o.plnaOd - o.silneOd)));
+}
+function obklicuj(hra, dt, ujito, sirka, vyska) {
+  const { hrdina } = hra;
+  const o = OBKLICENI;
+  if (ujito < o.pohyb * hrdina.rychlost * dt) hrdina.stani += dt;
+  else hrdina.stani = 0;
+  const pred = hrdina.obkliceni;
+  if (hrdina.stani > o.od) hrdina.obkliceni = Math.min(1, hrdina.obkliceni + dt / o.naplno);
+  else hrdina.obkliceni = Math.max(0, hrdina.obkliceni - dt / o.vyprchani);
+  hrdina.silaObkliceni = hrdina.obkliceni * silaObkliceni(hra);
+  if (hrdina.obkliceni < 1 || hra.cas < o.kruhOd * 60) {
+    hra.doKruhu = o.kruhPrvni;
+    return;
+  }
+  if (pred < 1) {
+    hra.obkliceno += 1;
+    zvuk(hra, 'obkliceni');
+    if (!hra.oznameni || hra.oznameni.zivot < 1) hra.oznameni = { text: t('hra.obkliceni'), zivot: 2 };
+  }
+  hra.doKruhu -= dt;
+  if (hra.doKruhu > 0) return;
+  hra.doKruhu = o.kruhKazdych;
+  kruhNepratel(hra, sirka, vyska);
+}
+// Kruh nepřátel kolem hrdiny (obklíčení). Duchové ne (ti stejně proletí), přes strop louky jen o kruhMax. Nepřátelé
+// z kruhu schopnosti nemají.
+function kruhNepratel(hra, sirka, vyska) {
+  const { hrdina, rng } = hra;
+  const o = OBKLICENI;
+  const sila = silaHry(hra);
+  const volno = sila.maxNepratel + o.kruhMax - hra.nepratele.length;
+  const pocet = Math.min(volno, o.kruhMax, o.kruhPocet + Math.floor(o.kruhNavic * sila.min));
+  if (pocet <= 0) return;
+  const druhy = MAPY[hra.mapa].nepratele.filter((d) => (d.od <= 0 || hra.cas > d.od) && !NEPRATELE[d.druh].duch);
+  const celkem = druhy.reduce((soucet, d) => soucet + d.vaha, 0);
+  const otoceni = rng.dalsi() * Math.PI * 2;
+  for (let i = 0; i < pocet; i++) {
+    const uhel = otoceni + (i / pocet) * Math.PI * 2;
+    const misto = { x: hrdina.x + Math.cos(uhel) * o.kruhPolomer, y: hrdina.y + Math.sin(uhel) * o.kruhPolomer };
+    vytlacZPrekazek(hra.mapa, misto, 12);
+    const n = pridejNepritele(hra, druhy.length ? losujDruh(druhy, celkem, rng.dalsi()) : 'netopyr', misto.x, misto.y);
+    // Kruh jen obkličuje: jde na hrdinu, kosti ani skoky nemá (ty patří vlnám).
+    n.kruh = true;
+    delete n.doSchopnosti;
+    rozprsk(hra, misto.x, misto.y, 'stin', 4);
+  }
+  hra.kruhu += 1;
+  hra.tres = Math.max(hra.tres, TRVANI_TRESU);
+}
+// Rána od nepřítele obklíčenému hrdinovi: větší podle obklíčení.
+function ranaObklicenemu(hrdina, kolik) {
+  return kolik * (1 + OBKLICENI.rana * (hrdina.silaObkliceni ?? 0));
+}
+
+// Nadbíhání: obyčejný nepřítel nejde na místo, kde hrdina je, ale kam doběhne za čas, než k němu dojde (nejvýš
+// predstih s), a z toho jen podil. Utíkajícímu hrdinovi tak nepřátelé nadbíhají a zavírají cestu, stojícímu nic.
+// Vlny navíc od od s chodí častěji zepředu: díl zepredu nepřátel z vln vyleze v kuželu rozptyl (radiány) před
+// běžícím hrdinou, ostatní kdekoli kolem (v kuželu je jich tak zepredu + (1 − zepredu) · rozptyl / 2π).
+export const NADBIHANI = { predstih: 0.9, podil: 0.6, od: 40, zepredu: 0.1, rozptyl: 2.1 };
+// Elita vede smečku: obyčejní nepřátelé do dosah px od elity jdou × rychlost.
+export const VUDCE = { dosah: 130, rychlost: 1.25 };
+
+// Bossové víc tlačí: pauza bossů mezi schopnostmi se s každou minutou hrozby po od. zkracuje o zaMinutu (nejvýš
+// na min) a obklíčenému hrdinovi ještě na stani. Boss dál než dohani px od hrdiny jde rychleji (× dohaniRychlost).
+export const TLAK_BOSSU = { od: 3, zaMinutu: 0.03, min: 0.5, stani: 0.6, dohani: 380, dohaniRychlost: 1.7 };
 
 const MAX_KRYSTALU = 300;
 const SANCE_SRDCE = 0.012;
@@ -462,6 +607,9 @@ export const SCHOPNOSTI = {
   // Vějíř: boss se přenese kousek od hrdiny (na obrazovku), nabije se a vystřelí salv vějířů po strel střelách,
   // každý znovu namířený na hrdinu.
   vejir: { varovani: VAROVANI, strel: 5, salv: 2, mezi: 0.4, rozestup: 0.22, poskozeni: 8, rychlost: 160 },
+  // Skok: nepřítel se přikrčí a zamíří na místo, kde hrdina je (kruh dopadu je vidět od začátku), pak přeletí
+  // obloukem (let s, ve vzduchu nekouše) a dopadne. Kdo je v kruhu, dostane ránu. Hrdinovi do blizko px neskáče.
+  skok: { varovani: 0.55, dosah: 240, blizko: 50, let: 0.5, polomer: 36, poskozeni: 3 },
 };
 pripojTexty(SCHOPNOSTI, 'schopnosti');
 // Pod ZURIVOST životů boss zuří: mezi schopnostmi čeká jen ZRYCHLENI_ZURIVOSTI své pauzy.
@@ -554,10 +702,11 @@ export function poradiBossu(mapa) {
 }
 // Schopnosti jednoho bosse v pořadí, jak je střídá: data ze SCHOPNOSTI a přes ně to, co má boss jinak.
 // Jméno schopnosti zůstane getter ze SCHOPNOSTI (rozbalení by ho zkopírovalo v jazyce, který platil při načtení).
+function schopnostSeJmenem(data, id) {
+  return Object.defineProperty(data, 'nazev', { get: () => SCHOPNOSTI[id].nazev, enumerable: true, configurable: true });
+}
 const SEZNAM_SCHOPNOSTI = Object.fromEntries(Object.entries(BOSSOVE).map(([druh, b]) => [
-  druh, b.schopnosti.map((s) => Object.defineProperty({ ...SCHOPNOSTI[s.id], ...s }, 'nazev', {
-    get: () => SCHOPNOSTI[s.id].nazev, enumerable: true, configurable: true,
-  })),
+  druh, b.schopnosti.map((s) => schopnostSeJmenem({ ...SCHOPNOSTI[s.id], ...s }, s.id)),
 ]));
 export function schopnostiBosse(druh) {
   return SEZNAM_SCHOPNOSTI[druh] ?? [];
@@ -739,6 +888,64 @@ const NEPRATELE = {
 };
 export const RYCHLOST_NEPRATEL = Object.fromEntries(Object.entries(NEPRATELE).map(([id, v]) => [id, v.rychlost]));
 
+// Schopnosti obyčejných nepřátel: stejná pravidla jako u bossů (varování, pak provedení, pauza s mezi nimi), jen
+// menší. Kostlivec hází kost (Hod): dopadne kousek před hrdinu tam, kam běží (predstih), stojícímu přesně pod nohy,
+// takže stojícího trefí vždy a kdo kličkuje, ten uteče. Slizák skáče (Skok): přikrčí se, zamíří na místo, kde hrdina je, a dopadne tam (kruh na zemi je
+// vidět celou dobu). Elita k tomu dostane nápor (výpad elity) a svoje schopnosti silnější (ELITNI): víc kostí do
+// rozptylu, větší dopad skoku, kratší pauza. Kdo je omráčený, držený, zapředený nebo odhozený, nic nezačne
+// (a rozběhnuté varování se mu přeruší). Schopnosti zkoušejí až od OBYCEJNE.od s hry (začátek je na rozkoukání)
+// a všichni dohromady jen tolik, kolik dovolí příděl: kostí za sekundu kosti + kostiRust za každou minutu, skoků
+// skoky + skokyRust (s časem útočí čím dál víc), našetřit se dá nejvýš zasoba. Víc by člověk nestihl sledovat.
+export const SCHOPNOSTI_NEPRATEL = {
+  kostlivec: {
+    pauza: 3.2,
+    schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.45, dosah: 330, strela: 'kost', pocet: [1, 1], let: 0.8, polomer: 22, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
+  },
+  slizak: {
+    pauza: 3.6,
+    schopnosti: [{ id: 'skok', varovani: 0.55, dosah: 240 }],
+  },
+};
+export const NAPOR_ELITY = { id: 'vypad', zvuk: 'napor', varovani: 0.7, zamek: 0.25, dosah: 340, rychlost: 430, delka: 320, poskozeni: 12, odhozeni: 50 };
+export const ELITNI = { pauza: 0.75, pauzaBezSchopnosti: 3.6, kosti: [3, 3], rozptylKosti: 44, skok: 1.4 };
+export const PRVNI_SCHOPNOST_NEPRATEL = 1.2;
+export const OBYCEJNE = { od: 120, kosti: 0.04, kostiRust: 0.045, skoky: 0.04, skokyRust: 0.05, zasoba: 2 };
+// Schopnosti nepřítele daného druhu (elita = jako elita), data ze SCHOPNOSTI a přes ně co má nepřítel jinak.
+const SCHOPNOSTI_NEPRATEL_CACHE = new Map();
+export function schopnostiNepritele(druh, elita = false) {
+  const klic = `${druh}${elita ? '*' : ''}`;
+  if (SCHOPNOSTI_NEPRATEL_CACHE.has(klic)) return SCHOPNOSTI_NEPRATEL_CACHE.get(klic);
+  const vlastni = SCHOPNOSTI_NEPRATEL[druh]?.schopnosti ?? [];
+  const seznam = [...vlastni.map((s) => {
+    const elitni = !elita ? {} : s.id === 'hod' ? { pocet: ELITNI.kosti, rozptyl: ELITNI.rozptylKosti }
+      : s.id === 'skok' ? { polomer: SCHOPNOSTI.skok.polomer * ELITNI.skok } : {};
+    return schopnostSeJmenem({ ...SCHOPNOSTI[s.id], ...s, ...elitni }, s.id);
+  }), ...(elita ? [schopnostSeJmenem({ ...SCHOPNOSTI.vypad, ...NAPOR_ELITY }, 'vypad')] : [])];
+  SCHOPNOSTI_NEPRATEL_CACHE.set(klic, seznam);
+  return seznam;
+}
+export function pauzaNepritele(n) {
+  const vlastni = SCHOPNOSTI_NEPRATEL[n.druh]?.pauza;
+  if (!n.elita) return vlastni ?? 3.5;
+  return vlastni ? vlastni * ELITNI.pauza : ELITNI.pauzaBezSchopnosti;
+}
+// Příděl kostí a skoků obyčejných nepřátel (OBYCEJNE): každou sekundu přibude podle minuty hry.
+const PRIDEL = { hod: ['kosti', 'kostiRust'], skok: ['skoky', 'skokyRust'] };
+function pridelSchopnosti(hra, dt) {
+  const o = OBYCEJNE;
+  const min = hra.cas / 60;
+  for (const [id, [zaklad, rust]] of Object.entries(PRIDEL)) {
+    hra.pridel[id] = Math.min(o.zasoba, hra.pridel[id] + (o[zaklad] + o[rust] * min) * dt);
+  }
+}
+
+// Podíl trvalých vylepšení: koupené úrovně / všechny úrovně (0 = žádné, 1 = všechna na maximu).
+export function podilTrvalych(vylepseni) {
+  const koupeno = Object.values(platnaVylepseni(vylepseni)).reduce((a, b) => a + b, 0);
+  const vse = Object.values(VYLEPSENI).reduce((a, v) => a + v.max, 0);
+  return vse > 0 ? koupeno / vse : 0;
+}
+
 // vylepseni: trvalá vylepšení z menu ({ id: úroveň }), bez nich je hra stejná jako dřív.
 // idMapy: kde se hraje (mapy.js), neznámá mapa = Louka.
 export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = VYCHOZI_MAPA) {
@@ -764,10 +971,14 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     // pasivy o úroveň víc, první úroveň ho zapne přesně na DOBITI_STITU), doStitu = za jak dlouho bude hotový,
     // stitHotov = bublina je kolem hrdiny, chamtivost = násobek duší za hru.
     upiri: 0, doSani: 0, trnovaZbroj: 0, dobitiStitu: DOBITI_STITU + UBYTEK_STITU, doStitu: 0, stitHotov: false, chamtivost: 1,
+    // Obklíčení: stani = jak dlouho už stojí na místě, obkliceni = 0..1 (OBKLICENI).
+    // silaObkliceni = obklíčení × jak silné je v tuhle chvíli hry (silaObkliceni), podle toho rostou rány.
+    stani: 0, obkliceni: 0, silaObkliceni: 0,
   };
   for (const [vlastnost, nasobek] of Object.entries(TRIDY[trida].nasobky)) hrdina[vlastnost] *= nasobek;
   pouzijVylepseni(hrdina, vylepseni);
   hrdina.hp = hrdina.maxHp;
+  const podilVylepseni = podilTrvalych(vylepseni);
   return {
     rng,
     trida,
@@ -906,6 +1117,22 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     hlaseniHrozby: null,
     doElity: 0,
     elit: 0,
+    // Přizpůsobení hrozby (PRIZPUSOBENI): naskok = o kolik minut je hrozba dál než čas, podilVylepseni = 0..1 ze
+    // trvalých vylepšení, soucetPoskozeni = poškození zbraní za poslední okno s (pro převahu).
+    podilVylepseni,
+    naskok: 0,
+    soucetPoskozeni: 0,
+    // Obklíčení: doKruhu = za jak dlouho obklíčí plně obklíčeného hrdinu další kruh, kruhu a obkliceno = počítadla.
+    doKruhu: OBKLICENI.kruhPrvni,
+    kruhu: 0,
+    obkliceno: 0,
+    // Schopnosti obyčejných nepřátel: kolikrát která začala a kolikrát hrdinu trefila.
+    schopnostiNepratel: {},
+    zasahyNepratel: { hod: 0, skok: 0, vypad: 0 },
+    // příděl kostí a skoků obyčejných nepřátel (OBYCEJNE), kolik jich teď smí začít
+    pridel: { hod: 0, skok: 0 },
+    // Kolik životů hrdinovi ubralo co (dotyk, schopnost obyčejných nepřátel, boss, jed, láva), pro simulaci.
+    ranyZ: { dotyk: 0, schopnost: 0, boss: 0, jed: 0, lava: 0 },
     // Výbava bossů: vystroj = co má hrdina v kterém slotu, ucinekVystroje = co mu to právě dává (už promítnuté
     // do vlastností hrdiny), nalezy = kusy z truhel v pořadí nálezu, otevira = truhla, která se právě otevírá,
     // porovnani = nový kus do obsazeného slotu čeká na Vzít / Nechat, truhlaKus = kus z poslední truhly, který
@@ -1019,6 +1246,8 @@ function cisloZasahu(hra, n, poskozeni, krit = false) {
 export function zasah(hra, n, kolik, zar = false) {
   const krit = hra.hrdina.krit > 0 && kolik > 0 && losPasiv(hra) < hra.hrdina.krit;
   const poskozeni = Math.round(kolik * hra.hrdina.sila * (krit ? NASOBEK_KRITU : 1));
+  // Pro převahu (přizpůsobení hrozby) se počítá celá rána, i co přeteče přes životy, jen do živého nepřítele.
+  if (n.hp > 0 && poskozeni > 0) hra.soucetPoskozeni += poskozeni;
   n.hp -= poskozeni;
   if (zar) n.zar = TRVANI_ZARU;
   else n.zasazen = 0.1;
@@ -1172,6 +1401,8 @@ function oziv(hra) {
   cisloLeceni(hra, hrdina.hp);
 }
 
+// Chvíle bez zranění po ráně (obklíčenému kratší, OBKLICENI.nezranitelnost).
+export const NEZRANITELNY_PO_RANE = 0.5;
 // Zranění hrdiny (dotyk nepřítele, útok bosse nebo jedový oblak): červené číslo nad ním, chvíle bez zranění,
 // třes, případně konec nebo Oživení. barva 'jed' = rána z oblaku (kreslí se stejně, jen se pozná).
 // Zbroj z výbavy ubere z rány svůj díl (aspoň 1 projde vždy). S Bludným plamenem hrdina po ráně zmizí.
@@ -1179,8 +1410,10 @@ function oziv(hra) {
 // a i tak projde aspoň 1 (menší rána zůstane, jak byla).
 // utocnik = kdo ránu dal (nepřítel při dotyku, boss u schopnosti), tomu Trnová zbroj vrátí podíl celé rány. Hotový
 // Štít pak ránu od nepřátel zastaví celou (bez červeného čísla, třesu i Bludného plamene).
-function zran(hra, kolik, barva = 'zraneni', odNepritele = true, utocnik = null) {
+// zdroj = za co rána je (pro rozpis ranyZ v simulaci): dotyk, schopnost (obyčejných nepřátel), boss, jed, lava.
+function zran(hra, kolik, barva = 'zraneni', odNepritele = true, utocnik = null, zdroj = 'dotyk') {
   const { hrdina } = hra;
+  const hpPred = hrdina.hp;
   if (odNepritele && kolik > 0) {
     odvetaTrnu(hra, utocnik, kolik);
     if (hrdina.stitHotov) {
@@ -1188,9 +1421,11 @@ function zran(hra, kolik, barva = 'zraneni', odNepritele = true, utocnik = null)
       return;
     }
   }
+  if (odNepritele && kolik > 0 && hrdina.silaObkliceni > 0) kolik = Math.round(ranaObklicenemu(hrdina, kolik));
   if (hrdina.zbroj > 0 && kolik > 0) kolik = Math.max(1, Math.round(kolik * (1 - hrdina.zbroj)));
   if (odNepritele && hrdina.pancir > 0 && kolik > 1) {
-    const zbude = Math.max(1, kolik - hrdina.pancir);
+    const pancir = hrdina.pancir * (1 - OBKLICENI.zbroj * hrdina.silaObkliceni);
+    const zbude = Math.max(1, Math.round(kolik - pancir));
     hra.ubranoZbroji += kolik - zbude;
     hra.zbrojiZasahu += 1;
     kolik = zbude;
@@ -1200,7 +1435,7 @@ function zran(hra, kolik, barva = 'zraneni', odNepritele = true, utocnik = null)
     zvuk(hra, 'zraneni');
   }
   hrdina.hp -= kolik;
-  hrdina.nezranitelny = 0.5;
+  hrdina.nezranitelny = NEZRANITELNY_PO_RANE * (1 - OBKLICENI.nezranitelnost * hrdina.silaObkliceni);
   hra.tres = TRVANI_TRESU;
   if (hrdina.hp <= 0) {
     if (hrdina.oziveni > 0) oziv(hra);
@@ -1219,6 +1454,11 @@ function zran(hra, kolik, barva = 'zraneni', odNepritele = true, utocnik = null)
     hra.efektyPouzito.zmizeni += 1;
     rozprsk(hra, hrdina.x, hrdina.y, 'bludicka', 8);
   }
+  if (hra.ranyZ) hra.ranyZ[zdroj] = (hra.ranyZ[zdroj] ?? 0) + Math.max(0, hpPred - Math.max(0, hrdina.hp));
+}
+// Za co je rána od schopnosti: od bosse (i jeho pomocníka) 'boss', od obyčejného nepřítele 'schopnost'.
+function zdrojRany(n) {
+  return !n || n.boss || n.pan ? 'boss' : 'schopnost';
 }
 
 // Trnová zbroj (pasiva): útočník dostane zpátky podíl rány jako zásah zbraní (Síla, kritický zásah, číslo nad ním),
@@ -1317,17 +1557,27 @@ export function obtiznostMapy(mapa) {
   return { zivoty: o?.zivoty ?? 1, poskozeni: o?.poskozeni ?? 1 };
 }
 
-// Rána útokem bosse nebo jedem roste s hrozbou (a obtížností mapy) stejně jako dotyk nepřítele.
+// Rána útokem bosse nebo jedem roste s hrozbou (i s naskokem za sílu hrdiny) a obtížností mapy stejně jako dotyk
+// nepřítele.
 function ranaHrozby(hra, kolik) {
-  return Math.round(kolik * silaHrozby(hra.cas).poskozeni * obtiznostMapy(hra.mapa).poskozeni);
+  return Math.round(kolik * silaHry(hra).poskozeni * obtiznostMapy(hra.mapa).poskozeni);
 }
 
 function polomerSpawnu(sirka, vyska) {
   return Math.hypot(sirka, vyska) / 2 + 40;
 }
 
-function naOkraji(hra, sirka, vyska) {
-  const uhel = hra.rng.dalsi() * Math.PI * 2;
+// Místo na okraji v náhodném směru (jeden los z rng). zepredu: běžícímu hrdinovi vyleze díl NADBIHANI.zepredu
+// v kuželu před ním, ostatní kdekoli (stejný los, jen jinak rozložený, ať se náhoda vln neposune).
+function naOkraji(hra, sirka, vyska, zepredu = false) {
+  const los = hra.rng.dalsi();
+  let uhel = los * Math.PI * 2;
+  const { hrdina } = hra;
+  const n = NADBIHANI;
+  if (zepredu && hra.cas >= n.od && Math.hypot(hrdina.vx, hrdina.vy) > hrdina.rychlost * 0.3) {
+    const kam = Math.atan2(hrdina.vy, hrdina.vx);
+    uhel = los < n.zepredu ? kam + (los / n.zepredu - 0.5) * n.rozptyl : ((los - n.zepredu) / (1 - n.zepredu)) * Math.PI * 2;
+  }
   const r = polomerSpawnu(sirka, vyska);
   return { x: hra.hrdina.x + Math.cos(uhel) * r, y: hra.hrdina.y + Math.sin(uhel) * r };
 }
@@ -1343,7 +1593,7 @@ function zamir(n, hrdina) {
 // má navíc ELITA a těžší mapa přidá svou obtížnost. Exportované kvůli simulaci.
 export function pridejNepritele(hra, druh, x, y, elita = false) {
   const vzor = NEPRATELE[druh];
-  const sila = silaHrozby(hra.cas);
+  const sila = silaHry(hra);
   const e = elita && !vzor.boss ? ELITA : null;
   const ob = obtiznostMapy(hra.mapa);
   const hp = Math.round(vzor.hp * (vzor.boss ? sila.bossZivoty : sila.zivoty) * (e ? e.zivoty : 1) * ob.zivoty);
@@ -1374,6 +1624,11 @@ export function pridejNepritele(hra, druh, x, y, elita = false) {
   // doSchopnosti = kolik zbývá do další schopnosti, dalsiSchopnost = kterou v pořadí zkusí, schopnost = co právě
   // dělá (null = chodí), zuri = má pod ZURIVOST životů, zjeveni = Bludička se právě objevila jinde (pro kreslení).
   if (n.boss) Object.assign(n, { doSchopnosti: PRVNI_SCHOPNOST, dalsiSchopnost: 0, schopnost: null, zuri: false, zjeveni: 0 });
+  // Obyčejný nepřítel se schopností (kostlivec, slizák, každá elita) začne chvíli po příchodu, každý jindy (podle
+  // počtu nepřátel, bez losu z rng).
+  else if (schopnostiNepritele(druh, n.elita).length) {
+    Object.assign(n, { doSchopnosti: PRVNI_SCHOPNOST_NEPRATEL + (hra.nepratele.length % 9) * 0.25, dalsiSchopnost: 0, schopnost: null });
+  }
   hra.nepratele.push(n);
   return n;
 }
@@ -1392,7 +1647,7 @@ function losujDruh(druhy, celkem, los) {
 // našetřená šance (duch ne, toho jde i tak těžko trefit).
 function spawn(hra, sirka, vyska) {
   const { rng, cas } = hra;
-  const sila = silaHrozby(cas);
+  const sila = silaHry(hra);
   if (hra.nepratele.length >= sila.maxNepratel) return;
   const druhy = MAPY[hra.mapa].nepratele.filter((d) => d.od <= 0 || cas > d.od);
   const celkem = druhy.reduce((soucet, d) => soucet + d.vaha, 0);
@@ -1401,7 +1656,7 @@ function spawn(hra, sirka, vyska) {
     let druh = losujDruh(druhy, celkem, rng.dalsi());
     if (NEPRATELE[druh].duch && duchu >= MAX_DUCHU) druh = 'netopyr';
     if (NEPRATELE[druh].duch) duchu += 1;
-    const { x, y } = naOkraji(hra, sirka, vyska);
+    const { x, y } = naOkraji(hra, sirka, vyska, true);
     let elita = false;
     if (!NEPRATELE[druh].duch && sila.elita > 0) {
       hra.doElity += sila.elita;
@@ -1419,7 +1674,7 @@ function spawn(hra, sirka, vyska) {
 // Smečka (vlků) vyleze pohromadě na jednom místě okraje, v kroužku kolem vůdce. Přijde i při plné
 // louce (obyčejné vlny ji drží na maximu), jen o pár smeček víc už ne.
 function smecka(hra, sirka, vyska) {
-  if (hra.nepratele.length >= silaHrozby(hra.cas).maxNepratel + SMECKA_DO * 3) return;
+  if (hra.nepratele.length >= silaHry(hra).maxNepratel + SMECKA_DO * 3) return;
   const { druh } = MAPY[hra.mapa].smecky;
   const pocet = hra.rng.cele(SMECKA_OD, SMECKA_DO);
   const { x, y } = naOkraji(hra, sirka, vyska);
@@ -1710,10 +1965,10 @@ const PRUBEH_SCHOPNOSTI = {
       sch.ujde += krok;
       if (!sch.trefil && vzdalenost(n, hrdina) < n.polomer + 10 && hrdina.nezranitelny <= 0 && !hra.konec) {
         sch.trefil = true;
-        hra.zasahyBossu.vypad += 1;
+        pocitejZasah(hra, 'vypad', n);
         // Odletí kolmo od dráhy na tu stranu, kde stojí (kdo je přesně na ní, doprava od směru výpadu).
         const strana = (hrdina.x - n.x) * -sch.uy + (hrdina.y - n.y) * sch.ux >= 0 ? 1 : -1;
-        zran(hra, ranaHrozby(hra, s.poskozeni), 'zraneni', true, n);
+        zran(hra, ranaHrozby(hra, s.poskozeni), 'zraneni', true, n, zdrojRany(n));
         odhodHrdinu(hra, -sch.uy * strana, sch.ux * strana, s.odhozeni);
       }
       if (sch.ujde < s.delka - 1e-9) return false;
@@ -1768,44 +2023,114 @@ const PRUBEH_SCHOPNOSTI = {
       return sch.salv <= 0;
     },
   },
+  skok: {
+    muze: (hra, n, s) => vzdalenost(n, hra.hrdina) > s.blizko,
+    // Cíl se zamkne hned na začátku: kam hrdina stojí teď, tam dopadne.
+    zacni(hra, n, sch) {
+      sch.cilX = hra.hrdina.x;
+      sch.cilY = hra.hrdina.y;
+    },
+    proved(hra, n, sch) {
+      sch.odX = n.x;
+      sch.odY = n.y;
+      sch.ulet = 0;
+      zvuk(hra, 'skok');
+    },
+    dal(hra, n, sch, dt) {
+      const { hrdina } = hra;
+      const { s } = sch;
+      sch.ulet = Math.min(s.let, sch.ulet + dt);
+      const t = sch.ulet / s.let;
+      n.x = sch.odX + (sch.cilX - sch.odX) * t;
+      n.y = sch.odY + (sch.cilY - sch.odY) * t;
+      if (t < 1) return false;
+      hra.dopady.push({ x: n.x, y: n.y, polomer: s.polomer, druh: 'sliz', zivot: TRVANI_DOPADU });
+      rozprsk(hra, n.x, n.y, n.druh, 6);
+      zvuk(hra, 'dopad');
+      if (vzdalenost(n, hrdina) < s.polomer + POLOMER_HRDINY && hrdina.nezranitelny <= 0 && !hra.konec) {
+        pocitejZasah(hra, 'skok', n);
+        zran(hra, ranaHrozby(hra, s.poskozeni), 'zraneni', true, n, zdrojRany(n));
+      }
+      return true;
+    },
+  },
 };
+
+// Kdo hrdinu trefil schopností: bossové a jejich pomocníci do zasahyBossu (jako dřív), obyčejní nepřátelé do
+// zasahyNepratel.
+function pocitejZasah(hra, id, zdroj) {
+  if (zdroj && !zdroj.boss && !zdroj.pan) hra.zasahyNepratel[id] = (hra.zasahyNepratel[id] ?? 0) + 1;
+  else hra.zasahyBossu[id] += 1;
+}
 
 // Boss vezme další schopnost v pořadí, kterou teď může použít (hrdina je v dosahu, pomocníci nejsou na maximu).
 // Když nejde žádná, zkusí to v dalším snímku.
+function seznamSchopnosti(n) {
+  return n.boss ? schopnostiBosse(n.druh) : schopnostiNepritele(n.druh, n.elita);
+}
+
 function zacniSchopnost(hra, n, sirka, vyska) {
-  const seznam = schopnostiBosse(n.druh);
+  const seznam = seznamSchopnosti(n);
   const d = vzdalenost(n, hra.hrdina);
   for (let k = 0; k < seznam.length; k++) {
     const i = (n.dalsiSchopnost + k) % seznam.length;
     const s = seznam[i];
     const prubeh = PRUBEH_SCHOPNOSTI[s.id];
     if ((s.dosah !== undefined && d >= s.dosah) || prubeh.muze?.(hra, n, s) === false) continue;
+    // Kosti a skoky obyčejných nepřátel berou z přídělu (PRIDEL), nápor elity ne.
+    if (!n.boss && PRIDEL[s.id]) {
+      if (hra.pridel[s.id] < 1) continue;
+      hra.pridel[s.id] -= 1;
+    }
     n.dalsiSchopnost = (i + 1) % seznam.length;
     n.schopnost = { id: s.id, s, faze: 'varovani', zbyva: s.varovani };
-    hra.schopnostiPouzito[s.id] = (hra.schopnostiPouzito[s.id] ?? 0) + 1;
-    // Varování má každá schopnost svým zvukem (dupnutí duní, hod hvízdá, výpad vrčí, vyvolání se chvěje …).
-    zvuk(hra, s.id);
+    const pouzito = n.boss ? hra.schopnostiPouzito : hra.schopnostiNepratel;
+    pouzito[s.id] = (pouzito[s.id] ?? 0) + 1;
+    // Varování má každá schopnost svým zvukem (dupnutí duní, hod hvízdá, výpad vrčí, vyvolání se chvěje …),
+    // obyčejní nepřátelé svým tišším (s.zvuk).
+    zvuk(hra, s.zvuk ?? s.id);
     prubeh.zacni?.(hra, n, n.schopnost, sirka, vyska);
     return;
   }
 }
 
-function dokonciSchopnost(n) {
-  n.schopnost = null;
-  n.doSchopnosti = (BOSSOVE[n.druh]?.pauza ?? 2.5) * (n.zuri ? ZRYCHLENI_ZURIVOSTI : 1);
+// Pauza po schopnosti. Bossové víc tlačí: od TLAK_BOSSU.od. minuty hrozby se pauza zkracuje, obklíčenému hrdinovi
+// ještě víc (TLAK_BOSSU).
+export function pauzaBosse(hra, n) {
+  const t = TLAK_BOSSU;
+  const hrozba = Math.max(t.min, 1 - t.zaMinutu * Math.max(0, silaHry(hra).min - t.od));
+  const stani = hra.hrdina.obkliceni >= 1 ? t.stani : 1;
+  return (BOSSOVE[n.druh]?.pauza ?? 2.5) * (n.zuri ? ZRYCHLENI_ZURIVOSTI : 1) * hrozba * stani;
 }
 
-// Schopnosti bossů: odpočet, varování, provedení. Pod ZURIVOST životů boss zuří (jednou se to ohlásí, když
-// zrovna neběží jiné čerstvé ohlášení) a střídá schopnosti rychleji.
+function dokonciSchopnost(hra, n) {
+  n.schopnost = null;
+  n.doSchopnosti = n.boss ? pauzaBosse(hra, n) : pauzaNepritele(n);
+}
+
+// Obyčejný nepřítel nic nezačne (a rozběhnuté varování se mu přeruší), když je omráčený, držený kořeny, zapředený
+// nebo odhozený.
+function nemuzeNic(n) {
+  return !n.boss && (nekouse(n) || n.drzen > 0 || n.zapreden > 0 || n.odhozen > 0 || n.skryty);
+}
+
+// Schopnosti bossů i obyčejných nepřátel: odpočet, varování, provedení. Pod ZURIVOST životů boss zuří (jednou se
+// to ohlásí, když zrovna neběží jiné čerstvé ohlášení) a střídá schopnosti rychleji.
 function schopnostiBossu(hra, dt, sirka, vyska) {
   const nove = [];
+  if (hra.cas >= OBYCEJNE.od) pridelSchopnosti(hra, dt);
   for (const n of hra.nepratele) {
-    if (!n.boss || n.hp <= 0) continue;
-    n.zjeveni = Math.max(0, n.zjeveni - dt);
-    if (!n.zuri && n.hp <= n.maxHp * ZURIVOST) {
-      n.zuri = true;
-      zvuk(hra, 'zurivost');
-      if (!hra.oznameni || hra.oznameni.zivot < 1) hra.oznameni = { text: t('hra.zuri', { boss: BOSSOVE[n.druh]?.nazev ?? n.druh }), zivot: 2 };
+    if (n.hp <= 0 || n.doSchopnosti === undefined) continue;
+    if (n.boss) {
+      n.zjeveni = Math.max(0, n.zjeveni - dt);
+      if (!n.zuri && n.hp <= n.maxHp * ZURIVOST) {
+        n.zuri = true;
+        zvuk(hra, 'zurivost');
+        if (!hra.oznameni || hra.oznameni.zivot < 1) hra.oznameni = { text: t('hra.zuri', { boss: BOSSOVE[n.druh]?.nazev ?? n.druh }), zivot: 2 };
+      }
+    } else if (nemuzeNic(n) || hra.cas < OBYCEJNE.od) {
+      if (n.schopnost?.faze === 'varovani') dokonciSchopnost(hra, n);
+      continue;
     }
     const sch = n.schopnost;
     if (!sch) {
@@ -1823,9 +2148,9 @@ function schopnostiBossu(hra, dt, sirka, vyska) {
       sch.zbyva = 0;
       sch.faze = 'provadi';
       prubeh.proved(hra, n, sch, nove);
-      if (!prubeh.dal) dokonciSchopnost(n);
+      if (!prubeh.dal) dokonciSchopnost(hra, n);
     } else if (prubeh.dal(hra, n, sch, dt)) {
-      dokonciSchopnost(n);
+      dokonciSchopnost(hra, n);
     }
   }
   for (const p of nove) {
@@ -1846,7 +2171,7 @@ function strelyBossu(hra, dt) {
     if (!v.zasahla && d >= pred - 10 && d <= v.r + 10 && muzeDostat()) {
       v.zasahla = true;
       hra.zasahyBossu.dupnuti += 1;
-      zran(hra, ranaHrozby(hra, v.poskozeni), 'zraneni', true, v.zdroj);
+      zran(hra, ranaHrozby(hra, v.poskozeni), 'zraneni', true, v.zdroj, zdrojRany(v.zdroj));
       odhodHrdinu(hra, d > 0 ? (hrdina.x - v.x) / d : 1, d > 0 ? (hrdina.y - v.y) / d : 0, v.odhozeni);
     }
     if (v.r >= v.max) v.konec = true;
@@ -1860,8 +2185,8 @@ function strelyBossu(hra, dt) {
     rozprsk(hra, k.x, k.y, k.druh, 6);
     hra.dopady.push({ x: k.x, y: k.y, polomer: k.polomer, druh: k.druh, zivot: TRVANI_DOPADU });
     if (vzdalenost(k, hrdina) < k.polomer && muzeDostat()) {
-      hra.zasahyBossu.hod += 1;
-      zran(hra, ranaHrozby(hra, k.poskozeni), 'zraneni', true, k.zdroj);
+      pocitejZasah(hra, 'hod', k.zdroj);
+      zran(hra, ranaHrozby(hra, k.poskozeni), 'zraneni', true, k.zdroj, zdrojRany(k.zdroj));
       if (k.sit) hrdina.sit = TRVANI_SITE;
     }
   }
@@ -1887,7 +2212,7 @@ function strelyBossu(hra, dt) {
       st.zivot = 0;
       if (muzeDostat()) {
         hra.zasahyBossu.vejir += 1;
-        zran(hra, ranaHrozby(hra, st.rana ?? SCHOPNOSTI.vejir.poskozeni), 'zraneni', true, st.zdroj);
+        zran(hra, ranaHrozby(hra, st.rana ?? SCHOPNOSTI.vejir.poskozeni), 'zraneni', true, st.zdroj, 'boss');
       }
     }
   }
@@ -3314,6 +3639,16 @@ function zamceneTruhly(hra) {
   hra.zamcene = hra.zamcene.filter((z) => !z.otevrena);
 }
 
+// Kam jde obyčejný nepřítel (NADBIHANI): utíkajícímu hrdinovi nadbíhá, stojícímu jde přímo na něj. Zblízka
+// (do dvou poloměrů) jde vždy přímo.
+function nadbehni(hra, n, d, rychlost) {
+  const { hrdina } = hra;
+  if (n.boss || hra.cas < NADBIHANI.od || d < n.polomer * 2 || !(rychlost > 0)) return hrdina;
+  const predstih = Math.min(NADBIHANI.predstih, d / rychlost) * NADBIHANI.podil;
+  if (!(predstih > 0) || (hrdina.vx === 0 && hrdina.vy === 0)) return hrdina;
+  return { x: hrdina.x + hrdina.vx * predstih, y: hrdina.y + hrdina.vy * predstih };
+}
+
 // Žába sedí a skáče (SKOK_ZABY): násobek rychlosti pro tenhle snímek. vyskok = jak daleko je ve skoku 0..1
 // (0 = sedí), podle toho ji kreslení zvedne nad zem. Ostatní nepřátelé jdou pořád stejně (1).
 function skokZaby(n, dt) {
@@ -3391,6 +3726,9 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       hrdina.odhozVy -= odhozDoNi * oPrekazku.y;
     }
   }
+  // Kdo stojí na místě, toho nepřátelé obkličují (OBKLICENI). Hrozba se přizpůsobí síle hrdiny (PRIZPUSOBENI).
+  obklicuj(hra, dt, Math.hypot(hrdina.x - predX, hrdina.y - predY), sirka, vyska);
+  prizpusobHrozbu(hra, dt);
   hrdina.nezranitelny = Math.max(0, hrdina.nezranitelny - dt);
   hrdina.neviditelny = Math.max(0, hrdina.neviditelny - dt);
   hrdina.doZmizeni = Math.max(0, hrdina.doZmizeni - dt);
@@ -3407,7 +3745,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   // Láva pálí, dokud v ní hrdina stojí (po každé ráně chvíle klidu jako u jedu), rána roste s hrozbou.
   if (mapa.lava && naPlose(hra.mapa, hrdina.x, hrdina.y) === 'lava' && hrdina.nezranitelny <= 0 && !hra.konec) {
     hra.popaleno += 1;
-    zran(hra, ranaHrozby(hra, mapa.lava.poskozeni), 'ohen', false);
+    zran(hra, ranaHrozby(hra, mapa.lava.poskozeni), 'ohen', false, null, 'lava');
     rozprsk(hra, hrdina.x, hrdina.y + 8, 'lava', 5);
   }
   bublinyBahna(hra, dt);
@@ -3416,7 +3754,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   hra.doSpawnu -= dt;
   if (hra.doSpawnu <= 0) {
     spawn(hra, sirka, vyska);
-    hra.doSpawnu = silaHrozby(hra.cas).vlna;
+    hra.doSpawnu = silaHry(hra).vlna;
   }
   // Každou minutu hrozba o stupeň výš a krátké ohlášení (vlastní řádek, nepřepíše příchod bosse).
   const hrozba = silaHrozby(hra.cas).uroven;
@@ -3480,6 +3818,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   // Zmizelého hrdinu (Bludný plamen) nepřátelé nevidí a jdou tam, kde ho viděli naposledy. Bossové ho najdou.
   const zmizel = hrdina.neviditelny > 0;
   const naposledy = { x: hrdina.zmizelX, y: hrdina.zmizelY };
+  const elity = hra.nepratele.filter((n) => n.elita);
   for (const n of hra.nepratele) {
     const d = vzdalenost(n, hrdina) || 1;
     const brzda = brzdaTrnu(n) * brzdaSite(n) * brzdaMrazu(n) * brzdaZvonu(n) * brzdaKorenu(n) * brzdaOtresu(n);
@@ -3506,13 +3845,17 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       n.x += n.smerX * n.rychlost * brzda * dt;
       n.y += n.smerY * n.rychlost * brzda * dt;
     } else {
-      const rychlost = n.rychlost * brzda * (n.vyrazi > 0 ? RYCHLOST_VYRAZENI : 1) * skokZaby(n, dt);
-      const cil = zmizel && !n.boss ? naposledy : hrdina;
+      // Boss daleko za hrdinou dohání (TLAK_BOSSU).
+      const dohani = n.boss && d > TLAK_BOSSU.dohani ? TLAK_BOSSU.dohaniRychlost : 1;
+      n.vedeny = !n.boss && !n.elita && elity.some((e) => Math.abs(e.x - n.x) < VUDCE.dosah && Math.abs(e.y - n.y) < VUDCE.dosah && vzdalenost(e, n) < VUDCE.dosah);
+      const vudce = n.vedeny ? VUDCE.rychlost : 1;
+      const rychlost = n.rychlost * brzda * dohani * vudce * (n.vyrazi > 0 ? RYCHLOST_VYRAZENI : 1) * skokZaby(n, dt);
+      const cil = zmizel && !n.boss ? naposledy : nadbehni(hra, n, d, rychlost);
       const k = cil === hrdina ? d : vzdalenost(n, cil);
       // U místa, kde hrdina zmizel, nepřítel zůstane stát (jinak by kolem něj poskakoval).
-      if (cil === hrdina || k > rychlost * dt) {
-        n.x += ((cil.x - n.x) / k) * rychlost * dt;
-        n.y += ((cil.y - n.y) / k) * rychlost * dt;
+      if (cil !== naposledy || k > rychlost * dt) {
+        n.x += ((cil.x - n.x) / (k || 1)) * rychlost * dt;
+        n.y += ((cil.y - n.y) / (k || 1)) * rychlost * dt;
       }
       if (n.vyrazi > 0) n.vyrazi -= dt;
     }
@@ -3535,10 +3878,11 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     n.otres = Math.max(0, (n.otres || 0) - dt);
     n.dosvit = Math.max(0, (n.dosvit || 0) - dt);
     n.zasahUhlikem = Math.max(0, (n.zasahUhlikem || 0) - dt);
-    if (d < n.polomer + 8 && hrdina.nezranitelny <= 0 && viditelny(n) && !nekouse(n)) {
+    const veVzduchu = n.schopnost?.id === 'skok' && n.schopnost.faze === 'provadi';
+    if (d < n.polomer + 8 && hrdina.nezranitelny <= 0 && viditelny(n) && !nekouse(n) && !veVzduchu) {
       if (n.sit) hrdina.sit = TRVANI_SITE;
       if (n.pan) hra.zasahyBossu.pomocnik += 1;
-      zran(hra, ranaDotykem(hra, n), n.ohen ? 'ohen' : 'zraneni', true, n);
+      zran(hra, ranaDotykem(hra, n), n.ohen ? 'ohen' : 'zraneni', true, n, n.boss || n.pan ? 'boss' : 'dotyk');
     }
   }
   strelyBossu(hra, dt);
@@ -3546,7 +3890,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   for (const o of hra.oblaky) {
     const pali = TRVANI_OBLAKU - o.zivot >= NAFUKOVANI_OBLAKU;
     if (pali && hrdina.nezranitelny <= 0 && !hra.konec && vzdalenost(o, hrdina) < o.polomer) {
-      zran(hra, ranaHrozby(hra, o.jed ?? JED_OBLAKU), 'jed', o.druh !== 'bahno');
+      zran(hra, ranaHrozby(hra, o.jed ?? JED_OBLAKU), 'jed', o.druh !== 'bahno', null, 'jed');
     }
   }
 

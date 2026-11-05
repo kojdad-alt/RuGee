@@ -9,7 +9,11 @@ a stručné čtení docs/BALANC.md. Hraje stejný bot jako test. Jen standardní
   python3 nastroje/balanc.py --seminek 3 --sekund 600 --procesu 4
   python3 nastroje/balanc.py --tridy lovec,havir --mapy louka,sopka --vystup /tmp/balanc
   python3 nastroje/balanc.py --vylepseni max          # bot se všemi trvalými vylepšeními na maximu
+  python3 nastroje/balanc.py --bot stoji              # bot stojí na místě (stání nemá stačit)
   python3 nastroje/balanc.py --z-dat docs/balanc/souhrn.json   # jen překreslí grafy a BALANC.md
+
+K tomu na první mapě odehraje tři boty za každou postavu (hrající bez vylepšení, hrající se všemi trvalými
+vylepšeními a stojící se všemi) a porovná jejich přežití s cíli v BOTI (--bez-botu to vynechá).
 
 Když už souhrn.json ve výstupu je a parametry sedí, vypíše, jak se přežití změnilo proti minulému běhu.
 """
@@ -33,6 +37,14 @@ KOREN = Path(__file__).resolve().parent.parent
 SIMULACE = KOREN / "tests" / "simulace.mjs"
 NBSP = chr(160)
 VERZE_SOUHRNU = 1
+# Tři boti na první mapě (Louka): cil = kam má padnout medián přežití v minutách (zadání od Daliika 5. 11. 2026:
+# bez vylepšení 5–7 min, s plnými vylepšeními 12–16 min a kdo jen stojí, ani s plnými vylepšeními nevydrží 5 min).
+BOTI = [
+    {"id": "hraje_zadna", "popis": "Hraje, bez vylepšení", "volby": [], "cil": [5, 7]},
+    {"id": "hraje_max", "popis": "Hraje, vylepšení na maximu", "volby": ["--vylepseni", "max"], "cil": [12, 16]},
+    {"id": "stoji_max", "popis": "Stojí, vylepšení na maximu", "volby": ["--vylepseni", "max", "--bot", "stoji"],
+     "cil": [0, 5]},
+]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -63,7 +75,7 @@ def odehraj(arg, katalog):
     mapy = vyber_ids(arg.mapy, katalog["mapy"], "mapa")
     seminka = list(range(arg.od, arg.od + arg.seminek))
     ulohy = [(t, m, s) for t in tridy for m in mapy for s in seminka]
-    volby_vylepseni = ["--vylepseni", "max"] if arg.vylepseni == "max" else []
+    volby_vylepseni = (["--vylepseni", "max"] if arg.vylepseni == "max" else []) + (["--bot", arg.bot] if arg.bot != "hraje" else [])
     print(f"balanc: {len(ulohy)} her ({len(tridy)} postav × {len(mapy)} map × {len(seminka)} semínek), "
           f"{arg.sekund} s, {arg.procesu} naráz", file=sys.stderr)
     hry = []
@@ -80,10 +92,40 @@ def odehraj(arg, katalog):
                 print(f"  {len(hry)}/{len(ulohy)} her, {time.time() - zacatek:.0f} s", file=sys.stderr)
     hry.sort(key=lambda h: (tridy.index(h["trida"]), mapy.index(h["mapa"]), h["seminko"]))
     parametry = {
-        "sekund": arg.sekund, "seminka": seminka, "vylepseni": arg.vylepseni, "tridy": tridy, "mapy": mapy,
-        "otisk_kodu": otisk_kodu(), "prikaz": prikaz_pro_md(arg),
+        "sekund": arg.sekund, "seminka": seminka, "vylepseni": arg.vylepseni, "bot": arg.bot, "tridy": tridy,
+        "mapy": mapy, "otisk_kodu": otisk_kodu(), "prikaz": prikaz_pro_md(arg),
     }
-    return souhrn_her(hry, katalog, parametry)
+    souhrn = souhrn_her(hry, katalog, parametry)
+    if not arg.bez_botu:
+        souhrn["boti"] = odehraj_boty(arg, katalog, tridy, seminka)
+    return souhrn
+
+
+def odehraj_boty(arg, katalog, tridy, seminka):
+    """Tři boti z BOTI za každou postavu na první mapě, nejdéle --boti-sekund."""
+    mapa = next(iter(katalog["mapy"]))
+    ulohy = [(b, t, s) for b in BOTI for t in tridy for s in seminka]
+    print(f"balanc: {len(ulohy)} her tří botů na mapě {mapa}, nejdéle {arg.boti_sekund} s", file=sys.stderr)
+    zacatek = time.time()
+    with ThreadPoolExecutor(max_workers=arg.procesu) as bazen:
+        vysledky = list(bazen.map(lambda u: (u[0]["id"], simulace(arg.node, u[2], arg.boti_sekund, "--trida", u[1],
+                                                                  "--mapa", mapa, *u[0]["volby"])), ulohy))
+    print(f"  {len(ulohy)}/{len(ulohy)} her, {time.time() - zacatek:.0f} s", file=sys.stderr)
+    limit = arg.boti_sekund
+
+    def skupina(hry):
+        doby = [doba(h, limit) for h in hry]
+        return {"her": len(hry), "prezilo": sum(h["prezil"] for h in hry), "median_s": zaokr(median(doby)),
+                "min_s": zaokr(min(doby)), "max_s": zaokr(max(doby)),
+                "uroven_median": median([h["uroven"] for h in hry])}
+
+    sady = []
+    for b in BOTI:
+        hry = [h for i, h in vysledky if i == b["id"]]
+        sady.append({"id": b["id"], "popis": b["popis"], "cil": b["cil"], "vse": skupina(hry),
+                     "tridy": {t: skupina([h for h in hry if h["trida"] == t]) for t in tridy},
+                     "hry": [{k: h[k] for k in ("trida", "seminko", "prezil", "preziti_s", "uroven")} for h in hry]})
+    return {"mapa": mapa, "sekund": limit, "seminka": seminka, "tridy": tridy, "sady": sady}
 
 
 def vyber_ids(text, katalog, co):
@@ -106,6 +148,12 @@ def prikaz_pro_md(arg):
         casti += ["--mapy", arg.mapy]
     if arg.vylepseni != "zadna":
         casti += ["--vylepseni", arg.vylepseni]
+    if arg.bot != "hraje":
+        casti += ["--bot", arg.bot]
+    if arg.bez_botu:
+        casti += ["--bez-botu"]
+    elif arg.boti_sekund != 1500:
+        casti += ["--boti-sekund", str(arg.boti_sekund)]
     return " ".join(shlex.quote(c) for c in casti)
 
 
@@ -217,8 +265,8 @@ def souhrn_her(hry, katalog, parametry):
 
 def porovnej(stary, novy):
     """Vypíše, jak se medián přežití změnil proti minulému souhrnu se stejnými parametry."""
-    klice = ("sekund", "seminka", "vylepseni")
-    if any(stary.get("parametry", {}).get(k) != novy["parametry"][k] for k in klice):
+    klice = ("sekund", "seminka", "vylepseni", "bot")
+    if any(stary.get("parametry", {}).get(k, "hraje" if k == "bot" else None) != novy["parametry"][k] for k in klice):
         print("balanc: minulý souhrn má jiné parametry, neporovnávám", file=sys.stderr)
         return
     zmeny = []
@@ -233,6 +281,11 @@ def porovnej(stary, novy):
           file=sys.stderr)
     for radek in zmeny:
         print(radek, file=sys.stderr)
+    stare_boty = {b["id"]: b for b in stary.get("boti", {}).get("sady", [])}
+    for b in novy.get("boti", {}).get("sady", []):
+        if b["id"] in stare_boty:
+            print(f"  {b['popis']}: {cas(stare_boty[b['id']]['vse']['median_s'])} → {cas(b['vse']['median_s'])}",
+                  file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -680,6 +733,78 @@ def graf_elity_bossove(souhrn):
 # BALANC.md
 
 
+def graf_boti(souhrn):
+    """Tři boti na první mapě: za každou postavu čára od nejkratší po nejdelší hru a tečka na mediánu,
+    podbarvený pás je cíl mediánu."""
+    boti = souhrn["boti"]
+    nazvy = souhrn["nazvy"]
+    limit = boti["sekund"]
+    limit_min = limit / 60
+    tridy = boti["tridy"]
+    sirka = 860
+    levy = 220
+    pravy = sirka - 40
+    radek = 18
+    vyska_sady = (len(tridy) + 1) * radek + 22
+    horni = 118
+    vyska = horni + len(boti["sady"]) * vyska_sady + 52
+    svg = Svg(sirka, vyska, "Stání a vylepšení",
+              "Přežití hrajícího bota bez vylepšení, se všemi vylepšeními a stojícího bota se všemi vylepšeními.")
+    svg.hlavicka(f"{nazvy['mapy'][boti['mapa']]}, {her(len(boti['seminka']))} za postavu, limit {cas(limit)} min · "
+                 "čára = nejkratší až nejdelší hra, tečka = medián, pás = cíl mediánu")
+    x = legenda(svg, levy, 86, [(slot_tridy(souhrn, t), nazvy["tridy"][t]) for t in tridy])
+    svg.pridej(f'<path d="M{x:.1f},{86 - 9:.1f} L{x + 7:.1f},{86 - 2:.1f} L{x:.1f},{86 + 5:.1f} L{x - 7:.1f},{86 - 2:.1f} Z" class="inkoust ring" stroke-width="2"/>')
+    svg.text(x + 14, 86, "všechny postavy", 12, "t2")
+    y_konec = horni + len(boti["sady"]) * vyska_sady
+    na_x = osa_x_minuty(svg, levy, pravy, y_konec, limit_min)
+    svg.text((levy + pravy) / 2, y_konec + 36, "minuty", 11, "t3", "middle")
+    for i, sada in enumerate(boti["sady"]):
+        y0 = horni + i * vyska_sady
+        od, do = sada["cil"]
+        cil = f"{od}–{do} min" if od else f"do {do} min"
+        svg.obdelnik(na_x(od), y0 + 2, na_x(min(do, limit_min)) - na_x(od), vyska_sady - 14, "neutral", zaobleni=3,
+                     titulek=f"Cíl mediánu: {cil}")
+        svg.text(24, y0 + 16, sada["popis"], 13, tucne=True)
+        v = sada["vse"]
+        svg.text(24, y0 + 33, f"medián {cas_limitu(v['median_s'], limit)} · cíl {cil}", 12, "t2 cisla")
+        for j, t in enumerate(tridy + [None]):
+            y = y0 + 12 + j * radek
+            sk = sada["tridy"][t] if t else v
+            popis = nazvy["tridy"][t] if t else "Všechny postavy"
+            titulek = (f"{sada['popis']} – {popis}: medián {cas_limitu(sk['median_s'], limit)}, nejkratší "
+                       f"{cas(sk['min_s'])}, nejdelší {cas_limitu(sk['max_s'], limit)}, do limitu {sk['prezilo']}/{sk['her']}")
+            if t:
+                slot = slot_tridy(souhrn, t)
+                svg.cara(na_x(sk["min_s"] / 60), y, na_x(sk["max_s"] / 60), y, f"s{slot}", 2)
+                svg.tecka(na_x(sk["median_s"] / 60), y, slot, titulek)
+            else:
+                svg.cara(na_x(sk["min_s"] / 60), y, na_x(sk["max_s"] / 60), y, "osa", 2)
+                svg.kosoctverec(na_x(sk["median_s"] / 60), y, 6, titulek)
+        if i:
+            svg.cara(24, y0 - 6, pravy, y0 - 6, "mrizka")
+    return str(svg)
+
+
+def fakta_boti(souhrn):
+    boti = souhrn["boti"]
+    nazvy = souhrn["nazvy"]
+    limit = boti["sekund"]
+    radky = []
+    for sada in boti["sady"]:
+        v = sada["vse"]
+        od, do = sada["cil"]
+        v_cili = od * 60 <= (v["median_s"] or 0) <= do * 60
+        radky.append([f"**{sada['popis']}**", f"{od}–{do} min" if od else f"do {do} min",
+                      f"{cas_limitu(v['median_s'], limit)} {'✓' if v_cili else '✗'}",
+                      f"{cas(v['min_s'])}–{cas_limitu(v['max_s'], limit)}"]
+                     + [cas_limitu(sada["tridy"][t]["median_s"], limit) for t in boti["tridy"]])
+    return (f"Na mapě {nazvy['mapy'][boti['mapa']]} hraje každá postava {her(len(boti['seminka']))} (semínka "
+            f"{rozsah_seminek(boti['seminka'])}) třemi boty, nejdéle {cas(limit)} min. Stojící bot se celou hru nehne, "
+            "karty a truhly bere stejně jako hrající a sebere jen to, co mu přitáhne magnet.\n\n"
+            + tabulka(["Bot", "Cíl mediánu", "Medián", "Nejkratší–nejdelší"] + [nazvy["tridy"][t] for t in boti["tridy"]],
+                      radky))
+
+
 def tabulka(hlavicka, radky):
     vystup = ["| " + " | ".join(hlavicka) + " |", "|" + "|".join(["---"] + ["--:"] * (len(hlavicka) - 1)) + "|"]
     vystup += ["| " + " | ".join(str(b) for b in r) + " |" for r in radky]
@@ -857,6 +982,17 @@ def balanc_md(souhrn):
     limit = p["sekund"]
     nazvy = souhrn["nazvy"]
     vylepseni = "se všemi trvalými vylepšeními na maximu" if p["vylepseni"] == "max" else "bez trvalých vylepšení"
+    if p.get("bot", "hraje") == "stoji":
+        vylepseni += " a celou hru stojí na místě"
+    sekce_boti = ""
+    if souhrn.get("boti"):
+        sekce_boti = f"""
+## Stání a vylepšení
+
+![Přežití hrajícího a stojícího bota](balanc/boti.svg)
+
+{fakta_boti(souhrn)}
+"""
     radky_preziti = []
     for t in p["tridy"]:
         radky_preziti.append([f"**{nazvy['tridy'][t]}**"]
@@ -891,7 +1027,7 @@ jak dlouho vydrží hráč. Níž jsou jen fakta z dat, „lehké“ a „těžk
 Medián přežití (v závorce kolik her došlo do limitu), `+` = medián je celý limit:
 
 {tabulka(["Postava"] + [nazvy["mapy"][m] for m in p["mapy"]] + ["Všechny mapy"], radky_preziti)}
-
+{sekce_boti}
 ## Hrozba
 
 ![Růst Hrozby](balanc/hrozba.svg)
@@ -932,6 +1068,8 @@ def zapis(souhrn, vystup):
         slozka / "souhrn.json": json.dumps(souhrn, ensure_ascii=False, indent=1) + "\n",
         vystup / "BALANC.md": balanc_md(souhrn),
     }
+    if souhrn.get("boti"):
+        soubory[slozka / "boti.svg"] = graf_boti(souhrn)
     for cesta, obsah in soubory.items():
         cesta.write_text(obsah, encoding="utf-8")
         print(f"  {cesta.relative_to(vystup.parent) if vystup.parent in cesta.parents else cesta}", file=sys.stderr)
@@ -946,6 +1084,12 @@ def main():
     parser.add_argument("--mapy", help="jen tyto mapy, čárkou (louka,sopka,…)")
     parser.add_argument("--vylepseni", choices=["zadna", "max"], default="zadna",
                         help="trvalá vylepšení bota: zadna (jako nový hráč) nebo max")
+    parser.add_argument("--bot", choices=["hraje", "stoji"], default="hraje",
+                        help="kdo hraje hlavní tabulku: hraje (jako test) nebo stoji (celou hru stojí na místě)")
+    parser.add_argument("--boti-sekund", type=int, default=1500, dest="boti_sekund",
+                        help="nejdelší hra tří botů na první mapě v sekundách (1500 = 25 min)")
+    parser.add_argument("--bez-botu", action="store_true", dest="bez_botu",
+                        help="neporovnávat tři boty (hrající, s vylepšeními, stojící) na první mapě")
     parser.add_argument("--procesu", type=int, default=max(1, (os.cpu_count() or 2) - 1),
                         help="kolik her naráz (počet jader − 1)")
     parser.add_argument("--vystup", type=Path, default=KOREN / "docs",

@@ -55,6 +55,16 @@
 // Hrozba: hra nekončí, každou minutu je hrozba o stupeň výš (s ohlášením) a noví nepřátelé mají životy, poškození
 // a rychlost podle tabulky HROZBA. Elity nechodí před 5. minutou, od 10. přibývají, bossové nejsou nikdy elitou.
 // Na vyvážení hraje plně vylepšený bot až do konce: musí padnout do 30 minut (nikdo nevydrží donekonečna).
+// Těžší hra: stání na místě nestačí. Obklíčení roste jen stojícímu (po OBKLICENI.od s, plné za naplno s), sílí
+// s časem, zvětší rány od nepřátel, ubere zbroj i chvíli bez zranění (láva a bahno ne) a od kruhOd. minuty plně
+// obklíčeného obklíčí kruh nepřátel (počet podle hrozby, rovnoměrně, bez duchů a bez schopností), pohyb ho rozpustí.
+// Kostlivec hází kost (stojícího trefí, kdo uhne, toho mine), slizák skáče (dopadne, kam mířil, ve vzduchu
+// nekouše, zblízka neskáče), elita má nápor a silnější schopnosti, omráčený nic nezačne, kosti a skoky drží
+// příděl a začínají až od OBYCEJNE.od. Hrozba se přizpůsobí síle hrdiny (podíl vylepšení, úroveň, převaha DPS):
+// slabému nic nepřidá, první minuty ani silnému, roste nejvýš rust za sekundu a nepřeleze max, nepřátelé
+// a rány berou hrozbu i s naskokem. Bossové víc tlačí (kratší pauza s hrozbou a na obklíčeného), nepřátelé
+// nadbíhají běžícímu hrdinovi (stojícímu ne), vlny chodí častěji zepředu a elita zrychlí smečku kolem sebe.
+// Stojící plně vylepšený bot padne do 6 minut (cíl mediánu je do 5), dřív než hrající plně vylepšený.
 // Čísla poškození: zásahy do stejného nepřítele se do SLUCOVANI_CISEL sečtou, jiný nepřítel má své číslo, silná rána
 // zežloutne a obyčejná ne, naráz je nejvýš MAX_CISEL čísel (i se zbraněmi na 60. úrovni), každá rána hrdinovi
 // má nad ním červené číslo, léčení zelené, a za TRVANI_CISLA číslo zmizí. Přepínač v nastavení se uloží.
@@ -146,7 +156,7 @@ import {
   RYCHLOST_KORENE, MAX_BEHU_KORENE, IMUNITA_KORENU, ZPOMALENI_DRZENEHO_BOSSE, TIK_KORENU, MAX_KORENU,
   ROZESTUP_STOPY, MAX_PLAMENU, RYCHLOST_KAMENE, ZRYCHLENI_KAMENE, MAX_RYCHLOST_KAMENE, RUST_RANY_KAMENE, POLOMER_KAMENE,
   VOLNY_LET, ZIVOT_KAMENE, MAX_KAMENU,
-  HROZBA, ELITA, silaHrozby, textHrozby, POLOMER_OBLAKU,
+  HROZBA, ELITA, silaHrozby, textHrozby, POLOMER_OBLAKU, prevaha,
   zasah, kratkeCislo, TRVANI_CISLA, SLUCOVANI_CISEL, MAX_CISEL, NAD_PRAHEM,
   TRVANI_OTEVRENI, PRVNI_VLNA_HRDINY, ZPOMALENI_SITE_BOSSE, nasadKus, sundejKus, ziskejKus, rozhodniKus, seznamVystroje,
   SANCE_ZLATAKU, MESEC, KUPEC, ZBOZI, PORADI_ZBOZI, RUST_CEN, LECENI_LEKTVARU, PREHOZENI, MAX_ZAMCENYCH, PRVNI_ZAMCENA, CENA_ZAMCENE,
@@ -154,6 +164,9 @@ import {
   POLOMER_HRDINY, SKOK_ZABY, poradiBossu, zakladBosse,
   pasivyDoZbrane, NASOBEK_KRITU, CISLO_REGENERACE,
   DOBITI_STITU, MIN_DOBITI_STITU, ZIVOT_ZA_SANI, SANI_ZA_SEKUNDU, LET_KAPKY,
+  OBKLICENI, silaObkliceni, NEZRANITELNY_PO_RANE, PRIZPUSOBENI, cilNaskoku, casHrozby, silaHry, hrozbaNavic, podilTrvalych,
+  ocekavanaUroven, prisunZivotu, SCHOPNOSTI_NEPRATEL, schopnostiNepritele, NAPOR_ELITY, ELITNI, OBYCEJNE,
+  PRVNI_SCHOPNOST_NEPRATEL, NADBIHANI, VUDCE, TLAK_BOSSU, pauzaBosse,
 } from '../src/hra.js';
 import {
   VYBAVA, PORADI_SLOTU, VSECHNY_KUSY, RARITY_VYBAVY, PORADI_RARIT_VYBAVY, EFEKTY_VYBAVY, STATY_VYBAVY, STROPY_VYBAVY,
@@ -381,11 +394,13 @@ function rozhodni(hra, t, uhyba = true) {
     dy += ((cil.y - hrdina.y) / d) * sila;
   }
   if (!uhyba) return smer(hra, t, dx, dy);
-  // Schopnosti bossů jsou vidět dopředu: stín dopadu kamene, rudý kruh dupnutí a čára výpadu.
+  // Schopnosti bossů i nepřátel jsou vidět dopředu: stín dopadu kamene a kosti, rudý kruh dupnutí, kruh dopadu
+  // skoku a čára výpadu (i náporu elity).
   for (const k of hra.kameny) utec(k, k.polomer + 16, 4);
   for (const n of hra.nepratele) {
     const sch = n.schopnost;
-    if (!n.boss || !sch) continue;
+    if (!sch) continue;
+    if (sch.id === 'skok') utec({ x: sch.cilX, y: sch.cilY }, sch.s.polomer + 20, 5);
     if (sch.id === 'dupnuti' && sch.faze === 'varovani') utec(n, sch.s.polomer + 30, 5);
     if (sch.id === 'vypad') {
       // Z čáry výpadu uhne kolmo na tu stranu, kde už je (za bossem je v bezpečí).
@@ -586,10 +601,16 @@ function obsluz(h) {
   if (h.obchod) nakupujBot(h);
 }
 
+// Stojící bot: celou hru stojí na místě (žádný pohyb), karty a truhly bere stejně jako hrající (obsluz). Sbírá jen
+// to, co mu přitáhne magnet. Měří, jestli stání na místě stačí (nemá: obklíčení, střelci a skokani ho mají složit).
+const stojiciBot = () => ({ dx: 0, dy: 0 });
+const BOTI = { hraje: rozhodni, stoji: stojiciBot };
+
 // Strojový výstup pro nastroje/balanc.py. Jen s --json, bez něj test běží úplně stejně jako dřív.
-//   node tests/simulace.mjs <seminko> <sekund> --json [--trida id] [--mapa id] [--vylepseni max]
-// Odehraje jednu hru stejným botem jako hry na mapách (rozhodni + obsluz), nic nekontroluje a vypíše jeden řádek
-// JSON: výsledek, průběh po minutách (zabití, úroveň, nepřátelé naráz, elity, rány) a příchod a pád každého bosse.
+//   node tests/simulace.mjs <seminko> <sekund> --json [--trida id] [--mapa id] [--vylepseni max] [--bot hraje|stoji]
+// Odehraje jednu hru botem (hraje = stejný bot jako hry na mapách, rozhodni + obsluz; stoji = stojí na místě),
+// nic nekontroluje a vypíše jeden řádek JSON: výsledek, průběh po minutách (zabití, úroveň, nepřátelé naráz,
+// elity, rány) a příchod a pád každého bosse.
 // S --seznam místo hry vypíše třídy, mapy, jména bossů a sílu hrozby po minutách (silaHrozby).
 if (process.argv.includes('--json')) {
   const volba = (jmeno, vychozi) => {
@@ -619,8 +640,9 @@ if (process.argv.includes('--json')) {
     const idTridy = volba('--trida', VYCHOZI_TRIDA);
     const idMapy = volba('--mapa', VYCHOZI_MAPA);
     const vylepseni = volba('--vylepseni', '') === 'max' ? Object.fromEntries(Object.entries(VYLEPSENI).map(([id, v]) => [id, v.max])) : {};
-    if (!Object.hasOwn(TRIDY, idTridy) || !PORADI_MAP.includes(idMapy) || !Number.isFinite(seminko) || !(delka > 0)) {
-      console.error(`CHYBA: neznámá třída, mapa, semínko nebo délka (${idTridy}, ${idMapy}, ${seminko}, ${delka})`);
+    const idBota = volba('--bot', 'hraje');
+    if (!Object.hasOwn(TRIDY, idTridy) || !PORADI_MAP.includes(idMapy) || !Number.isFinite(seminko) || !(delka > 0) || !Object.hasOwn(BOTI, idBota)) {
+      console.error(`CHYBA: neznámá třída, mapa, bot, semínko nebo délka (${idTridy}, ${idMapy}, ${idBota}, ${seminko}, ${delka})`);
       process.exit(2);
     }
     const h = novaHra(vytvorRng(seminko), idTridy, vylepseni, idMapy);
@@ -632,11 +654,14 @@ if (process.argv.includes('--json')) {
     let zabitoPred = 0;
     for (let t = 0; t < delka && !h.konec; t += DT) {
       const hpPred = h.hrdina.hp;
-      aktualizuj(h, DT, rozhodni(h, t), SIRKA, VYSKA);
+      aktualizuj(h, DT, BOTI[idBota](h, t), SIRKA, VYSKA);
       obsluz(h);
       const min = Math.floor(h.cas / 60);
-      while (minuty.length <= min) minuty.push({ zabito: 0, elit: 0, elit_padlo: 0, nepratel: 0, snimku: 0, uroven: h.hrdina.uroven, zivoty_min: 1, rany: 0 });
+      while (minuty.length <= min) minuty.push({ zabito: 0, elit: 0, elit_padlo: 0, nepratel: 0, snimku: 0, uroven: h.hrdina.uroven, zivoty_min: 1, rany: 0, obkliceni: 0 });
       const m = minuty[min];
+      m.naskok = h.naskok;
+      m.prevaha = prevaha(h);
+      m.obkliceni += h.hrdina.obkliceni;
       m.zabito += h.zabito - zabitoPred;
       zabitoPred = h.zabito;
       m.nepratel += h.nepratele.length;
@@ -665,14 +690,17 @@ if (process.argv.includes('--json')) {
       }
     }
     vystup = {
-      seminko, sekund: delka, trida: idTridy, mapa: idMapy, vylepseni: Object.keys(vylepseni).length ? 'max' : 'zadna',
+      seminko, sekund: delka, trida: idTridy, mapa: idMapy, vylepseni: Object.keys(vylepseni).length ? 'max' : 'zadna', bot: idBota,
       prezil: !h.konec, preziti_s: zaokr(h.cas, 1), uroven: h.hrdina.uroven, zabito: h.zabito, zabito_bossu: h.zabitoBossu,
       oziveno: h.oziveno, prvni_elita_s: prvniElita,
       zbrane: Object.fromEntries(Object.entries(h.zbrane).map(([id, z]) => [id, z.uroven])),
       pasivy: { ...h.pasivy },
       bossove,
-      minuty: minuty.map(({ snimku, nepratel, zivoty_min, rany, ...m }) => ({
+      kruhu: h.kruhu, zasahy_nepratel: h.zasahyNepratel, zasahy_bossu: h.zasahyBossu,
+      rany_z: Object.fromEntries(Object.entries(h.ranyZ).map(([k, v]) => [k, Math.round(v)])),
+      minuty: minuty.map(({ snimku, nepratel, zivoty_min, rany, naskok, prevaha: pr, obkliceni, ...m }) => ({
         ...m, nepratel: Math.round(nepratel / snimku), zivoty_min: zaokr(zivoty_min), rany: Math.round(rany),
+        naskok: zaokr(naskok), prevaha: zaokr(pr), obkliceni: zaokr(obkliceni / snimku),
       })),
     };
   }
@@ -1201,11 +1229,13 @@ for (const [id, sance] of Object.entries(KORIST_BEDEN)) {
 }
 if (!(KORIST_BEDEN.bomba < Math.min(...Object.entries(KORIST_BEDEN).filter(([id]) => id !== 'bomba').map(([, p]) => p)))) chybyBeden.push('bomba není nejvzácnější');
 // Hrdina stojí sám (bez vln a nových beden) a bedny mu postavíme kolem.
+// Tichá hra: jen dané zbraně, bez vln, beden a obklíčení (hrdina v pokusech stojí, kruh by mu přivolal nepřátele).
 const tichaHra = (zbrane) => {
   const h = novaHra(vytvorRng(seminko));
   h.zbrane = zbrane;
   h.doSpawnu = Infinity;
   h.doBedny = Infinity;
+  h.hrdina.stani = -Infinity;
   return h;
 };
 const bedna = (h, x, y, druh = 'bedna') => {
@@ -2364,8 +2394,9 @@ const prakovePokusy = {};
 // spritem a každá zbraň říká, co z ní která pasiva čte (čísla, která opravdu má). Bez pasiv jsou čísla zbraní
 // stejná jako dřív a los pasiv se nehne. Rozpětí, Výdrž a Příval změní přesně ta čísla, Rychlé ruce zrychlí každou
 // zbraň, kritický zásah bolí dvakrát se zlatým číslem a padá s danou šancí, Příval se nabízí zřídka a nejvýš 3.
-// Pak každá zbraň sama 15 s v plné hře od 10. minuty se všemi pasivami: ozvěna, kritické zásahy i delší efekty
-// musí být opravdu vidět (ve hře, ne jen v číslech) a nic se nerozbije.
+// Pak každá zbraň sama 15 s v plné hře od 8. minuty se všemi pasivami: ozvěna, kritické zásahy i delší efekty
+// musí být opravdu vidět (ve hře, ne jen v číslech) a nic se nerozbije. (Dřív od 10. minuty; od těžší hry roste
+// hrozba už od 6. minuty a nepřátelé v 8. minutě mají zhruba tolik životů jako dřív v 10.)
 const chybyPasiv = [];
 const pasivyZbrani = { zbrane: {} };
 {
@@ -2458,7 +2489,7 @@ const pasivyZbrani = { zbrane: {} };
   for (const id of Object.keys(ZBRANE)) {
     const h = novaHra(vytvorRng(seminko));
     h.zbrane = { [id]: { uroven: ZAKLAD_UROVNI, nabiti: 0 } };
-    Object.assign(h, { cas: 600, dalsiBoss: 1e9, dalsiSmecka: null, dalsiPrichod: 4 });
+    Object.assign(h, { cas: 480, dalsiBoss: 1e9, dalsiSmecka: null, dalsiPrichod: 4 });
     Object.assign(h.hrdina, VSE);
     const st = staty(h)[id];
     const z5 = zaklad5(id);
@@ -3049,6 +3080,20 @@ for (let min = 0.25; min <= 120; min += 0.25) {
   predHrozba = h;
 }
 if (silaHrozby(HROZBA.castejiOd * 60 + 600).elita <= silaHrozby(HROZBA.castejiOd * 60 - 1).elita) chybyHrozby.push('po castejiOd elit nepřibývá');
+// Každá minuta je znatelně těžší než předchozí: životy, poškození i rychlost (do stropu) nových nepřátel rostou
+// a dohromady (součin) aspoň o NAROST_ZA_MINUTU, nepřátel naráz a ve vlně neubývá.
+const NAROST_ZA_MINUTU = 1.15;
+const narustHrozby = [];
+for (let min = 1; min <= 40; min++) {
+  const a = silaHrozby((min - 1) * 60);
+  const b = silaHrozby(min * 60);
+  const tlak = (b.zivoty / a.zivoty) * (b.poskozeni / a.poskozeni) * (b.rychlost / a.rychlost);
+  narustHrozby.push(Math.round(tlak * 100) / 100);
+  if (!(b.zivoty > a.zivoty) || !(b.poskozeni > a.poskozeni) || !(b.rychlost > a.rychlost || b.rychlost === HROZBA.maxRychlost)) {
+    chybyHrozby.push(`v ${min}. minutě nesílí všechno: ${JSON.stringify({ a, b })}`);
+  }
+  if (!(tlak >= NAROST_ZA_MINUTU)) chybyHrozby.push(`${min}. minuta je jen ${tlak.toFixed(3)}× těžší než předchozí`);
+}
 if (!textHrozby(7).startsWith('Hrozba 7') || !textHrozby(HROZBA.castejiOd + 1).includes('bossové')) chybyHrozby.push('texty hrozby nesedí');
 // Noví nepřátelé dostanou životy, poškození a rychlost podle hrozby, elita víc, boss elitou nebude.
 const pozdni = novaHra(vytvorRng(seminko));
@@ -3100,8 +3145,354 @@ if (elityPodleCasu.pred[1]) chybyHrozby.push(`${elityPodleCasu.pred[1]} elit př
 if (elityPodleCasu.stred[0] > 500 && Math.abs(podil(elityPodleCasu.stred) - HROZBA.elitaSance) > HROZBA.elitaSance / 2) chybyHrozby.push(`podíl elit před ${HROZBA.castejiOd}. min ${podil(elityPodleCasu.stred)}`);
 if (elityPodleCasu.pozde[0] > 500 && !(podil(elityPodleCasu.pozde) > podil(elityPodleCasu.stred))) chybyHrozby.push('po 10. minutě elit nepřibylo');
 // Vyvážení: plně vylepšený bot hraje až do konce, nejvýš 30 minut. Bez vylepšení je to hlavní hra (nejvýš delka).
+// Cíl (docs/BALANC.md, medián přes postavy a semínka): bez vylepšení 5–7 min, se všemi 12–16 min. Tady jedno
+// semínko výchozí postavy, proto s rezervou: se všemi vylepšeními padne mezi 9. a 20. minutou a hlavní hra bez
+// vylepšení skončí do 10. minuty.
 const vydrz = hrajKratce(plna, 1800);
-if (!vydrz.konec) chybyHrozby.push('plně vylepšený bot přežil 30 minut, hrozba neroste dost');
+if (!vydrz.konec || vydrz.cas > 20 * 60) chybyHrozby.push(`plně vylepšený bot vydržel ${Math.round(vydrz.cas)} s, hrozba neroste dost`);
+if (vydrz.cas < 9 * 60) chybyHrozby.push(`plně vylepšený bot padl už v ${Math.round(vydrz.cas)} s`);
+if (delka >= 600 && !hra.konec) chybyHrozby.push('hrající bot bez vylepšení přežil 10 minut');
+
+// Těžší hra (viz hlavička).
+const chybyTezsi = [];
+const tezsi = {};
+// Hra bez vln, beden, bosse, smeček, kupce a zamčených truhel, hrdina může stát (obklíčení běží).
+const holaHra = (cas = 0, vylepseni = {}) => {
+  const h = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, vylepseni);
+  Object.assign(h, { zbrane: {}, doSpawnu: Infinity, doBedny: Infinity, dalsiBoss: Infinity, dalsiSmecka: null, doZamcene: Infinity, dalsiKupec: Infinity, cas });
+  h.hrozba = silaHrozby(cas).uroven;
+  return h;
+};
+const stoj = { dx: 0, dy: 0 };
+{
+  // Obklíčení roste po od s stání, plné je za naplno s, v prvních minutách nic nedělá a kruh nepřijde.
+  const h = holaHra(0);
+  let prvni = null;
+  let plne = null;
+  for (let t = 0; t < OBKLICENI.od + OBKLICENI.naplno + 1; t += DT) {
+    aktualizuj(h, DT, stoj, SIRKA, VYSKA);
+    if (prvni === null && h.hrdina.obkliceni > 0) prvni = h.cas;
+    if (plne === null && h.hrdina.obkliceni >= 1) plne = h.cas;
+  }
+  if (!(Math.abs(prvni - OBKLICENI.od) < 3 * DT) || !(Math.abs(plne - OBKLICENI.od - OBKLICENI.naplno) < 3 * DT)) chybyTezsi.push(`obklíčení začalo v ${prvni} s, plné v ${plne} s`);
+  if (h.hrdina.silaObkliceni !== 0 || h.nepratele.length || h.kruhu) chybyTezsi.push('obklíčení v první minutě už něco dělá');
+  for (let t = 0; t < OBKLICENI.vyprchani + 0.1; t += DT) aktualizuj(h, DT, { dx: 1, dy: 0 }, SIRKA, VYSKA);
+  if (h.hrdina.obkliceni !== 0 || h.hrdina.stani !== 0) chybyTezsi.push(`po ${OBKLICENI.vyprchani} s běhu obklíčení ${h.hrdina.obkliceni}`);
+  tezsi.obkliceni = { zacalo_s: prvni, plne_s: Math.round(plne * 10) / 10 };
+  // Síla obklíčení podle času: do silneOd nic, od plnaOd naplno, mezi tím roste.
+  let pred = 0;
+  for (let min = 0; min <= 20; min += 0.25) {
+    const sila = silaObkliceni({ cas: min * 60 });
+    if (sila < pred || sila < 0 || sila > 1 || (min <= OBKLICENI.silneOd && sila !== 0) || (min >= OBKLICENI.plnaOd && sila !== 1)) chybyTezsi.push(`síla obklíčení v ${min}. min ${sila}`);
+    pred = sila;
+  }
+}
+{
+  // Plně obklíčený v plné síle: kruhy po kruhPrvni a pak každých kruhKazdych s, každý rovnoměrně kolem hrdiny.
+  const h = holaHra(OBKLICENI.plnaOd * 60);
+  const zacatek = h.cas;
+  const kruhy = [];
+  for (let t = 0; t < OBKLICENI.od + OBKLICENI.naplno + OBKLICENI.kruhPrvni + OBKLICENI.kruhKazdych + 0.2; t += DT) {
+    h.hrdina.nezranitelny = 1;
+    const pred = h.nepratele.length;
+    aktualizuj(h, DT, stoj, SIRKA, VYSKA);
+    // (kopie: kde nepřítel stál v tom snímku, kdy kruh přišel, ne kam pak došel)
+    if (h.nepratele.length > pred) kruhy.push({ s: h.cas - zacatek, novi: h.nepratele.slice(pred).map((n) => ({ ...n })), sila: silaHry(h) });
+  }
+  const prvniKruh = OBKLICENI.od + OBKLICENI.naplno + OBKLICENI.kruhPrvni;
+  if (kruhy.length !== 2 || Math.abs(kruhy[0].s - prvniKruh) > 3 * DT || Math.abs(kruhy[1].s - prvniKruh - OBKLICENI.kruhKazdych) > 3 * DT) {
+    chybyTezsi.push(`kruhy obklíčení v ${kruhy.map((k) => k.s.toFixed(2))} s`);
+  }
+  for (const k of kruhy) {
+    const ceka = Math.min(OBKLICENI.kruhMax, OBKLICENI.kruhPocet + Math.floor(OBKLICENI.kruhNavic * k.sila.min));
+    const uhly = k.novi.map((n) => Math.atan2(n.y - h.hrdina.y, n.x - h.hrdina.x)).sort((a, b) => a - b);
+    const mezery = uhly.map((u, i) => (i ? u - uhly[i - 1] : u + Math.PI * 2 - uhly.at(-1)));
+    if (k.novi.length !== ceka) chybyTezsi.push(`kruh má ${k.novi.length} nepřátel, čekám ${ceka}`);
+    // (v tom snímku už kousek ušli k hrdinovi)
+    const mimo = (n) => { const d = Math.hypot(n.x - h.hrdina.x, n.y - h.hrdina.y); return d > OBKLICENI.kruhPolomer + 1e-6 || d < OBKLICENI.kruhPolomer - 10; };
+    if (k.novi.some((n) => !n.kruh || n.duch || n.doSchopnosti !== undefined || mimo(n))) chybyTezsi.push('nepřítel kruhu je duch, má schopnost nebo stojí jinde');
+    if (mezery.some((m) => Math.abs(m - (Math.PI * 2) / k.novi.length) > 1e-6)) chybyTezsi.push('kruh obklíčení není rovnoměrný');
+  }
+  tezsi.kruh = { nepratel: kruhy.map((k) => k.novi.length), za_s: kruhy.map((k) => Math.round(k.s * 10) / 10) };
+  // Rána plně obklíčenému: větší, zbroj ubere míň a chvíle bez zranění je kratší. Bahenní oblak ne (není od nepřátel).
+  h.nepratele = [];
+  h.hrdina.hp = h.hrdina.maxHp = 1e6;
+  h.hrdina.pancir = 4;
+  h.hrdina.nezranitelny = 0;
+  const kost = pridejNepritele(h, 'kostlivec', h.hrdina.x + 5, h.hrdina.y);
+  Object.assign(kost, { rychlost: 0, hp: 1e9, maxHp: 1e9 });
+  delete kost.doSchopnosti;
+  aktualizuj(h, DT, stoj, SIRKA, VYSKA);
+  const rana = 1e6 - h.hrdina.hp;
+  const cekam = Math.max(1, Math.round(Math.round(kost.poskozeni * (1 + OBKLICENI.rana)) - 4 * (1 - OBKLICENI.zbroj)));
+  if (h.hrdina.obkliceni !== 1 || h.hrdina.silaObkliceni !== 1 || rana !== cekam) chybyTezsi.push(`obklíčenému ubral kostlivec ${rana}, čekám ${cekam}`);
+  if (Math.abs(h.hrdina.nezranitelny - NEZRANITELNY_PO_RANE * (1 - OBKLICENI.nezranitelnost)) > 1e-9) chybyTezsi.push(`chvíle bez zranění obklíčeného ${h.hrdina.nezranitelny}`);
+  h.nepratele = [];
+  h.hrdina.hp = 1e6;
+  h.hrdina.nezranitelny = 0;
+  h.oblaky.push({ x: h.hrdina.x, y: h.hrdina.y, zivot: TRVANI_OBLAKU - NAFUKOVANI_OBLAKU - 0.1, polomer: POLOMER_OBLAKU, druh: 'bahno', jed: JED_OBLAKU });
+  aktualizuj(h, DT, stoj, SIRKA, VYSKA);
+  if (1e6 - h.hrdina.hp !== Math.round(JED_OBLAKU * silaHry(h).poskozeni)) chybyTezsi.push(`bahenní oblak obklíčenému ubral ${1e6 - h.hrdina.hp}`);
+  tezsi.rana_obklicenemu = { kostlivec: kost.poskozeni, obkliceny: rana };
+  // Běžící hrdina kruh nedostane.
+  const b = holaHra(OBKLICENI.plnaOd * 60);
+  for (let t = 0; t < 12; t += DT) aktualizuj(b, DT, { dx: Math.cos(t), dy: Math.sin(t) }, SIRKA, VYSKA);
+  if (b.kruhu || b.nepratele.length || b.hrdina.obkliceni) chybyTezsi.push('běžící hrdina byl obklíčen');
+  // Před kruhOd. minutou kruh nepřijde ani plně obklíčenému.
+  const brzy = holaHra(OBKLICENI.kruhOd * 60 - 20);
+  for (let t = 0; t < 15; t += DT) aktualizuj(brzy, DT, stoj, SIRKA, VYSKA);
+  if (brzy.kruhu || brzy.hrdina.obkliceni !== 1) chybyTezsi.push(`před ${OBKLICENI.kruhOd}. minutou kruhů ${brzy.kruhu}`);
+}
+// Schopnosti obyčejných nepřátel: kdo co má.
+{
+  const ids = (druh, elita) => schopnostiNepritele(druh, elita).map((x) => x.id).join();
+  if (ids('netopyr') || ids('netopyr', true) !== 'vypad' || ids('kostlivec') !== 'hod' || ids('kostlivec', true) !== 'hod,vypad' || ids('slizak') !== 'skok' || ids('slizak', true) !== 'skok,vypad') {
+    chybyTezsi.push(`schopnosti: netopýr ${ids('netopyr')}/${ids('netopyr', true)}, kostlivec ${ids('kostlivec')}/${ids('kostlivec', true)}, slizák ${ids('slizak')}/${ids('slizak', true)}`);
+  }
+  const ek = schopnostiNepritele('kostlivec', true)[0];
+  const es = schopnostiNepritele('slizak', true)[0];
+  if (ek.pocet.join() !== ELITNI.kosti.join() || Math.abs(es.polomer - SCHOPNOSTI.skok.polomer * ELITNI.skok) > 1e-9) chybyTezsi.push('elita nemá silnější schopnosti');
+  if (schopnostiNepritele('kostlivec', true)[1].rychlost !== NAPOR_ELITY.rychlost || !schopnostiNepritele('slizak')[0].nazev) chybyTezsi.push('nápor elity nebo jméno schopnosti nesedí');
+  const h = holaHra(200);
+  const netopyr = pridejNepritele(h, 'netopyr', 500, 0);
+  const elita = pridejNepritele(h, 'netopyr', 500, 40, true);
+  const kostlivec = pridejNepritele(h, 'kostlivec', 500, 80);
+  if (netopyr.doSchopnosti !== undefined || !(elita.doSchopnosti >= PRVNI_SCHOPNOST_NEPRATEL) || !(kostlivec.doSchopnosti >= PRVNI_SCHOPNOST_NEPRATEL)) chybyTezsi.push('schopnost dostal ten, kdo ji nemá, nebo nedostal, kdo ji má');
+}
+// Kostlivec, který kost hodí hned (příděl je), stojí sám u hrdiny. kam = jak hrdina jde (před hodem, po hodu).
+const kostlivecHazi = (kam) => {
+  const h = holaHra(OBYCEJNE.od + 30);
+  h.hrdina.stani = -Infinity;
+  h.pridel.hod = OBYCEJNE.zasoba;
+  const k = pridejNepritele(h, 'kostlivec', h.hrdina.x + 200, h.hrdina.y);
+  Object.assign(k, { rychlost: 0, hp: 1e9, maxHp: 1e9, doSchopnosti: DT / 2 });
+  let varovani = 0;
+  let kost = null;
+  let ranaKosti = null;
+  for (let t = 0; t < 2.5; t += DT) {
+    const pred = h.hrdina.hp;
+    const pal = h.kameny.length;
+    aktualizuj(h, DT, kost ? kam[1] : kam[0], SIRKA, VYSKA);
+    if (k.schopnost?.faze === 'varovani') varovani += DT;
+    if (!kost && h.kameny.length) kost = { ...h.kameny[0], hrdinaX: h.hrdina.x, hrdinaY: h.hrdina.y };
+    if (pal && !h.kameny.length && ranaKosti === null) ranaKosti = pred - h.hrdina.hp;
+    k.doSchopnosti = Infinity;
+  }
+  return { h, k, varovani, kost, ranaKosti };
+};
+{
+  const s = schopnostiNepritele('kostlivec')[0];
+  const stoji = kostlivecHazi([stoj, stoj]);
+  if (Math.abs(stoji.varovani - s.varovani) > 2 * DT || !stoji.kost || stoji.kost.druh !== 'kost' || Math.hypot(stoji.kost.x - stoji.kost.hrdinaX, stoji.kost.y - stoji.kost.hrdinaY) > 1e-6) {
+    chybyTezsi.push(`kostlivec: varování ${stoji.varovani.toFixed(2)} s, kost ${JSON.stringify(stoji.kost && { x: stoji.kost.x, y: stoji.kost.y, druh: stoji.kost.druh })}`);
+  }
+  const cekam = Math.round(s.poskozeni * silaHry(stoji.h).poskozeni);
+  if (stoji.h.zasahyNepratel.hod !== 1 || stoji.h.zasahyBossu.hod !== 0 || stoji.ranaKosti !== cekam) chybyTezsi.push(`kost stojícímu: zásahů ${stoji.h.zasahyNepratel.hod}, rána ${stoji.ranaKosti} (čekám ${cekam})`);
+  const kricka = kostlivecHazi([{ dx: 0, dy: 1 }, { dx: 0, dy: -1 }]);
+  if (kricka.h.zasahyNepratel.hod !== 0 || !(kricka.kost.y > kricka.kost.hrdinaY)) chybyTezsi.push('kost trefila hrdinu, který uhnul, nebo nemířila před běžícího');
+  tezsi.kost = { varovani_s: Math.round(stoji.varovani * 100) / 100, rana_stojicimu: stoji.ranaKosti, kdo_uhnul: kricka.h.zasahyNepratel.hod };
+  // Omráčený kostlivec nic nezačne a rozběhnuté varování se mu přeruší.
+  const h = holaHra(OBYCEJNE.od + 30);
+  h.hrdina.stani = -Infinity;
+  h.pridel.hod = OBYCEJNE.zasoba;
+  const k = pridejNepritele(h, 'kostlivec', 200, 0);
+  Object.assign(k, { rychlost: 0, doSchopnosti: DT / 2 });
+  aktualizuj(h, DT, stoj, SIRKA, VYSKA);
+  const zacal = k.schopnost?.faze === 'varovani';
+  k.omracen = 2;
+  for (let t = 0; t < 1.5; t += DT) aktualizuj(h, DT, stoj, SIRKA, VYSKA);
+  if (!zacal || k.schopnost || h.kameny.length) chybyTezsi.push('omráčený kostlivec dohodil');
+  // Před OBYCEJNE.od nikdo nic nezačne.
+  const brzy = holaHra(OBYCEJNE.od - 10);
+  const b = pridejNepritele(brzy, 'kostlivec', 200, 0);
+  Object.assign(b, { rychlost: 0, doSchopnosti: DT / 2 });
+  brzy.hrdina.stani = -Infinity;
+  for (let t = 0; t < 5; t += DT) aktualizuj(brzy, DT, stoj, SIRKA, VYSKA);
+  if (b.schopnost || brzy.kameny.length || brzy.schopnostiNepratel.hod) chybyTezsi.push(`kostlivec hodil před ${OBYCEJNE.od}. s`);
+}
+{
+  // Příděl: 30 kostlivců kolem hrdiny 20 s ve 4. minutě hodí jen tolik, kolik příděl dovolí (a příděl vyčerpají).
+  const h = holaHra(240);
+  h.hrdina.stani = -Infinity;
+  for (let i = 0; i < 30; i++) {
+    const k = pridejNepritele(h, 'kostlivec', Math.cos(i) * 250, Math.sin(i) * 250);
+    Object.assign(k, { rychlost: 0, hp: 1e9, maxHp: 1e9 });
+  }
+  let pridel = 0;
+  for (let t = 0; t < 20; t += DT) {
+    h.hrdina.nezranitelny = 1;
+    pridel += (OBYCEJNE.kosti + (OBYCEJNE.kostiRust * h.cas) / 60) * DT;
+    aktualizuj(h, DT, stoj, SIRKA, VYSKA);
+  }
+  const hodu = h.schopnostiNepratel.hod ?? 0;
+  if (hodu > Math.floor(pridel) + 1 || hodu < Math.floor(pridel) - 1) chybyTezsi.push(`za 20 s ${hodu} kostí, příděl ${pridel.toFixed(2)}`);
+  tezsi.pridel_kosti_20_s = { hodu, pridel: Math.round(pridel * 100) / 100 };
+}
+// Slizák skáče na místo, kde hrdina stál, když se přikrčil. kam = jak hrdina jde.
+const slizakSkace = (kam, vzdalenost = 160) => {
+  const h = holaHra(OBYCEJNE.od + 30);
+  h.hrdina.stani = -Infinity;
+  h.hrdina.hp = h.hrdina.maxHp = 1000;
+  h.pridel.skok = OBYCEJNE.zasoba;
+  const z = pridejNepritele(h, 'slizak', h.hrdina.x + vzdalenost, h.hrdina.y);
+  Object.assign(z, { rychlost: 0, hp: 1e9, maxHp: 1e9, doSchopnosti: DT / 2 });
+  let cil = null;
+  let ranaVeVzduchu = 0;
+  let ranaDopadu = null;
+  let zasahu = 0;
+  for (let t = 0; t < 2; t += DT) {
+    const pred = h.hrdina.hp;
+    const letel = z.schopnost?.id === 'skok' && z.schopnost.faze === 'provadi';
+    aktualizuj(h, DT, kam, SIRKA, VYSKA);
+    if (!cil && z.schopnost?.id === 'skok') cil = { x: z.schopnost.cilX, y: z.schopnost.cilY };
+    const leti = z.schopnost?.id === 'skok' && z.schopnost.faze === 'provadi';
+    if (leti && letel) ranaVeVzduchu += pred - h.hrdina.hp;
+    if (letel && !leti && ranaDopadu === null) {
+      ranaDopadu = pred - h.hrdina.hp;
+      zasahu = h.zasahyNepratel.skok;
+      Object.assign(z, { doSchopnosti: Infinity, x: 9000 });
+    }
+  }
+  return { h, z, cil, ranaVeVzduchu, ranaDopadu, zasahu };
+};
+{
+  const s = schopnostiNepritele('slizak')[0];
+  const stoji = slizakSkace(stoj);
+  const cekam = Math.round(s.poskozeni * silaHry(stoji.h).poskozeni);
+  if (!stoji.cil || Math.hypot(stoji.cil.x, stoji.cil.y) > 1e-6 || stoji.zasahu !== 1 || stoji.ranaDopadu !== cekam || stoji.ranaVeVzduchu !== 0) {
+    chybyTezsi.push(`skok na stojícího: cíl ${JSON.stringify(stoji.cil)}, zásahů ${stoji.zasahu}, dopad ${stoji.ranaDopadu} (čekám ${cekam}), ve vzduchu ${stoji.ranaVeVzduchu}`);
+  }
+  const uhyba = slizakSkace({ dx: 0, dy: 1 });
+  if (uhyba.zasahu !== 0) chybyTezsi.push('skok trefil hrdinu, který uhnul');
+  const blizko = slizakSkace(stoj, s.blizko - 10);
+  if (blizko.cil) chybyTezsi.push('slizák skočil na hrdinu zblízka');
+  tezsi.skok = { rana_stojicimu: stoji.ranaDopadu, kdo_uhnul: uhyba.zasahu };
+}
+{
+  // Nápor elity: elita zamíří, vyrazí a stojícího trefí.
+  const h = holaHra(OBYCEJNE.od + 30);
+  h.hrdina.stani = -Infinity;
+  const e = pridejNepritele(h, 'netopyr', 250, 0, true);
+  Object.assign(e, { rychlost: 0, hp: 1e9, maxHp: 1e9, doSchopnosti: DT / 2 });
+  let vypad = false;
+  for (let t = 0; t < 2.5; t += DT) {
+    aktualizuj(h, DT, stoj, SIRKA, VYSKA);
+    vypad ||= e.schopnost?.id === 'vypad';
+  }
+  if (!vypad || h.zasahyNepratel.vypad !== 1 || h.zasahyBossu.vypad !== 0) chybyTezsi.push(`nápor elity: výpad ${vypad}, zásahů ${h.zasahyNepratel.vypad}`);
+}
+{
+  // Přizpůsobení hrozby. Podíl vylepšení: žádná 0, všechna 1.
+  if (podilTrvalych({}) !== 0 || podilTrvalych(plna) !== 1 || !(podilTrvalych({ sila: 1 }) > 0 && podilTrvalych({ sila: 1 }) < 1)) chybyTezsi.push('podíl trvalých vylepšení nesedí');
+  let pred = 0;
+  for (let min = 0; min <= 40; min += 0.5) {
+    const u = ocekavanaUroven(min);
+    if (!(u >= pred) || !Number.isFinite(u)) chybyTezsi.push(`očekávaná úroveň v ${min}. min ${u}`);
+    pred = u;
+  }
+  // První od s se nic nepřizpůsobí ani silnému hrdinovi, slabému (bez zbraní) nikdy.
+  const silny = holaHra(0, plna);
+  silny.zbrane = { lucerna: { uroven: 30, nabiti: 0 } };
+  silny.hrdina.sila = 1000;
+  silny.doSpawnu = 0;
+  const slaby = holaHra(0);
+  slaby.doSpawnu = 0;
+  let maxKrok = 0;
+  let naskokPredOd = 0;
+  for (let t = 0; t < PRIZPUSOBENI.od + 60; t += DT) {
+    for (const h of [silny, slaby]) h.hrdina.nezranitelny = 1;
+    const pred = silny.naskok;
+    aktualizuj(silny, DT, rozhodni(silny, t), SIRKA, VYSKA);
+    obsluz(silny);
+    aktualizuj(slaby, DT, rozhodni(slaby, t), SIRKA, VYSKA);
+    obsluz(slaby);
+    maxKrok = Math.max(maxKrok, silny.naskok - pred);
+    if (silny.cas < PRIZPUSOBENI.od) naskokPredOd = Math.max(naskokPredOd, silny.naskok, slaby.naskok);
+  }
+  const rozpis = cilNaskoku(silny);
+  if (naskokPredOd !== 0) chybyTezsi.push(`naskok před ${PRIZPUSOBENI.od}. s ${naskokPredOd}`);
+  if (slaby.naskok !== 0 || cilNaskoku(slaby).celkem !== 0) chybyTezsi.push(`slabý hrdina má naskok ${slaby.naskok}`);
+  if (!(silny.naskok > 0) || maxKrok > PRIZPUSOBENI.rust * DT + 1e-9 || rozpis.vylepseni !== PRIZPUSOBENI.vylepseni || !(rozpis.dps > 0) || rozpis.celkem > PRIZPUSOBENI.max) {
+    chybyTezsi.push(`silný hrdina: naskok ${silny.naskok}, krok ${maxKrok}, rozpis ${JSON.stringify(rozpis)}`);
+  }
+  if (Math.abs(casHrozby(silny) - silny.cas - 60 * silny.naskok) > 1e-9 || JSON.stringify(silaHry(silny)) !== JSON.stringify(silaHrozby(casHrozby(silny)))) chybyTezsi.push('síla hry nebere naskok');
+  if (hrozbaNavic(silny) !== silaHrozby(casHrozby(silny)).uroven - silaHrozby(silny.cas).uroven || hrozbaNavic(slaby) !== 0) chybyTezsi.push('hrozba navíc nesedí');
+  const novy = pridejNepritele(silny, 'kostlivec', 9000, 0);
+  if (novy.hp !== Math.round(60 * silaHry(silny).zivoty)) chybyTezsi.push(`nový kostlivec má ${novy.hp} životů, čekám ${Math.round(60 * silaHry(silny).zivoty)}`);
+  // Strop: i nekonečná převaha nepřeleze max.
+  silny.soucetPoskozeni = 1e30;
+  silny.hrdina.uroven = 1e6;
+  if (cilNaskoku(silny).celkem !== PRIZPUSOBENI.max) chybyTezsi.push(`cíl naskoku přes strop ${cilNaskoku(silny).celkem}`);
+  if (!(prisunZivotu(slaby) > 0)) chybyTezsi.push('přísun životů není kladný');
+  tezsi.prizpusobeni = { silny_naskok_min: Math.round(silny.naskok * 100) / 100, rozpis: Object.fromEntries(Object.entries(rozpis).map(([k, v]) => [k, Math.round(v * 100) / 100])) };
+}
+{
+  // Bossové víc tlačí: do TLAK_BOSSU.od pauza beze změny, pak kratší (nejvýš na min), obklíčenému ještě kratší.
+  const h = holaHra(0);
+  const b = pridejNepritele(h, 'strazce', 9000, 0);
+  const pauza = BOSSOVE.strazce.pauza;
+  const pri = (min, obkliceni = 0) => {
+    h.cas = min * 60;
+    h.hrdina.obkliceni = obkliceni;
+    return pauzaBosse(h, b);
+  };
+  if (pri(TLAK_BOSSU.od) !== pauza || !(pri(10) < pauza) || Math.abs(pri(10) - pauza * (1 - TLAK_BOSSU.zaMinutu * (10 - TLAK_BOSSU.od))) > 1e-9 || Math.abs(pri(200) - pauza * TLAK_BOSSU.min) > 1e-9 || Math.abs(pri(TLAK_BOSSU.od, 1) - pauza * TLAK_BOSSU.stani) > 1e-9) {
+    chybyTezsi.push(`pauza Strážce: ${pri(TLAK_BOSSU.od)}, v 10. min ${pri(10)}, pozdě ${pri(200)}, obklíčenému ${pri(TLAK_BOSSU.od, 1)}`);
+  }
+}
+{
+  // Nadbíhání: běžícímu hrdinovi (po od s) jde nepřítel před něj, stojícímu přímo, a před od s taky přímo.
+  const krok = (cas, kam) => {
+    const h = holaHra(cas);
+    h.hrdina.stani = -Infinity;
+    const n = pridejNepritele(h, 'netopyr', 300, 0);
+    aktualizuj(h, DT, kam, SIRKA, VYSKA);
+    aktualizuj(h, DT, kam, SIRKA, VYSKA);
+    return n.y;
+  };
+  const [nadbiha, stojicimu, predOd] = [krok(NADBIHANI.od + 5, { dx: 0, dy: -1 }), krok(NADBIHANI.od + 5, stoj), krok(NADBIHANI.od - 5, { dx: 0, dy: -1 })];
+  if (!(nadbiha < -0.3) || Math.abs(stojicimu) > 1e-9 || Math.abs(predOd) > 0.2) chybyTezsi.push(`nadbíhání: běžícímu ${nadbiha}, stojícímu ${stojicimu}, před ${NADBIHANI.od}. s ${predOd}`);
+  tezsi.nadbihani_px_za_2_snimky = Math.round(nadbiha * 100) / 100;
+  // Vlny zepředu: běžícímu doprava vyleze v kuželu před ním zhruba zepredu + (1 − zepredu) · rozptyl / 2π vln.
+  const h = novaHra(vytvorRng(seminko));
+  Object.assign(h, { doBedny: Infinity, dalsiBoss: Infinity, dalsiSmecka: null, doZamcene: Infinity, dalsiKupec: Infinity, cas: 300 });
+  h.hrozba = silaHrozby(h.cas).uroven;
+  h.hrdina.stani = -Infinity;
+  let vpredu = 0;
+  let celkem = 0;
+  for (let t = 0; t < 12; t += DT) {
+    h.hrdina.nezranitelny = 1;
+    const pred = h.nepratele.length;
+    aktualizuj(h, DT, { dx: 1, dy: 0 }, SIRKA, VYSKA);
+    for (const n of h.nepratele.slice(pred)) {
+      celkem += 1;
+      if (Math.abs(Math.atan2(n.y - h.hrdina.y, n.x - h.hrdina.x)) < NADBIHANI.rozptyl / 2) vpredu += 1;
+    }
+    h.nepratele = [];
+  }
+  const ceka = NADBIHANI.zepredu + ((1 - NADBIHANI.zepredu) * NADBIHANI.rozptyl) / (Math.PI * 2);
+  if (celkem < 200 || Math.abs(vpredu / celkem - ceka) > 0.06) chybyTezsi.push(`zepředu ${vpredu}/${celkem} vln, čekám ${ceka.toFixed(2)}`);
+  tezsi.vlny_zepredu = { podil: Math.round((vpredu / Math.max(1, celkem)) * 100) / 100, ceka: Math.round(ceka * 100) / 100 };
+  // Elita vede: netopýr vedle elity jde VUDCE.rychlost× rychleji než netopýr daleko od ní.
+  const v = holaHra(30);
+  v.hrdina.stani = -Infinity;
+  const e = pridejNepritele(v, 'netopyr', 400, 0, true);
+  Object.assign(e, { rychlost: 0 });
+  delete e.doSchopnosti;
+  const vedle = pridejNepritele(v, 'netopyr', 400, 40);
+  const sam = pridejNepritele(v, 'netopyr', -400, 40);
+  const [x1, x2] = [vedle.x, sam.x];
+  aktualizuj(v, DT, stoj, SIRKA, VYSKA);
+  const pomer = Math.hypot(vedle.x - x1, vedle.y - 40) / Math.hypot(sam.x - x2, sam.y - 40);
+  if (Math.abs(pomer - VUDCE.rychlost) > 1e-6 || !vedle.vedeny || sam.vedeny) chybyTezsi.push(`netopýr u elity jde ${pomer.toFixed(3)}× rychleji`);
+}
+{
+  // Stání na místě nestačí: plně vylepšený bot, který stojí, padne do 6 minut a dřív než ten, který hraje.
+  const stojici = hrajKratce(plna, 360, () => stoj);
+  if (!stojici.konec || !(stojici.cas < vydrz.cas)) chybyTezsi.push(`stojící plně vylepšený bot vydržel ${Math.round(stojici.cas)} s`);
+  tezsi.stojici_vse_vylepsene = { preziti_min: Math.round(stojici.cas / 6) / 10, uroven: stojici.hrdina.uroven, kruhu: stojici.kruhu, rany: Object.fromEntries(Object.entries(stojici.ranyZ).map(([k, v]) => [k, Math.round(v)])) };
+  tezsi.hrajici_vse_vylepsene = { preziti_min: Math.round(vydrz.cas / 6) / 10, naskok_na_konci: Math.round(vydrz.naskok * 100) / 100, zasahy_nepratel: vydrz.zasahyNepratel };
+}
 
 // Čísla poškození zblízka: hrdina bez zbraní a bez vln (ať do toho nic nestřílí) a nepřátelé, kteří nepadnou.
 const hraBezZbrani = () => {
@@ -4213,6 +4604,7 @@ const vysledek = {
       dosah_lucerny: Math.round(silnaStaty.lucerna.dosah), poskozeni_jiskry: Math.round(silnaStaty.jiskra.poskozeni),
     },
   },
+  tezsi_hra: tezsi,
   hrozba: {
     konecna: hra.hrozba,
     ohlaseni: ohlaseniHrozby,
@@ -4224,6 +4616,7 @@ const vysledek = {
       vse_vylepsene: vydrz.konec ? Math.round(vydrz.cas / 6) / 10 : 'přes 30',
       vse_vylepsene_uroven: vydrz.hrdina.uroven,
     },
+    narust_za_minutu: narustHrozby.slice(0, 20),
     tabulka: Object.fromEntries([0, 5, 10, 15, 20, 25].map((min) => {
       const h = silaHrozby(min * 60);
       return [`${min}_min`, { zivoty: +h.zivoty.toFixed(2), bossove: +h.bossZivoty.toFixed(2), poskozeni: +h.poskozeni.toFixed(2), rychlost: +h.rychlost.toFixed(2), naraz: h.maxNepratel, elita_procent: +(h.elita * 100).toFixed(1) }];
@@ -4543,7 +4936,7 @@ console.log(JSON.stringify(vysledek, null, 2));
 const chyby = [
   ...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel), ...chybyVybavy, ...chybyLucerny, ...new Set(chybyBeden),
   ...new Set(chybyBossu), ...chybyZbrani, ...new Set(chybyUrovni), ...new Set(chybyHrozby), ...new Set(chybyCisel),
-  ...new Set(chybyVystroje), ...new Set(chybyZlata), ...new Set(chybyMap), ...new Set(chybyPasiv), ...chybyZvuku,
+  ...new Set(chybyVystroje), ...new Set(chybyZlata), ...new Set(chybyMap), ...new Set(chybyPasiv), ...chybyZvuku, ...new Set(chybyTezsi),
 ];
 if (maxTrsu > MAX_TRNU) chyby.push(`trsů trnů naráz ${maxTrsu}`);
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);

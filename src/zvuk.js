@@ -555,6 +555,41 @@ const EFEKTY = {
       hlas(e, t, { f: 70, f2: 35, delka: 0.4, h: 0.045, vlna: 'sine' });
     },
   },
+  // Obyčejní nepřátelé se schopností: tišší a kratší než bossové, ať jich může být víc.
+  // Kostlivec napřahuje kost: krátké hvízdnutí nahoru.
+  hodKosti: {
+    mezera: 0.25,
+    hraj(t, e) {
+      sumik(e, t, { delka: 0.12, h: 0.01, fl: { typ: 'bandpass', f: 900, q: 3 } });
+      hlas(e, t + 0.03, { f: 660, f2: 1180, delka: 0.16, h: 0.007, vlna: 'triangle', utok: 0.02 });
+    },
+  },
+  // Slizák se odráží ke skoku: mlasknutí, které vyletí nahoru.
+  skok: {
+    mezera: 0.2,
+    hraj(t, e) {
+      hlas(e, t, { f: 180, f2: 420, delka: 0.14, h: 0.012, vlna: 'sine', utok: 0.01 });
+      sumik(e, t, { delka: 0.08, h: 0.008, fl: { typ: 'lowpass', f: 700 } });
+    },
+  },
+  // Nápor elity: krátké zavrčení.
+  napor: {
+    mezera: 0.35,
+    hraj(t, e) {
+      hlas(e, t, { f: 90, f2: 240, delka: 0.4, h: 0.016, vlna: 'sawtooth', utok: 0.04, fl: { f: 500, f2: 1400 } });
+    },
+  },
+  // Obklíčení: dva nízké údery bubnu a tmavý akord, ať hráč ví, že má utéct.
+  obkliceni: {
+    mezera: 1.5,
+    dulezity: true,
+    hraj(t, e) {
+      hlas(e, t, { f: 82, f2: 55, delka: 0.25, h: 0.04, vlna: 'sine' });
+      hlas(e, t + 0.18, { f: 82, f2: 55, delka: 0.25, h: 0.04, vlna: 'sine' });
+      hlas(e, t + 0.05, { f: 147, delka: 0.6, h: 0.014, vlna: 'triangle', utok: 0.05 });
+      hlas(e, t + 0.05, { f: 156, delka: 0.6, h: 0.011, vlna: 'triangle', utok: 0.05 });
+    },
+  },
   elita: {
     mezera: 0.6,
     hraj(t, e) {

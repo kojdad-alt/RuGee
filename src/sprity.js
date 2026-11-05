@@ -375,6 +375,14 @@ const SPRITY = {
     'eoeEE',
     '.EEE.',
   ],
+  // Kost, kterou hází kostlivec (otáčí se v letu, kreslí se šikmo).
+  kost: [
+    'WW...',
+    'WHW..',
+    '.WHW.',
+    '..WHW',
+    '...WW',
+  ],
   // Lebka, kterou hází Kostěný král.
   lebka: [
     '.WWW.',

@@ -28,6 +28,7 @@ export default {
     uroven: 'Úroveň',
     urovenKratce: 'Úr.',
     hrozba: 'Hrozba',
+    hrozbaNavic: 'Hrozba +{n} za sílu hrdiny',
     zabito: 'Zabito',
   },
 
@@ -354,6 +355,7 @@ export default {
     odemcenaMapa: 'Odemčena mapa: {mapa}',
     zvukVypnuty: 'Zvuk vypnutý (N)',
     zvukZapnuty: 'Zvuk zapnutý (N)',
+    obkliceni: 'Obklíčení! Nestůj na místě',
     hrozba: {
       sili: 'Hrozba {n}: nepřátelé sílí',
       elity: 'Hrozba {n}: přicházejí elity',
@@ -680,6 +682,7 @@ export default {
     vypad: { nazev: 'Výpad' },
     vyvolani: { nazev: 'Vyvolání' },
     vejir: { nazev: 'Vějíř' },
+    skok: { nazev: 'Skok' },
   },
   // Bossové: jméno nad pruhem, nápis při příchodu a štítek truhly.
   bossove: {
