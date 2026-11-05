@@ -233,7 +233,7 @@ let truhel = 0;
 const chybyRarit = [];
 const chybyNepratel = [];
 const videni = new WeakSet();
-const prvni = { duch: null, houbak: null, vlk: null };
+const prvni = { kralik: null, had: null, strasak: null, vlk: null };
 const smecky = [];
 const videneOblaky = new WeakSet();
 let oblaku = 0;
@@ -1194,7 +1194,7 @@ if (smrtVJedu.oziveno !== 1 || smrtVJedu.konec) chybyNepratel.push('smrt v oblak
 const rychlostiOstatnich = Object.entries(RYCHLOST_NEPRATEL).filter(([id]) => id !== 'vlk').map(([, r]) => r);
 if (!(RYCHLOST_NEPRATEL.vlk > Math.max(...rychlostiOstatnich))) chybyNepratel.push('vlk není rychlejší než ostatní');
 // Kdy přišli v hlavní hře.
-for (const [druh, od] of [['duch', OD_DUCHU], ['houbak', OD_HOUBAKU], ['vlk', OD_VLKU]]) {
+for (const [druh, od] of [['kralik', odKdy(VYCHOZI_MAPA, 'kralik')], ['had', odKdy(VYCHOZI_MAPA, 'had')], ['strasak', odKdy(VYCHOZI_MAPA, 'strasak')], ['vlk', OD_VLKU]]) {
   if (prvni[druh] !== null && prvni[druh] < od) chybyNepratel.push(`${druh} přišel moc brzy (${prvni[druh].toFixed(1)} s)`);
   if (prvni[druh] === null && hra.cas > od + 40) chybyNepratel.push(`po ${od} s nepřišel žádný ${druh}`);
 }
@@ -4947,7 +4947,8 @@ if (hra.zabito > 0 && maxCastic === 0) chyby.push('po zabití nevyletěly žádn
 if (maxCastic > 400) chyby.push(`příliš mnoho úlomků najednou (${maxCastic})`);
 if (tresu !== zasahu) chyby.push(`třes obrazovky jen u ${tresu} z ${zasahu} zásahů hrdiny`);
 if (prvniPavouk !== null && prvniPavouk < OD_PAVOUKU) chyby.push(`pavouk přišel moc brzy (${prvniPavouk.toFixed(1)} s)`);
-if (hra.cas > OD_PAVOUKU + 30 && prvniPavouk === null) chyby.push('po 4. minutě nepřišel žádný pavouk');
+// Pavouk na Louce nechodí (má vlastní moby), kontrola platí jen kdyby se vrátil.
+if (OD_PAVOUKU !== null && hra.cas > OD_PAVOUKU + 30 && prvniPavouk === null) chyby.push('po 4. minutě nepřišel žádný pavouk');
 if (siti > 0 && krokuVSiti === 0) chyby.push('síť zásahem vznikla, ale hrdina nikdy nebyl zpomalen');
 
 // Rekord: úložiště prohlížeče tu nahrazuje obyčejná mapa.

@@ -879,6 +879,11 @@ const NEPRATELE = {
   // Ohnivý brouk (Sopka): rychlý a slabý, jeho kousnutí pálí (oranžové číslo). Žába (Bažina) skáče (SKOK_ZABY).
   ohnivy_brouk: { hp: 12, rychlost: 78, poskozeni: 6, xp: 1, polomer: 9, ohen: true },
   zaba: { hp: 14, rychlost: 72, poskozeni: 6, xp: 2, polomer: 9, skace: true },
+  // Louka: včela slabá a rychlá, králík skáče, had po smrti nechá jedový oblak, strašák je pomalý, tuhý a hází kameny.
+  vcela: { hp: 8, rychlost: 80, poskozeni: 4, xp: 1, polomer: 8 },
+  kralik: { hp: 16, rychlost: 64, poskozeni: 6, xp: 2, polomer: 9, skace: true },
+  had: { hp: 28, rychlost: 46, poskozeni: 8, xp: 3, polomer: 11, jed: true },
+  strasak: { hp: 64, rychlost: 46, poskozeni: 12, xp: 3, polomer: 12 },
   pavoucek: { hp: 8, rychlost: 92, poskozeni: 3, xp: 1, polomer: 7, sit: true },
   strazce: { hp: 320, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
   matka: { hp: 280, rychlost: 54, poskozeni: 16, xp: 25, polomer: 22, boss: true },
@@ -906,6 +911,11 @@ export const SCHOPNOSTI_NEPRATEL = {
   slizak: {
     pauza: 3.6,
     schopnosti: [{ id: 'skok', varovani: 0.55, dosah: 240 }],
+  },
+  // Strašák (Louka) hází kameny jako kostlivec kosti: kdo stojí na místě, toho trefí.
+  strasak: {
+    pauza: 3.6,
+    schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.5, dosah: 330, strela: 'kamen', pocet: [1, 1], let: 0.8, polomer: 22, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
   },
 };
 export const NAPOR_ELITY = { id: 'vypad', zvuk: 'napor', varovani: 0.7, zamek: 0.25, dosah: 340, rychlost: 430, delka: 320, poskozeni: 12, odhozeni: 50 };
