@@ -167,8 +167,18 @@ function vyplnPostavy(panel) {
   panel.append(prvek('p', 'podtitul', 'Vyber, za koho půjdeš do hlubin. Volba se zapamatuje.'), mrizka);
 }
 
-// Karta mapy je tlačítko jako karta třídy: náhled podlahy s nepřáteli, jméno, popis, hlavní boss a rekord na té mapě.
-// Zamčená karta má přes náhled zámek a říká, co ji odemkne. Klik na ni jen zatřese a zabzučí.
+// Řádek karty s pixelovou ikonou vlevo (boss, lebka obtížnosti, zámek).
+function radekSIkonou(trida, ikona, ...obsah) {
+  const r = prvek('small', `s-ikonou ${trida}`.trim());
+  const misto = prvek('span', 'ikona-radku');
+  misto.append(ikona);
+  r.append(misto, ...obsah);
+  return r;
+}
+
+// Karta mapy je tlačítko jako karta třídy: náhled podlahy s nepřáteli v dřevěném okénku, jméno v barvě mapy, popis,
+// hlavní boss (s jeho spritem), o kolik je mapa těžší a rekord. Zamčená karta má přes náhled zámek, říká, co ji
+// odemkne, a pruhem ukazuje, kolik z potřebného času už hráč na předchozí mapě vydržel. Klik na ni jen zatřese.
 function vyplnMapy(panel) {
   const odemcene = odemceneMapy();
   const mrizka = prvek('div', 'mrizka-map');
@@ -185,20 +195,39 @@ function vyplnMapy(panel) {
     okno.append(nahled);
     if (!odemcena) okno.append(obrazekSpritu('zamek', 4));
     const text = prvek('span', 'trida-text');
-    text.append(prvek('b', '', m.nazev), prvek('small', '', m.popis));
-    text.append(prvek('small', 'mapa-boss', `Hlavní boss: ${BOSSOVE[poradiBossu(id)[0]].nazev}`));
+    text.append(prvek('b', '', m.nazev), prvek('small', 'mapa-popis', m.popis));
+    const boss = poradiBossu(id)[0];
+    const jmenoBosse = prvek('span', '', 'Hlavní boss: ');
+    jmenoBosse.append(prvek('em', '', BOSSOVE[boss].nazev));
+    text.append(radekSIkonou('mapa-boss', obrazekSpritu(boss, 1), jmenoBosse));
     const ob = obtiznostMapy(id);
     if (ob.zivoty > 1 || ob.poskozeni > 1) {
       // pevná mezera, ať se % neodtrhne od čísla
       const procent = (x) => `+${Math.round((x - 1) * 100)} %`;
-      text.append(prvek('small', 'mapa-obtiznost', `Těžší: nepřátelé ${procent(ob.zivoty)} životů a ${procent(ob.poskozeni)} poškození`));
+      text.append(radekSIkonou('mapa-obtiznost', obrazekSpritu('lebka', 2),
+        prvek('span', '', `Těžší: nepřátelé ${procent(ob.zivoty)} životů a ${procent(ob.poskozeni)} poškození`)));
     }
     const rekord = nactiRekord(id);
-    if (odemcena) text.append(prvek('small', 'mapa-rekord', rekord ? `Rekord: ${formatCas(rekord.cas)}` : 'Zatím bez rekordu'));
-    else {
+    if (odemcena) {
+      const radek = prvek('small', 'mapa-rekord', rekord ? 'Rekord ' : 'Zatím bez rekordu');
+      if (rekord) radek.append(prvek('em', '', formatCas(rekord.cas)));
+      text.append(radek);
+    } else {
       const pred = predchoziMapa(id);
-      const nejlepe = nactiRekord(pred);
-      text.append(prvek('small', 'mapa-zamek', `Zamčeno: přežij ${formatCas(ODEMKNUTI_MAPY)} na mapě ${MAPY[pred].nazev}${nejlepe ? ` (zatím ${formatCas(nejlepe.cas)})` : ''}`));
+      const nejlepe = nactiRekord(pred)?.cas ?? 0;
+      text.append(radekSIkonou('mapa-zamek', obrazekSpritu('zamek', 2),
+        prvek('span', '', `Zamčeno: přežij ${formatCas(ODEMKNUTI_MAPY)} na mapě ${MAPY[pred].nazev}`)));
+      if (nejlepe > 0) {
+        // Postup k odemčení: pruh rozdělený po minutách, vedle nejlepší čas na předchozí mapě.
+        const postup = prvek('small', 'mapa-postup');
+        const pruh = prvek('span', 'mapa-postup-pruh');
+        pruh.style.setProperty('--dilku', String(Math.max(1, Math.round(ODEMKNUTI_MAPY / 60))));
+        const vypln = prvek('i');
+        vypln.style.width = `${Math.min(100, (nejlepe / ODEMKNUTI_MAPY) * 100)}%`;
+        pruh.append(vypln);
+        postup.append(pruh, prvek('span', '', `zatím ${formatCas(nejlepe)} z ${formatCas(ODEMKNUTI_MAPY)}`));
+        text.append(postup);
+      }
     }
     karta.append(okno, text, prvek('span', 'trida-stitek', 'Zvoleno'));
     karta.setAttribute('aria-label', `${m.nazev}${odemcena ? '' : ', zamčeno'}`);

@@ -1473,17 +1473,17 @@ kbd {
 .konec-duse small.konec-zlato { color: var(--zlata); }
 .konec-zlato canvas { vertical-align: -5px; }
 
-/* Výběr mapy v záložce Mapy: karta jako u postav, vlevo náhled podlahy v barvě mapy, vpravo text.
-   Zamčená mapa má šedý náhled se zámkem a nápis, co ji odemkne. */
+/* Výběr mapy v záložce Mapy: karta jako u postav (.trida), vlevo náhled podlahy s nepřáteli v dřevěném okénku
+   (tenký rám), vpravo jméno v barvě mapy a řádky s pixelovými ikonami (boss, lebka obtížnosti, zámek).
+   Zamčená mapa má tmavší destičku, šedý náhled se zámkem a pruh postupu k odemčení po minutách. */
 .mrizka-map {
   display: grid;
-  gap: 10px;
+  gap: 14px;
   margin-bottom: 16px;
 }
 
-.trida.mapa { border-left: 6px solid var(--mapa); }
+.trida.mapa { align-items: flex-start; gap: 12px; }
 .trida.mapa b { color: var(--mapa); }
-.trida.mapa.zvolena b { color: var(--zlata); }
 .trida.mapa.zatrast { animation: zatrast 0.25s steps(4); }
 
 .mapa-nahled {
@@ -1492,22 +1492,64 @@ kbd {
   display: grid;
   place-items: center;
   line-height: 0;
-  box-shadow: 0 0 0 2px #0b0a0f, 0 0 0 4px var(--mapa);
+  border: calc(2 * var(--px)) solid transparent;
+  border-image: var(--ram-tenky) 2 / calc(2 * var(--px)) repeat;
+  background: var(--noc) padding-box;
 }
 
 .mapa-nahled canvas:first-child { width: 192px; height: 96px; }
 .mapa-nahled canvas + canvas { position: absolute; }
-.trida.mapa.zamcena .mapa-nahled canvas:first-child { filter: grayscale(0.85) brightness(0.55); }
-.trida.mapa.zamcena { background: #1a1820; }
-.trida.mapa.zamcena b { color: var(--text-tlumeny); }
-.trida .mapa-rekord { color: var(--text); }
-.trida .mapa-zamek { color: #f0b4bc; }
+
+.trida .mapa-popis { margin-bottom: 3px; }
+
+.trida .s-ikonou { display: flex; align-items: center; gap: 6px; }
+.ikona-radku { flex: none; display: grid; place-items: center; width: 20px; height: 20px; }
+.trida .mapa-boss { color: var(--pergamen-tlumeny); }
+.trida .mapa-boss em { font-style: normal; font-weight: bold; color: var(--mosaz); }
 .trida .mapa-obtiznost { color: #f2a65a; }
-.trida .mapa-boss { color: #e9c46a; }
+.trida .mapa-rekord { margin-top: 2px; color: var(--pergamen-tlumeny); }
+.trida .mapa-rekord em { font-style: normal; font-weight: bold; color: var(--pergamen); }
+
+/* Zamčená mapa: tmavší destička, šedý náhled se zámkem, jméno tlumeně, podmínka v barvě chyby. */
+.trida.mapa.zamcena { --karta-lice: var(--drevo-1); }
+.trida.mapa.zamcena.vybrano, .trida.mapa.zamcena:focus-visible { --karta-lice: var(--drevo-2); }
+.trida.mapa.zamcena .mapa-nahled canvas:first-child { filter: grayscale(0.85) brightness(0.5); }
+.trida.mapa.zamcena b { color: var(--pergamen-tlumeny); }
+.trida.mapa.zamcena .mapa-popis, .trida.mapa.zamcena .mapa-boss { color: #a8957a; }
+.trida .mapa-zamek { color: var(--chyba); font-weight: bold; }
+
+/* Postup k odemčení: zapuštěný pruh, dílek = minuta, výplň mosazná s leskem nahoře. */
+.trida .mapa-postup { display: flex; align-items: center; gap: 8px; margin-top: 2px; color: var(--pergamen-tlumeny); white-space: nowrap; }
+
+.mapa-postup-pruh {
+  position: relative;
+  flex: 1 1 60px;
+  max-width: 150px;
+  height: 12px;
+  background: var(--drevo-0);
+  border: 2px solid var(--noc);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+
+.mapa-postup-pruh i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--mosaz);
+  box-shadow: inset 0 2px 0 var(--mosaz-lesk), inset 0 -2px 0 var(--mosaz-stin);
+}
+
+.mapa-postup-pruh::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(100% / var(--dilku, 5) - 2px), var(--noc) calc(100% / var(--dilku, 5) - 2px) calc(100% / var(--dilku, 5)));
+  pointer-events: none;
+}
 
 @media (max-width: 520px) {
-  .trida.mapa { flex-direction: column; align-items: stretch; text-align: center; }
+  .trida.mapa { flex-direction: column; align-items: stretch; text-align: left; }
   .mapa-nahled { align-self: center; }
+  .trida.mapa .trida-text { padding: 0 2px; }
 }
 
 /* Rekordy po mapách: nadpis v barvě mapy, pod ním tabulka nebo krátká věta. */
