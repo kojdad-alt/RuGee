@@ -11,6 +11,8 @@ import {
 import { kresliPodlahu } from './louka.js';
 import { MAPY, VYCHOZI_MAPA, hash } from './mapy.js';
 import { nakresliText, STYL_PERGAMEN, STYL_NADPISU, STYL_KREV, PISMO_NADPISU } from './pismo.js';
+// t ze slovníku je tu preklad (t je v kreslení skoro všude průběh animace 0..1)
+import { t as preklad } from './texty.js';
 
 const MERITKO = 3;
 // Elita se kreslí po 4 px na pixel spritu (o třetinu větší, ale pořád ostrá) s rudým obrysem.
@@ -1696,7 +1698,7 @@ function zamcenaNaZemi(ctx, z, p, hra) {
   celySprite(ctx, sprity.zamcena, p.x, p.y);
   if (!z.blizko) return;
   const muze = hra.klice > 0 || hra.zlataky >= CENA_ZAMCENE;
-  const text = hra.klice > 0 ? 'Otevře klíč' : muze ? `Otevřít: ${CENA_ZAMCENE} zl` : `Zamčeno: klíč nebo ${CENA_ZAMCENE} zl`;
+  const text = hra.klice > 0 ? preklad('kresleni.otevreKlic') : muze ? preklad('kresleni.otevrit', { n: CENA_ZAMCENE }) : preklad('kresleni.zamceno', { n: CENA_ZAMCENE });
   ctx.save();
   ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
   ctx.textAlign = 'center';
@@ -1914,13 +1916,13 @@ function bossBar(ctx, bar, x, y, sirka, cas) {
   const pixel = ps >= 420 ? pixelovyNapis(nazev, stylBosse(barvy), ps, 2) : null;
   if (pixel) {
     ctx.drawImage(pixel.platno, px, y + 15 - pixel.h, pixel.w, pixel.h);
-    const krev = zuri ? pixelovyNapis('Zuří', STYL_KREV, ps, 2) : null;
+    const krev = zuri ? pixelovyNapis(preklad('kresleni.zuri'), STYL_KREV, ps, 2) : null;
     if (krev) ctx.drawImage(krev.platno, px + pixel.w + 8, y + 15 - krev.h, krev.w, krev.h);
   } else {
     ctx.font = 'bold 14px ui-monospace, Menlo, monospace';
     ctx.textAlign = 'left';
     napis(ctx, nazev, px, y + 13, barvy.text);
-    if (zuri) napis(ctx, 'ZUŘÍ', px + ctx.measureText(nazev).width + 10, y + 13, '#ff5a5a');
+    if (zuri) napis(ctx, preklad('kresleni.zuri').toLocaleUpperCase('cs'), px + ctx.measureText(nazev).width + 10, y + 13, '#ff5a5a');
   }
   ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
   ctx.textAlign = 'right';
@@ -2346,7 +2348,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true, horni = HORNI_BARY, sv
       ctx.save();
       ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
       ctx.textAlign = 'center';
-      napis(ctx, `${Math.ceil(hra.kupec.zbyva)} s`, kde.x, kde.y + 28, hra.kupec.zbyva < 10 ? '#f08a8d' : '#ffe08a');
+      napis(ctx, preklad('kresleni.sekundy', { n: Math.ceil(hra.kupec.zbyva) }), kde.x, kde.y + 28, hra.kupec.zbyva < 10 ? '#f08a8d' : '#ffe08a');
       ctx.restore();
     }
   }

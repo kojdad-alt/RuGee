@@ -5,6 +5,7 @@
 // Jen pravidla, bez DOM a bez úložiště (to je ulozeni.js).
 import { platnaDataProfilu } from './ulozeni.js';
 import { VSECHNY_KUSY } from './vystroj.js';
+import { t } from './texty.js';
 
 export const VERZE_KODU = 1;
 const PREDPONA = 'RUGEE';
@@ -93,13 +94,13 @@ export function kodProfilu(data) {
 // Obsah souboru .rugee: popis pro člověka a kód (import ho v textu najde sám).
 export function souborProfilu(data) {
   const d = platnaDataProfilu(data);
-  return `RuGee: uložení profilu „${d.jmeno}“. Nahraješ ho v menu Profil → Importovat.\n${kodProfilu(d)}\n`;
+  return `${t('prenos.hlavicka', { jmeno: d.jmeno })}\n${kodProfilu(d)}\n`;
 }
 
 // Jméno souboru bez diakritiky a mezer: RuGee-Hrac.rugee
 export function nazevSouboru(jmeno) {
   const ascii = String(jmeno ?? '').normalize('NFD').replace(/\p{M}/gu, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return `RuGee-${ascii || 'profil'}${PRIPONA_SOUBORU}`;
+  return `RuGee-${ascii || t('prenos.bezJmena')}${PRIPONA_SOUBORU}`;
 }
 
 // Přečte kód uložení z textu (vložený kód, celý soubor .rugee, klidně s mezerami, zalomením nebo textem okolo).

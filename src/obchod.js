@@ -4,6 +4,7 @@
 import { nabidkaKupce } from './hra.js';
 import { obrazekSpritu, vyberTlacitko } from './menu.js';
 import { pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
+import { t } from './texty.js';
 
 function prvek(znacka, trida = '', text = null) {
   const e = document.createElement(znacka);
@@ -14,8 +15,7 @@ function prvek(znacka, trida = '', text = null) {
 
 // 1 zlaťák, 2–4 zlaťáky, 5 zlaťáků
 export function textZlataku(kolik) {
-  if (kolik === 1) return '1 zlaťák';
-  return `${kolik} ${kolik >= 2 && kolik <= 4 ? 'zlaťáky' : 'zlaťáků'}`;
+  return t('tvary.zlataky', { n: kolik });
 }
 
 // Cena se zlaťákem: ikona mince a číslo.
@@ -35,14 +35,14 @@ function kartaZbozi(z, i) {
   const ikona = prvek('span', 'karta-ikona');
   ikona.append(obrazekSpritu(z.ikona, 6));
   const text = prvek('span', 'karta-text');
-  const zasoba = prvek('span', `zbozi-zasoba${z.zbyva > 0 ? '' : ' vyprodano'}`, z.zbyva > 0 ? 'Na voze: ' : 'Vyprodáno');
+  const zasoba = prvek('span', `zbozi-zasoba${z.zbyva > 0 ? '' : ' vyprodano'}`, z.zbyva > 0 ? t('obchod.naVoze') : t('hra.kupec.vyprodano'));
   if (z.zbyva > 0) zasoba.append(prvek('b', '', String(z.zbyva)));
   text.append(prvek('b', 'karta-nazev', z.nazev), prvek('span', 'karta-popis', null));
   text.querySelector('.karta-popis').append(prvek('small', '', z.popis));
   if (z.prekazka && z.zbyva > 0) text.append(prvek('span', 'zbozi-prekazka', z.prekazka));
   text.append(zasoba);
   karta.append(pruh, ikona, text, prvek('kbd', 'karta-klavesa', String(i + 1)));
-  karta.setAttribute('aria-label', `${i + 1}. ${z.nazev} za ${textZlataku(z.cena)}. ${z.popis}.${z.prekazka ? ` ${z.prekazka}.` : ''}`);
+  karta.setAttribute('aria-label', `${t('obchod.aria', { i: i + 1, nazev: z.nazev, cena: textZlataku(z.cena), popis: z.popis })}${z.prekazka ? ` ${z.prekazka}.` : ''}`);
   return karta;
 }
 
@@ -50,17 +50,17 @@ function kartaZbozi(z, i) {
 // zatřese kartou), vybrat = id zboží, které má zůstat vybrané (po nákupu).
 export function ukazObchod(okno, hra, kup, vybrat = null) {
   const k = hra.kupec;
-  okno.querySelector('#obchod-stitek').textContent = `Kupec tu bude ještě ${Math.ceil(k?.zbyva ?? 0)} s`;
+  okno.querySelector('#obchod-stitek').textContent = t('obchod.stitek', { n: Math.ceil(k?.zbyva ?? 0) });
   const penize = okno.querySelector('#obchod-penize');
-  penize.replaceChildren(prvek('span', '', 'Máš'), cenaSMinci(hra.zlataky, 3));
+  penize.replaceChildren(prvek('span', '', t('obchod.mas')), cenaSMinci(hra.zlataky, 3));
   if (hra.klice > 0) {
     const klice = prvek('span', 'obchod-klice');
     klice.append(obrazekSpritu('klic', 3), prvek('b', '', String(hra.klice)));
     penize.append(klice);
   }
-  if (hra.prehozeniZdarma > 0) penize.append(prvek('small', '', `přehození zdarma: ${hra.prehozeniZdarma}`));
+  if (hra.prehozeniZdarma > 0) penize.append(prvek('small', '', t('obchod.prehozeniZdarma', { n: hra.prehozeniZdarma })));
   const nakup = okno.querySelector('#obchod-nakup');
-  nakup.textContent = hra.posledniNakup ? `Koupeno: ${hra.posledniNakup.text}` : '';
+  nakup.textContent = hra.posledniNakup ? t('obchod.koupeno', { text: hra.posledniNakup.text }) : '';
   const karty = nabidkaKupce(hra).map((z, i) => {
     const karta = kartaZbozi(z, i);
     karta.addEventListener('click', () => kup(z.id));
@@ -71,7 +71,7 @@ export function ukazObchod(okno, hra, kup, vybrat = null) {
   // Po nákupu se karty jen překreslí (bez animace příchodu), ať okno neposkakuje.
   zbozi.classList.toggle('bez-prichodu', !okno.hidden);
   zbozi.replaceChildren(...karty);
-  pixelovyNadpis(okno.querySelector('#obchod-nadpis'), 'Vůz kupce', { min: 2, max: 4 });
+  pixelovyNadpis(okno.querySelector('#obchod-nadpis'), t('obchod.nadpis'), { min: 2, max: 4 });
   okno.hidden = false;
   prizpusobNadpisy(okno);
   const vybrana = karty.find((karta) => karta.dataset.id === vybrat);

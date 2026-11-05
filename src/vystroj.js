@@ -4,27 +4,31 @@
 // zesílí a přidají bonus sady, čtyři ho zesílí naplno a přidají další bonus. Výbava platí jen pro jednu hru,
 // Sbírka v menu si pamatuje, co už hráč kdy našel. Jen data a pravidla bez DOM, co efekty dělají ve hře,
 // je v hra.js (hledej efekty v ucinekVystroje). Nový kus nebo sadu stačí přidat do VYBAVA a nakreslit sprite
-// se jménem id kusu (boss_slot) v sprity.js.
+// se jménem id kusu (boss_slot) v sprity.js. Jména slotů, statů, rarit, efektů, sad a kusů jsou ve slovníku
+// (src/texty/cs.js, větev vystroj).
+import { t, tvar, pripojTexty, cislo, procenta as procentaTextu } from './texty.js';
 
 export const SLOTY = {
-  hlava: { nazev: 'Hlava' },
-  telo: { nazev: 'Tělo' },
-  amulet: { nazev: 'Amulet' },
-  prsten: { nazev: 'Prsten' },
+  hlava: {},
+  telo: {},
+  amulet: {},
+  prsten: {},
 };
+pripojTexty(SLOTY, 'vystroj.sloty');
 export const PORADI_SLOTU = Object.keys(SLOTY);
 
 // Staty kusů. pricti = přičte se k vlastnosti hrdiny (životy), ostatní jsou podíly (0,05 = 5 %) a sčítají se:
 // dva kusy po +5 % poškození dají +10 %. Nabíjení zkracuje nabíjení všech zbraní, zbroj ubere z každé rány
 // tolik procent. vaha = cena jednoho dílu pro bota, když porovnává dva kusy (hodnotaKusu).
 export const STATY_VYBAVY = {
-  maxHp: { nazev: 'životů', tvary: ['život', 'životy', 'životů'], pricti: true, vaha: 1 },
-  zbroj: { nazev: 'zbroj', vaha: 300 },
-  sila: { nazev: 'poškození', vaha: 250 },
-  nabijeni: { nazev: 'rychlost nabíjení', vaha: 250 },
-  rychlost: { nazev: 'rychlost pohybu', vaha: 150 },
-  magnet: { nazev: 'dosah sběru', vaha: 40 },
+  maxHp: { pricti: true, vaha: 1 },
+  zbroj: { vaha: 300 },
+  sila: { vaha: 250 },
+  nabijeni: { vaha: 250 },
+  rychlost: { vaha: 150 },
+  magnet: { vaha: 40 },
 };
+pripojTexty(STATY_VYBAVY, 'vystroj.staty');
 // Víc už výbava nedá: zbroj nejvýš polovinu každé rány, nabíjení nejvýš o polovinu kratší.
 export const STROPY_VYBAVY = { zbroj: 0.5, nabijeni: 0.5 };
 
@@ -32,11 +36,12 @@ export const STROPY_VYBAVY = { zbroj: 0.5, nabijeni: 0.5 };
 // zlataky = na kolik zlaťáků se kus rozloží, když si ho hráč nenechá. Vzácnější kusy přibývají s hrozbou:
 // vaha se násobí (1 + rust · (hrozba − 1)) a Štěstím z trvalých vylepšení.
 export const RARITY_VYBAVY = {
-  bezna: { nazev: 'Běžná', nasobek: 1, zlataky: 3, vaha: 60, rust: 0 },
-  vzacna: { nazev: 'Vzácná', nasobek: 1.3, zlataky: 6, vaha: 30, rust: 0.1 },
-  epicka: { nazev: 'Epická', nasobek: 1.6, zlataky: 10, vaha: 8, rust: 0.2 },
-  legendarni: { nazev: 'Legendární', nasobek: 2, zlataky: 16, vaha: 2, rust: 0.3 },
+  bezna: { nasobek: 1, zlataky: 3, vaha: 60, rust: 0 },
+  vzacna: { nasobek: 1.3, zlataky: 6, vaha: 30, rust: 0.1 },
+  epicka: { nasobek: 1.6, zlataky: 10, vaha: 8, rust: 0.2 },
+  legendarni: { nasobek: 2, zlataky: 16, vaha: 2, rust: 0.3 },
 };
+pripojTexty(RARITY_VYBAVY, 'vystroj.rarity');
 export const PORADI_RARIT_VYBAVY = Object.keys(RARITY_VYBAVY);
 
 // Zvláštní efekty sad. stupne[0] platí s jedním kusem sady, [1] se dvěma nebo třemi, [2] se všemi čtyřmi.
@@ -47,90 +52,88 @@ export const PORADI_RARIT_VYBAVY = Object.keys(RARITY_VYBAVY);
 // a nic mu neublíží; znovu to jde až po pauza s.
 export const EFEKTY_VYBAVY = {
   vlna: {
-    nazev: 'Rázová vlna',
     stupne: [
       { kazdych: 8, polomer: 110, poskozeni: 25, odhozeni: 40 },
       { kazdych: 6.5, polomer: 135, poskozeni: 35, odhozeni: 50 },
       { kazdych: 5, polomer: 160, poskozeni: 50, odhozeni: 60 },
     ],
-    popis: (e) => `Každých ${cislo(e.kazdych)} s od tebe vyběhne rázová vlna za ${e.poskozeni} poškození`,
+    popis: (e) => t('vystroj.popisEfektu.vlna', { kazdych: cislo(e.kazdych), poskozeni: e.poskozeni }),
   },
   sit: {
-    nazev: 'Pavučina',
     stupne: [{ sance: 0.06, trvani: 1.5 }, { sance: 0.1, trvani: 2 }, { sance: 0.15, trvani: 2.5 }],
-    popis: (e) => `${procenta(e.sance)} zásahů zbraní zapřede nepřítele na ${cislo(e.trvani)} s do sítě`,
+    popis: (e) => t('vystroj.popisEfektu.sit', { sance: procenta(e.sance), trvani: cislo(e.trvani) }),
   },
   kuze: {
-    nazev: 'Kamenná kůže',
     stupne: [{ snizeni: 0.25, odhozeni: 60 }, { snizeni: 0.35, odhozeni: 80 }, { snizeni: 0.45, odhozeni: 110 }],
-    popis: (e) => `Dotyk nepřítele bolí o ${procenta(e.snizeni)} méně a odhodí ho`,
+    popis: (e) => t('vystroj.popisEfektu.kuze', { snizeni: procenta(e.snizeni) }),
   },
   zmizeni: {
-    nazev: 'Bludný plamen',
     stupne: [{ trvani: 0.8, pauza: 10 }, { trvani: 1.1, pauza: 8 }, { trvani: 1.5, pauza: 6 }],
-    popis: (e) => `Po ráně na ${cislo(e.trvani)} s zmizíš nepřátelům z očí (jednou za ${cislo(e.pauza)} s)`,
+    popis: (e) => t('vystroj.popisEfektu.zmizeni', { trvani: cislo(e.trvani), pauza: cislo(e.pauza) }),
   },
 };
+pripojTexty(EFEKTY_VYBAVY, 'vystroj.efekty');
 
 // Sady bossů (klíče jako v BOSSOVE v hra.js). Staty kusů jsou pro běžnou raritu, vzácnější je násobí.
 // bonus2 platí od dvou kusů sady, bonus4 navíc se všemi čtyřmi.
 export const VYBAVA = {
   strazce: {
-    sada: 'Sada Strážce hlubin', efekt: 'vlna',
+    efekt: 'vlna',
     bonus2: { maxHp: 20 }, bonus4: { zbroj: 0.05, sila: 0.05 },
     kusy: {
-      hlava: { nazev: 'Rohaté hledí', staty: { maxHp: 15, zbroj: 0.04 } },
-      telo: { nazev: 'Kamenný krunýř', staty: { maxHp: 25, zbroj: 0.05 } },
-      amulet: { nazev: 'Žhnoucí jádro', staty: { sila: 0.06, maxHp: 10 } },
-      prsten: { nazev: 'Prsten strážce', staty: { zbroj: 0.03, nabijeni: 0.03 } },
+      hlava: { staty: { maxHp: 15, zbroj: 0.04 } },
+      telo: { staty: { maxHp: 25, zbroj: 0.05 } },
+      amulet: { staty: { sila: 0.06, maxHp: 10 } },
+      prsten: { staty: { zbroj: 0.03, nabijeni: 0.03 } },
     },
   },
   matka: {
-    sada: 'Sada Matky pavouků', efekt: 'sit',
+    efekt: 'sit',
     bonus2: { nabijeni: 0.04 }, bonus4: { rychlost: 0.05, sila: 0.05 },
     kusy: {
-      hlava: { nazev: 'Koruna osmi očí', staty: { nabijeni: 0.05, magnet: 0.1 } },
-      telo: { nazev: 'Hedvábný plášť', staty: { rychlost: 0.06, maxHp: 10 } },
-      amulet: { nazev: 'Rudé přesýpací hodiny', staty: { nabijeni: 0.06 } },
-      prsten: { nazev: 'Prsten pavučiny', staty: { sila: 0.04, rychlost: 0.03 } },
+      hlava: { staty: { nabijeni: 0.05, magnet: 0.1 } },
+      telo: { staty: { rychlost: 0.06, maxHp: 10 } },
+      amulet: { staty: { nabijeni: 0.06 } },
+      prsten: { staty: { sila: 0.04, rychlost: 0.03 } },
     },
   },
   obr: {
-    sada: 'Sada Kamenného obra', efekt: 'kuze',
+    efekt: 'kuze',
     bonus2: { sila: 0.05 }, bonus4: { maxHp: 40, zbroj: 0.04 },
     kusy: {
-      hlava: { nazev: 'Mechová přilba', staty: { maxHp: 20, zbroj: 0.03 } },
-      telo: { nazev: 'Balvanová zbroj', staty: { zbroj: 0.06, maxHp: 15 } },
-      amulet: { nazev: 'Oko z tyrkysu', staty: { sila: 0.08 } },
-      prsten: { nazev: 'Prsten obra', staty: { sila: 0.04, maxHp: 15 } },
+      hlava: { staty: { maxHp: 20, zbroj: 0.03 } },
+      telo: { staty: { zbroj: 0.06, maxHp: 15 } },
+      amulet: { staty: { sila: 0.08 } },
+      prsten: { staty: { sila: 0.04, maxHp: 15 } },
     },
   },
   bludicka: {
-    sada: 'Sada Bludičky', efekt: 'zmizeni',
+    efekt: 'zmizeni',
     bonus2: { magnet: 0.2 }, bonus4: { nabijeni: 0.05, rychlost: 0.05 },
     kusy: {
-      hlava: { nazev: 'Plamenná kápě', staty: { magnet: 0.15, rychlost: 0.03 } },
-      telo: { nazev: 'Závoj mlhy', staty: { rychlost: 0.05, zbroj: 0.02 } },
-      amulet: { nazev: 'Bludný plamínek', staty: { sila: 0.05, magnet: 0.1 } },
-      prsten: { nazev: 'Prsten bludiček', staty: { nabijeni: 0.05, rychlost: 0.02 } },
+      hlava: { staty: { magnet: 0.15, rychlost: 0.03 } },
+      telo: { staty: { rychlost: 0.05, zbroj: 0.02 } },
+      amulet: { staty: { sila: 0.05, magnet: 0.1 } },
+      prsten: { staty: { nabijeni: 0.05, rychlost: 0.02 } },
     },
   },
 };
+pripojTexty(VYBAVA, 'vystroj.sady');
 export const PORADI_SAD = Object.keys(VYBAVA);
-// Všechny kusy za sebou (sada po sadě, sloty v pořadí): id kusu = boss_slot, stejné jméno má i sprite.
-export const VSECHNY_KUSY = PORADI_SAD.flatMap((boss) => PORADI_SLOTU.map((slot) => ({ id: idKusu(boss, slot), boss, slot, ...VYBAVA[boss].kusy[slot] })));
+// Všechny kusy za sebou (sada po sadě, sloty v pořadí): id kusu = boss_slot, stejné jméno má i sprite. Jméno je
+// getter jako v VYBAVA, ať platí jazyk, který je zrovna zvolený.
+export const VSECHNY_KUSY = PORADI_SAD.flatMap((boss) => PORADI_SLOTU.map((slot) => {
+  const vzor = VYBAVA[boss].kusy[slot];
+  return { id: idKusu(boss, slot), boss, slot, get nazev() { return vzor.nazev; }, staty: vzor.staty };
+}));
 
 export function idKusu(boss, slot) {
   return `${boss}_${slot}`;
 }
 
-// 1,5 · 8 · 6,5 (desetinná čárka, bez zbytečných nul)
-function cislo(x) {
-  return String(Math.round(x * 10) / 10).replace('.', ',');
-}
-
+// Podíl jako procenta: 0,056 → „5,6 %“ (čísla a znak procent podle jazyka, texty.js).
 function procenta(x) {
-  return `${cislo(x * 100)} %`;
+  return procentaTextu(cislo(x * 100));
 }
 
 // Řádek statu na kartě: „+21 životů“, „+2 životy“, „+5,6 % zbroj“.
@@ -141,8 +144,7 @@ export function textStatu(id, hodnota) {
   const kolik = Math.abs(hodnota);
   if (!s.pricti) return `${znamenko}${procenta(kolik)} ${s.nazev}`;
   const cele = Math.round(kolik);
-  const tvar = s.tvary ? s.tvary[cele === 1 ? 0 : cele >= 2 && cele <= 4 ? 1 : 2] : s.nazev;
-  return `${znamenko}${cele} ${tvar}`;
+  return `${znamenko}${cele} ${s.tvary ? tvar(cele, s.tvary) : s.nazev}`;
 }
 
 export function radkyStatu(staty) {
@@ -194,7 +196,7 @@ export function vytvorKus(boss, slot, rarita = 'bezna') {
   const vzor = VYBAVA[b].kusy[s];
   const nasobek = RARITY_VYBAVY[r].nasobek;
   const staty = Object.fromEntries(Object.entries(vzor.staty).map(([id, h]) => [id, zaokrouhliStat(id, h * nasobek)]));
-  return { id: idKusu(b, s), boss: b, slot: s, rarita: r, nazev: vzor.nazev, staty };
+  return { id: idKusu(b, s), boss: b, slot: s, rarita: r, get nazev() { return vzor.nazev; }, staty };
 }
 
 // Kus z truhly bosse: dva losy 0..1 (slot a rarita), ať truhla bere z náhody vždy stejně.
@@ -231,10 +233,10 @@ export function popisEfektu(boss, pocet = 1) {
 export function popisSady(boss) {
   const sada = VYBAVA[boss];
   if (!sada) return [];
-  const efekt = EFEKTY_VYBAVY[sada.efekt].nazev;
+  const efekt = EFEKTY_VYBAVY[sada.efekt].nazev.toLowerCase();
   return [
-    `2 kusy: ${[...radkyStatu(sada.bonus2), `silnější ${efekt.toLowerCase()}`].join(', ')}`,
-    `4 kusy: ${[...radkyStatu(sada.bonus4), `nejsilnější ${efekt.toLowerCase()}`].join(', ')}`,
+    t('vystroj.bonusSady', { n: 2, bonusy: [...radkyStatu(sada.bonus2), t('vystroj.silnejsi', { efekt })].join(', ') }),
+    t('vystroj.bonusSady', { n: 4, bonusy: [...radkyStatu(sada.bonus4), t('vystroj.nejsilnejsi', { efekt })].join(', ') }),
   ];
 }
 

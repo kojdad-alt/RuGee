@@ -109,7 +109,10 @@
 // Pasivy II: Upíří zub vrací život za zabití (s šancí, nejvýš SANI_ZA_SEKUNDU za sekundu, náhodu vln neposune),
 // Trnová zbroj vrací útočníkovi podíl rány, Štít zastaví jednu ránu a dobíjí se, Moudrost dá víc zkušeností
 // a Chamtivost víc duší. Všechny mají ikonu, popis a úrovně bez stropu (kde je strop, dají pak poškození).
-import { readFileSync } from 'node:fs';
+// Překlady: každý klíč z kódu a každé data-t z index.html je ve slovníku (src/texty/cs.js), české texty stránky sedí
+// se slovníkem, v kódu mimo slovník není český text, data vrací texty slovníku (gettery i v kopiích), tvary slov
+// podle čísla sedí a texty kreslené pixelovým písmem písmo umí.
+import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 import { crc32 as crc32Zlib, inflateSync } from 'node:zlib';
 import { vytvorRng } from '../src/rng.js';
@@ -144,7 +147,7 @@ import {
 import {
   VYBAVA, PORADI_SLOTU, VSECHNY_KUSY, RARITY_VYBAVY, PORADI_RARIT_VYBAVY, EFEKTY_VYBAVY, STATY_VYBAVY, STROPY_VYBAVY,
   sanceRaritVybavy, rarituKusuZLosu, vytvorKus, zlatakyZaKus, hodnotaKusu, ucinekVystroje, popisEfektu, popisSady,
-  radkyStatu, rozdilStatu, platnaSbirka,
+  radkyStatu, rozdilStatu, platnaSbirka, SLOTY as SLOTY_VYBAVY,
 } from '../src/vystroj.js';
 import {
   VYLEPSENI, DUSE_ZA, dusZaHru, cenaVylepseni, kupVylepseni, vratDuse, utraceno,
@@ -152,12 +155,15 @@ import {
 import {
   nactiRekord, zapisVysledek, nactiTridu, ulozTridu, nactiDuse, ulozDuse, pripisDuse, nactiNastaveni, ulozNastaveni,
   nactiSbirku, zapisNalez, nactiMapu, ulozMapu, odemceneMapy, odemkniMapu,
-  MAX_PROFILU, MAX_JMENA, VYCHOZI_JMENO, zajistiProfily, seznamProfilu, aktivniProfil, vytvorProfil, prejmenujProfil,
+  MAX_PROFILU, MAX_JMENA, vychoziJmeno, zajistiProfily, seznamProfilu, aktivniProfil, vytvorProfil, prejmenujProfil,
   prepniProfil, smazProfil, dataProfilu, platnaDataProfilu, importujProfil, prehledProfilu,
   VYCHOZI_NASTAVENI, MOZNOSTI_NASTAVENI, pomalaSvetla, zapisPomalaSvetla, POMALA_SVETLA_PLATI,
 } from '../src/ulozeni.js';
 import { kodProfilu, prectiKod, souborProfilu, nazevSouboru, crc32, VERZE_KODU } from '../src/prenos.js';
 import { PISMO_NADPISU, PISMENA_LOGA } from '../src/pismo.js';
+import {
+  t, hodnota, dosad, nastavJazyk, JAZYKY, VYCHOZI_JAZYK, cislo as cisloTextu, procenta as procentaTextu,
+} from '../src/texty.js';
 import { svg as svgRamu } from '../nastroje/ramy.mjs';
 import { IKONY, KRESBY, obrazek as obrazekIkony } from '../nastroje/ikony.mjs';
 import { verzeHry, strankaSOtisky, blokSw, ZACATEK_SW, KONEC_SW } from '../nastroje/verze.mjs';
@@ -4668,7 +4674,7 @@ const popisProfilu = (slot) => JSON.stringify({
   mapy: odemceneMapy(slot), mapa: nactiMapu(slot),
 });
 let profily = zajistiProfily();
-if (JSON.stringify(profily) !== JSON.stringify([{ slot: 1, jmeno: VYCHOZI_JMENO, aktivni: true }])) chybyProfilu.push(`po převodu starých uložení jsou profily ${JSON.stringify(profily)}`);
+if (JSON.stringify(profily) !== JSON.stringify([{ slot: 1, jmeno: vychoziJmeno(), aktivni: true }])) chybyProfilu.push(`po převodu starých uložení jsou profily ${JSON.stringify(profily)}`);
 if (!stareBezeZmeny()) chybyProfilu.push('převod do profilu změnil stará uložení');
 const puvodni = popisProfilu(1);
 const cekamPuvodni = JSON.stringify({
@@ -4735,7 +4741,7 @@ if (smazProfil(pate) || prepniProfil(pate)) chybyProfilu.push('smazaný profil j
 if (!stareBezeZmeny() || popisProfilu(1) !== puvodni || popisProfilu(bratr.slot) !== bratrovo) chybyProfilu.push('smazání profilu sáhlo na jiný profil');
 // Kód uložení: export → import dá stejná data, i ze souboru .rugee nebo s mezerami, zalomením a textem okolo.
 const dataHrace = dataProfilu(1);
-if (dataHrace.jmeno !== VYCHOZI_JMENO || dataHrace.duse.duse !== 123 || dataHrace.rekordy.louka?.datum !== '2026-10-01T18:30:00.000Z'
+if (dataHrace.jmeno !== vychoziJmeno() || dataHrace.duse.duse !== 123 || dataHrace.rekordy.louka?.datum !== '2026-10-01T18:30:00.000Z'
   || dataHrace.rekordy.jeskyne?.cas !== 210 || JSON.stringify(dataHrace.mapy) !== '["louka","jeskyne","jezero"]') chybyProfilu.push(`data profilu na export: ${JSON.stringify(dataHrace)}`);
 const kodHrace = kodProfilu(dataHrace);
 if (!/^RUGEE1\.[A-Za-z0-9_-]+\.[0-9a-f]{8}$/.test(kodHrace)) chybyProfilu.push(`kód má špatný tvar: ${kodHrace}`);
@@ -4786,22 +4792,22 @@ const nesmysly = prectiKod(vyrobKod(doBase64Url(JSON.stringify({
   r: { louka: [-5, 'x', null, 3.7, 'drak', 'včera'], sopka: 'rychle', drak: [100] },
 }))));
 const cekamNesmysly = {
-  jmeno: VYCHOZI_JMENO, trida: VYCHOZI_TRIDA, mapa: VYCHOZI_MAPA, mapy: [VYCHOZI_MAPA], duse: { duse: 0, vylepseni: { sila: VYLEPSENI.sila.max } },
+  jmeno: vychoziJmeno(), trida: VYCHOZI_TRIDA, mapa: VYCHOZI_MAPA, mapy: [VYCHOZI_MAPA], duse: { duse: 0, vylepseni: { sila: VYLEPSENI.sila.max } },
   sbirka: { strazce_telo: 'legendarni', matka_hlava: 'epicka' }, rekordy: { louka: { cas: 0, hrozba: 3, mapa: 'louka' } },
 };
 if (JSON.stringify(nesmysly.data) !== JSON.stringify(cekamNesmysly)) chybyProfilu.push(`kód s nesmysly dal ${JSON.stringify(nesmysly)}`);
 // Import do nového profilu (jméno dostane číslo, ať se neplete) a přes existující (rekordy, které kód nemá, zmizí).
 const bezJmena = (d) => JSON.stringify({ ...d, jmeno: null });
 const novyZKodu = importujProfil(precteny.data);
-if (novyZKodu.slot !== pate || novyZKodu.jmeno !== `${VYCHOZI_JMENO} 2` || aktivniProfil().slot === pate) chybyProfilu.push(`import do nového profilu: ${JSON.stringify(novyZKodu)}`);
+if (novyZKodu.slot !== pate || novyZKodu.jmeno !== `${vychoziJmeno()} 2` || aktivniProfil().slot === pate) chybyProfilu.push(`import do nového profilu: ${JSON.stringify(novyZKodu)}`);
 if (bezJmena(dataProfilu(pate)) !== bezJmena(dataHrace)) chybyProfilu.push(`import do nového profilu nedal stejná data: ${JSON.stringify(dataProfilu(pate))}`);
 const prepsany = importujProfil(precteny.data, bratr.slot);
-if (prepsany.slot !== bratr.slot || prepsany.jmeno !== `${VYCHOZI_JMENO} 3`) chybyProfilu.push(`import přes profil: ${JSON.stringify(prepsany)}`);
+if (prepsany.slot !== bratr.slot || prepsany.jmeno !== `${vychoziJmeno()} 3`) chybyProfilu.push(`import přes profil: ${JSON.stringify(prepsany)}`);
 if (bezJmena(dataProfilu(bratr.slot)) !== bezJmena(dataHrace) || nactiRekord('sopka', bratr.slot) !== null) chybyProfilu.push(`import přes profil nedal stejná data: ${JSON.stringify(dataProfilu(bratr.slot))}`);
 if (importujProfil(precteny.data, 9).chyba !== 'neni') chybyProfilu.push('import do neexistujícího profilu prošel');
 if (!stareBezeZmeny() || popisProfilu(1) !== puvodni) chybyProfilu.push('import změnil profil Hráč');
 const prehledHrace = prehledProfilu(1);
-if (JSON.stringify(prehledHrace) !== JSON.stringify({ jmeno: VYCHOZI_JMENO, trida: 'havir', duse: 123, mapy: 3, sbirka: 2, rekord: 400 })) chybyProfilu.push(`přehled profilu: ${JSON.stringify(prehledHrace)}`);
+if (JSON.stringify(prehledHrace) !== JSON.stringify({ jmeno: vychoziJmeno(), trida: 'havir', duse: 123, mapy: 3, sbirka: 2, rekord: 400 })) chybyProfilu.push(`přehled profilu: ${JSON.stringify(prehledHrace)}`);
 // Rozbitý záznam profilu nic neshodí: rozbité jméno = Profil N (data zůstanou), rozbitá data = prázdná, rozbitý
 // nebo cizí zvolený profil = první existující.
 ulozisteProfilu.set(`hlubiny.p${sestra.slot}.jmeno`, '{rozbité');
@@ -4817,20 +4823,21 @@ for (const spatny of ['{rozbité', '"drak"', '9', '0', '2.5', 'null', '[1]', '"2
 }
 // Poslední profil smazat nejde. Bez záznamu (nový hráč) je jeden prázdný profil Hráč.
 ulozisteProfilu.clear();
-if (JSON.stringify(zajistiProfily()) !== JSON.stringify([{ slot: 1, jmeno: VYCHOZI_JMENO, aktivni: true }]) || popisProfilu() !== prazdnyProfil) chybyProfilu.push('nový hráč nemá jeden prázdný profil');
+if (JSON.stringify(zajistiProfily()) !== JSON.stringify([{ slot: 1, jmeno: vychoziJmeno(), aktivni: true }]) || popisProfilu() !== prazdnyProfil) chybyProfilu.push('nový hráč nemá jeden prázdný profil');
 if (smazProfil(1) || seznamProfilu().length !== 1) chybyProfilu.push('poslední profil šel smazat');
 // Zakázané nebo chybějící úložiště: jeden profil Hráč, nic se nevytvoří ani nesmaže, export a čtení kódu jdou.
 for (const uloziste of [{ getItem() { throw new Error('zakázáno'); }, setItem() { throw new Error('zakázáno'); }, removeItem() { throw new Error('zakázáno'); } }, undefined]) {
   nahradUloziste(uloziste);
   const zakazane = zajistiProfily();
-  if (zakazane.length !== 1 || zakazane[0].jmeno !== VYCHOZI_JMENO || aktivniProfil().jmeno !== VYCHOZI_JMENO) chybyProfilu.push(`zakázané úložiště dalo profily ${JSON.stringify(zakazane)}`);
+  if (zakazane.length !== 1 || zakazane[0].jmeno !== vychoziJmeno() || aktivniProfil().jmeno !== vychoziJmeno()) chybyProfilu.push(`zakázané úložiště dalo profily ${JSON.stringify(zakazane)}`);
   if (vytvorProfil('Nový').chyba !== 'uloziste' || importujProfil(dataHrace).chyba !== 'uloziste' || smazProfil(1) || prepniProfil(2)) chybyProfilu.push('zakázané úložiště něco vytvořilo, smazalo nebo přepnulo');
   if (JSON.stringify(prectiKod(kodProfilu(dataProfilu())).data) !== JSON.stringify(dataProfilu()) || dataProfilu().duse.duse !== 0) chybyProfilu.push('zakázané úložiště: export prázdného profilu nejde přečíst');
 }
 chyby.push(...chybyProfilu);
 
 // Písmo nadpisů (src/pismo.js): každý znak má stejně řádků stejné délky, česká velká písmena mají diakritiku jen
-// ve 3 horních řádcích a dole jsou stejná jako základní písmeno. Nadpisy oken z index.html i logo jdou napsat celé.
+// ve 3 horních řádcích a dole jsou stejná jako základní písmeno. Logo jde napsat celé (nadpisy oken a nápisy ve hře
+// hlídají Překlady níž, v každém jazyce).
 const chybyPisma = [];
 const vyskaPisma = PISMO_NADPISU.A.length;
 for (const [znak, glyf] of Object.entries(PISMO_NADPISU)) {
@@ -4841,11 +4848,6 @@ for (const [znak, zaklad] of Object.entries(DIAKRITIKA)) {
   const g = PISMO_NADPISU[znak];
   if (!g || g.slice(3).join() !== PISMO_NADPISU[zaklad].slice(3).join() || !g.slice(0, 3).join('').includes('X')) chybyPisma.push(`${znak} nemá diakritiku nad ${zaklad}`);
 }
-const nadpisyOken = [...readFileSync(new URL('../index.html', import.meta.url), 'utf8').matchAll(/<h2[^>]*>([^<]+)<\/h2>/g)].map((m) => m[1]);
-for (const text of [...nadpisyOken, 'Postavy', 'Mapy', 'Vylepšení', 'Sbírka', 'Rekordy', 'Ovládání', 'Nastavení', 'Profil', 'Na plochu']) {
-  for (const z of text.toLocaleUpperCase('cs')) if (!PISMO_NADPISU[z]) chybyPisma.push(`nadpis „${text}“: písmo nemá znak ${z}`);
-}
-if (nadpisyOken.length < 5) chybyPisma.push(`v index.html je jen ${nadpisyOken.length} nadpisů oken`);
 if ([...'RuGee'].some((z) => !PISMENA_LOGA[z] || PISMENA_LOGA[z].length !== 8)) chybyPisma.push('logu chybí písmeno');
 // Rámy (nastroje/ramy.mjs) jsou obdélníky a mají jen barvy z palety, jinak by svg() spadlo.
 for (const radky of [['KK', 'Kh'], ['Kh', 'K']]) {
@@ -4854,6 +4856,125 @@ for (const radky of [['KK', 'Kh'], ['Kh', 'K']]) {
   if (spadlo !== (radky[1].length !== 2)) chybyPisma.push(`kontrola tvaru rámu: ${radky}`);
 }
 chyby.push(...chybyPisma);
+
+// Překlady (src/texty.js, slovník src/texty/cs.js). Každý klíč, který kód bere přes t('…') (v kreslení preklad),
+// i každé data-t v index.html je ve slovníku, stejně tak klíče skládané za běhu (skupiny a řádky Ovládání, stavy
+// Na plochu a Světel, chyby profilu a kódu). Česky zůstaly statické texty stránky stejné, jako stojí v index.html.
+// V kódu mimo slovník už není žádný český text (jen písmena písma, hlášky konzole a vnitřní chyby). Texty dat jsou
+// gettery ze slovníku (zbraně, pasivy, bossové, mapy, výbava…): každý text větve slovníku vrátí i data a kopie
+// (seznam kusů, ohlášení map, schopnosti bossů) čtou getter, ne text z doby načtení. Tvary slov podle čísla.
+// Texty kreslené pixelovým písmem (nadpisy oken, záložky, skupiny, jména a nápisy bossů, ohlášení, kusy výbavy)
+// jdou napsat celé v každém jazyce.
+const chybyPrekladu = [];
+const zdrojeSrc = Object.fromEntries(readdirSync(new URL('../src/', import.meta.url)).filter((f) => f.endsWith('.js'))
+  .map((f) => [f, readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8')]));
+const strankaHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const pouziteKlice = new Set();
+for (const zdroj of Object.values(zdrojeSrc)) {
+  for (const m of zdroj.matchAll(/\b(?:t|preklad)\(\s*'([^']+)'/g)) pouziteKlice.add(m[1]);
+}
+for (const m of strankaHtml.matchAll(/data-t(?:-[a-z-]+)?="([^"]+)"/g)) pouziteKlice.add(m[1]);
+// klíče skládané za běhu
+const blokOvladani = /const OVLADANI = \[([\s\S]*?)\n\];/.exec(zdrojeSrc['menu.js'])?.[1] ?? '';
+for (const m of blokOvladani.matchAll(/^ {2}\['(\w+)', \[/gm)) pouziteKlice.add(`menu.ovladani.skupiny.${m[1]}`);
+for (const m of blokOvladani.matchAll(/\], '(\w+)'\]/g)) pouziteKlice.add(`menu.ovladani.radky.${m[1]}`);
+for (const m of blokOvladani.matchAll(/'@(\w+)'/g)) pouziteKlice.add(`menu.ovladani.klavesy.${m[1]}`);
+if (!blokOvladani.includes("'@sipky'")) chybyPrekladu.push('nenašel jsem Ovládání v menu.js');
+for (const kde of /const kde = ([^;]+);/.exec(zdrojeSrc['aplikace.js'])?.[1].match(/'\w+'/g) ?? []) pouziteKlice.add(`menu.plocha.kde.${kde.slice(1, -1)}`);
+for (const r of REZIMY_SVETEL) pouziteKlice.add(`menu.svetla.rezimy.${r}`);
+const duvodySvetel = new Set(['auto', 'zap', 'vypnuto']);
+for (const m of zdrojeSrc['osvetleni.js'].matchAll(/zmenDuvod\('(\w+)'\)|chyba: '(\w+)'|'(kontrola|shadery)'/g)) duvodySvetel.add(m[1] ?? m[2] ?? m[3]);
+for (const d of duvodySvetel) pouziteKlice.add(`menu.svetla.stav.${d}`);
+const chybyProfilu2 = new Set(['soubor', 'neni']);
+for (const f of ['ulozeni.js', 'prenos.js']) for (const m of zdrojeSrc[f].matchAll(/chyba: '(\w+)'/g)) chybyProfilu2.add(m[1]);
+for (const c of chybyProfilu2) pouziteKlice.add(`menu.profil.chyby.${c}`);
+if (pouziteKlice.size < 250) chybyPrekladu.push(`v kódu je jen ${pouziteKlice.size} klíčů, hledání klíčů nefunguje`);
+for (const klic of pouziteKlice) {
+  if (klic === 'klíč') continue; // příklad v komentáři texty.js
+  if (hodnota(klic, VYCHOZI_JAZYK) === undefined) chybyPrekladu.push(`klíč ${klic} není ve slovníku`);
+}
+// statické texty index.html česky stejné jako ve slovníku (první text prvku, celé HTML, atributy)
+const prvniText = [...strankaHtml.matchAll(/<[a-z]+[^>]*\sdata-t="([^"]+)"[^>]*>([^<]*)/g)];
+for (const [, klic, text] of prvniText) if (text.trim() !== t(klic)) chybyPrekladu.push(`index.html ${klic}: „${text.trim()}“ místo „${t(klic)}“`);
+for (const [, klic, html] of strankaHtml.matchAll(/data-t-html="([^"]+)"[^>]*>(.*?)<\/span>/g)) if (html !== t(klic)) chybyPrekladu.push(`index.html ${klic} (html) nesedí se slovníkem`);
+for (const [, atribut, hodnotaAtributu, klic] of strankaHtml.matchAll(/\s([a-z-]+)="([^"]*)"(?=[^>]*\sdata-t-\1="([^"]+)")/g)) {
+  if (hodnotaAtributu !== t(klic)) chybyPrekladu.push(`index.html ${atribut} ${klic}: „${hodnotaAtributu}“`);
+}
+if (prvniText.length < 15) chybyPrekladu.push(`index.html má jen ${prvniText.length} prvků s data-t`);
+// český text mimo slovník: řetězce v kódu (bez komentářů) s českými písmeny
+// (s českými písmeny, nebo jako slovo či věta s velkým písmenem: „Na voze: “, „Hod“; klávesy Esc a Enter smí)
+const POVOLENE_CESKE = new Set(['soubor je moc velký', 'Esc', 'Enter', 'Escape']);
+const DIAKRITIKA_TEXT = /[áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]|^[A-Z][a-z]{2,}$|^[A-Z][a-z]+[ :,.!?]/;
+for (const [soubor, zdroj] of Object.entries(zdrojeSrc)) {
+  if (soubor === 'pismo.js' || soubor === 'sprity.js') continue; // písmena písma (Á, Č…), řádky spritů
+  const bezKomentaru = zdroj.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:\\'"`])\/\/.*$/gm, '$1');
+  for (const m of bezKomentaru.matchAll(/'((?:[^'\\\n]|\\.)*)'|`((?:[^`\\]|\\.)*)`/g)) {
+    const text = m[1] ?? m[2];
+    if (!DIAKRITIKA_TEXT.test(text) || POVOLENE_CESKE.has(text)) continue;
+    if (/console\.(warn|error|log)\(|new Error\(/.test(bezKomentaru.slice(Math.max(0, m.index - 160), m.index))) continue;
+    chybyPrekladu.push(`${soubor}: český text mimo slovník „${text.slice(0, 50)}“`);
+  }
+}
+// gettery dat: každý list větve slovníku vrátí i data (stejný objekt, stejná cesta)
+const projdiVetev = (data, vetev, cesta) => {
+  for (const [k, v] of Object.entries(vetev)) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      if (!data?.[k] || typeof data[k] !== 'object') chybyPrekladu.push(`data nemají ${cesta}.${k}`);
+      else projdiVetev(data[k], v, `${cesta}.${k}`);
+    } else if (JSON.stringify(data?.[k]) !== JSON.stringify(t(`${cesta}.${k}`, { s: '?' })) && !/\{s\}/.test(String(v))) {
+      chybyPrekladu.push(`${cesta}.${k}: data vrací ${JSON.stringify(data?.[k])}`);
+    }
+  }
+};
+const DATA_SLOVNIKU = {
+  zbrane: ZBRANE, pasivy: PASIVY, rarity: RARITY, tridy: TRIDY, bossove: BOSSOVE, zbozi: ZBOZI, vylepseni: VYLEPSENI, mapy: MAPY,
+  'vystroj.sloty': SLOTY_VYBAVY, 'vystroj.staty': STATY_VYBAVY, 'vystroj.rarity': RARITY_VYBAVY, 'vystroj.efekty': EFEKTY_VYBAVY, 'vystroj.sady': VYBAVA,
+};
+for (const [cesta, data] of Object.entries(DATA_SLOVNIKU)) projdiVetev(data, hodnota(cesta, VYCHOZI_JAZYK), cesta);
+if (PASIVY.stit.popisPrvni !== `Bublina každých ${DOBITI_STITU} s zastaví jednu ránu`) chybyPrekladu.push(`Štít: ${PASIVY.stit.popisPrvni}`);
+for (const [id, m] of Object.entries(MAPY)) {
+  for (const d of m.nepratele) {
+    if ((d.text ?? null) !== (hodnota(`prichody.${id}.${d.druh}`) ?? null)) chybyPrekladu.push(`ohlášení ${id} ${d.druh}: ${d.text}`);
+    if (d.text && !Object.getOwnPropertyDescriptor(d, 'text')?.get) chybyPrekladu.push(`ohlášení ${id} ${d.druh} je kopie textu, ne getter`);
+  }
+  if (m.smecky?.text && !Object.getOwnPropertyDescriptor(m.smecky, 'text')?.get) chybyPrekladu.push(`smečka ${id} je kopie textu, ne getter`);
+  if (!Object.getOwnPropertyDescriptor(m, 'nazev')?.get) chybyPrekladu.push(`jméno mapy ${id} je kopie textu, ne getter`);
+}
+const vlastnostKusu = Object.getOwnPropertyDescriptor(VSECHNY_KUSY[0], 'nazev');
+if (!vlastnostKusu?.get || !vlastnostKusu.enumerable || !Object.getOwnPropertyDescriptor(vytvorKus('obr', 'telo', 'epicka'), 'nazev')?.get) chybyPrekladu.push('jméno kusu není getter');
+if (!Object.getOwnPropertyDescriptor(PRICHODY_MAP.louka[0], 'text')?.get) chybyPrekladu.push('ohlášení mapy je kopie textu, ne getter');
+if (!Object.getOwnPropertyDescriptor(schopnostiBosse('strazce')[0], 'nazev')?.get || schopnostiBosse('strazce')[0].nazev !== SCHOPNOSTI.dupnuti.nazev) chybyPrekladu.push('jméno schopnosti bosse není getter');
+// tvary podle čísla a dosazení
+const tvaryZlataku = [0, 1, 2, 4, 5, 21].map((n) => t('tvary.zlataky', { n })).join('|');
+if (tvaryZlataku !== '0 zlaťáků|1 zlaťák|2 zlaťáky|4 zlaťáky|5 zlaťáků|21 zlaťáků') chybyPrekladu.push(`tvary zlaťáků: ${tvaryZlataku}`);
+if (t('menu.duse', { n: 3 }) !== '3 duše' || t('menu.duse', { n: 7 }) !== '7 duší' || t('tvary.kusy', { n: 1 }) !== '1 kus') chybyPrekladu.push('tvary duší nebo kusů');
+if (dosad('{a} a {b}', { a: 1 }) !== '1 a {b}' || t('neni.takovy.klic') !== 'neni.takovy.klic') chybyPrekladu.push('dosazení nebo chybějící klíč');
+if (cisloTextu(1.25) !== '1,3' || procentaTextu(5) !== '5 %') chybyPrekladu.push(`čísla: ${cisloTextu(1.25)} ${procentaTextu(5)}`);
+// pixelové písmo: texty kreslené pixelovým písmem v každém jazyce
+function pixeloveTexty() {
+  const texty = ['volba.novaUroven', 'volba.truhlaBosse', 'volba.zamcenaTruhla', 'porovnani.nadpis', 'obchod.nadpis', 'pauza.nadpis',
+    'konec.nadpis', 'kresleni.zuri', 'menu.nastaveni.zvuk', 'menu.nastaveni.hra', 'menu.plocha.nadpis', 'menu.profil.novy',
+    'menu.profil.prejmenovat', 'menu.profil.export', 'menu.profil.import', 'hra.oziveni', 'hra.bomba', 'hra.kupec.prijel',
+    'hra.kupec.odjel'].map((k) => [k, t(k)]);
+  for (const v of Object.values(t('menu.ovladani.skupiny'))) texty.push(['skupina Ovládání', v]);
+  for (const [id, z] of Object.entries(ZALOZKY_SLOVNIKU())) texty.push([`záložka ${id}`, z.nazev]);
+  for (const b of Object.values(BOSSOVE)) texty.push(['boss', b.nazev], ['příchod bosse', b.prichod], ['zuří', t('hra.zuri', { boss: b.nazev })]);
+  for (const m of Object.values(MAPY)) texty.push(['odemčená mapa', t('hra.odemcenaMapa', { mapa: m.nazev })]);
+  for (const p of Object.values(PRICHODY_MAP).flat()) texty.push(['ohlášení mapy', p.text]);
+  for (const k of VSECHNY_KUSY) texty.push(['kus', k.nazev], ['výbava bosse', t('hra.vybavaBosse', { kus: k.nazev })]);
+  for (const n of [5, 6, 11]) texty.push(...['sili', 'elity', 'casteji'].map((h) => ['hrozba', t(`hra.hrozba.${h}`, { n })]));
+  return texty;
+}
+const ZALOZKY_SLOVNIKU = () => t('zalozky');
+for (const jazyk of JAZYKY) {
+  nastavJazyk(jazyk);
+  for (const [co, text] of pixeloveTexty()) {
+    const chybi = [...new Set([...text.toLocaleUpperCase('cs')].filter((z) => !PISMO_NADPISU[z]))];
+    if (chybi.length) chybyPrekladu.push(`${jazyk} ${co} „${text}“: písmo nemá ${chybi.join(' ')}`);
+  }
+}
+nastavJazyk(VYCHOZI_JAZYK);
+chyby.push(...chybyPrekladu);
 
 // Aplikace (PWA). Manifest má jméno, start a rozsah ./, celou obrazovku a ikony 192, 512 a maskovatelnou 512.
 // Každá ikona v ikony/ je PNG v udané velikosti a pixel po pixelu taková, jakou ji teď nakreslí nastroje/ikony.mjs

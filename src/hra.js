@@ -1,14 +1,16 @@
 // Pravidla hry: pohyb, zbraně, nepřátelé, krystaly zkušeností a vylepšení.
 import { pouzijVylepseni } from './duse.js';
+import { t, pripojTexty } from './texty.js';
 import { PORADI_SLOTU, ucinekVystroje, losujKus, zlatakyZaKus, RARITY_VYBAVY } from './vystroj.js';
 import {
   MAPY, PORADI_MAP, VYCHOZI_MAPA, PRICHODY_MAP, platnaMapa, naPlose, odKdy, vytlacZPrekazek,
 } from './mapy.js';
 
-// ikona = jméno spritu, který se ukáže na kartě vylepšení. popis = řádek za každou z úrovní 1–5.
+// ikona = jméno spritu, který se ukáže na kartě vylepšení. Jméno (nazev), popis (řádek za každou z úrovní 1–5)
+// a texty (řádek na kartě nad 5. úrovní) jsou ve slovníku src/texty/cs.js (větev zbrane), pripojTexty je připojí.
 // dal = jak zbraň roste nad 5. úrovní (bonusZaUroven): poradi = co přidá každá třetí úroveň (dokola) a která
 // čísla ze statyZbrane to jsou. poskozeni a velikost se násobí, pocet je jedno číslo (+1 kus), nabiti se
-// násobí (kratší nabíjení). maxPocet = nižší strop kusů než STROPY.pocet. texty = řádek na kartě.
+// násobí (kratší nabíjení). maxPocet = nižší strop kusů než STROPY.pocet.
 // Krumpáče a zrcadla se netočí rychleji: při velké rychlosti by mezi dvěma snímky přeskočily nepřítele.
 // pasivy = co ze zbraně čtou pasivy hrdiny (pasivyDoZbrane): rozpeti = čísla, která Rozpětí násobí (velikost
 // a dosah), vydrz = trvání, která Výdrž násobí, vydrzNavic = co Výdrž přičte za každý svůj díl nad 1 (u zbraní,
@@ -19,140 +21,105 @@ import {
 // ledová zóna se roztříští dvakrát).
 export const ZBRANE = {
   jiskra: {
-    nazev: 'Jiskra', ikona: 'jiskra',
-    popis: ['Střílí jiskry na nejbližšího nepřítele.', '+1 jiskra', 'Rychlejší střelba', '+1 jiskra', 'Větší poškození'],
-    dal: {
-      poradi: ['pocet', 'nabiti'], poskozeni: ['poskozeni'], pocet: 'pocet', nabiti: ['nabiti'],
-      texty: { pocet: '+1 jiskra', nabiti: 'Rychlejší střelba' },
-    },
+    ikona: 'jiskra',
+    dal: { poradi: ['pocet', 'nabiti'], poskozeni: ['poskozeni'], pocet: 'pocet', nabiti: ['nabiti'] },
     pasivy: { rozpeti: ['velikost'], vydrz: ['zivot'], prival: 'pocet' },
   },
   lucerna: {
-    nazev: 'Lucerna', ikona: 'lucerna',
-    popis: ['Žár lucerny pálí nepřátele kolem tebe.', 'Větší dosah', 'Silnější žár', 'Větší dosah', 'Silnější žár'],
-    dal: {
-      poradi: ['velikost', 'nabiti'], poskozeni: ['zar'], nabiti: ['tik'], velikost: ['dosah'],
-      texty: { velikost: 'Větší dosah', nabiti: 'Častější žár' },
-    },
+    ikona: 'lucerna',
+    dal: { poradi: ['velikost', 'nabiti'], poskozeni: ['zar'], nabiti: ['tik'], velikost: ['dosah'] },
     pasivy: { rozpeti: ['dosah'], vydrzNavic: { dosvit: 1 }, prival: 'uhliky' },
   },
   krumpace: {
-    nazev: 'Krumpáče', ikona: 'krumpac',
-    popis: ['Krumpáč krouží kolem tebe.', '+1 krumpáč', 'Rychlejší otáčení', '+1 krumpáč', 'Větší poškození'],
-    dal: {
-      poradi: ['pocet', 'velikost'], poskozeni: ['poskozeni'], pocet: 'pocet', velikost: ['polomer'],
-      texty: { pocet: '+1 krumpáč', velikost: 'Širší kruh' },
-    },
+    ikona: 'krumpac',
+    dal: { poradi: ['pocet', 'velikost'], poskozeni: ['poskozeni'], pocet: 'pocet', velikost: ['polomer'] },
     pasivy: { rozpeti: ['polomer', 'velikost'], vydrzNavic: { otres: 0.8 }, prival: 'pocet' },
   },
   blesk: {
-    nazev: 'Blesk', ikona: 'blesk',
-    popis: ['Blesk udeří do nepřítele a přeskočí na další.', '+1 přeskok', 'Častější údery', '+2 přeskoky', 'Větší poškození'],
+    ikona: 'blesk',
     dal: {
       poradi: ['pocet', 'nabiti', 'velikost'], poskozeni: ['poskozeni'], pocet: 'preskoky', nabiti: ['nabiti'], velikost: ['skok'],
-      texty: { pocet: '+1 přeskok', nabiti: 'Častější údery', velikost: 'Delší přeskoky' },
     },
     pasivy: { rozpeti: ['skok', 'dosah'], vydrzNavic: { otres: 1 }, prival: 'blesku' },
   },
   trny: {
-    nazev: 'Trnová past', ikona: 'trny',
-    popis: ['Pod nejbližším nepřítelem vyraší trny, které zraňují a zpomalí.', '+1 trs trnů', 'Větší trsy, vydrží déle', '+1 trs trnů', 'Ostřejší trny, zpomalí víc'],
+    ikona: 'trny',
     // Bez kratšího nabíjení: víc trsů naráz, než unese MAX_TRNU, by staré trsy mazalo dřív, než zalezou.
     dal: {
       poradi: ['pocet', 'velikost'], poskozeni: ['poskozeni'], pocet: 'pocet', velikost: ['polomer'], maxPocet: 8,
-      texty: { pocet: '+1 trs trnů', velikost: 'Větší trsy' },
     },
     pasivy: { rozpeti: ['polomer', 'dosah'], vydrz: ['trvani', 'doznivani'], prival: 'pocet' },
   },
   zrcadlo: {
-    nazev: 'Zrcadlový štít', ikona: 'zrcadlo',
-    popis: ['Zrcadlo krouží těsně u tebe, vrací střely a odhodí, kdo se ho dotkne.', '+1 zrcadlo', 'Silnější odhození', '+1 zrcadlo', 'Větší zrcadla, víc poškození'],
+    ikona: 'zrcadlo',
     dal: {
       poradi: ['pocet', 'velikost'], poskozeni: ['poskozeni', 'odraz'], pocet: 'pocet', velikost: ['velikost'], maxPocet: 8,
-      texty: { pocet: '+1 zrcadlo', velikost: 'Větší zrcadla' },
     },
     pasivy: { rozpeti: ['velikost', 'polomer'], vydrz: ['let'], prival: 'pocet' },
   },
   svetlusky: {
-    nazev: 'Světlušky', ikona: 'svetlusky',
-    popis: ['Roj světlušek se sám vrhá na nepřátele a vrací se k tobě.', '+1 světluška', 'Rychlejší let, kratší odpočinek', '+1 světluška', 'Žhavější světlušky'],
+    ikona: 'svetlusky',
     dal: {
       poradi: ['pocet', 'nabiti', 'velikost'], poskozeni: ['poskozeni'], pocet: 'pocet', nabiti: ['nabiti'], velikost: ['dosah'],
-      texty: { pocet: '+1 světluška', nabiti: 'Kratší odpočinek', velikost: 'Delší výlety' },
     },
     pasivy: { rozpeti: ['dosah'], vydrzNavic: { otres: 0.8 }, prival: 'pocet' },
   },
   mraz: {
-    nazev: 'Mrazivý krystal', ikona: 'mraz',
-    popis: ['Krystal dopadne do hloučku nepřátel, mráz je zpomalí a pak je roztříští.', '+1 krystal', 'Větší zóna, roztříští dřív', '+1 krystal', 'Tvrdší mráz, víc poškození'],
+    ikona: 'mraz',
     // Kusů jen 8 jako u trnů: víc zón naráz by MAX_ZON nepustilo (nové krystaly by čekaly).
     dal: {
       poradi: ['pocet', 'velikost', 'nabiti'], poskozeni: ['poskozeni'], pocet: 'pocet', velikost: ['polomer'], nabiti: ['nabiti'], maxPocet: 8,
-      texty: { pocet: '+1 krystal', velikost: 'Větší ledová zóna', nabiti: 'Častější krystaly' },
     },
     pasivy: { rozpeti: ['polomer', 'dosah'], vydrz: ['trvani', 'doznivani'], prival: 'pocet' },
   },
   zvon: {
-    nazev: 'Zvon hlubin', ikona: 'zvon',
-    popis: ['Zvon nad tebou odbíjí: zvuková vlna odhodí a omráčí nepřátele kolem.', 'Větší dosah vlny', 'Silnější odhození, delší omráčení', 'Ozvěna: druhá vlna hned po první', 'Hlubší tón, víc poškození'],
+    ikona: 'zvon',
     // Ozvěn nejvýš 4: další by doznívaly ještě v příštím zvonění.
     dal: {
       poradi: ['velikost', 'nabiti', 'pocet'], poskozeni: ['poskozeni'], pocet: 'pocet', nabiti: ['nabiti'], velikost: ['polomer'], maxPocet: 4,
-      texty: { velikost: 'Větší dosah vlny', nabiti: 'Častější zvonění', pocet: '+1 ozvěna' },
     },
     pasivy: { rozpeti: ['polomer'], vydrz: ['omraceni', 'let'], prival: 'pocet' },
   },
   cep: {
-    nazev: 'Cep na řetězu', ikona: 'cep',
-    popis: ['Těžká koule na řetězu se kývá za tebou. Čím rychleji letí, tím víc bolí.', 'Delší řetěz', 'Těžší koule, prudší rozmach', '+1 koule na vlastním řetězu', 'Větší ostnatá koule'],
+    ikona: 'cep',
     // Rozmach se nezrychluje (koule by mezi snímky přeskočila nepřítele), roste řetěz i koule. Koulí nejvýš 4,
     // každá další má delší řetěz.
     dal: {
       poradi: ['velikost', 'pocet'], poskozeni: ['poskozeni'], pocet: 'pocet', velikost: ['retez', 'velikost'], maxPocet: 4,
-      texty: { velikost: 'Delší řetěz, větší koule', pocet: '+1 koule' },
     },
     pasivy: { rozpeti: ['retez', 'velikost'], vydrz: ['let'], prival: 'pocet' },
   },
   seminka: {
-    nazev: 'Semínkové bomby', ikona: 'seminka',
-    popis: ['Trousíš za sebou semínka, po vteřině vybuchnou v trnitý keř.', '+1 semínko', 'Větší výbuch, keř vydrží déle', '+1 semínko', 'Prudší výbuch, ostřejší trny'],
+    ikona: 'seminka',
     // Bez kratšího nabíjení a nejvýš 6 semínek naráz: víc by MAX_SEMINEK nepustilo (staré keře by mizely dřív).
     dal: {
       poradi: ['pocet', 'velikost'], poskozeni: ['poskozeni', 'pichnuti'], pocet: 'pocet', velikost: ['polomer'], maxPocet: 6,
-      texty: { pocet: '+1 semínko', velikost: 'Větší výbuch a keř' },
     },
     pasivy: { rozpeti: ['polomer'], vydrz: ['trvani'], prival: 'pocet' },
   },
   korene: {
-    nazev: 'Kořeny', ikona: 'korene',
-    popis: ['Kořen proběhne pod zemí k nepříteli, vyrazí a chvíli ho drží a svírá.', '+1 kořen', 'Kořeny drží déle a chytí i sousedy', '+1 kořen', 'Trnité kořeny svírají silněji'],
+    ikona: 'korene',
     // Kořenů nejvýš 8 jako trsů trnů: víc by drželo skoro celou louku.
     dal: {
       poradi: ['pocet', 'velikost', 'nabiti'], poskozeni: ['poskozeni', 'svirani'], pocet: 'pocet', velikost: ['polomer'], nabiti: ['nabiti'], maxPocet: 8,
-      texty: { pocet: '+1 kořen', velikost: 'Kořeny chytí širší kruh', nabiti: 'Častější kořeny' },
     },
     pasivy: { rozpeti: ['polomer', 'dosah'], vydrz: ['trvani'], prival: 'pocet' },
   },
   stopa: {
-    nazev: 'Ohnivá stopa', ikona: 'stopa',
-    popis: ['Kudy jdeš, tudy hoří: plameny za tebou pálí každého, kdo do nich vleze.', 'Širší plameny', 'Plameny hoří déle', 'Kdo projde ohněm, ještě chvíli hoří', 'Žhavější oheň'],
+    ikona: 'stopa',
     // Bez kusů: stopa je jedna. Širší plamen má i větší rozestup, takže plamenů naráz nepřibude.
-    dal: {
-      poradi: ['velikost', 'nabiti'], poskozeni: ['poskozeni', 'pali'], nabiti: ['tik'], velikost: ['polomer'],
-      texty: { velikost: 'Širší plameny', nabiti: 'Oheň pálí častěji' },
-    },
+    dal: { poradi: ['velikost', 'nabiti'], poskozeni: ['poskozeni', 'pali'], nabiti: ['tik'], velikost: ['polomer'] },
     pasivy: { rozpeti: ['polomer'], vydrz: ['trvani', 'hori'], prival: 'stop' },
   },
   prak: {
-    nazev: 'Odrazný kámen', ikona: 'prak',
-    popis: ['Prak vystřelí kámen, který se odráží od nepřítele k nepříteli a s každým odrazem víc bolí.', '+2 odrazy', 'Rychlejší střelba', '+1 kámen', 'Těžší kámen'],
+    ikona: 'prak',
     dal: {
       poradi: ['pocet', 'nabiti', 'velikost'], poskozeni: ['poskozeni'], pocet: 'odrazy', nabiti: ['nabiti'], velikost: ['skok'],
-      texty: { pocet: '+1 odraz', nabiti: 'Rychlejší střelba', velikost: 'Delší odrazy' },
     },
     pasivy: { rozpeti: ['skok', 'dosah'], vydrz: ['zivot', 'volny'], prival: 'pocet' },
   },
 };
+pripojTexty(ZBRANE, 'zbrane');
 
 // Pasivy: na úrovních 1–5 dá každá úroveň plný díl (násobí vlastnost hrdiny o nasobek, pricti přičte),
 // od 6. jen menší díl dal (přičítá se k násobku z 5. úrovně) a popisDal na kartě. Kde je strop (STROPY.pasivy),
@@ -188,84 +155,70 @@ export const ZBRANE = {
 //   Moudrost – víc zkušeností z krystalů (hrdina.zkusenosti, stejné číslo jako trvalé vylepšení Zkušenosti).
 //   Chamtivost – víc duší na konci hry (hrdina.chamtivost násobí duše za hru, dusZaHru v duse.js).
 // popisPrvni = řádek karty pro 1. úroveň, když nová pasiva dělá něco jiného, než co přidávají další úrovně.
+// Texty pasiv (nazev, popis, popisDal, popisPrvni) jsou ve slovníku (větev pasivy), stejně jako jména a popisy
+// rarit, tříd, schopností, bossů a zboží níž.
 export const DOBITI_STITU = 20;
 export const MIN_DOBITI_STITU = 8;
 const UBYTEK_STITU = 1;
 export const PASIVY = {
   srdce: {
-    nazev: 'Srdce', ikona: 'srdce', popis: '+20 max. životů a doléčení', vlastnost: 'maxHp', pricti: 20,
-    dal: 10, popisDal: '+10 max. životů a doléčení',
+    ikona: 'srdce', vlastnost: 'maxHp', pricti: 20, dal: 10,
   },
   boty: {
-    nazev: 'Boty', ikona: 'boty', popis: '+12 % rychlost pohybu', vlastnost: 'rychlost', nasobek: 0.12,
-    dal: 0.03, popisDal: '+3 % rychlost pohybu',
+    ikona: 'boty', vlastnost: 'rychlost', nasobek: 0.12, dal: 0.03,
   },
   magnet: {
-    nazev: 'Magnet', ikona: 'magnet', popis: '+40 % dosah sběru krystalů', vlastnost: 'magnet', nasobek: 0.4,
-    dal: 0.1, popisDal: '+10 % dosah sběru krystalů',
+    ikona: 'magnet', vlastnost: 'magnet', nasobek: 0.4, dal: 0.1,
   },
   sila: {
-    nazev: 'Síla', ikona: 'sila', popis: '+15 % poškození všech zbraní', vlastnost: 'sila', nasobek: 0.15,
-    dal: 0.05, popisDal: '+5 % poškození všech zbraní',
+    ikona: 'sila', vlastnost: 'sila', nasobek: 0.15, dal: 0.05,
   },
   krit: {
-    nazev: 'Kritický zásah', ikona: 'krit', popis: '+5 % šance na dvojnásobnou ránu', vlastnost: 'krit', pricti: 0.05,
-    dal: 0.02, popisDal: '+2 % šance na dvojnásobnou ránu',
+    ikona: 'krit', vlastnost: 'krit', pricti: 0.05, dal: 0.02,
   },
   rozpeti: {
-    nazev: 'Rozpětí', ikona: 'rozpeti', popis: '+8 % velikost oblastí a dosah zbraní', vlastnost: 'rozpeti', nasobek: 0.08,
-    dal: 0.02, popisDal: '+2 % velikost oblastí a dosah zbraní',
+    ikona: 'rozpeti', vlastnost: 'rozpeti', nasobek: 0.08, dal: 0.02,
   },
   ozvena: {
-    nazev: 'Ozvěna', ikona: 'ozvena', popis: '+6 % šance, že zbraň udeří podruhé', vlastnost: 'ozvena', pricti: 0.06,
-    dal: 0.02, popisDal: '+2 % šance, že zbraň udeří podruhé',
+    ikona: 'ozvena', vlastnost: 'ozvena', pricti: 0.06, dal: 0.02,
   },
   vydrz: {
-    nazev: 'Výdrž', ikona: 'vydrz', popis: '+10 % trvání oblastí a efektů', vlastnost: 'vydrz', nasobek: 0.1,
-    dal: 0.03, popisDal: '+3 % trvání oblastí a efektů',
+    ikona: 'vydrz', vlastnost: 'vydrz', nasobek: 0.1, dal: 0.03,
   },
   rychleRuce: {
-    nazev: 'Rychlé ruce', ikona: 'rychleRuce', popis: '-6 % nabíjení všech zbraní', vlastnost: 'nabijeni', nasobek: -0.06,
-    dal: -0.015, popisDal: '-1,5 % nabíjení všech zbraní',
+    ikona: 'rychleRuce', vlastnost: 'nabijeni', nasobek: -0.06, dal: -0.015,
   },
   prival: {
-    nazev: 'Příval', ikona: 'prival', popis: '+1 střela nebo kus všem zbraním', vlastnost: 'prival', pricti: 1,
-    dal: 1, popisDal: '+1 střela nebo kus všem zbraním', vaha: 0.35,
+    ikona: 'prival', vlastnost: 'prival', pricti: 1, dal: 1, vaha: 0.35,
   },
   zbroj: {
-    nazev: 'Zbroj', ikona: 'zbroj', popis: '-1 poškození z každé rány nepřátel', vlastnost: 'pancir', pricti: 1,
-    dal: 1, popisDal: '-1 poškození z každé rány nepřátel',
+    ikona: 'zbroj', vlastnost: 'pancir', pricti: 1, dal: 1,
   },
   regenerace: {
-    nazev: 'Regenerace', ikona: 'regenerace', popis: '+0,4 životů za sekundu', vlastnost: 'regenerace', pricti: 0.4,
-    dal: 0.4, popisDal: '+0,4 životů za sekundu',
+    ikona: 'regenerace', vlastnost: 'regenerace', pricti: 0.4, dal: 0.4,
   },
   stesti: {
-    nazev: 'Štěstí', ikona: 'stesti', popis: '+20 % šance na srdce a magnet', vlastnost: 'stestiKoristi', pricti: 0.2,
-    dal: 0.2, popisDal: '+20 % šance na srdce a magnet',
+    ikona: 'stesti', vlastnost: 'stestiKoristi', pricti: 0.2, dal: 0.2,
   },
   upiriZub: {
-    nazev: 'Upíří zub', ikona: 'upiriZub', popis: '+4 % šance, že zabití vrátí 1 život', vlastnost: 'upiri', pricti: 0.04,
-    dal: 0.01, popisDal: '+1 % šance, že zabití vrátí 1 život',
+    ikona: 'upiriZub', vlastnost: 'upiri', pricti: 0.04, dal: 0.01,
   },
   trnovaZbroj: {
-    nazev: 'Trnová zbroj', ikona: 'trnovaZbroj', popis: '+50 % rány se vrátí útočníkovi', vlastnost: 'trnovaZbroj', pricti: 0.5,
-    dal: 0.15, popisDal: '+15 % rány se vrátí útočníkovi',
+    ikona: 'trnovaZbroj', vlastnost: 'trnovaZbroj', pricti: 0.5, dal: 0.15,
   },
   stit: {
-    nazev: 'Štít', ikona: 'stit', popisPrvni: `Bublina každých ${DOBITI_STITU} s zastaví jednu ránu`,
-    popis: `Štít se dobije o ${UBYTEK_STITU} s dřív`, vlastnost: 'dobitiStitu', pricti: -UBYTEK_STITU,
-    dal: -0.25, popisDal: 'Štít se dobije o 0,25 s dřív',
+    ikona: 'stit', vlastnost: 'dobitiStitu', pricti: -UBYTEK_STITU, dal: -0.25,
   },
   moudrost: {
-    nazev: 'Moudrost', ikona: 'moudrost', popis: '+5 % zkušeností z krystalů', vlastnost: 'zkusenosti', nasobek: 0.05,
-    dal: 0.02, popisDal: '+2 % zkušeností z krystalů',
+    ikona: 'moudrost', vlastnost: 'zkusenosti', nasobek: 0.05, dal: 0.02,
   },
   chamtivost: {
-    nazev: 'Chamtivost', ikona: 'chamtivost', popis: '+10 % duší na konci hry', vlastnost: 'chamtivost', nasobek: 0.1,
-    dal: 0.03, popisDal: '+3 % duší na konci hry',
+    ikona: 'chamtivost', vlastnost: 'chamtivost', nasobek: 0.1, dal: 0.03,
   },
 };
+pripojTexty(PASIVY, 'pasivy', {
+  'stit.popisPrvni': { s: DOBITI_STITU }, 'stit.popis': { s: UBYTEK_STITU },
+});
 
 // Úrovně nemají strop. Úrovně 1–5 popisuje každá zbraň a pasiva sama (popis), od 6. dál dá každá úroveň menší
 // díl: zbraň +8 % poškození (proti 5. úrovni, sčítá se) a každá třetí (8, 11, 14, …) navíc jednu věc z dal.poradi
@@ -302,11 +255,12 @@ export const STUPNE_UROVNI = [5, 10, 15];
 // Úrovně nemají strop, takže karta přidá vždy celý počet úrovní své rarity.
 // Váhy a bonusy jsou nízko schválně: s dvojnásobnými rozjel bot v simulaci sněhovou kouli a přežil přes 20 minut.
 export const RARITY = {
-  bezna: { nazev: 'Běžná', urovni: 1, sila: 0, doleceni: false, vaha: 100 },
-  vzacna: { nazev: 'Vzácná', urovni: 2, sila: 0, doleceni: false, vaha: 12 },
-  epicka: { nazev: 'Epická', urovni: 2, sila: 0.05, doleceni: false, vaha: 3.5 },
-  legendarni: { nazev: 'Legendární', urovni: 3, sila: 0.1, doleceni: true, vaha: 1 },
+  bezna: { urovni: 1, sila: 0, doleceni: false, vaha: 100 },
+  vzacna: { urovni: 2, sila: 0, doleceni: false, vaha: 12 },
+  epicka: { urovni: 2, sila: 0.05, doleceni: false, vaha: 3.5 },
+  legendarni: { urovni: 3, sila: 0.1, doleceni: true, vaha: 1 },
 };
+pripojTexty(RARITY, 'rarity');
 export const PORADI_RARIT = Object.keys(RARITY);
 // Úroveň pasivy, která už je na stropu, dá místo toho +3 % poškození všech zbraní.
 export const SILA_ZA_PREBYTEK = 0.03;
@@ -316,23 +270,12 @@ export const LECENI_ODPOCINKU = 30;
 // Třídy hrdiny: každá začíná s jinou zbraní a má jednu výhodu. Výhoda násobí vlastnost hrdiny
 // (nabijeni < 1 = zbraně se nabíjí rychleji). Sprite má stejné jméno jako třída.
 export const TRIDY = {
-  lovec: {
-    nazev: 'Lovec', zbran: 'jiskra', vyhoda: '+15 % rychlost pohybu', nasobky: { rychlost: 1.15 },
-    popis: 'Stopař z okraje lesa. Uteče skoro všemu.',
-  },
-  havir: {
-    nazev: 'Havíř', zbran: 'krumpace', vyhoda: '+30 % životů', nasobky: { maxHp: 1.3 },
-    popis: 'Zná každou štolu. Vydrží ránu jako skála.',
-  },
-  svetlonos: {
-    nazev: 'Světlonoš', zbran: 'lucerna', vyhoda: '+50 % dosah sběru', nasobky: { magnet: 1.5 },
-    popis: 'Nese světlo do tmy. Krystaly letí k němu samy.',
-  },
-  bourlivak: {
-    nazev: 'Bouřlivák', zbran: 'blesk', vyhoda: '-20 % nabíjení zbraní', nasobky: { nabijeni: 0.8 },
-    popis: 'Volá bouři z hlubin. Udeří dřív než ostatní.',
-  },
+  lovec: { zbran: 'jiskra', nasobky: { rychlost: 1.15 } },
+  havir: { zbran: 'krumpace', nasobky: { maxHp: 1.3 } },
+  svetlonos: { zbran: 'lucerna', nasobky: { magnet: 1.5 } },
+  bourlivak: { zbran: 'blesk', nasobky: { nabijeni: 0.8 } },
 };
+pripojTexty(TRIDY, 'tridy');
 export const VYCHOZI_TRIDA = 'lovec';
 
 export function platnaTrida(id) {
@@ -395,9 +338,9 @@ export function silaHrozby(cas) {
 
 // Text ohlášení při nové úrovni hrozby. Na začátku častějších elit se řekne proč.
 export function textHrozby(uroven) {
-  if (uroven === HROZBA.castejiOd + 1) return `Hrozba ${uroven}: víc elit, silnější bossové`;
-  if (uroven === HROZBA.elitaOd + 1) return `Hrozba ${uroven}: přicházejí elity`;
-  return `Hrozba ${uroven}: nepřátelé sílí`;
+  if (uroven === HROZBA.castejiOd + 1) return t('hra.hrozba.casteji', { n: uroven });
+  if (uroven === HROZBA.elitaOd + 1) return t('hra.hrozba.elity', { n: uroven });
+  return t('hra.hrozba.sili', { n: uroven });
 }
 
 const MAX_KRYSTALU = 300;
@@ -502,24 +445,25 @@ export const SCHOPNOSTI = {
   // Dupnutí: pod bossem roste rudý kruh, pak od něj vyběhne rázová vlna (RYCHLOST_VLNY) a obrazovka se otřese.
   // Kdo je v kruhu, když jím vlna projde, dostane ránu a odletí od bosse o odhozeni px. Kruh je tak velký, aby
   // z něj hrdina, který hned po varování vyrazí ven, vlně utekl (kromě toho, kdo se bosse skoro dotýká).
-  dupnuti: { nazev: 'Dupnutí', varovani: VAROVANI, dosah: 250, polomer: 170, poskozeni: 16, odhozeni: 90 },
+  dupnuti: { varovani: VAROVANI, dosah: 250, polomer: 170, poskozeni: 16, odhozeni: 90 },
   // Hod: boss zvedne kameny nad hlavu a hodí je obloukem. První dopadne tam, kam hrdina běží (stojícímu pod
   // nohy), ostatní kolem do rozptylu. Stín na zemi ukazuje dopad celý let, po dopadu malý výbuch (polomer).
   // strela = sprite letící věci, sit = zásah zalepí hrdinu sítí.
   hod: {
-    nazev: 'Hod', varovani: VAROVANI, dosah: 560, strela: 'kamen', pocet: [3, 5], let: 0.9, polomer: 30, poskozeni: 14,
+    varovani: VAROVANI, dosah: 560, strela: 'kamen', pocet: [3, 5], let: 0.9, polomer: 30, poskozeni: 14,
     rozptyl: 72, predstih: 1, sit: false,
   },
   // Výpad: boss míří (čára na zemi), posledních zamek s už směr nemění, pak proběhne rovně delka px rychlostí
   // rychlost. Koho cestou trefí, ten dostane ránu a odletí stranou od dráhy.
-  vypad: { nazev: 'Výpad', varovani: VAROVANI, dosah: 420, zamek: 0.3, rychlost: 520, delka: 520, poskozeni: 16, odhozeni: 70 },
+  vypad: { varovani: VAROVANI, dosah: 420, zamek: 0.3, rychlost: 520, delka: 520, poskozeni: 16, odhozeni: 70 },
   // Vyvolání: kolem bosse se rozzáří kruhy a z nich vylezou pomocníci (druh). Živých pomocníků toho druhu od
   // všech bossů je nejvýš max, když je plno, boss vezme jinou schopnost. vyrazi = hned po vylezení běží rychleji.
-  vyvolani: { nazev: 'Vyvolání', varovani: VAROVANI, dosah: 640, druh: 'netopyr', pocet: [6, 8], max: 16, vzdalenost: 50, vyrazi: false },
+  vyvolani: { varovani: VAROVANI, dosah: 640, druh: 'netopyr', pocet: [6, 8], max: 16, vzdalenost: 50, vyrazi: false },
   // Vějíř: boss se přenese kousek od hrdiny (na obrazovku), nabije se a vystřelí salv vějířů po strel střelách,
   // každý znovu namířený na hrdinu.
-  vejir: { nazev: 'Vějíř', varovani: VAROVANI, strel: 5, salv: 2, mezi: 0.4, rozestup: 0.22, poskozeni: 8, rychlost: 160 },
+  vejir: { varovani: VAROVANI, strel: 5, salv: 2, mezi: 0.4, rozestup: 0.22, poskozeni: 8, rychlost: 160 },
 };
+pripojTexty(SCHOPNOSTI, 'schopnosti');
 // Pod ZURIVOST životů boss zuří: mezi schopnostmi čeká jen ZRYCHLENI_ZURIVOSTI své pauzy.
 export const ZURIVOST = 0.5;
 export const ZRYCHLENI_ZURIVOSTI = 0.55;
@@ -549,11 +493,11 @@ export const POLOMER_STRELY_BOSSU = 5;
 export const PORADI_BOSSU = ['strazce', 'matka', 'obr', 'bludicka'];
 export const BOSSOVE = {
   strazce: {
-    nazev: 'Strážce hlubin', prichod: 'Země se třese, přichází Strážce hlubin', porazen: 'Strážce hlubin poražen', pauza: 3,
+    pauza: 3,
     schopnosti: [{ id: 'dupnuti' }, { id: 'vypad' }, { id: 'vyvolani', druh: 'kostlivec', pocet: [6, 6], max: 12, vzdalenost: 60 }],
   },
   matka: {
-    nazev: 'Matka pavouků', prichod: 'Ze tmy se spouští Matka pavouků', porazen: 'Matka pavouků poražena', pauza: 2.8,
+    pauza: 2.8,
     schopnosti: [
       { id: 'vyvolani', druh: 'pavoucek', pocet: [6, 8], max: MAX_PAVOUCKU, vzdalenost: 6, vyrazi: true },
       { id: 'hod', strela: 'kokon', pocet: [3, 3], poskozeni: 8, polomer: 34, rozptyl: 64, sit: true },
@@ -561,17 +505,17 @@ export const BOSSOVE = {
     ],
   },
   obr: {
-    nazev: 'Kamenný obr', prichod: 'Zem duní pod kroky Kamenného obra', porazen: 'Kamenný obr poražen', pauza: 2.6,
+    pauza: 2.6,
     schopnosti: [{ id: 'hod' }, { id: 'dupnuti', polomer: 200, dosah: 280, poskozeni: 20, odhozeni: 120 }],
   },
   bludicka: {
-    nazev: 'Bludička', prichod: 'Ve tmě bliká Bludička. Nechoď za ní', porazen: 'Bludička poražena', pauza: 3,
+    pauza: 3,
     schopnosti: [{ id: 'vejir' }, { id: 'vyvolani', druh: 'duch', pocet: [6, 6], max: 8, vzdalenost: 40 }],
   },
   // Hlavní bossové map (boss v mapy.js) vycházejí z jednoho ze čtyř (zaklad): jiné barvy, jméno a schopnosti,
   // stejné chování a truhla dá kus sady toho, z koho vycházejí. strely = barva střel vějíře (null = modré).
   lavovy_obr: {
-    nazev: 'Lávový obr', prichod: 'Sopka se otřásá, z lávy vystupuje Lávový obr', porazen: 'Lávový obr poražen', pauza: 2.6,
+    pauza: 2.6,
     zaklad: 'obr',
     schopnosti: [
       { id: 'hod', strela: 'magma', poskozeni: 16 },
@@ -580,12 +524,12 @@ export const BOSSOVE = {
     ],
   },
   bahenni_bludicka: {
-    nazev: 'Bahenní bludička', prichod: 'Nad bahnem se rozsvítila Bahenní bludička', porazen: 'Bahenní bludička poražena', pauza: 3,
+    pauza: 3,
     zaklad: 'bludicka', strely: 'bahno',
     schopnosti: [{ id: 'vejir', poskozeni: 9 }, { id: 'vyvolani', druh: 'zaba', pocet: [6, 8], max: 14, vzdalenost: 40 }],
   },
   kosteny_kral: {
-    nazev: 'Kostěný král', prichod: 'Hroby se otvírají, vstává Kostěný král', porazen: 'Kostěný král poražen', pauza: 2.8,
+    pauza: 2.8,
     zaklad: 'strazce',
     schopnosti: [
       { id: 'vypad', poskozeni: 18 },
@@ -594,6 +538,7 @@ export const BOSSOVE = {
     ],
   },
 };
+pripojTexty(BOSSOVE, 'bossove');
 // Ze kterého ze čtyř bossů tenhle vychází (u čtyř základních on sám). Podle toho se kreslí a co dá truhla.
 export function zakladBosse(druh) {
   return BOSSOVE[druh]?.zaklad ?? druh;
@@ -608,8 +553,11 @@ export function poradiBossu(mapa) {
   return PORADI_BOSSU_MAP[mapa] ?? PORADI_BOSSU;
 }
 // Schopnosti jednoho bosse v pořadí, jak je střídá: data ze SCHOPNOSTI a přes ně to, co má boss jinak.
+// Jméno schopnosti zůstane getter ze SCHOPNOSTI (rozbalení by ho zkopírovalo v jazyce, který platil při načtení).
 const SEZNAM_SCHOPNOSTI = Object.fromEntries(Object.entries(BOSSOVE).map(([druh, b]) => [
-  druh, b.schopnosti.map((s) => ({ ...SCHOPNOSTI[s.id], ...s })),
+  druh, b.schopnosti.map((s) => Object.defineProperty({ ...SCHOPNOSTI[s.id], ...s }, 'nazev', {
+    get: () => SCHOPNOSTI[s.id].nazev, enumerable: true, configurable: true,
+  })),
 ]));
 export function schopnostiBosse(druh) {
   return SEZNAM_SCHOPNOSTI[druh] ?? [];
@@ -747,12 +695,13 @@ export const KUPEC = { prvni: 125, kazdych: 180, trvani: 45, dosah: 34, odchod: 
 // je v POUZITI_ZBOZI.
 export const RUST_CEN = 0.12;
 export const ZBOZI = {
-  lektvar: { nazev: 'Lektvar léčení', ikona: 'lektvar', popis: 'Doléčí polovinu životů', cena: 4, zasoba: 2 },
-  prehozeni: { nazev: 'Přehození karet', ikona: 'prehozeni', popis: '2× přehodit karty zdarma', cena: 3, zasoba: 2, kolik: 2 },
-  vylepseni: { nazev: 'Náhodné vylepšení', ikona: 'tajemno', popis: 'Tvoje zbraň nebo pasiva, aspoň vzácná karta', cena: 10, zasoba: 1 },
-  kus: { nazev: 'Kus výbavy bosse', ikona: 'truhla_strazce', popis: 'Náhodný kus sady některého bosse', cena: 40, zasoba: 1 },
-  klic: { nazev: 'Klíč', ikona: 'klic', popis: 'Odemkne zamčenou truhlu', cena: 8, zasoba: 1, rust: false },
+  lektvar: { ikona: 'lektvar', cena: 4, zasoba: 2 },
+  prehozeni: { ikona: 'prehozeni', cena: 3, zasoba: 2, kolik: 2 },
+  vylepseni: { ikona: 'tajemno', cena: 10, zasoba: 1 },
+  kus: { ikona: 'truhla_strazce', cena: 40, zasoba: 1 },
+  klic: { ikona: 'klic', cena: 8, zasoba: 1, rust: false },
 };
+pripojTexty(ZBOZI, 'zbozi');
 export const PORADI_ZBOZI = Object.keys(ZBOZI);
 export const LECENI_LEKTVARU = 0.5;
 // Přehodit karty v okně výběru: první přehození za zlaťáky stojí PREHOZENI.cena, každé další o PREHOZENI.rust
@@ -1218,7 +1167,7 @@ function oziv(hra) {
     n.x = hrdina.x + Math.cos(uhel) * ODHOZENI_PRI_OZIVENI;
     n.y = hrdina.y + Math.sin(uhel) * ODHOZENI_PRI_OZIVENI;
   }
-  hra.oznameni = { text: 'Duše tě vrátily z hlubin', zivot: 3 };
+  hra.oznameni = { text: t('hra.oziveni'), zivot: 3 };
   zvuk(hra, 'oziveni');
   cisloLeceni(hra, hrdina.hp);
 }
@@ -1644,7 +1593,7 @@ function vybuch(hra, sirka, vyska) {
   zvuk(hra, 'bomba');
   hra.vybuch = TRVANI_VYBUCHU;
   hra.tres = TRVANI_TRESU;
-  hra.oznameni = { text: 'Bomba!', zivot: 1.2 };
+  hra.oznameni = { text: t('hra.bomba'), zivot: 1.2 };
 }
 
 // Zbraně neví o duchovi, který je zrovna schovaný.
@@ -1856,7 +1805,7 @@ function schopnostiBossu(hra, dt, sirka, vyska) {
     if (!n.zuri && n.hp <= n.maxHp * ZURIVOST) {
       n.zuri = true;
       zvuk(hra, 'zurivost');
-      if (!hra.oznameni || hra.oznameni.zivot < 1) hra.oznameni = { text: `${BOSSOVE[n.druh]?.nazev ?? n.druh} zuří`, zivot: 2 };
+      if (!hra.oznameni || hra.oznameni.zivot < 1) hra.oznameni = { text: t('hra.zuri', { boss: BOSSOVE[n.druh]?.nazev ?? n.druh }), zivot: 2 };
     }
     const sch = n.schopnost;
     if (!sch) {
@@ -3127,7 +3076,7 @@ function dokonciTruhlu(hra) {
   hra.volby = nabidka(hra, 'vzacna');
   hra.zTruhly = true;
   hra.truhlaOd = od;
-  hra.oznameni = { text: `Výbava bosse: ${kus.nazev}`, zivot: 2 };
+  hra.oznameni = { text: t('hra.vybavaBosse', { kus: kus.nazev }), zivot: 2 };
 }
 
 // Odhodí nepřítele od bodu (x, y) o kolik px (bosse ne, ti jsou moc těžcí).
@@ -3208,7 +3157,7 @@ function jedeKupec(hra, dt, sirka, vyska) {
     k.zbyva -= dt;
     if (k.zbyva <= 0) {
       hra.kupec = null;
-      hra.oznameni = { text: 'Kupec odjel', zivot: 2 };
+      hra.oznameni = { text: t('hra.kupec.odjel'), zivot: 2 };
       return;
     }
     const d = vzdalenost(k, hrdina);
@@ -3230,7 +3179,7 @@ function jedeKupec(hra, dt, sirka, vyska) {
   hra.kupcu += 1;
   zvuk(hra, 'kupec');
   hra.dalsiKupec = hra.cas + KUPEC.kazdych;
-  hra.oznameni = { text: 'Přijel kupec! Šipka ukáže, kde stojí', zivot: 3 };
+  hra.oznameni = { text: t('hra.kupec.prijel'), zivot: 3 };
 }
 
 // Cena zboží teď (roste s hrozbou, klíč ne).
@@ -3243,10 +3192,10 @@ export function cenaZbozi(hra, id) {
 // Proč zboží teď koupit nejde, nebo null, když jde.
 export function prekazkaNakupu(hra, id) {
   const k = hra.kupec;
-  if (!k || !hra.obchod || !Object.hasOwn(ZBOZI, id)) return 'Kupec tu není';
-  if (!(k.zasoba[id] > 0)) return 'Vyprodáno';
-  if (id === 'lektvar' && hra.hrdina.hp >= hra.hrdina.maxHp) return 'Máš plné životy';
-  if (hra.zlataky < cenaZbozi(hra, id)) return 'Málo zlaťáků';
+  if (!k || !hra.obchod || !Object.hasOwn(ZBOZI, id)) return t('hra.kupec.neni');
+  if (!(k.zasoba[id] > 0)) return t('hra.kupec.vyprodano');
+  if (id === 'lektvar' && hra.hrdina.hp >= hra.hrdina.maxHp) return t('hra.kupec.plneZivoty');
+  if (hra.zlataky < cenaZbozi(hra, id)) return t('hra.kupec.maloZlataku');
   return null;
 }
 
@@ -3272,29 +3221,29 @@ const POUZITI_ZBOZI = {
     const pred = hrdina.hp;
     hrdina.hp = Math.min(hrdina.maxHp, hrdina.hp + Math.round(hrdina.maxHp * LECENI_LEKTVARU));
     cisloLeceni(hra, hrdina.hp - pred);
-    return `+${Math.round(hrdina.hp - pred)} životů`;
+    return t('hra.koupeno.lektvar', { n: Math.round(hrdina.hp - pred) });
   },
   prehozeni(hra) {
     hra.prehozeniZdarma += ZBOZI.prehozeni.kolik;
-    return `Přehození zdarma: ${hra.prehozeniZdarma}`;
+    return t('hra.koupeno.prehozeni', { n: hra.prehozeniZdarma });
   },
   vylepseni(hra) {
     const moje = mojeVylepseni(hra);
     const [druh, id] = moje[Math.min(moje.length - 1, Math.floor(hra.rng.dalsi() * moje.length))];
     const k = karta(hra, druh, id, losujRaritu(hra, 'vzacna'));
     pouzijKartu(hra, k);
-    return `${k.nazev} ${k.od} → ${k.uroven} (${RARITY[k.rarita].nazev})`;
+    return t('hra.koupeno.vylepseni', { nazev: k.nazev, od: k.od, uroven: k.uroven, rarita: RARITY[k.rarita].nazev });
   },
   kus(hra) {
     const boss = PORADI_BOSSU[Math.min(PORADI_BOSSU.length - 1, Math.floor(hra.rng.dalsi() * PORADI_BOSSU.length))];
     const kus = losujKus(boss, hra.rng.dalsi(), hra.rng.dalsi(), hra.hrozba, hra.hrdina.stesti);
     ziskejKus(hra, kus);
     hra.truhlaKus = null;
-    return `${kus.nazev} (${RARITY_VYBAVY[kus.rarita].nazev})`;
+    return t('hra.koupeno.kus', { kus: kus.nazev, rarita: RARITY_VYBAVY[kus.rarita].nazev });
   },
   klic(hra) {
     hra.klice += 1;
-    return `Klíčů: ${hra.klice}`;
+    return t('hra.koupeno.klic', { n: hra.klice });
   },
 };
 
@@ -4021,7 +3970,7 @@ function slij(radky) {
     if (posledni?.radek === radek) posledni.kolik += 1;
     else vysledek.push({ radek, kolik: 1 });
   }
-  return vysledek.map(({ radek, kolik }) => (kolik > 1 ? `${kolik}× ${radek}` : radek));
+  return vysledek.map(({ radek, kolik }) => (kolik > 1 ? t('karta.vickrat', { n: kolik, radek }) : radek));
 }
 
 // Řádky karty pro úrovně od + 1 až do. Do 5. úrovně řádky z popisu zbraně, nad ní součet poškození a co
@@ -4031,7 +3980,7 @@ export function popisUrovni(druh, id, od, uroven) {
     const p = PASIVY[id];
     const radky = [];
     for (let u = od + 1; u <= uroven; u++) {
-      if (pasivaNaStropu(id, u)) radky.push(`+${procent(SILA_ZA_PREBYTEK)} % poškození všech zbraní`);
+      if (pasivaNaStropu(id, u)) radky.push(t('karta.silaVsech', { n: procent(SILA_ZA_PREBYTEK) }));
       else if (u === 1 && p.popisPrvni) radky.push(p.popisPrvni);
       else if (u <= ZAKLAD_UROVNI) radky.push(p.popis);
       else radky.push(p.popisDal);
@@ -4043,7 +3992,7 @@ export function popisUrovni(druh, id, od, uroven) {
   if (uroven > ZAKLAD_UROVNI) {
     const pred = bonusZaUroven(id, Math.max(od, ZAKLAD_UROVNI));
     const po = bonusZaUroven(id, uroven);
-    radky.push(`+${procent(po.poskozeni - pred.poskozeni)} % poškození`);
+    radky.push(t('karta.poskozeni', { n: procent(po.poskozeni - pred.poskozeni) }));
     for (const co of ['pocet', 'nabiti', 'velikost']) {
       if (po[co] !== pred[co]) radky.push(vzor.dal.texty[co]);
     }
@@ -4057,8 +4006,8 @@ export function karta(hra, druh, id, rarita = 'bezna') {
   if (!Object.hasOwn(RARITY, rarita)) rarita = 'bezna';
   const r = RARITY[rarita];
   const radky = [];
-  if (r.sila > 0) radky.push(`+${procent(r.sila)} % poškození všech zbraní`);
-  if (r.doleceni) radky.push('Doléčí všechny životy');
+  if (r.sila > 0) radky.push(t('karta.silaVsech', { n: procent(r.sila) }));
+  if (r.doleceni) radky.push(t('karta.doleciVse'));
   const bonusy = { bonus: { sila: r.sila, doleceni: r.doleceni }, bonusy: radky };
   if (druh === 'zbran' || druh === 'pasiva') {
     const vzor = druh === 'zbran' ? ZBRANE[id] : PASIVY[id];
@@ -4072,8 +4021,8 @@ export function karta(hra, druh, id, rarita = 'bezna') {
   // jen kdyby nebylo co vylepšit (pojistka).
   const kroku = r.urovni;
   return {
-    druh: 'leceni', id: 'leceni', nazev: 'Odpočinek', ikona: 'odpocinek', rarita, od: 0, uroven: 0, kroku,
-    popis: [r.doleceni ? 'Doléčí všechny životy' : `Doléčí ${LECENI_ODPOCINKU * kroku} životů`],
+    druh: 'leceni', id: 'leceni', nazev: t('karta.odpocinek'), ikona: 'odpocinek', rarita, od: 0, uroven: 0, kroku,
+    popis: [r.doleceni ? t('karta.doleciVse') : t('karta.doleci', { n: LECENI_ODPOCINKU * kroku })],
     bonus: { sila: 0, doleceni: r.doleceni }, bonusy: [],
   };
 }

@@ -13,6 +13,7 @@ import {
 import { obrazekSpritu, vyberTlacitko } from './menu.js';
 import { cenaSMinci } from './obchod.js';
 import { pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
+import { t, desetinne, procenta as procentaTextu } from './texty.js';
 
 function prvek(znacka, trida = '', text = null) {
   const e = document.createElement(znacka);
@@ -24,7 +25,7 @@ function prvek(znacka, trida = '', text = null) {
 // 0,9 % · 4,6 % · 17 % (pod deset procent s jedním desetinným místem)
 function procenta(p) {
   const x = p * 100;
-  return `${x < 10 ? x.toFixed(1).replace('.', ',') : Math.round(x)} %`;
+  return procentaTextu(x < 10 ? desetinne(x.toFixed(1)) : Math.round(x));
 }
 
 export function vytvorKartu(volba, i) {
@@ -40,8 +41,8 @@ export function vytvorKartu(volba, i) {
   const text = prvek('span', 'karta-text');
   text.append(prvek('b', 'karta-nazev', volba.nazev));
   if (volba.druh !== 'leceni') {
-    const nova = volba.druh === 'zbran' ? 'Nová zbraň' : 'Nové';
-    const kam = volba.od === 0 ? `${nova}${volba.uroven > 1 ? ` · úr. ${volba.uroven}` : ''}` : `Úroveň ${volba.od} → ${volba.uroven}`;
+    const nova = volba.druh === 'zbran' ? t('volba.novaZbran') : t('volba.nove');
+    const kam = volba.od === 0 ? `${nova}${volba.uroven > 1 ? t('volba.urovenKratce', { n: volba.uroven }) : ''}` : t('volba.urovenZDo', { od: volba.od, uroven: volba.uroven });
     text.append(prvek('span', 'karta-uroven', kam));
     // Úrovně nemají strop: čtverečky ukazují pětici, do které nová úroveň padne (1–5, 6–10, …), v barvě
     // jejího stupně jako rámeček v přehledu výbavy.
@@ -66,8 +67,7 @@ export function vytvorKartu(volba, i) {
 
 // 1 zlaťák, 2–4 zlaťáky, 5 zlaťáků
 function zlataky(kolik) {
-  if (kolik === 1) return '1 zlaťák';
-  return `${kolik} ${kolik >= 2 && kolik <= 4 ? 'zlaťáky' : 'zlaťáků'}`;
+  return t('tvary.zlataky', { n: kolik });
 }
 
 // Řádek pod nadpisem okna karet z truhly: kus, který se rovnou nasadil (sprite, jméno, rarita, staty).
@@ -77,7 +77,7 @@ function radekKusu(prvekRadku, kus) {
   prvekRadku.className = `volba-kus rarita-${kus.rarita}`;
   const text = prvek('span', 'volba-kus-text');
   text.append(
-    prvek('b', '', `Nasazeno: ${kus.nazev}`),
+    prvek('b', '', t('volba.nasazeno', { kus: kus.nazev })),
     prvek('small', '', `${SLOTY[kus.slot].nazev} · ${RARITY_VYBAVY[kus.rarita].nazev} · ${radkyStatu(kus.staty).join(', ')}`),
   );
   prvekRadku.replaceChildren(obrazekSpritu(kus.id, 3), text);
@@ -87,10 +87,10 @@ function radekKusu(prvekRadku, kus) {
 export function ukazPrehozeni(tlacitko, hra) {
   const cena = cenaPrehozeni(hra);
   tlacitko.classList.toggle('nejde', cena > hra.zlataky);
-  tlacitko.replaceChildren(prvek('span', '', 'Přehodit karty'), prvek('kbd', 'jen-klavesnice', 'R'));
-  if (cena === 0) tlacitko.append(prvek('b', 'prehodit-zdarma', `zdarma ×${hra.prehozeniZdarma}`));
+  tlacitko.replaceChildren(prvek('span', '', t('volba.prehodit')), prvek('kbd', 'jen-klavesnice', 'R'));
+  if (cena === 0) tlacitko.append(prvek('b', 'prehodit-zdarma', t('volba.zdarma', { n: hra.prehozeniZdarma })));
   else tlacitko.append(cenaSMinci(cena));
-  tlacitko.setAttribute('aria-label', cena === 0 ? `Přehodit karty zdarma, zbývá ${hra.prehozeniZdarma}` : `Přehodit karty za ${cena} zlaťáků`);
+  tlacitko.setAttribute('aria-label', cena === 0 ? t('volba.prehoditZdarmaAria', { n: hra.prehozeniZdarma }) : t('volba.prehoditZaAria', { n: cena }));
 }
 
 // Vyplní a ukáže okno. zvol(i) se zavolá po kliku na kartu. Vrací stupeň nejvzácnější karty (0 běžná … 3 legendární).
@@ -99,11 +99,11 @@ export function ukazVolby(okno, hra, zvol) {
   const truhla = hra.zTruhly;
   const zamcena = truhla && hra.truhlaOd === 'zamcena';
   okno.classList.toggle('z-truhly', truhla);
-  const porazen = BOSSOVE[hra.truhlaOd]?.porazen ?? 'Boss poražen';
-  const odemceno = hra.odemceno === 'klic' ? 'Odemčeno klíčem' : `Odemčeno za ${CENA_ZAMCENE} zlaťáků`;
-  okno.querySelector('#volba-stitek').textContent = zamcena ? odemceno : truhla ? porazen : `Úroveň ${hra.hrdina.uroven}`;
+  const porazen = BOSSOVE[hra.truhlaOd]?.porazen ?? t('volba.bossPorazen');
+  const odemceno = hra.odemceno === 'klic' ? t('volba.odemcenoKlicem') : t('volba.odemcenoZa', { n: CENA_ZAMCENE });
+  okno.querySelector('#volba-stitek').textContent = zamcena ? odemceno : truhla ? porazen : t('volba.uroven', { n: hra.hrdina.uroven });
   // Nadpis pixelovým písmem jako v menu (text zůstane pro čtečky), po odkrytí okna se měřítko přepočítá.
-  pixelovyNadpis(okno.querySelector('#volba-nadpis'), zamcena ? 'Zamčená truhla' : truhla ? 'Truhla bosse' : 'Nová úroveň', { min: 2, max: 4 });
+  pixelovyNadpis(okno.querySelector('#volba-nadpis'), zamcena ? t('volba.zamcenaTruhla') : truhla ? t('volba.truhlaBosse') : t('volba.novaUroven'), { min: 2, max: 4 });
   const kus = okno.querySelector('#volba-kus');
   if (kus) radekKusu(kus, truhla ? hra.truhlaKus : null);
 
@@ -120,7 +120,7 @@ export function ukazVolby(okno, hra, zvol) {
   const prehodit = okno.querySelector('#prehodit');
   if (prehodit) ukazPrehozeni(prehodit, hra);
   const radek = okno.querySelector('#volba-sance');
-  radek.replaceChildren(prvek('span', '', truhla ? 'Truhla dává aspoň vzácnou kartu:' : 'Šance na kartu:'));
+  radek.replaceChildren(prvek('span', '', truhla ? t('volba.sanceTruhla') : t('volba.sance')));
   for (const id of PORADI_RARIT.slice(1)) {
     const polozka = prvek('span', `sance rarita-${id}`);
     polozka.append(prvek('i'), `${RARITY[id].nazev} ${procenta(sance[id])}`);
@@ -178,15 +178,16 @@ export function ukazPorovnani(okno, hra, rozhodni) {
   // Kus koupený u kupce nepřišel z poraženého bosse. Z truhly je nápis toho, kdo ji nechal (hlavní boss mapy
   // dává kusy sady bosse, ze kterého vychází).
   const odKoho = BOSSOVE[hra.truhlaOd] ? hra.truhlaOd : novy.boss;
-  okno.querySelector('#porovnani-stitek').textContent = hra.obchod ? 'Koupeno u kupce' : BOSSOVE[odKoho]?.porazen ?? 'Boss poražen';
-  okno.querySelector('#porovnani-podtitul').textContent = `Slot ${SLOTY[novy.slot].nazev} už je obsazený. Kus, který si nenecháš, se rozloží na zlaťáky.`;
+  okno.querySelector('#porovnani-stitek').textContent = hra.obchod ? t('porovnani.koupeno') : BOSSOVE[odKoho]?.porazen ?? t('volba.bossPorazen');
+  okno.querySelector('#porovnani-podtitul').textContent = t('porovnani.podtitul', { slot: SLOTY[novy.slot].nazev });
   const karty = [
     vytvorKartuKusu(novy, {
-      stitek: 'Nový', akce: 'Vzít', detail: `starý dá ${zlataky(zlatakyZaKus(nasazeny))}`, klavesa: 1,
+      stitek: t('porovnani.novy'), akce: t('porovnani.vzit'), detail: t('porovnani.staryDa', { zlataky: zlataky(zlatakyZaKus(nasazeny)) }), klavesa: 1,
       rozdil: rozdilStatu(novy, nasazeny), sada: kusuSady(hra, novy),
     }),
     vytvorKartuKusu(nasazeny, {
-      stitek: 'Nasazený', akce: 'Nechat', detail: `nový dá ${zlataky(zlatakyZaKus(novy))}`, klavesa: 2, sada: kusuSady(hra, nasazeny),
+      stitek: t('porovnani.nasazeny'), akce: t('porovnani.nechat'), detail: t('porovnani.novyDa', { zlataky: zlataky(zlatakyZaKus(novy)) }), klavesa: 2,
+      sada: kusuSady(hra, nasazeny),
     }),
   ];
   karty.forEach((karta, i) => {
@@ -197,7 +198,7 @@ export function ukazPorovnani(okno, hra, rozhodni) {
   vymena.setAttribute('aria-hidden', 'true');
   vymena.append(prvek('i'), prvek('span', '', SLOTY[novy.slot].nazev));
   okno.querySelector('#porovnani-kusy').replaceChildren(karty[0], vymena, karty[1]);
-  pixelovyNadpis(okno.querySelector('#porovnani-nadpis'), 'Výbava bosse', { min: 2, max: 4 });
+  pixelovyNadpis(okno.querySelector('#porovnani-nadpis'), t('porovnani.nadpis'), { min: 2, max: 4 });
   okno.hidden = false;
   prizpusobNadpisy(okno);
   return Math.max(0, PORADI_RARIT_VYBAVY.indexOf(novy.rarita));
