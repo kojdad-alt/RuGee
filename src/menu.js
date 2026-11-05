@@ -123,21 +123,31 @@ function ikonaMapy(id, meritko = 3) {
   return c;
 }
 
-// Karta třídy je tlačítko: klik (nebo Enter) třídu zvolí a uloží, zvolená karta svítí zlatě.
+// Výklenek na kartě: sprite postavy stojí na prkně podlahy (Postavy, Profil).
+function portret(jmeno, meritko = 5) {
+  const vyklenek = prvek('span', 'trida-portret');
+  vyklenek.append(obrazekSpritu(jmeno, meritko));
+  return vyklenek;
+}
+
+// Karta třídy je tlačítko: klik (nebo Enter) třídu zvolí a uloží, zvolená karta má mosazné kování a cedulku.
 function vyplnPostavy(panel) {
   const mrizka = prvek('div', 'mrizka-trid');
   const karty = Object.entries(TRIDY).map(([id, t]) => {
     const karta = prvek('button', 'trida');
     karta.type = 'button';
     karta.dataset.trida = id;
+    const zbran = ZBRANE[t.zbran];
+    const zacina = prvek('small', 'trida-zbran', 'Začíná: ');
+    zacina.append(obrazekSpritu(zbran.ikona, 2), prvek('span', '', zbran.nazev));
     const text = prvek('span', 'trida-text');
     text.append(
       prvek('b', '', t.nazev),
-      prvek('small', 'trida-zbran', `Začíná: ${ZBRANE[t.zbran].nazev}`),
+      zacina,
       prvek('small', 'trida-vyhoda', t.vyhoda),
       prvek('small', '', t.popis),
     );
-    karta.append(obrazekSpritu(id, 5), text, prvek('span', 'trida-stitek', 'Zvoleno'));
+    karta.append(portret(id), text, prvek('span', 'trida-stitek', 'Zvoleno'));
     karta.addEventListener('click', () => {
       trida = platnaTrida(id);
       ulozTridu(trida);

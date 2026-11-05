@@ -83,6 +83,33 @@ const RAM_TENKY = [
   '.KKK.',
 ];
 
+// Rámečky karet (postavy, mapy, profily): stejně tenké jako RAM_TENKY. Vybraná karta (šipky, myš, dotyk) má obrys
+// z mosazi, zvolená (za koho nebo kde se hraje) mosazné kování: mosaz nahoře a vlevo, stinná mosaz dole a vpravo.
+// Zvolená a zároveň vybraná má navíc obrys z mosazného lesku.
+const KARTA_VYBRANA = [
+  '.ggg.',
+  'ghhhg',
+  'gh.dg',
+  'ghddg',
+  '.ggg.',
+];
+
+const KARTA_ZVOLENA = [
+  '.KKK.',
+  'KgggK',
+  'Kg.oK',
+  'KgooK',
+  '.KKK.',
+];
+
+const KARTA_ZVOLENA_VYBRANA = [
+  '.YYY.',
+  'YgggY',
+  'Yg.oY',
+  'YgooY',
+  '.YYY.',
+];
+
 // Deska: tmavá prkna přes celé okno, spáry a léta jen o kousek tmavší, ať text zůstane čitelný.
 const DESKA = [
   'ccccccccccccccccccccccccccccccccccccccccccccsccccccccccccccccccc',
@@ -116,7 +143,16 @@ const SIPKA = [
   'KK....',
 ];
 
-const OBRAZKY = { 'ram-drevo': RAM_DREVO, 'ram-mosaz': RAM_MOSAZ, 'ram-tenky': RAM_TENKY, deska: DESKA, sipka: SIPKA };
+const OBRAZKY = {
+  'ram-drevo': RAM_DREVO,
+  'ram-mosaz': RAM_MOSAZ,
+  'ram-tenky': RAM_TENKY,
+  'ram-karta-vybrana': KARTA_VYBRANA,
+  'ram-karta-zvolena': KARTA_ZVOLENA,
+  'ram-karta-zvolena-vybrana': KARTA_ZVOLENA_VYBRANA,
+  deska: DESKA,
+  sipka: SIPKA,
+};
 
 // Řádky téže barvy jdou do jedné cesty (úseky vedle sebe se spojí), ať je SVG malé.
 export function svg(radky) {

@@ -35,6 +35,7 @@
   --pergamen-tlumeny: #c9b393;
   --ok: #7cf08a;
   --chyba: #f08a8d;
+  --karta-vybrana: #4a2f1a; /* líc vybrané karty: mezi --drevo-2 a --drevo-3, všechen text na něm nad 5 : 1 */
   --px: 3px;
 }
 
@@ -47,6 +48,9 @@
   --ram-drevo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M0 0h20v1h-20zM0 1h1v1h-1zM5 1h1v1h-1zM14 1h1v1h-1zM19 1h1v1h-1zM0 2h1v1h-1zM5 2h1v1h-1zM14 2h1v1h-1zM19 2h1v1h-1zM0 3h1v1h-1zM5 3h1v1h-1zM14 3h1v1h-1zM19 3h1v1h-1zM0 4h1v1h-1zM5 4h1v1h-1zM14 4h1v1h-1zM19 4h1v1h-1zM0 5h20v1h-20zM0 6h1v1h-1zM5 6h1v1h-1zM14 6h1v1h-1zM19 6h1v1h-1zM0 7h1v1h-1zM5 7h1v1h-1zM14 7h1v1h-1zM19 7h1v1h-1zM0 8h1v1h-1zM5 8h1v1h-1zM14 8h1v1h-1zM19 8h1v1h-1zM0 9h1v1h-1zM5 9h1v1h-1zM14 9h1v1h-1zM19 9h1v1h-1zM0 10h1v1h-1zM5 10h1v1h-1zM14 10h1v1h-1zM19 10h1v1h-1zM0 11h1v1h-1zM5 11h1v1h-1zM14 11h1v1h-1zM19 11h1v1h-1zM0 12h1v1h-1zM5 12h1v1h-1zM14 12h1v1h-1zM19 12h1v1h-1zM0 13h1v1h-1zM5 13h1v1h-1zM14 13h1v1h-1zM19 13h1v1h-1zM0 14h20v1h-20zM0 15h1v1h-1zM5 15h1v1h-1zM14 15h1v1h-1zM19 15h1v1h-1zM0 16h1v1h-1zM5 16h1v1h-1zM14 16h1v1h-1zM19 16h1v1h-1zM0 17h1v1h-1zM5 17h1v1h-1zM14 17h1v1h-1zM19 17h1v1h-1zM0 18h1v1h-1zM5 18h1v1h-1zM14 18h1v1h-1zM19 18h1v1h-1zM0 19h20v1h-20z'/%3E%3Cpath fill='%23fff1c4' d='M1 1h3v1h-3zM15 1h3v1h-3zM1 2h1v1h-1zM15 2h1v1h-1zM1 3h1v1h-1zM15 3h1v1h-1zM1 15h3v1h-3zM15 15h3v1h-3zM1 16h1v1h-1zM15 16h1v1h-1zM1 17h1v1h-1zM15 17h1v1h-1z'/%3E%3Cpath fill='%23e9c46a' d='M4 1h1v1h-1zM18 1h1v1h-1zM2 2h2v1h-2zM16 2h2v1h-2zM2 3h1v1h-1zM16 3h1v1h-1zM1 4h1v1h-1zM15 4h1v1h-1zM4 15h1v1h-1zM18 15h1v1h-1zM2 16h2v1h-2zM16 16h2v1h-2zM2 17h1v1h-1zM16 17h1v1h-1zM1 18h1v1h-1zM15 18h1v1h-1z'/%3E%3Cpath fill='%23b98250' d='M6 1h8v1h-8zM1 6h1v1h-1zM15 6h1v1h-1zM1 7h1v1h-1zM15 7h1v1h-1zM1 8h1v1h-1zM15 8h1v1h-1zM1 9h1v1h-1zM15 9h1v1h-1zM1 10h1v1h-1zM15 10h1v1h-1zM1 11h1v1h-1zM15 11h1v1h-1zM1 12h1v1h-1zM15 12h1v1h-1zM1 13h1v1h-1zM15 13h1v1h-1zM6 15h8v1h-8z'/%3E%3Cpath fill='%23b07428' d='M4 2h1v1h-1zM18 2h1v1h-1zM4 3h1v1h-1zM18 3h1v1h-1zM2 4h3v1h-3zM16 4h3v1h-3zM4 16h1v1h-1zM18 16h1v1h-1zM4 17h1v1h-1zM18 17h1v1h-1zM2 18h3v1h-3zM16 18h3v1h-3z'/%3E%3Cpath fill='%238a5a35' d='M6 2h3v1h-3zM12 2h2v1h-2zM8 3h5v1h-5zM2 6h1v1h-1zM16 6h1v1h-1zM2 7h1v1h-1zM16 7h1v1h-1zM2 8h2v1h-2zM16 8h2v1h-2zM3 9h1v1h-1zM17 9h1v1h-1zM3 10h1v1h-1zM17 10h1v1h-1zM3 11h1v1h-1zM17 11h1v1h-1zM2 12h2v1h-2zM16 12h2v1h-2zM2 13h1v1h-1zM16 13h1v1h-1zM6 16h3v1h-3zM12 16h2v1h-2zM8 17h5v1h-5z'/%3E%3Cpath fill='%23704629' d='M9 2h3v1h-3zM6 3h2v1h-2zM13 3h1v1h-1zM3 6h1v1h-1zM17 6h1v1h-1zM3 7h1v1h-1zM17 7h1v1h-1zM2 9h1v1h-1zM16 9h1v1h-1zM2 10h1v1h-1zM16 10h1v1h-1zM2 11h1v1h-1zM16 11h1v1h-1zM3 13h1v1h-1zM17 13h1v1h-1zM9 16h3v1h-3zM6 17h2v1h-2zM13 17h1v1h-1z'/%3E%3Cpath fill='%232a170b' d='M3 3h1v1h-1zM17 3h1v1h-1zM3 17h1v1h-1zM17 17h1v1h-1z'/%3E%3Cpath fill='%234f3019' d='M6 4h8v1h-8zM4 6h1v1h-1zM18 6h1v1h-1zM4 7h1v1h-1zM18 7h1v1h-1zM4 8h1v1h-1zM18 8h1v1h-1zM4 9h1v1h-1zM18 9h1v1h-1zM4 10h1v1h-1zM18 10h1v1h-1zM4 11h1v1h-1zM18 11h1v1h-1zM4 12h1v1h-1zM18 12h1v1h-1zM4 13h1v1h-1zM18 13h1v1h-1zM6 18h8v1h-8z'/%3E%3C/svg%3E");
   --ram-mosaz: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M0 0h20v1h-20zM0 1h1v1h-1zM5 1h1v1h-1zM14 1h1v1h-1zM19 1h1v1h-1zM0 2h1v1h-1zM5 2h1v1h-1zM14 2h1v1h-1zM19 2h1v1h-1zM0 3h1v1h-1zM5 3h1v1h-1zM14 3h1v1h-1zM19 3h1v1h-1zM0 4h1v1h-1zM5 4h1v1h-1zM14 4h1v1h-1zM19 4h1v1h-1zM0 5h20v1h-20zM0 6h1v1h-1zM5 6h1v1h-1zM14 6h1v1h-1zM19 6h1v1h-1zM0 7h1v1h-1zM5 7h1v1h-1zM14 7h1v1h-1zM19 7h1v1h-1zM0 8h1v1h-1zM5 8h1v1h-1zM14 8h1v1h-1zM19 8h1v1h-1zM0 9h1v1h-1zM5 9h1v1h-1zM14 9h1v1h-1zM19 9h1v1h-1zM0 10h1v1h-1zM5 10h1v1h-1zM14 10h1v1h-1zM19 10h1v1h-1zM0 11h1v1h-1zM5 11h1v1h-1zM14 11h1v1h-1zM19 11h1v1h-1zM0 12h1v1h-1zM5 12h1v1h-1zM14 12h1v1h-1zM19 12h1v1h-1zM0 13h1v1h-1zM5 13h1v1h-1zM14 13h1v1h-1zM19 13h1v1h-1zM0 14h20v1h-20zM0 15h1v1h-1zM5 15h1v1h-1zM14 15h1v1h-1zM19 15h1v1h-1zM0 16h1v1h-1zM5 16h1v1h-1zM14 16h1v1h-1zM19 16h1v1h-1zM0 17h1v1h-1zM5 17h1v1h-1zM14 17h1v1h-1zM19 17h1v1h-1zM0 18h1v1h-1zM5 18h1v1h-1zM14 18h1v1h-1zM19 18h1v1h-1zM0 19h20v1h-20z'/%3E%3Cpath fill='%23b98250' d='M1 1h1v1h-1zM15 1h1v1h-1zM1 15h1v1h-1zM15 15h1v1h-1z'/%3E%3Cpath fill='%238a5a35' d='M2 1h2v1h-2zM16 1h2v1h-2zM1 2h1v1h-1zM15 2h1v1h-1zM1 3h1v1h-1zM15 3h1v1h-1zM2 15h2v1h-2zM16 15h2v1h-2zM1 16h1v1h-1zM15 16h1v1h-1zM1 17h1v1h-1zM15 17h1v1h-1z'/%3E%3Cpath fill='%23704629' d='M4 1h1v1h-1zM18 1h1v1h-1zM1 4h1v1h-1zM15 4h1v1h-1zM4 15h1v1h-1zM18 15h1v1h-1zM1 18h1v1h-1zM15 18h1v1h-1z'/%3E%3Cpath fill='%23fff1c4' d='M6 1h8v1h-8zM2 2h1v1h-1zM16 2h1v1h-1zM1 6h1v1h-1zM15 6h1v1h-1zM1 7h1v1h-1zM15 7h1v1h-1zM1 8h1v1h-1zM15 8h1v1h-1zM1 9h1v1h-1zM15 9h1v1h-1zM1 10h1v1h-1zM15 10h1v1h-1zM1 11h1v1h-1zM15 11h1v1h-1zM1 12h1v1h-1zM15 12h1v1h-1zM1 13h1v1h-1zM15 13h1v1h-1zM6 15h8v1h-8zM2 16h1v1h-1zM16 16h1v1h-1z'/%3E%3Cpath fill='%23e9c46a' d='M3 2h1v1h-1zM6 2h8v1h-8zM17 2h1v1h-1zM2 3h1v1h-1zM6 3h3v1h-3zM10 3h3v1h-3zM16 3h1v1h-1zM2 6h2v1h-2zM16 6h2v1h-2zM2 7h2v1h-2zM16 7h2v1h-2zM2 8h2v1h-2zM16 8h2v1h-2zM2 9h1v1h-1zM16 9h1v1h-1zM2 10h2v1h-2zM16 10h2v1h-2zM2 11h2v1h-2zM16 11h2v1h-2zM2 12h2v1h-2zM16 12h2v1h-2zM2 13h1v1h-1zM16 13h1v1h-1zM3 16h1v1h-1zM6 16h8v1h-8zM17 16h1v1h-1zM2 17h1v1h-1zM6 17h3v1h-3zM10 17h3v1h-3zM16 17h1v1h-1z'/%3E%3Cpath fill='%234f3019' d='M4 2h1v1h-1zM18 2h1v1h-1zM4 3h1v1h-1zM18 3h1v1h-1zM2 4h2v1h-2zM16 4h2v1h-2zM4 16h1v1h-1zM18 16h1v1h-1zM4 17h1v1h-1zM18 17h1v1h-1zM2 18h2v1h-2zM16 18h2v1h-2z'/%3E%3Cpath fill='%236b3f1d' d='M3 3h1v1h-1zM9 3h1v1h-1zM17 3h1v1h-1zM3 9h1v1h-1zM17 9h1v1h-1zM3 17h1v1h-1zM9 17h1v1h-1zM17 17h1v1h-1z'/%3E%3Cpath fill='%23b07428' d='M13 3h1v1h-1zM6 4h8v1h-8zM4 6h1v1h-1zM18 6h1v1h-1zM4 7h1v1h-1zM18 7h1v1h-1zM4 8h1v1h-1zM18 8h1v1h-1zM4 9h1v1h-1zM18 9h1v1h-1zM4 10h1v1h-1zM18 10h1v1h-1zM4 11h1v1h-1zM18 11h1v1h-1zM4 12h1v1h-1zM18 12h1v1h-1zM3 13h2v1h-2zM17 13h2v1h-2zM13 17h1v1h-1zM6 18h8v1h-8z'/%3E%3Cpath fill='%232b1c12' d='M4 4h1v1h-1zM18 4h1v1h-1zM4 18h1v1h-1zM18 18h1v1h-1z'/%3E%3C/svg%3E");
   --ram-tenky: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M1 0h3v1h-3zM0 1h1v1h-1zM4 1h1v1h-1zM0 2h1v1h-1zM4 2h1v1h-1zM0 3h1v1h-1zM4 3h1v1h-1zM1 4h3v1h-3z'/%3E%3Cpath fill='%23b98250' d='M1 1h3v1h-3zM1 2h1v1h-1zM1 3h1v1h-1z'/%3E%3Cpath fill='%234f3019' d='M3 2h1v1h-1zM2 3h2v1h-2z'/%3E%3C/svg%3E");
+  --ram-karta-vybrana: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5' shape-rendering='crispEdges'%3E%3Cpath fill='%23e9c46a' d='M1 0h3v1h-3zM0 1h1v1h-1zM4 1h1v1h-1zM0 2h1v1h-1zM4 2h1v1h-1zM0 3h1v1h-1zM4 3h1v1h-1zM1 4h3v1h-3z'/%3E%3Cpath fill='%23b98250' d='M1 1h3v1h-3zM1 2h1v1h-1zM1 3h1v1h-1z'/%3E%3Cpath fill='%234f3019' d='M3 2h1v1h-1zM2 3h2v1h-2z'/%3E%3C/svg%3E");
+  --ram-karta-zvolena: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M1 0h3v1h-3zM0 1h1v1h-1zM4 1h1v1h-1zM0 2h1v1h-1zM4 2h1v1h-1zM0 3h1v1h-1zM4 3h1v1h-1zM1 4h3v1h-3z'/%3E%3Cpath fill='%23e9c46a' d='M1 1h3v1h-3zM1 2h1v1h-1zM1 3h1v1h-1z'/%3E%3Cpath fill='%23b07428' d='M3 2h1v1h-1zM2 3h2v1h-2z'/%3E%3C/svg%3E");
+  --ram-karta-zvolena-vybrana: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5' shape-rendering='crispEdges'%3E%3Cpath fill='%23fff1c4' d='M1 0h3v1h-3zM0 1h1v1h-1zM4 1h1v1h-1zM0 2h1v1h-1zM4 2h1v1h-1zM0 3h1v1h-1zM4 3h1v1h-1zM1 4h3v1h-3z'/%3E%3Cpath fill='%23e9c46a' d='M1 1h3v1h-3zM1 2h1v1h-1zM1 3h1v1h-1z'/%3E%3Cpath fill='%23b07428' d='M3 2h1v1h-1zM2 3h2v1h-2z'/%3E%3C/svg%3E");
   --deska: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='16' shape-rendering='crispEdges'%3E%3Cpath fill='%2333221a' d='M0 0h44v1h-44zM45 0h19v1h-19zM0 8h14v1h-14zM15 8h49v1h-49z'/%3E%3Cpath fill='%231f140c' d='M44 0h1v1h-1zM44 1h1v1h-1zM44 2h1v1h-1zM44 3h1v1h-1zM44 4h1v1h-1zM44 5h1v1h-1zM44 6h1v1h-1zM0 7h64v1h-64zM14 8h1v1h-1zM14 9h1v1h-1zM14 10h1v1h-1zM14 11h1v1h-1zM14 12h1v1h-1zM14 13h1v1h-1zM14 14h1v1h-1zM0 15h64v1h-64z'/%3E%3Cpath fill='%232b1c12' d='M0 1h44v1h-44zM45 1h19v1h-19zM0 2h3v1h-3zM10 2h34v1h-34zM45 2h5v1h-5zM57 2h7v1h-7zM0 3h30v1h-30zM34 3h10v1h-10zM45 3h19v1h-19zM0 4h18v1h-18zM27 4h17v1h-17zM45 4h19v1h-19zM0 5h44v1h-44zM45 5h13v1h-13zM0 6h44v1h-44zM45 6h19v1h-19zM0 9h14v1h-14zM15 9h49v1h-49zM0 10h6v1h-6zM9 10h5v1h-5zM15 10h7v1h-7zM30 10h34v1h-34zM0 11h14v1h-14zM15 11h39v1h-39zM61 11h3v1h-3zM5 12h9v1h-9zM15 12h49v1h-49zM0 13h14v1h-14zM15 13h21v1h-21zM45 13h19v1h-19zM0 14h14v1h-14zM15 14h49v1h-49z'/%3E%3Cpath fill='%2327190f' d='M3 2h7v1h-7zM50 2h7v1h-7zM30 3h4v1h-4zM18 4h9v1h-9zM58 5h6v1h-6zM6 10h3v1h-3zM22 10h8v1h-8zM54 11h7v1h-7zM0 12h5v1h-5zM36 13h9v1h-9z'/%3E%3C/svg%3E");
   --sipka: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='9' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M0 0h2v1h-2zM0 1h1v1h-1zM2 1h1v1h-1zM0 2h1v1h-1zM3 2h1v1h-1zM0 3h1v1h-1zM4 3h1v1h-1zM0 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM4 5h1v1h-1zM0 6h1v1h-1zM3 6h1v1h-1zM0 7h1v1h-1zM2 7h1v1h-1zM0 8h2v1h-2z'/%3E%3Cpath fill='%23fff1c4' d='M1 1h1v1h-1zM1 2h1v1h-1zM1 3h1v1h-1zM1 4h1v1h-1z'/%3E%3Cpath fill='%23e9c46a' d='M2 2h1v1h-1zM2 3h2v1h-2zM2 4h3v1h-3zM1 5h2v1h-2zM1 6h1v1h-1z'/%3E%3Cpath fill='%23b07428' d='M3 5h1v1h-1zM2 6h1v1h-1zM1 7h1v1h-1z'/%3E%3C/svg%3E");
 }
@@ -1030,27 +1034,33 @@ kbd {
 
 .radek-tlacitek .menu-tlacitko { min-width: 170px; }
 
-/* Výběr třídy v záložce Postavy: karta se spritem vlevo a textem vpravo, zvolená svítí zlatě. */
+/* Karta volby (Postavy, Mapy, Profil): dřevěná destička v tenkém rámu, vlevo výklenek s postavou stojící na
+   podlaze, vpravo text. Vybraná karta (šipky, myš, dotyk) má mosazný obrys, světlejší dřevo a pixelovou šipku
+   jako tlačítka, zvolená (za koho se hraje) mosazné kování a cedulku Zvoleno. Rámečky jsou pixel art z nastroje/ramy.mjs (--karta-*), barvy jen
+   z proměnných, stisk posune kartu o pixel rámu dolů (translate, ať se nebije se zatřesením). */
+.menu-zalozka .podtitul { color: var(--pergamen-tlumeny); text-shadow: 0 2px 0 var(--noc); }
 
 .mrizka-trid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
+  gap: 14px 12px;
   margin-bottom: 16px;
 }
 
 .trida {
+  --karta-ram: var(--ram-tenky);
+  --karta-lice: var(--drevo-2);
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   font: inherit;
-  color: var(--text);
+  color: var(--pergamen);
   text-align: left;
-  background: #221f2b;
-  border: 2px solid var(--okraj);
-  box-shadow: inset 0 -3px 0 #15131b;
-  padding: 10px 12px 12px;
+  background: var(--karta-lice) padding-box;
+  border: calc(2 * var(--px)) solid transparent;
+  border-image: var(--karta-ram) 2 / calc(2 * var(--px)) repeat;
+  padding: 7px 10px 9px 7px;
   cursor: pointer;
 }
 
@@ -1063,33 +1073,65 @@ kbd {
   min-width: 0;
 }
 
-.trida b { color: var(--zlata); font-size: 16px; }
-.trida small { color: var(--text-tlumeny); font-size: 12px; line-height: 1.35; }
-.trida .trida-zbran { color: var(--text); }
+.trida b { color: var(--mosaz); font-size: 16px; text-shadow: 0 2px 0 var(--noc); }
+.trida small { color: var(--pergamen-tlumeny); font-size: 12px; line-height: 1.35; }
 .trida .trida-vyhoda { color: var(--xp); }
 
+/* Začíná: ikona zbraně (sprite jako na kartě úrovně) a její jméno. */
+.trida .trida-zbran { display: flex; align-items: center; gap: 5px; color: var(--pergamen); }
+.trida-zbran canvas { margin: -2px 0; }
+
+/* Výklenek s postavou: zapuštěný do destičky, dole prkno podlahy, postava na něm stojí. */
+.trida-portret {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 64px;
+  height: 66px;
+  padding-bottom: 3px;
+  background: var(--drevo-0);
+  border: 2px solid var(--noc);
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.45), inset 0 -11px 0 var(--drevo-3), inset 0 -13px 0 var(--noc);
+}
+
 .trida.vybrano, .trida:focus-visible {
-  outline: 2px solid var(--text-tlumeny);
-  outline-offset: 2px;
+  outline: none;
+  --karta-ram: var(--ram-karta-vybrana);
+  --karta-lice: var(--karta-vybrana);
 }
 
-.trida.zvolena {
-  border-color: var(--zlata);
-  background: #2e2618;
+/* Šipka u vybrané karty: stejná pixelová šipka jako u tlačítek, jen v pixelu rámu (--px), hrotem na rámu zleva. */
+.trida.vybrano::before, .trida:focus-visible::before {
+  content: '';
+  position: absolute;
+  left: calc(-8 * var(--px));
+  top: 50%;
+  width: calc(6 * var(--px));
+  height: calc(9 * var(--px));
+  margin-top: calc(-4.5 * var(--px));
+  background: var(--sipka) 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
 }
 
+.trida.zvolena { --karta-ram: var(--ram-karta-zvolena); }
+.trida.zvolena.vybrano, .trida.zvolena:focus-visible { --karta-ram: var(--ram-karta-zvolena-vybrana); }
+.trida:active { translate: 0 var(--px); }
+
+/* Cedulka Zvoleno: mosazný štítek přibitý na horní hranu karty. */
 .trida-stitek {
   display: none;
   position: absolute;
-  top: -2px;
-  right: -2px;
-  padding: 1px 6px;
+  top: calc(-2 * var(--px) - 9px);
+  right: 10px;
+  padding: 1px 7px 2px;
   font-size: 11px;
   font-weight: bold;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #1a1408;
-  background: var(--zlata);
+  color: #2a1708;
+  background: var(--mosaz);
+  box-shadow: inset 0 2px 0 var(--mosaz-lesk), inset 0 -2px 0 var(--mosaz-stin), 0 0 0 2px var(--noc);
 }
 
 .trida.zvolena .trida-stitek { display: block; }
