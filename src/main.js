@@ -19,6 +19,7 @@ import { registruj as registrujAplikaci, novaVerze, priZmene as priZmeneAplikace
 import { svetlaProSnimek } from './osvetleni.js';
 import { t, prelozStranku, priZmeneJazyka } from './texty.js';
 import { vytvorCtecku, stavOvladace, nastavOvladac, priZmeneOvladace, vyplnNapovedy, jenOvladac } from './ovladac.js';
+import { rezimBarev, priZmeneBarev } from './barvy.js';
 
 const platno = document.getElementById('platno');
 const ctx = platno.getContext('2d');
@@ -636,6 +637,13 @@ el('klic-ikona').replaceWith(obrazekSpritu('klic', 2));
 prelozStranku();
 vyplnNapovedy();
 priZmeneJazyka(() => vyplnNapovedy());
+// Režim pro barvoslepé (Nastavení → Barvy): stránka dostane data-barvy, CSS podle něj přidá značky a palety.
+const ukazBarvy = (rezim) => {
+  if (rezim === 'vyp') delete document.body.dataset.barvy;
+  else document.body.dataset.barvy = rezim;
+};
+ukazBarvy(rezimBarev());
+priZmeneBarev(ukazBarvy);
 priZmeneOvladace((zmena, stav) => {
   if ('rodina' in zmena) vyplnNapovedy();
   document.body.classList.toggle('ovladac', stav.aktivni);

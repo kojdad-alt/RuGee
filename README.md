@@ -17,7 +17,7 @@ Survivors hra v prohlížeči, jde i na mobilu nebo s ovladačem. Přidáš si j
 - **Zlaťáky** na kupce, přehazování karet a zamčené truhly. Z **duší** si koupíš trvalá vylepšení.
 - **Zvuky a hudba** ze syntezátoru, každá mapa má svou náladu. Hlasitost je v Nastavení, N ztlumí.
 - **Až 5 profilů** na jednom zařízení. Uložení přeneseš jinam kódem nebo souborem, bez serveru.
-- **Česky i anglicky** (English): jazyk se poprvé vezme z prohlížeče, přepneš ho v Nastavení.
+- **Česky i anglicky** (English) a s **režimem pro barvoslepé**: jazyk se poprvé vezme z prohlížeče, obojí přepneš v Nastavení.
 
 ## Ovládání
 

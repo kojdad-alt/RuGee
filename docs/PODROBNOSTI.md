@@ -117,6 +117,33 @@ Hra jde hrát s ovladačem (Gamepad API, [`src/ovladac.js`](../src/ovladac.js)):
 
 Test hlídá druh ovladače podle id (Chrome i Firefox), mrtvou zónu (pohyb nepřeleze 1, směr zůstane, NaN a nekonečno stojí, hrdina jde s páčkou do půlky plnou rychlostí), hysterezi výběru páčkou, že stisk je jedna událost (i tlačítko zapsané číslem), že držený kříž opakuje přesně po 0,4 s a pak po 0,12 s, že směr držený ve hře okno neposune, že ve hře chodí jen stisky, dva ovladače, odpojení, že nápovědy mají jen známé značky ve všech jazycích stejné, že každá klávesová nápověda okna má nápovědu pro ovladač a tlačítka s (Esc) a (M) příponu (B), že každý druh ovladače má jméno a obrázek každé značky v `ramy.mjs` i `style.css` a že stav ovladače hlásí jen změny. V prohlížeči (Playwright s náhradou `navigator.getGamepads`) prošlo celé menu, Ovládání se značkami všech tří druhů, Nastavení, Profil (nový, přejmenování, smazání), hra, pauza, karty, kupec, porovnání, konec, odpojení a návrat na klávesnici, na desktopu i telefonu.
 
+## Režim pro barvoslepé
+
+V Nastavení je skupina Barvy: Vypnuto, Deuteranopie, Protanopie a Tritanopie ([`src/barvy.js`](../src/barvy.js)). Volba se uloží do `hlubiny.nastaveni` (`barvy`) a stránka dostane `data-barvy`. V režimu se nic neliší jen barvou:
+
+- **Rarity karet a výbavy** mají značku: běžná kruh, vzácná kosočtverec, epická trojúhelník, legendární hvězda. Každá má jiný obrys, takže se pozná i malá. Značka je v pruhu karty za názvem (karty úrovně, truhly i porovnání), před kusem z truhly, v rohu kusu ve Sbírce a jamky výbavy ve hře, místo drahokamu u šancí a na cedulce kusu při otevírání truhly. Kresby 9×9 jsou v `barvy.js`, `nastroje/ramy.mjs` z nich dělá obrázky `--znak-*` do `style.css`.
+- **Palety rarit** jsou pro každý režim jiné, spočítané simulací barvosleposti. Deuteranopie má modrou, růžovou a oranžovou, protanopie světle modrou, sytě fialovou a oranžovou, tritanopie modrou, purpurovou a světle zlatou. Bez režimu splývá při deuteranopii vzácná s epickou (ΔE00 1,6), v režimu je mezi každou dvojicí rarit aspoň 25. CSS palet (`:where(body[data-barvy=…]) .rarita-*`) generuje `ramy.mjs` z `barvy.js`, plátno bere stejná čísla.
+- **Stavy** (kontrolky, hlášení profilu, lepší a horší staty) jsou pro červenozelenou slepotu modré a oranžové místo zelené a červené. Vedle barvy je vždycky text nebo šipka ▲ ▼.
+- **Varování bossů** (kruh dupnutí, dráha výpadu, kruhy vyvolání, dopad kamenů) mají šikmé pruhy v tmavém lemu, při deuteranopii a protanopii žluté, při tritanopii rudé. **Jed** (bublina v bahně a její dosah, oblaky po houbákovi i z bahna) má puntíky a bublina bílý okraj celého dosahu. Pruhy a puntíky drží ke světu ([`src/vzory.js`](../src/vzory.js)).
+- **Zvláštní plochy** mají přes dlaždici vzor 16×16: láva klikaté praskliny, bahno vlnky, led jiskry. Vzor je i v náhledu mapy v menu a v pozadí menu.
+- **Čísla nad hrdinou**, která se lišila jen barvou, mají za číslem znak: léčení a sání srdce, zlaťáky (+ i útrata −) minci. Ostatní se lišily i jinak než barvou už dřív: rána má −, kritický zásah ! a silný zásah je větší.
+- V Nastavení je ukázka: rarity v barvách režimu se značkou a vzory nebezpečí (útok bosse, láva, bahno, jed, led), jak vypadají ve hře.
+- Bez režimu vypadá všechno jako dřív a hra se ve všech režimech hraje stejně (`hra.js` režim nečte).
+
+Simulace ([`nastroje/barvoslepost.mjs`](../nastroje/barvoslepost.mjs)) je podle Machada, Oliveiry a Fernandese (2009) pro úplnou protanopii, deuteranopii a tritanopii a rozdíl barev počítá CIEDE2000. `node nastroje/barvoslepost.mjs` vypíše nejmenší rozdíly rarit každé palety pro každý druh. Ověření v prohlížeči fotí obrazovky i přes stejný filtr (`feColorMatrix` v linearRGB), aby bylo vidět, jak je barvoslepý vidí bez režimu a s ním.
+
+Test hlídá ΔE00 podle referenčních dvojic, že simulace nechá šedou šedou a splete červenou se zelenou. Pro každý režim hlídá, že každou dvojici rarit jde rozeznat (rámeček aspoň 25, nápis aspoň 12) i pro běžné oči, že bez režimu to pro ten druh nejde, a hlídá kontrast na dřevě. Dál hlídá:
+
+- stavy ok a chyba,
+- kontrast pruhů a puntíků,
+- že paleta vyp sedí se `style.css` a blok barev ve `style.css` je aktuální,
+- že každá rarita má jinou značku s jiným obrysem,
+- že každé místo v kódu, které dává třídu `rarita-*`, má v režimu značku,
+- vzory všech ploch a že je kreslení používá (každé varování, kameny, jed, podlaha, truhla),
+- že čísla léčení a zlaťáků mají v režimu různé znaky, které písmo čísel umí,
+- přepínání režimu a uložení nastavení (rozbité = vyp),
+- že `hra.js` režim nečte.
+
 ## Pro vývoj
 
 Čistý HTML, CSS a JavaScript bez build kroku. Spuštění u sebe:

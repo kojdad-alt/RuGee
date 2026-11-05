@@ -59,6 +59,10 @@
   --tl-ps-trojuhelnik: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M3 0h5v1h-5zM1 1h2v1h-2zM8 1h2v1h-2zM1 2h1v1h-1zM9 2h1v1h-1zM0 3h1v1h-1zM10 3h1v1h-1zM0 4h1v1h-1zM10 4h1v1h-1zM0 5h1v1h-1zM10 5h1v1h-1zM0 6h1v1h-1zM10 6h1v1h-1zM0 7h1v1h-1zM10 7h1v1h-1zM1 8h1v1h-1zM9 8h1v1h-1zM1 9h2v1h-2zM8 9h2v1h-2zM3 10h5v1h-5z'/%3E%3Cpath fill='%238a5a35' d='M3 1h5v1h-5zM2 2h1v1h-1zM1 3h1v1h-1zM1 4h1v1h-1zM1 5h1v1h-1zM1 6h1v1h-1zM1 7h1v1h-1z'/%3E%3Cpath fill='%234f3019' d='M3 2h5v1h-5zM2 3h3v1h-3zM6 3h4v1h-4zM2 4h2v1h-2zM5 4h1v1h-1zM7 4h3v1h-3zM2 5h2v1h-2zM5 5h1v1h-1zM7 5h3v1h-3zM2 6h1v1h-1zM4 6h3v1h-3zM8 6h2v1h-2zM2 7h1v1h-1zM2 8h5v1h-5z'/%3E%3Cpath fill='%232b1c12' d='M8 2h1v1h-1zM8 7h2v1h-2zM7 8h2v1h-2zM3 9h5v1h-5z'/%3E%3Cpath fill='%23e9c46a' d='M5 3h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM4 5h1v1h-1zM6 5h1v1h-1zM3 6h1v1h-1zM7 6h1v1h-1zM3 7h5v1h-5z'/%3E%3C/svg%3E");
   --tl-kriz: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M3 0h5v1h-5zM3 1h1v1h-1zM7 1h1v1h-1zM3 2h1v1h-1zM7 2h1v1h-1zM0 3h4v1h-4zM7 3h4v1h-4zM0 4h1v1h-1zM10 4h1v1h-1zM0 5h1v1h-1zM10 5h1v1h-1zM0 6h1v1h-1zM10 6h1v1h-1zM0 7h4v1h-4zM7 7h4v1h-4zM3 8h1v1h-1zM7 8h1v1h-1zM3 9h1v1h-1zM7 9h1v1h-1zM3 10h5v1h-5z'/%3E%3Cpath fill='%238a5a35' d='M4 1h1v1h-1zM6 1h1v1h-1zM4 2h2v1h-2zM4 3h2v1h-2zM1 4h8v1h-8zM2 5h3v1h-3zM6 5h3v1h-3zM1 6h1v1h-1zM4 7h2v1h-2zM4 8h2v1h-2z'/%3E%3Cpath fill='%23e9c46a' d='M5 1h1v1h-1zM1 5h1v1h-1zM9 5h1v1h-1zM5 9h1v1h-1z'/%3E%3Cpath fill='%234f3019' d='M6 2h1v1h-1zM6 3h1v1h-1zM9 4h1v1h-1zM2 6h8v1h-8zM6 7h1v1h-1zM6 8h1v1h-1zM4 9h1v1h-1zM6 9h1v1h-1z'/%3E%3Cpath fill='%232b1c12' d='M5 5h1v1h-1z'/%3E%3C/svg%3E");
   --tl-packa: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M3 0h5v1h-5zM1 1h2v1h-2zM8 1h2v1h-2zM1 2h1v1h-1zM3 2h5v1h-5zM9 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM8 3h1v1h-1zM10 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM8 4h1v1h-1zM10 4h1v1h-1zM0 5h1v1h-1zM2 5h1v1h-1zM8 5h1v1h-1zM10 5h1v1h-1zM0 6h1v1h-1zM2 6h1v1h-1zM8 6h1v1h-1zM10 6h1v1h-1zM0 7h1v1h-1zM2 7h1v1h-1zM8 7h1v1h-1zM10 7h1v1h-1zM1 8h1v1h-1zM3 8h5v1h-5zM9 8h1v1h-1zM1 9h2v1h-2zM8 9h2v1h-2zM3 10h5v1h-5z'/%3E%3Cpath fill='%232b1c12' d='M3 1h5v1h-5zM2 2h1v1h-1zM8 2h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM7 3h1v1h-1zM9 3h1v1h-1zM1 4h1v1h-1zM9 4h1v1h-1zM1 5h1v1h-1zM9 5h1v1h-1zM1 6h1v1h-1zM9 6h1v1h-1zM1 7h1v1h-1zM3 7h1v1h-1zM7 7h1v1h-1zM9 7h1v1h-1zM2 8h1v1h-1zM8 8h1v1h-1zM3 9h5v1h-5z'/%3E%3Cpath fill='%23fff1c4' d='M4 3h1v1h-1zM3 4h1v1h-1z'/%3E%3Cpath fill='%23e9c46a' d='M5 3h2v1h-2zM4 4h3v1h-3zM3 5h4v1h-4zM3 6h3v1h-3z'/%3E%3Cpath fill='%23b07428' d='M7 4h1v1h-1zM7 5h1v1h-1zM6 6h2v1h-2zM4 7h3v1h-3z'/%3E%3C/svg%3E");
+  --znak-kruh: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M2 0h5v1h-5zM1 1h1v1h-1zM7 1h1v1h-1zM0 2h1v1h-1zM8 2h1v1h-1zM0 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM8 5h1v1h-1zM0 6h1v1h-1zM8 6h1v1h-1zM1 7h1v1h-1zM7 7h1v1h-1zM2 8h5v1h-5z'/%3E%3Cpath fill='%23f3efe6' d='M2 1h5v1h-5zM1 2h7v1h-7zM1 3h7v1h-7zM1 4h7v1h-7zM1 5h6v1h-6zM1 6h5v1h-5zM2 7h1v1h-1z'/%3E%3Cpath fill='%23a59bb4' d='M7 5h1v1h-1zM6 6h2v1h-2zM3 7h4v1h-4z'/%3E%3C/svg%3E");
+  --znak-kosoctverec: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M4 0h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM2 2h1v1h-1zM6 2h1v1h-1zM1 3h1v1h-1zM7 3h1v1h-1zM0 4h1v1h-1zM8 4h1v1h-1zM1 5h1v1h-1zM7 5h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1zM3 7h1v1h-1zM5 7h1v1h-1zM4 8h1v1h-1z'/%3E%3Cpath fill='%23f3efe6' d='M4 1h1v1h-1zM3 2h3v1h-3zM2 3h5v1h-5zM1 4h7v1h-7zM2 5h4v1h-4zM3 6h2v1h-2z'/%3E%3Cpath fill='%23a59bb4' d='M6 5h1v1h-1zM5 6h1v1h-1zM4 7h1v1h-1z'/%3E%3C/svg%3E");
+  --znak-trojuhelnik: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M4 0h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM2 3h1v1h-1zM6 3h1v1h-1zM2 4h1v1h-1zM6 4h1v1h-1zM1 5h1v1h-1zM7 5h1v1h-1zM1 6h1v1h-1zM7 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h9v1h-9z'/%3E%3Cpath fill='%23f3efe6' d='M4 1h1v1h-1zM4 2h1v1h-1zM3 3h3v1h-3zM3 4h3v1h-3zM2 5h5v1h-5zM2 6h4v1h-4zM1 7h4v1h-4z'/%3E%3Cpath fill='%23a59bb4' d='M6 6h1v1h-1zM5 7h3v1h-3z'/%3E%3C/svg%3E");
+  --znak-hvezda: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M4 0h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h3v1h-3zM6 3h3v1h-3zM0 4h1v1h-1zM8 4h1v1h-1zM1 5h1v1h-1zM7 5h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1zM1 7h1v1h-1zM4 7h1v1h-1zM7 7h1v1h-1zM1 8h3v1h-3zM5 8h3v1h-3z'/%3E%3Cpath fill='%23f3efe6' d='M4 1h1v1h-1zM4 2h1v1h-1zM3 3h3v1h-3zM1 4h7v1h-7zM2 5h4v1h-4zM3 6h2v1h-2zM2 7h2v1h-2z'/%3E%3Cpath fill='%23a59bb4' d='M6 5h1v1h-1zM5 6h1v1h-1zM5 7h2v1h-2z'/%3E%3C/svg%3E");
 }
 /* ramy: konec */
 
@@ -366,6 +370,70 @@ html, body {
 .rarita-vzacna { --c: #3d7fd9; --c-svetla: #9fd0ff; --c-pozadi: #172236; --c-zar: rgba(80, 160, 255, 0.4); --zar: 4px; --c-pas: var(--noc); }
 .rarita-epicka { --c: #9a4fd8; --c-svetla: #dcb0ff; --c-pozadi: #241835; --c-zar: rgba(185, 100, 255, 0.5); --zar: 6px; --c-pas: #fffaf0; }
 .rarita-legendarni { --c: #e8962a; --c-svetla: #ffd27a; --c-pozadi: #33230d; --c-zar: rgba(255, 180, 60, 0.6); --zar: 8px; --c-pas: var(--noc); }
+
+/* barvy: začátek (generuje node nastroje/ramy.mjs ze src/barvy.js, ručně neupravovat) */
+.rarita-bezna { --znak: var(--znak-kruh); }
+.rarita-vzacna { --znak: var(--znak-kosoctverec); }
+.rarita-epicka { --znak: var(--znak-trojuhelnik); }
+.rarita-legendarni { --znak: var(--znak-hvezda); }
+:where(body[data-barvy="deuteranopie"]) { --ok: #7cc4ff; --chyba: #ffb04a; }
+:where(body[data-barvy="deuteranopie"]) .rarita-bezna { --c: #605f62; --c-svetla: #f3efe6; --c-pozadi: #221b1f; --c-zar: rgba(96, 95, 98, 0); --c-pas: #fffaf0; }
+:where(body[data-barvy="deuteranopie"]) .rarita-vzacna { --c: #2e85fa; --c-svetla: #62a4fb; --c-pozadi: #19223a; --c-zar: rgba(46, 133, 250, 0.4); --c-pas: var(--noc); }
+:where(body[data-barvy="deuteranopie"]) .rarita-epicka { --c: #ec92ba; --c-svetla: #f1adcb; --c-pozadi: #3b242f; --c-zar: rgba(236, 146, 186, 0.5); --c-pas: var(--noc); }
+:where(body[data-barvy="deuteranopie"]) .rarita-legendarni { --c: #eb9200; --c-svetla: #f0ad40; --c-pozadi: #3b240d; --c-zar: rgba(235, 146, 0, 0.6); --c-pas: var(--noc); }
+:where(body[data-barvy="protanopie"]) { --ok: #7cc4ff; --chyba: #ffb04a; }
+:where(body[data-barvy="protanopie"]) .rarita-bezna { --c: #605f60; --c-svetla: #f3efe6; --c-pozadi: #221b1e; --c-zar: rgba(96, 95, 96, 0); --c-pas: #fffaf0; }
+:where(body[data-barvy="protanopie"]) .rarita-vzacna { --c: #9fc7e4; --c-svetla: #b7d5eb; --c-pozadi: #2d2e36; --c-zar: rgba(159, 199, 228, 0.4); --c-pas: var(--noc); }
+:where(body[data-barvy="protanopie"]) .rarita-epicka { --c: #9c2bf9; --c-svetla: #b560fb; --c-pozadi: #2c123a; --c-zar: rgba(156, 43, 249, 0.5); --c-pas: #fffaf0; }
+:where(body[data-barvy="protanopie"]) .rarita-legendarni { --c: #e79528; --c-svetla: #edb05e; --c-pozadi: #3a2514; --c-zar: rgba(231, 149, 40, 0.6); --c-pas: var(--noc); }
+:where(body[data-barvy="tritanopie"]) { --ok: #7cf08a; --chyba: #ff7a9a; }
+:where(body[data-barvy="tritanopie"]) .rarita-bezna { --c: #625d71; --c-svetla: #bdb6c6; --c-pozadi: #221b21; --c-zar: rgba(98, 93, 113, 0); --c-pas: #fffaf0; }
+:where(body[data-barvy="tritanopie"]) .rarita-vzacna { --c: #2189f8; --c-svetla: #59a7fa; --c-pozadi: #16233a; --c-zar: rgba(33, 137, 248, 0.4); --c-pas: var(--noc); }
+:where(body[data-barvy="tritanopie"]) .rarita-epicka { --c: #dc09f9; --c-svetla: #e547fb; --c-pozadi: #380b3a; --c-zar: rgba(220, 9, 249, 0.5); --c-pas: var(--noc); }
+:where(body[data-barvy="tritanopie"]) .rarita-legendarni { --c: #ffd787; --c-svetla: #ffe1a5; --c-pozadi: #3e3125; --c-zar: rgba(255, 215, 135, 0.6); --c-pas: var(--noc); }
+/* barvy: konec */
+
+/* Režim pro barvoslepé (body[data-barvy], src/barvy.js): rarita má kromě barvy značku (--znak dávají .rarita-*,
+   obrázky 9×9 z ramy.mjs ve dvojnásobku): v pruhu karty za názvem, před kusem z truhly, v rohu kusu ve Sbírce
+   a jamky výbavy, místo drahokamu u šancí a v ukázce v Nastavení. Bez režimu se nic nemění. */
+.znak-rarity { display: none; }
+body[data-barvy] .znak-rarity,
+body[data-barvy] [class*="rarita-"] > .karta-rarita::after,
+body[data-barvy] .volba-kus::before {
+  content: '';
+  display: inline-block;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  vertical-align: -4px;
+  background: var(--znak) center / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+body[data-barvy] [class*="rarita-"] > .karta-rarita::after { margin: -2px 0 -2px 8px; }
+body[data-barvy] .sbirka-kus[class*="rarita-"], body[data-barvy] .vystroj-policko[class*="rarita-"] { position: relative; }
+body[data-barvy] .sbirka-kus[class*="rarita-"]::after, body[data-barvy] .vystroj-policko[class*="rarita-"]::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 18px;
+  height: 18px;
+  background: var(--znak) center / 100% 100% no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+body[data-barvy] .sance i {
+  width: 18px;
+  height: 18px;
+  margin: 0 5px 0 0;
+  vertical-align: -4px;
+  background: var(--znak) center / 100% 100% no-repeat;
+  box-shadow: none;
+  image-rendering: pixelated;
+}
+@media (max-width: 600px), (max-height: 500px) {
+  body[data-barvy] .vystroj-policko[class*="rarita-"]::after { top: -4px; left: -4px; width: 9px; height: 9px; }
+}
 
 .vyber {
   position: fixed;
@@ -1560,6 +1628,27 @@ body.ovladac .jen-ovladac { display: inline; }
 .nastaveni-radek .prepinac, .svetla-volba .prepinac { width: min(100%, 320px); }
 /* Jazyk (Nastavení): přepínač za každý jazyk vedle sebe, zvolený má rozsvícenou kontrolku, ostatní zhaslou. */
 .jazyk-radek .menu-tlacitko.prepinac { width: auto; min-width: 140px; flex: 0 1 156px; }
+/* Barvy (režim pro barvoslepé): čtyři tlačítka po dvou, popis zvoleného režimu, rarity jako destičky v barvách
+   režimu se značkou a vzory nebezpečí (jen v režimu, jsou to dlaždice ze hry). */
+.barvy-radek .menu-tlacitko.prepinac { width: auto; min-width: 150px; flex: 0 1 190px; }
+.barvy-text { margin: 8px auto 0; max-width: 36em; font-size: 13px; text-align: center; color: var(--pergamen-tlumeny); text-shadow: 0 2px 0 var(--noc); }
+.barvy-ukazka { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 12px; margin: 12px 0 0; }
+.ukazka-rarity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 4px;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--c-svetla);
+  text-shadow: 0 2px 0 var(--noc);
+  background: var(--c-pozadi);
+  box-shadow: 0 0 0 2px var(--c), 0 0 0 4px var(--noc);
+}
+.barvy-vzory { display: none; flex-wrap: wrap; justify-content: center; gap: 8px 12px; margin: 14px 0 0; }
+body[data-barvy] .barvy-vzory { display: flex; }
+.ukazka-vzoru { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; color: var(--pergamen-tlumeny); }
+.ukazka-vzoru canvas { width: 48px; height: 24px; image-rendering: pixelated; box-shadow: 0 0 0 2px var(--noc); }
 .svetla-text { margin: 0; max-width: 34em; font-size: 13px; text-align: center; color: var(--pergamen-tlumeny); text-shadow: 0 2px 0 var(--noc); }
 .menu-tlacitko.prepinac.auto .prepinac-stav { color: var(--mosaz-svetla); }
 .menu-tlacitko.prepinac.auto .prepinac-stav::before { background: var(--mosaz); box-shadow: inset 2px 2px 0 var(--mosaz-lesk), inset -2px -2px 0 var(--mosaz-stin), 0 0 0 2px var(--noc); }

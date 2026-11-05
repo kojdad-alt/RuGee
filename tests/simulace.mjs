@@ -119,6 +119,10 @@
 // a pak po 0,12 s, směr držený ve hře okno neposune, dva ovladače naráz a odpojení. Nápovědy se značkami tlačítek
 // mají jen známé značky ve všech jazycích, každé okno s klávesovou nápovědou má i nápovědu pro ovladač, každý
 // druh ovladače má jméno a obrázek každé značky (ramy.mjs → style.css), stav ovladače a myš.
+// Barvy (režim pro barvoslepé): simulace barvosleposti a ΔE00 sedí s referencí, v každém režimu jdou všechny
+// dvojice rarit (rámeček i nápis) a stavy ok/chyba rozeznat a bez režimu by nešly, každá rarita má jinou značku,
+// každé místo s raritou v DOM ji ukazuje, varování, jed i každá zvláštní plocha mají vzor, CSS palet je
+// vygenerované z barvy.js a nastavení barev se ukládá. Hra je ve všech režimech stejná.
 import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 import { crc32 as crc32Zlib, inflateSync } from 'node:zlib';
@@ -181,14 +185,19 @@ import {
 import { SHADERY, UNIFORMY, ATRIBUTY, stavSvetel, svetlaProSnimek, nastavRezimSvetel } from '../src/osvetleni.js';
 import {
   MAPY, PORADI_MAP, VYCHOZI_MAPA, ODEMKNUTI_MAPY, VELIKOST_DLAZDICE, PRICHODY_MAP, naLedu, ledovaDlazdice, odKdy, platnaMapa,
-  plochaMapy, dlazdicePlochy, naPlose, prekazkaNaDlazdici, kruhPrekazky, hloubkaVPrekazce, VOLNO_U_STARTU,
+  plochaMapy, dlazdicePlochy, naPlose, prekazkaNaDlazdici, kruhPrekazky, hloubkaVPrekazce, VOLNO_U_STARTU, DRUHY_PLOCH,
 } from '../src/mapy.js';
 import {
   MRTVA_ZONA, PRAH_VYBERU, PRAH_PUSTENI, PRVNI_OPAKOVANI, OPAKOVANI, TLACITKA, STISKY, SMERY, RODINY, ZNACKY, OBRAZKY_ZNACEK,
   rodina as rodinaOvladace, pohybPacky, smerPacky, vytvorCtecku, rozdelNapovedu, obrazekZnacky, stavOvladace, nastavOvladac,
   priZmeneOvladace, mysVybira,
 } from '../src/ovladac.js';
-import { OBRAZKY as OBRAZKY_RAMU } from '../nastroje/ramy.mjs';
+import { OBRAZKY as OBRAZKY_RAMU, ZNAKY as ZNAKY_RAMU, blokBarev } from '../nastroje/ramy.mjs';
+import {
+  REZIMY_BAREV, nastavBarvy, rezimBarev, barvoslepy, priZmeneBarev, ZNAKY_RARIT, KRESBY_ZNAKU, BARVY_ZNAKU, PALETY_RARIT,
+  barvyRarity, BARVY_STAVU, BARVY_VZORU, VZORY_PLOCH, BARVY_VZORU_PLOCH,
+} from '../src/barvy.js';
+import { MATICE as MATICE_CVD, simuluj, deltaE, deltaE00Lab, nejmensiRozdil, kontrast as kontrastBarev } from '../nastroje/barvoslepost.mjs';
 
 const seminko = Number(process.argv[2] ?? 1);
 const delka = Number(process.argv[3] ?? 600);
@@ -4898,6 +4907,9 @@ const blokOvladace = /const OVLADANI_OVLADACE = \[([\s\S]*?)\n\];/.exec(zdrojeSr
 for (const m of blokOvladace.matchAll(/\], '(\w+)'\]/g)) pouziteKlice.add(`menu.ovladani.ovladac.${m[1]}`);
 if (!blokOvladace.includes("'potvrdit'")) chybyPrekladu.push('nenašel jsem Ovladač v Ovládání (menu.js)');
 pouziteKlice.add('menu.ovladani.ovladac.zadny');
+for (const r of REZIMY_BAREV) pouziteKlice.add(`menu.barvy.rezimy.${r}`).add(`menu.barvy.popis.${r}`);
+for (const m of (/const VZORY_UKAZKY = \[([^\]]*)\]/.exec(zdrojeSrc['menu.js'])?.[1] ?? '').matchAll(/'(\w+)'/g)) pouziteKlice.add(`menu.barvy.vzory.${m[1]}`);
+if (!pouziteKlice.has('menu.barvy.vzory.lava')) chybyPrekladu.push('nenašel jsem ukázku vzorů v Nastavení (menu.js)');
 for (const r of RODINY) for (const z of ZNACKY) pouziteKlice.add(`ovladac.znaky.${r}.${z}`);
 for (const kde of /const kde = ([^;]+);/.exec(zdrojeSrc['aplikace.js'])?.[1].match(/'\w+'/g) ?? []) pouziteKlice.add(`menu.plocha.kde.${kde.slice(1, -1)}`);
 for (const r of REZIMY_SVETEL) pouziteKlice.add(`menu.svetla.rezimy.${r}`);
@@ -4974,7 +4986,7 @@ function pixeloveTexty() {
   const texty = ['volba.novaUroven', 'volba.truhlaBosse', 'volba.zamcenaTruhla', 'porovnani.nadpis', 'obchod.nadpis', 'pauza.nadpis',
     'konec.nadpis', 'kresleni.zuri', 'menu.nastaveni.zvuk', 'menu.nastaveni.hra', 'menu.plocha.nadpis', 'menu.profil.novy',
     'menu.profil.prejmenovat', 'menu.profil.export', 'menu.profil.import', 'hra.oziveni', 'hra.bomba', 'hra.kupec.prijel',
-    'hra.kupec.odjel'].map((k) => [k, t(k)]);
+    'hra.kupec.odjel', 'menu.barvy.nadpis'].map((k) => [k, t(k)]);
   for (const v of Object.values(t('menu.ovladani.skupiny'))) texty.push(['skupina Ovládání', v]);
   for (const [id, z] of Object.entries(ZALOZKY_SLOVNIKU())) texty.push([`záložka ${id}`, z.nazev]);
   for (const b of Object.values(BOSSOVE)) texty.push(['boss', b.nazev], ['příchod bosse', b.prichod], ['zuří', t('hra.zuri', { boss: b.nazev })]);
@@ -5633,6 +5645,147 @@ const chybyOvladace = [];
   for (const u of ['zpet', 'odpojen', 'start', 'b', 'x', 'a']) if (!mainJs.includes(`u === '${u}'`)) chybyOvladace.push(`main.js neobslouží ${u}`);
 }
 chyby.push(...chybyOvladace);
+
+// Barvy: režim pro barvoslepé (src/barvy.js, simulace nastroje/barvoslepost.mjs).
+const chybyBarev = [];
+{
+  // ΔE00 podle referenčních dvojic (Sharma, Wu, Dalal 2005) a simulace: šedá zůstane šedá, bez režimu nic
+  for (const [a, b, cekam] of [[[50, 2.6772, -79.7751], [50, 0, -82.7485], 2.0425], [[50, 2.5, 0], [73, 25, -18], 27.1492],
+    [[60.2574, -34.0099, 36.2677], [60.4626, -34.1751, 39.4387], 1.2644], [[50, 0, 0], [50, -1, 2], 2.3669], [[22.7233, 20.0904, -46.694], [23.0331, 14.973, -42.5619], 2.0373]]) {
+    if (Math.abs(deltaE00Lab(a, b) - cekam) > 1e-3) chybyBarev.push(`ΔE00 ${a} / ${b} = ${deltaE00Lab(a, b)}, ne ${cekam}`);
+  }
+  for (const druh of Object.keys(MATICE_CVD)) {
+    for (const seda of ['#000000', '#808080', '#ffffff']) if (deltaE(simuluj(seda, druh), seda) > 1.5) chybyBarev.push(`${druh}: šedá ${seda} se změní na ${simuluj(seda, druh)}`);
+  }
+  if (simuluj('#3d7fd9', 'vyp') !== '#3d7fd9') chybyBarev.push('simulace bez barvosleposti mění barvu');
+  // nejčastější splývání ze života: červená a zelená pro deuteranopii, modrá a zelená pro tritanopii
+  if (deltaE(simuluj('#e5484d', 'deuteranopie'), simuluj('#7fc46a', 'deuteranopie')) > 25) chybyBarev.push('simulace deuteranopie nesplete červenou se zelenou');
+
+  // palety: v každém režimu každá dvojice rarit (rámeček aspoň 25, nápis aspoň 12) a pořád i pro běžné oči,
+  // bez režimu to pro daný druh barvosleposti nejde (proto režim je)
+  const barvyPalety = (paleta, klic) => Object.fromEntries(Object.entries(paleta).map(([id, b]) => [id, b[klic]]));
+  if (JSON.stringify(Object.keys(PALETY_RARIT)) !== JSON.stringify(REZIMY_BAREV)) chybyBarev.push('palety nemají všechny režimy');
+  for (const r of REZIMY_BAREV.filter((x) => x !== 'vyp')) {
+    const paleta = PALETY_RARIT[r];
+    if (JSON.stringify(Object.keys(paleta)) !== JSON.stringify(PORADI_RARIT_VYBAVY) || JSON.stringify(Object.keys(paleta)) !== JSON.stringify(PORADI_RARIT)) chybyBarev.push(`paleta ${r} nemá všechny rarity`);
+    const ramecek = nejmensiRozdil(barvyPalety(paleta, 'c'), r);
+    const napis = nejmensiRozdil(barvyPalety(paleta, 'svetla'), r);
+    const bezRezimu = nejmensiRozdil(barvyPalety(PALETY_RARIT.vyp, 'c'), r);
+    const proVsechny = nejmensiRozdil(barvyPalety(paleta, 'c'), 'vyp');
+    if (ramecek.rozdil < 25) chybyBarev.push(`${r}: rámečky ${ramecek.dvojice} splývají (ΔE ${ramecek.rozdil.toFixed(1)})`);
+    if (napis.rozdil < 12) chybyBarev.push(`${r}: nápisy ${napis.dvojice} splývají (ΔE ${napis.rozdil.toFixed(1)})`);
+    if (proVsechny.rozdil < 20) chybyBarev.push(`${r}: rámečky ${proVsechny.dvojice} splývají i pro běžné oči`);
+    if (bezRezimu.rozdil > ramecek.rozdil - 9) chybyBarev.push(`${r}: paleta režimu nepomáhá (bez režimu ${bezRezimu.rozdil.toFixed(1)}, s ním ${ramecek.rozdil.toFixed(1)})`);
+    for (const [id, b] of Object.entries(paleta)) {
+      if (!/^#[0-9a-f]{6}$/.test(b.c) || !/^#[0-9a-f]{6}$/.test(b.svetla) || !/^#[0-9a-f]{6}$/.test(b.pozadi) || !/^rgba\(/.test(b.zar)) chybyBarev.push(`${r} ${id}: rozbitá barva ${JSON.stringify(b)}`);
+      if (kontrastBarev(b.svetla, '#3d2717') < 3) chybyBarev.push(`${r} ${id}: nápis ${b.svetla} je na dřevě málo vidět`);
+      if (kontrastBarev(b.c, '#3d2717') < 2) chybyBarev.push(`${r} ${id}: rámeček ${b.c} je na dřevě málo vidět`);
+    }
+    // stavy (kontrolky, hlášení, lepší/horší): v režimu rozeznatelné, bez režimu u červenozelené slepoty ne
+    const stav = BARVY_STAVU[r];
+    if (deltaE(simuluj(stav.ok, r), simuluj(stav.chyba, r)) < 30) chybyBarev.push(`${r}: ok a chyba splývají`);
+    if (kontrastBarev(stav.ok, '#2b1c12') < 4.5 || kontrastBarev(stav.chyba, '#2b1c12') < 4.5) chybyBarev.push(`${r}: barvy stavů jsou na dřevě málo vidět`);
+    // pruhy varování: světlý a tmavý pruh s velkým kontrastem
+    const vzor = BARVY_VZORU[r];
+    if (kontrastBarev(vzor.pruh, vzor.tma) < 5 || kontrastBarev(vzor.jed, vzor.tma) < 7) chybyBarev.push(`${r}: vzory nebezpečí mají malý kontrast`);
+  }
+  if (deltaE(simuluj(BARVY_STAVU.vyp.ok, 'deuteranopie'), simuluj(BARVY_STAVU.vyp.chyba, 'deuteranopie')) > 20) chybyBarev.push('bez režimu jsou ok a chyba rozeznatelné i při deuteranopii (proč je mění?)');
+  // paleta vyp je přesně to, co má style.css v .rarita-*
+  const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  for (const [id, b] of Object.entries(PALETY_RARIT.vyp)) {
+    const radek = new RegExp(`^\\.rarita-${id} \\{ --c: ${b.c}; --c-svetla: ${b.svetla};`, 'm');
+    if (!radek.test(css)) chybyBarev.push(`paleta vyp ${id} nesedí se style.css`);
+  }
+  // CSS palet a značek je vygenerované z barvy.js (node nastroje/ramy.mjs po změně)
+  if (!css.includes(blokBarev())) chybyBarev.push('style.css nemá aktuální blok barev (node nastroje/ramy.mjs)');
+  // značky: každá rarita jinou, kresby 9×9 jen z K/W/Q, každé dvě se liší v obrysu aspoň o 10 pixelů
+  const tvary = PORADI_RARIT_VYBAVY.map((id) => ZNAKY_RARIT[id]);
+  if (new Set(tvary).size !== PORADI_RARIT_VYBAVY.length || tvary.some((tv) => !KRESBY_ZNAKU[tv])) chybyBarev.push(`značky rarit: ${tvary}`);
+  const maska = (radky) => radky.join('').split('').map((z) => (z === '.' ? 0 : 1));
+  for (const [tv, radky] of Object.entries(KRESBY_ZNAKU)) {
+    if (radky.length !== 9 || radky.some((r) => r.length !== 9 || /[^KWQ.]/.test(r))) chybyBarev.push(`kresba ${tv} není 9×9 z K/W/Q`);
+    if (!ZNAKY_RAMU[`znak-${tv}`] || !css.includes(`--znak-${tv}: url(`)) chybyBarev.push(`style.css nemá obrázek značky ${tv}`);
+  }
+  for (let i = 0; i < tvary.length; i++) {
+    for (let j = i + 1; j < tvary.length; j++) {
+      const a = maska(KRESBY_ZNAKU[tvary[i]]);
+      const b = maska(KRESBY_ZNAKU[tvary[j]]);
+      const rozdil = a.filter((x, k) => x !== b[k]).length;
+      if (rozdil < 10) chybyBarev.push(`značky ${tvary[i]} a ${tvary[j]} mají skoro stejný obrys (${rozdil} px)`);
+    }
+  }
+  if (kontrastBarev(BARVY_ZNAKU.W, BARVY_ZNAKU.K) < 12) chybyBarev.push('značka má málo kontrastní výplň');
+  // každé místo, kde DOM dává třídu rarita-*, má v režimu značku (podle první třídy prvku)
+  const OZNACENE = {
+    karta: 'body[data-barvy] [class*="rarita-"] > .karta-rarita::after',
+    'volba-kus': 'body[data-barvy] .volba-kus::before',
+    sance: 'body[data-barvy] .sance i',
+    'sbirka-kus': 'body[data-barvy] .sbirka-kus[class*="rarita-"]::after',
+    'vybava-policko': 'body[data-barvy] .vystroj-policko[class*="rarita-"]::after',
+    'ukazka-rarity': 'body[data-barvy] .znak-rarity',
+  };
+  let mistRarit = 0;
+  for (const [soubor, zdroj] of Object.entries(zdrojeSrc)) {
+    for (const radek of zdroj.split('\n').filter((r) => r.includes('rarita-${'))) {
+      mistRarit += 1;
+      const prvni = /(?:prvek\('\w+', `|className = `)([a-z-]+)/.exec(radek)?.[1];
+      if (!OZNACENE[prvni]) chybyBarev.push(`${soubor}: ${prvni ?? radek.trim().slice(0, 40)} s raritou nemá v režimu pro barvoslepé značku`);
+    }
+  }
+  if (mistRarit < 6) chybyBarev.push(`našel jsem jen ${mistRarit} míst s raritou v DOM`);
+  for (const pravidlo of Object.values(OZNACENE)) if (!css.includes(pravidlo)) chybyBarev.push(`style.css nemá ${pravidlo}`);
+  if (!/body\[data-barvy\] \.sance i \{[^}]*background: var\(--znak\)/.test(css)) chybyBarev.push('šance nemají v režimu značku místo drahokamu');
+  // vzory: každá zvláštní plocha má vlastní vzor 16×16, plochy se od sebe liší, kreslení je používá
+  if (JSON.stringify(Object.keys(VZORY_PLOCH).sort()) !== JSON.stringify([...DRUHY_PLOCH].sort())) chybyBarev.push(`vzory ploch ${Object.keys(VZORY_PLOCH)} ≠ plochy ${DRUHY_PLOCH}`);
+  for (const [druh, radky] of Object.entries(VZORY_PLOCH)) {
+    if (radky.length !== 16 || radky.some((r) => r.length !== 16 || /[^KW.]/.test(r))) chybyBarev.push(`vzor ${druh} není 16×16 z K/W`);
+    if (!BARVY_VZORU_PLOCH[druh]) chybyBarev.push(`vzor ${druh} nemá barvy`);
+    if (radky.join('').replace(/\./g, '').length < 12) chybyBarev.push(`vzor ${druh} je skoro prázdný`);
+  }
+  const vzory = Object.values(VZORY_PLOCH).map((r) => r.join(''));
+  if (new Set(vzory).size !== vzory.length) chybyBarev.push('dvě plochy mají stejný vzor');
+  const kresleniJs = zdrojeSrc['kresleni.js'];
+  const telo = (jmeno) => { const od = kresleniJs.indexOf(`function ${jmeno}(`); return kresleniJs.slice(od, kresleniJs.indexOf('\n}\n', od)); };
+  const varovani = telo('varovaniNaZemi');
+  for (const id of ['dupnuti', 'vypad', 'vyvolani']) {
+    const vetev = varovani.slice(varovani.indexOf(`sch.id === '${id}'`), varovani.indexOf('} else', varovani.indexOf(`sch.id === '${id}'`) + 10));
+    if (!/barvoslepy\(\)/.test(vetev)) chybyBarev.push(`varování ${id} nemá vzor pro barvoslepé`);
+  }
+  if (!/barvoslepy\(\)\) pruhovanyKruh/.test(telo('utokyNaZemi'))) chybyBarev.push('dopad kamenů nemá vzor pro barvoslepé');
+  if (!/barvoslepy\(\)[\s\S]*puntiky/.test(telo('bublina')) || !/barvoslepy\(\)[\s\S]*puntiky/.test(telo('oblak'))) chybyBarev.push('jed (bublina, oblak) nemá puntíky');
+  if (!/barvoslepy\(\) \? vzorPlochy\(plocha\.druh\)/.test(zdrojeSrc['louka.js'])) chybyBarev.push('podlaha nekreslí vzor plochy');
+  if (!/barvoslepy\(\) \? barvyRarity/.test(telo('otevirani'))) chybyBarev.push('otevírání truhly nebere paletu režimu');
+  // čísla nad hrdinou, která se liší jen barvou (+ léčení / + zlaťáky, − rána / − útrata), mají v režimu značku
+  const znackyCisel = /const ZNACKY_CISEL = (\{[^}]*\})/.exec(kresleniJs)?.[1] ?? '';
+  for (const druh of ['leceni', 'sani', 'zlato', 'utrata']) if (!new RegExp(`${druh}: '(.)'`).test(znackyCisel)) chybyBarev.push(`číslo ${druh} nemá v režimu značku`);
+  for (const znak of new Set([...znackyCisel.matchAll(/'(.)'/g)].map((m) => m[1]))) if (!kresleniJs.includes(`'${znak}': [`)) chybyBarev.push(`písmo čísel nemá znak ${znak}`);
+  if (/leceni: '(.)'/.exec(znackyCisel)?.[1] === /zlato: '(.)'/.exec(znackyCisel)?.[1]) chybyBarev.push('léčení a zlaťáky mají stejnou značku');
+  if (!/barvoslepy\(\) && ZNACKY_CISEL\[c\.barva\]/.test(kresleniJs)) chybyBarev.push('čísla nekreslí značku režimu');
+  // režim: neznámý = vyp, posluchači, rarita podle režimu
+  const zmenyBarev = [];
+  const odhlasBarvy = priZmeneBarev((r) => zmenyBarev.push(r));
+  for (const r of [...REZIMY_BAREV, 'nesmysl', 'vyp', 'vyp']) nastavBarvy(r);
+  odhlasBarvy();
+  if (zmenyBarev.join() !== 'deuteranopie,protanopie,tritanopie,vyp' || rezimBarev() !== 'vyp' || barvoslepy()) chybyBarev.push(`režimy barev: ${zmenyBarev}`);
+  nastavBarvy('tritanopie');
+  if (barvyRarity('epicka').c !== PALETY_RARIT.tritanopie.epicka.c || barvyRarity('nic').c !== PALETY_RARIT.tritanopie.bezna.c || !barvoslepy()) chybyBarev.push('rarita nebere paletu režimu');
+  nastavBarvy('vyp');
+  // nastavení: barvy se uloží, rozbité = vyp
+  const mapaUloziste = new Map();
+  nahradUloziste({ getItem: (k) => mapaUloziste.get(k) ?? null, setItem: (k, v) => mapaUloziste.set(k, String(v)), removeItem: (k) => mapaUloziste.delete(k) });
+  if (nactiNastaveni().barvy !== 'vyp' || VYCHOZI_NASTAVENI.barvy !== 'vyp') chybyBarev.push('výchozí barvy nejsou vyp');
+  for (const r of REZIMY_BAREV) {
+    ulozNastaveni({ ...nactiNastaveni(), barvy: r });
+    if (nactiNastaveni().barvy !== r) chybyBarev.push(`barvy ${r} se neuložily`);
+  }
+  for (const spatne of ['ano', true, 3, null, 'DEUTERANOPIE']) {
+    mapaUloziste.set('hlubiny.nastaveni', JSON.stringify({ barvy: spatne }));
+    if (nactiNastaveni().barvy !== 'vyp') chybyBarev.push(`rozbité barvy ${JSON.stringify(spatne)} nejsou vyp`);
+  }
+  // hra je ve všech režimech stejná: pravidla hry barvy nečtou
+  if (/barvy\.js/.test(zdrojeSrc['hra.js'])) chybyBarev.push('hra.js čte režim barev (hra se má hrát stejně)');
+}
+chyby.push(...chybyBarev);
 if (chyby.length) {
   console.error('CHYBA:', chyby.join('; '));
   process.exit(1);

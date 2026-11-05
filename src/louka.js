@@ -4,6 +4,8 @@
 import { vytvorRng } from './rng.js';
 import { MAPY, VELIKOST_DLAZDICE, hash, dlazdicePlochy, plochaMapy, prekazkaNaDlazdici } from './mapy.js';
 import { sprity } from './sprity.js';
+import { barvoslepy } from './barvy.js';
+import { vzorPlochy } from './vzory.js';
 
 const P = 16;
 
@@ -269,6 +271,8 @@ export function kresliPodlahu(ctx, mapa, kx, ky, sirka, vyska, velikost = VELIKO
   const jePlocha = (tx, ty) => Boolean(plocha) && dlazdicePlochy(tx, ty, plocha.data);
   const naObrazovce = (tx, ty) => [Math.round(tx * velikost - kx), Math.round(ty * velikost - ky)];
   const zhave = [];
+  // Režim pro barvoslepé: přes každou dlaždici plochy její vzor (láva praskliny, bahno vlnky, led jiskry).
+  const vzor = plocha && barvoslepy() ? vzorPlochy(plocha.druh) : null;
   for (let ty = y0; ty < y1; ty++) {
     for (let tx = x0; tx < x1; tx++) {
       const [px, py] = naObrazovce(tx, ty);
@@ -283,6 +287,7 @@ export function kresliPodlahu(ctx, mapa, kx, ky, sirka, vyska, velikost = VELIKO
           if (!jePlocha(tx + dx, ty + dy)) ctx.drawImage(v.plocha.okraje[strana], px, py, velikost, velikost);
         });
         if (plocha.data.zhave) zhave.push([px, py, h]);
+        if (vzor) ctx.drawImage(vzor, px, py, velikost, velikost);
       }
     }
   }

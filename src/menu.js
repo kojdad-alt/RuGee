@@ -24,8 +24,10 @@ import {
   t, pripojTexty, procenta, datum, hodnota, nastavJazyk, aktualniJazyk, jazykProhlizece, priZmeneJazyka, prelozStranku, JAZYKY,
 } from './texty.js';
 import { stavOvladace, priZmeneOvladace, znackaTlacitka, jenOvladac, mysVybira } from './ovladac.js';
+import { REZIMY_BAREV, nastavBarvy, rezimBarev, priZmeneBarev } from './barvy.js';
+import { ukazkaVzoru } from './vzory.js';
 
-// Nastavení (čísla poškození, hlasitost efektů a hudby, ztlumení, světla, jazyk): načte se z prohlížeče, mění ho
+// Nastavení (čísla poškození, hlasitost efektů a hudby, ztlumení, světla, jazyk, barvy): načte se z prohlížeče, mění ho
 // Nastavení nebo pauza (a klávesa N). Hlasitosti se hned předají zvuku. Jazyk se při prvním spuštění vezme z prohlížeče
 // a uloží, ať se nemění s ním. Nastaví se dřív než profily, ať má první profil jméno ve zvoleném jazyce.
 let nastaveni = nactiNastaveni();
@@ -36,6 +38,7 @@ if (!nastaveni.jazyk) {
 nastavJazyk(nastaveni.jazyk);
 nastavZvuk(nastaveni);
 nastavRezimSvetel(nastaveni.svetla);
+nastavBarvy(nastaveni.barvy);
 
 // Profily: při prvním spuštění se stará uložení převedou do prvního profilu (ulozeni.js), pak se načte zvolený.
 zajistiProfily();
@@ -766,8 +769,62 @@ function vyplnNastaveni(panel) {
   hra.append(radek, prepinacSvetel());
   panel.append(
     prvek('p', 'podtitul', t('menu.nastaveni.podtitul')),
-    skupinaJazyka(), zvuk, hra, skupinaNaPlochu(),
+    skupinaJazyka(), zvuk, hra, skupinaBarev(), skupinaNaPlochu(),
   );
+}
+
+// Barvy (režim pro barvoslepé, barvy.js): tlačítko za každý režim s kontrolkou (vypnuto, deuteranopie,
+// protanopie, tritanopie), pod nimi co režim znamená a ukázka: rarity v barvách režimu (se značkou) a vzory
+// nebezpečí, jak vypadají ve hře. Klik režim hned přepne a uloží, stránka dostane data-barvy (main.js).
+const VZORY_UKAZKY = ['varovani', 'lava', 'bahno', 'jed', 'led'];
+
+function skupinaBarev() {
+  const sekce = skupina(t('menu.barvy.nadpis'), 'barvy');
+  const radek = prvek('div', 'radek-tlacitek nastaveni-radek barvy-radek');
+  const popis = prvek('p', 'barvy-text');
+  const tlacitka = REZIMY_BAREV.map((r) => {
+    const b = prvek('button', 'menu-tlacitko prepinac');
+    b.type = 'button';
+    b.dataset.barvy = r;
+    b.append(prvek('span', 'prepinac-stav', t(`menu.barvy.rezimy.${r}`)));
+    b.addEventListener('click', () => {
+      nastaveni = { ...nastaveni, barvy: r };
+      ulozNastaveni(nastaveni);
+      nastavBarvy(r);
+    });
+    radek.append(b);
+    return b;
+  });
+  const ukaz = () => {
+    const zvoleny = rezimBarev();
+    for (const b of tlacitka) {
+      b.classList.toggle('vypnuto', b.dataset.barvy !== zvoleny);
+      b.setAttribute('aria-pressed', String(b.dataset.barvy === zvoleny));
+    }
+    popis.textContent = t(`menu.barvy.popis.${zvoleny}`);
+  };
+  const rarity = prvek('div', 'barvy-ukazka');
+  for (const id of Object.keys(RARITY_VYBAVY)) {
+    const kus = prvek('span', `ukazka-rarity rarita-${id}`);
+    kus.append(prvek('i', 'znak-rarity'), prvek('span', '', RARITY_VYBAVY[id].nazev));
+    rarity.append(kus);
+  }
+  const vzory = prvek('div', 'barvy-vzory');
+  for (const druh of VZORY_UKAZKY) {
+    const v = prvek('span', 'ukazka-vzoru');
+    v.dataset.vzor = druh;
+    v.append(ukazkaVzoru(druh), prvek('small', '', t(`menu.barvy.vzory.${druh}`)));
+    vzory.append(v);
+  }
+  // Vzory se kreslí v barvách režimu: po přepnutí znovu.
+  const odhlas = priZmeneBarev(() => {
+    if (!sekce.isConnected) return odhlas();
+    ukaz();
+    for (const v of vzory.children) v.firstChild.replaceWith(ukazkaVzoru(v.dataset.vzor));
+  });
+  ukaz();
+  sekce.append(radek, popis, rarity, vzory);
+  return sekce;
 }
 
 // Profil: každý profil má svoje duše, vylepšení, rekordy, sbírku a mapy (ulozeni.js), nastavení je společné.
