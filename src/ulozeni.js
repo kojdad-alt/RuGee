@@ -266,6 +266,11 @@ export function ulozTridu(id) {
 }
 
 // Duše a koupená vylepšení: { duse, vylepseni: { id: úroveň } }. Rozbitý záznam = nic nekoupeno.
+// Převod na strom vylepšení (5. 11. 2026): uložení z doby před stromem má jen sedm původních vylepšení a ta mají ve
+// stromu stejná id, ceny i čísla. Kde ve stromu před koupeným uzlem leží nový uzel (Oživení je za Odolností, Štěstí
+// za Magnetem), doplní platnyStav (duse.js, doplnCestu) cestu ke středu úrovní 1 zadarmo, takže nikdo o nic nepřijde
+// a strom je hned propojený. Doplňuje se při každém čtení, v úložišti se nic nepřepíše, dokud hráč něco nekoupí
+// (pak se uloží celý převedený stav).
 export function nactiDuse(slot = aktivniSlot()) {
   return platnyStav(nacti(klic(slot, DUSE)));
 }

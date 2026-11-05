@@ -6,7 +6,7 @@ import {
   KUPEC, CENA_ZAMCENE, POLOMER_ZAMCENE, zakladBosse, DOPAD_KRYSTALU, DOZNIVANI_MRAZU, TRVANI_TRISTENI,
   KYV_ZVONU, ZRANI_SEMINKA, POMER_KERE, RUST_KERE, VADNUTI_KERE, TRVANI_VYBUCHU_SEMINKA,
   VYRAZENI_KORENU, VZPLANUTI, DOHASINANI, PAD_KAMENE, TRVANI_DOZVUKU, poziceUhliku,
-  LET_KAPKY, TRVANI_OSTNU, TRVANI_PRASKNUTI,
+  LET_KAPKY, TRVANI_OSTNU, TRVANI_PRASKNUTI, maStit, dobitiStitu,
 } from './hra.js';
 import { kresliPodlahu } from './louka.js';
 import { MAPY, VYCHOZI_MAPA, hash } from './mapy.js';
@@ -1682,13 +1682,13 @@ export function pixelCisel(sirka, vyska) {
   return Math.max(3, Math.round(Math.min(sirka, vyska) / 200));
 }
 
-// Štít (pasiva): hotová bublina kolem hrdiny mírně pulzuje a má odlesk, při dobíjení je kolem tenký oblouk, kolik
+// Štít (pasiva nebo trvalá Bublina): hotová bublina kolem hrdiny mírně pulzuje a má odlesk, při dobíjení je kolem tenký oblouk, kolik
 // už je dobito, a prasklá bublina se ještě chvíli rozbíhá a bledne.
 const POLOMER_BUBLINY = 17;
 function stitHrdiny(ctx, hra, stred) {
   const { hrdina } = hra;
-  const maStit = hra.pasivy?.stit > 0;
-  if (!maStit && !(hra.prasklStit > 0)) return;
+  const stit = maStit(hra);
+  if (!stit && !(hra.prasklStit > 0)) return;
   const kruh = (r, barva, sirkaCary, od = 0, kam = Math.PI * 2) => {
     ctx.strokeStyle = barva;
     ctx.lineWidth = sirkaCary;
@@ -1697,7 +1697,7 @@ function stitHrdiny(ctx, hra, stred) {
     ctx.stroke();
   };
   ctx.save();
-  if (maStit && hrdina.stitHotov) {
+  if (stit && hrdina.stitHotov) {
     const r = POLOMER_BUBLINY + Math.sin(hra.cas * 4);
     ctx.globalAlpha = 0.18;
     ctx.fillStyle = '#7fd8ff';
@@ -1711,8 +1711,9 @@ function stitHrdiny(ctx, hra, stred) {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(Math.round(stred.x - r * 0.6), Math.round(stred.y - r * 0.7), 4, 2);
     ctx.fillRect(Math.round(stred.x - r * 0.75), Math.round(stred.y - r * 0.5), 2, 3);
-  } else if (maStit && hrdina.dobitiStitu > 0) {
-    const podil = Math.max(0, Math.min(1, 1 - hrdina.doStitu / hrdina.dobitiStitu));
+  } else if (stit && hrdina.dobitiStitu > 0) {
+    const dobiti = dobitiStitu(hra);
+    const podil = Math.max(0, Math.min(1, 1 - hrdina.doStitu / dobiti));
     ctx.globalAlpha = 0.4;
     kruh(POLOMER_BUBLINY, '#7fd8ff', 2, -Math.PI / 2, -Math.PI / 2 + podil * Math.PI * 2);
   }

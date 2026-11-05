@@ -167,6 +167,7 @@ import {
   OBKLICENI, silaObkliceni, NEZRANITELNY_PO_RANE, PRIZPUSOBENI, cilNaskoku, casHrozby, silaHry, hrozbaNavic, podilTrvalych,
   ocekavanaUroven, prisunZivotu, SCHOPNOSTI_NEPRATEL, schopnostiNepritele, NAPOR_ELITY, ELITNI, OBYCEJNE,
   PRVNI_SCHOPNOST_NEPRATEL, NADBIHANI, VUDCE, TLAK_BOSSU, pauzaBosse,
+  BLUDNY_KROK, POUTNIK, BUBLINA, POSLEDNI_VZDOR, zbranArzenalu, maStit,
 } from '../src/hra.js';
 import {
   VYBAVA, PORADI_SLOTU, VSECHNY_KUSY, RARITY_VYBAVY, PORADI_RARIT_VYBAVY, EFEKTY_VYBAVY, STATY_VYBAVY, STROPY_VYBAVY,
@@ -174,7 +175,8 @@ import {
   radkyStatu, rozdilStatu, platnaSbirka, SLOTY as SLOTY_VYBAVY,
 } from '../src/vystroj.js';
 import {
-  VYLEPSENI, DUSE_ZA, dusZaHru, cenaVylepseni, kupVylepseni, vratDuse, utraceno,
+  VYLEPSENI, DUSE_ZA, dusZaHru, cenaVylepseni, kupVylepseni, vratDuse, utraceno, VETVE, STRED, poziceUzlu, doplnCestu,
+  platnyStav, dostupne, stavUzlu, CENA_STROMU, popisVylepseni, navicHre, prehledStromu,
 } from '../src/duse.js';
 import {
   nactiRekord, zapisVysledek, nactiTridu, ulozTridu, nactiDuse, ulozDuse, pripisDuse, nactiNastaveni, ulozNastaveni,
@@ -607,7 +609,7 @@ const stojiciBot = () => ({ dx: 0, dy: 0 });
 const BOTI = { hraje: rozhodni, stoji: stojiciBot };
 
 // Strojový výstup pro nastroje/balanc.py. Jen s --json, bez něj test běží úplně stejně jako dřív.
-//   node tests/simulace.mjs <seminko> <sekund> --json [--trida id] [--mapa id] [--vylepseni max] [--bot hraje|stoji]
+//   node tests/simulace.mjs <seminko> <sekund> --json [--trida id] [--mapa id] [--vylepseni max [--bez id,id]] [--bot hraje|stoji]
 // Odehraje jednu hru botem (hraje = stejný bot jako hry na mapách, rozhodni + obsluz; stoji = stojí na místě),
 // nic nekontroluje a vypíše jeden řádek JSON: výsledek, průběh po minutách (zabití, úroveň, nepřátelé naráz,
 // elity, rány) a příchod a pád každého bosse.
@@ -639,7 +641,9 @@ if (process.argv.includes('--json')) {
   } else {
     const idTridy = volba('--trida', VYCHOZI_TRIDA);
     const idMapy = volba('--mapa', VYCHOZI_MAPA);
-    const vylepseni = volba('--vylepseni', '') === 'max' ? Object.fromEntries(Object.entries(VYLEPSENI).map(([id, v]) => [id, v.max])) : {};
+    // --bez a,b: se všemi vylepšeními kromě těchto uzlů (na ladění, co ze stromu kolik dává).
+    const bez = new Set(volba('--bez', '').split(',').filter(Boolean));
+    const vylepseni = volba('--vylepseni', '') === 'max' ? Object.fromEntries(Object.entries(VYLEPSENI).filter(([id]) => !bez.has(id)).map(([id, v]) => [id, v.max])) : {};
     const idBota = volba('--bot', 'hraje');
     if (!Object.hasOwn(TRIDY, idTridy) || !PORADI_MAP.includes(idMapy) || !Number.isFinite(seminko) || !(delka > 0) || !Object.hasOwn(BOTI, idBota)) {
       console.error(`CHYBA: neznámá třída, mapa, bot, semínko nebo délka (${idTridy}, ${idMapy}, ${idBota}, ${seminko}, ${delka})`);
@@ -966,14 +970,22 @@ for (const [popis, nic] of [['{}', {}], ['nuly', nuly], ['null', null], ['rozbit
 if (hra.oziveno !== 0) chybyDusi.push('hra bez vylepšení oživila hrdinu');
 // Každé vylepšení na maximu změní svou vlastnost přesně o to, co slibuje.
 const plna = Object.fromEntries(Object.entries(VYLEPSENI).map(([id, v]) => [id, v.max]));
-const slaby = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA).hrdina;
-const silny = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, plna).hrdina;
 for (const [id, v] of Object.entries(VYLEPSENI)) {
-  const ocekavano = v.nasobek ? slaby[v.vlastnost] * (1 + v.nasobek * v.max) : slaby[v.vlastnost] + v.pricti * v.max;
-  if (!(Math.abs(silny[v.vlastnost] - ocekavano) < 1e-9) || silny[v.vlastnost] === slaby[v.vlastnost]) {
-    chybyDusi.push(`vylepšení ${id} nezměnilo ${v.vlastnost} (${silny[v.vlastnost]})`);
+  const trida = v.efekty.find((e) => e.trida)?.trida ?? VYCHOZI_TRIDA;
+  const pred = novaHra(vytvorRng(seminko), trida);
+  const po = novaHra(vytvorRng(seminko), trida, { [id]: v.max });
+  for (const e of v.efekty) {
+    const [stare, nove] = e.hra ? [pred[e.hra], po[e.hra]] : [pred.hrdina[e.vlastnost], po.hrdina[e.vlastnost]];
+    const ocekavano = e.nasobek ? stare * (1 + e.nasobek * v.max) : stare + e.pricti * v.max;
+    if (!(Math.abs(nove - ocekavano) < 1e-9) || nove === stare) chybyDusi.push(`vylepšení ${id} nezměnilo ${e.hra ?? e.vlastnost} (${stare} → ${nove})`);
+  }
+  // Uzel jen pro jednu postavu za jinou nic nemění.
+  if (v.efekty.some((e) => e.trida)) {
+    const jina = Object.keys(TRIDY).find((tr) => tr !== trida);
+    if (otiskHry(novaHra(vytvorRng(seminko), jina, { [id]: v.max })) !== otiskHry(novaHra(vytvorRng(seminko), jina))) chybyDusi.push(`vylepšení ${id} změnilo jinou postavu`);
   }
 }
+const silny = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, plna).hrdina;
 if (silny.hp !== silny.maxHp) chybyDusi.push('s vylepšenými životy hrdina nezačíná naplno');
 // Zkušenosti: krystal pod nohama dá víc.
 const zk = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, { zkusenosti: VYLEPSENI.zkusenosti.max });
@@ -1032,7 +1044,7 @@ if (dusZaHru({ cas: 0, zabito: 0, zabitoBossu: 0, zlataky: DUSE_ZA.zlataku - 1 }
 if (dusZaHru(novaHra(vytvorRng(1))).celkem !== 0) chybyDusi.push('nová hra má mít 0 duší');
 if (dusZaHru({ cas: 0, zabito: 0, zabitoBossu: 2 }).celkem !== 2 * DUSE_ZA.strazce) chybyDusi.push('Strážci nedávají duše');
 // Obchod: ceny rostou, bez duší ani nad maximum se nekoupí, Vrátit duše vrátí přesně utracené.
-let obchod = { duse: 100000, vylepseni: {} };
+let obchod = { duse: CENA_STROMU + 100000, vylepseni: {} };
 let zaplaceno = 0;
 for (const [id, v] of Object.entries(VYLEPSENI)) {
   for (let u = 1; u < v.max; u++) {
@@ -1047,9 +1059,10 @@ for (const [id, v] of Object.entries(VYLEPSENI)) {
   }
   if (cenaVylepseni(id, v.max) !== null || kupVylepseni(obchod, id) !== null) chybyDusi.push(`${id} jde koupit nad maximum`);
 }
-if (utraceno(obchod.vylepseni) !== zaplaceno || obchod.duse !== 100000 - zaplaceno) chybyDusi.push('utracené duše nesedí');
+if (utraceno(obchod.vylepseni) !== zaplaceno || obchod.duse !== CENA_STROMU + 100000 - zaplaceno) chybyDusi.push('utracené duše nesedí');
+if (zaplaceno !== CENA_STROMU || JSON.stringify(obchod.vylepseni) !== JSON.stringify(plna)) chybyDusi.push(`celý strom stál ${zaplaceno}, ne ${CENA_STROMU}`);
 const vraceno = vratDuse(obchod);
-if (vraceno.duse !== 100000 || Object.keys(vraceno.vylepseni).length) chybyDusi.push('Vrátit duše nevrátilo všechno');
+if (vraceno.duse !== CENA_STROMU + 100000 || Object.keys(vraceno.vylepseni).length) chybyDusi.push('Vrátit duše nevrátilo všechno');
 if (kupVylepseni({ duse: cenaVylepseni('sila', 0) - 1, vylepseni: {} }, 'sila') !== null) chybyDusi.push('nákup bez dost duší prošel');
 if (kupVylepseni({ duse: 999, vylepseni: {} }, 'drak') !== null) chybyDusi.push('koupilo se neznámé vylepšení');
 
@@ -2817,7 +2830,7 @@ const pasivyII = {};
     return zkus(h);
   })();
   if (!relBlizkoP(xp5, xp0 * (1 + PASIVY.moudrost.nasobek) ** 5)) chybyPasiv.push(`Moudrost 5: krystal dal ${xp5} místo ${xp0 * 1.1 ** 5}`);
-  if (!relBlizkoP(sTrvalymi, xp5 * (1 + VYLEPSENI.zkusenosti.nasobek * VYLEPSENI.zkusenosti.max))) chybyPasiv.push(`Moudrost s trvalými Zkušenostmi: ${sTrvalymi}`);
+  if (!relBlizkoP(sTrvalymi, xp5 * (1 + VYLEPSENI.zkusenosti.efekty[0].nasobek * VYLEPSENI.zkusenosti.max))) chybyPasiv.push(`Moudrost s trvalými Zkušenostmi: ${sTrvalymi}`);
   const moudrost60 = sUrovni(ticha(), 'moudrost', 60).hrdina.zkusenosti;
   if (!relBlizkoP(moudrost60, STROPY.pasivy.moudrost)) chybyPasiv.push(`Moudrost na 60. úrovni ${moudrost60}`);
   pasivyII.moudrost = { krystal_1: xp0, s_5_urovnemi: Math.round(xp5 * 1000) / 1000, i_s_trvalymi: Math.round(sTrvalymi * 1000) / 1000, na_60_urovni: moudrost60 };
@@ -4931,12 +4944,225 @@ for (const id of Object.keys(ZBRANE).filter((z) => !zvukyVHrach[zvukZbrane(z)]))
 const ticheZbrane = Object.keys(ZBRANE).filter((id) => !zvukyVHrach[zvukZbrane(id)]);
 if (ticheZbrane.length) chybyZvuku.push(`zbraně bez zvuku: ${ticheZbrane.join(', ')}`);
 vysledek.zvuk = { ...vysledekZvuku, udalosti_v_hrach: zvukyVHrach };
+
+// Strom trvalých vylepšení: tvar stromu, zamčené uzly, převod starých uložení a klíčové uzly.
+const chybyStromu = [];
+const vysledekStromu = {};
+{
+  const uzly = Object.entries(VYLEPSENI);
+  const ids = uzly.map(([id]) => id);
+  if (uzly.length < 60 || uzly.length > 90) chybyStromu.push(`strom má ${uzly.length} uzlů, čekám 60–90`);
+  if (uzly.filter(([, v]) => v.max > 1).length < uzly.length * 0.7) chybyStromu.push('víceúrovňových uzlů je míň než 70 %');
+  for (const [i, [id, v]] of uzly.entries()) {
+    if (!Object.hasOwn(VETVE, v.vetev)) chybyStromu.push(`${id}: neznámá větev ${v.vetev}`);
+    if (v.od !== null && (!ids.slice(0, i).includes(v.od) || VYLEPSENI[v.od].vetev !== v.vetev)) chybyStromu.push(`${id}: rodič ${v.od} není nad ním ve stejné větvi`);
+    if (!jmenaSpritu.has(v.ikona)) chybyStromu.push(`${id}: ikona ${v.ikona} neexistuje`);
+    if (!(v.max >= 1) || !(v.cena > 0) || !v.efekty.length) chybyStromu.push(`${id}: max ${v.max}, cena ${v.cena}`);
+    if (v.klicovy && (v.max !== 1 || uzly.some(([, d]) => d.od === id))) chybyStromu.push(`${id}: klíčový uzel má být jedna úroveň na konci větve`);
+    for (const j of ['cs', 'en']) {
+      for (const pole of ['nazev', 'popis']) if (typeof SLOVNIKY[j].vylepseni?.[id]?.[pole] !== 'string') chybyStromu.push(`${id}: chybí ${j} ${pole}`);
+    }
+    for (let u = 0; u <= v.max; u++) if (/[{}]|undefined|NaN/.test(popisVylepseni(id, u))) chybyStromu.push(`${id}: popis ${popisVylepseni(id, u)}`);
+  }
+  for (const id of Object.keys(VETVE)) {
+    const vetev = uzly.filter(([, v]) => v.vetev === id);
+    if (vetev.filter(([, v]) => v.od === null).length !== 1 || vetev.filter(([, v]) => v.klicovy).length !== 2) chybyStromu.push(`větev ${id}: má mít 1 začátek a 2 klíčové uzly`);
+  }
+  // Uzly se nepřekrývají: aspoň 0,9 dílku od sebe a od středu.
+  const mista = [[STRED, poziceUzlu(STRED)], ...ids.map((id) => [id, poziceUzlu(id)])];
+  for (let i = 0; i < mista.length; i++) {
+    for (let j = i + 1; j < mista.length; j++) {
+      const d = Math.hypot(mista[i][1].x - mista[j][1].x, mista[i][1].y - mista[j][1].y);
+      if (d < 0.9) chybyStromu.push(`uzly ${mista[i][0]} a ${mista[j][0]} jsou ${d.toFixed(2)} od sebe`);
+    }
+  }
+  // Zamčený uzel nejde koupit ani se spoustou duší, po koupi rodiče jde.
+  const hodne = { duse: 1e6, vylepseni: {} };
+  if (kupVylepseni(hodne, 'ostri') !== null || dostupne({}, 'ostri') || stavUzlu({}, 'ostri') !== 'zamceny') chybyStromu.push('zamčený uzel šel koupit');
+  const sSilou = kupVylepseni(hodne, 'sila');
+  if (!sSilou || !kupVylepseni(sSilou, 'ostri') || stavUzlu(sSilou.vylepseni, 'ostri') !== 'dostupny' || stavUzlu(sSilou.vylepseni, 'sila') !== 'rozkoupany'
+    || stavUzlu(plna, 'sila') !== 'koupeny' || stavUzlu({}, 'sila') !== 'dostupny') chybyStromu.push('po koupi rodiče nejde koupit dítě nebo nesedí stavy');
+  // Převod uložení z doby před stromem: sedm starých vylepšení zůstane, jak bylo, cesta se doplní zadarmo.
+  const stare = { sila: 5, zivoty: 3, rychlost: 2, magnet: 1, stesti: 4, zkusenosti: 5, oziveni: 1 };
+  const prevedeno = platnyStav({ duse: 77, vylepseni: stare });
+  const ztraceno = Object.entries(stare).filter(([id, u]) => prevedeno.vylepseni[id] !== u);
+  if (ztraceno.length || prevedeno.duse !== 77 || prevedeno.vylepseni.odolnost !== 1 || utraceno(prevedeno.vylepseni) < utraceno(stare)) {
+    chybyStromu.push(`převod starého uložení: ${JSON.stringify(prevedeno)}`);
+  }
+  const jenStesti = doplnCestu({ stesti: 2, oziveni: 1 });
+  if (JSON.stringify(jenStesti) !== JSON.stringify({ magnet: 1, stesti: 2, zivoty: 1, odolnost: 1, oziveni: 1 })) chybyStromu.push(`doplnění cesty: ${JSON.stringify(jenStesti)}`);
+  if (JSON.stringify(doplnCestu(plna)) !== JSON.stringify(plna) || JSON.stringify(doplnCestu({})) !== '{}') chybyStromu.push('doplnění cesty změnilo celý nebo prázdný strom');
+  if (vratDuse(prevedeno).duse < 77 + utraceno(stare)) chybyStromu.push('Vrátit duše po převodu vrátilo méně, než hráč utratil');
+  // Podíl vylepšení podle duší: klíčový uzel váží víc než první úroveň Síly.
+  if (!(podilTrvalych({ sila: 1 }) < podilTrvalych({ sila: 1, ostri: 1, oko: 1, tezkaRuka: 1, presnost: 1, rozhodnost: 1, krvaveOstri: 1 }))) chybyStromu.push('podíl vylepšení nebere ceny');
+  // Klíčové uzly a nová pravidla.
+  const hraS = (vylepseni, trida = VYCHOZI_TRIDA, mapa = VYCHOZI_MAPA) => {
+    const h = novaHra(vytvorRng(seminko), trida, vylepseni, mapa);
+    Object.assign(h, { zbrane: {}, doSpawnu: Infinity, doBedny: Infinity, dalsiBoss: Infinity, dalsiSmecka: null, doZamcene: Infinity, dalsiKupec: Infinity });
+    h.hrdina.stani = -Infinity;
+    return h;
+  };
+  const terc = (h, x = 300, hp = 1000, navic = {}) => {
+    const n = pridejNepritele(h, 'kostlivec', x, 0);
+    Object.assign(n, { hp, maxHp: hp, rychlost: 0, poskozeni: 0 }, navic);
+    return n;
+  };
+  {
+    const h = hraS({ krvaveOstri: 1 });
+    h.hrdina.krit = 1;
+    const n = terc(h);
+    zasah(h, n, 10);
+    if (n.hp !== 1000 - Math.round(10 * (NASOBEK_KRITU + 0.5))) chybyStromu.push(`Krvavé ostří: kritický zásah ubral ${1000 - n.hp}`);
+  }
+  {
+    const h = hraS({ popravci: 1 });
+    const prah = VYLEPSENI.popravci.efekty[0].pricti;
+    const n = terc(h, 300, 100);
+    zasah(h, n, 100 - Math.floor(prah * 100));
+    const b = terc(h, -300, 100, { boss: true });
+    zasah(h, b, 95);
+    const m = terc(h, 0, 100);
+    zasah(h, m, 80);
+    if (n.hp !== 0 || h.popraveno !== 1 || b.hp !== 5 || m.hp !== 20) chybyStromu.push(`Popravčí: ${n.hp}, boss ${b.hp}, zdravý ${m.hp}`);
+  }
+  {
+    const h = hraS({ lovecBossu: 3, lovecElit: 3 });
+    const b = terc(h, 300, 1000, { boss: true });
+    const e = terc(h, -300, 1000, { elita: true });
+    zasah(h, b, 100);
+    zasah(h, e, 100);
+    const naBosse = Math.round(100 * (1 + VYLEPSENI.lovecBossu.efekty[0].nasobek * 3));
+    const naElity = Math.round(100 * (1 + VYLEPSENI.lovecElit.efekty[0].nasobek * 3));
+    if (b.hp !== 1000 - naBosse || e.hp !== 1000 - naElity) chybyStromu.push(`poškození bossům ${1000 - b.hp}, elitám ${1000 - e.hp}`);
+  }
+  {
+    const zakladni = novaHra(vytvorRng(seminko), 'lovec');
+    const h = novaHra(vytvorRng(seminko), 'lovec', { kovar: 2, arzenal: 1, prival: 1, oziveni: 1, mesec: 3, klicnik: 2, zasoba: 3, druhyPohled: 2 });
+    if (h.zbrane.jiskra?.uroven !== 3 || h.zbrane[zbranArzenalu('lovec')]?.uroven !== 1 || zbranArzenalu('lovec') === 'jiskra' || zbranArzenalu('bourlivak') !== 'jiskra') chybyStromu.push(`Kovář a Arzenál: ${JSON.stringify(h.zbrane)}`);
+    if (h.hrdina.prival !== 1 || h.hrdina.oziveni !== 1 || h.zlataky !== 15 || h.klice !== 2 || h.prehozeniZdarma !== 5) chybyStromu.push(`začátek hry: příval ${h.hrdina.prival}, oživení ${h.hrdina.oziveni}, ${h.zlataky} zl., ${h.klice} klíčů, ${h.prehozeniZdarma} přehození`);
+    if (JSON.stringify(navicHre({ mesec: 2, zasoba: 1 })) !== '{"prehozeniZdarma":1,"zlataky":10}' && JSON.stringify(navicHre({ mesec: 2, zasoba: 1 })) !== '{"zlataky":10,"prehozeniZdarma":1}') chybyStromu.push('navicHre nesedí');
+    // Mistr postavy: výhoda Lovce (+15 % rychlosti) je o polovinu větší.
+    const mistr = novaHra(vytvorRng(seminko), 'lovec', { mistr: 1 });
+    const bezVyhody = zakladni.hrdina.rychlost / TRIDY.lovec.nasobky.rychlost;
+    if (Math.abs(mistr.hrdina.rychlost - bezVyhody * (1 + (TRIDY.lovec.nasobky.rychlost - 1) * 1.5)) > 1e-9) chybyStromu.push(`Mistr postavy: rychlost ${mistr.hrdina.rychlost}`);
+  }
+  {
+    // Bublina: štít je hotový hned na začátku bez pasivy a zastaví ránu, Rychlé dobití ho dobije dřív (nejvýš po MIN).
+    const h = hraS({ bublina: 1, dobiti: 3 });
+    aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    const bezBubliny = hraS({});
+    aktualizuj(bezBubliny, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    const hp = h.hrdina.hp;
+    const n = terc(h, 0, 1000, { poskozeni: 20 });
+    n.x = h.hrdina.x;
+    aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    const dobiti = BUBLINA.dobiti + VYLEPSENI.dobiti.efekty[0].pricti * VYLEPSENI.dobiti.max;
+    if (!maStit(h) || maStit(bezBubliny) || bezBubliny.hrdina.stitHotov || h.hrdina.hp !== hp || h.zablokovano !== 1 || Math.abs(h.hrdina.doStitu - dobiti) > 2 * DT) {
+      chybyStromu.push(`Bublina: hotová ${h.hrdina.stitHotov}, zablokováno ${h.zablokovano}, životy ${hp} → ${h.hrdina.hp}, dobití ${h.hrdina.doStitu}`);
+    }
+  }
+  {
+    // Bludný krok: po ráně hrdina zmizí na BLUDNY_KROK.trvani, další rána do pauzy už ne. Únik prodlouží chvíli bez zranění.
+    const h = hraS({ bludnyKrok: 1, unik: 3 });
+    const n = terc(h, 0, 1000, { poskozeni: 5 });
+    n.x = h.hrdina.x;
+    aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    const zmizel = h.hrdina.neviditelny;
+    h.hrdina.nezranitelny = 0;
+    h.hrdina.neviditelny = 0;
+    aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    const u = hraS({ unik: 3 });
+    const m = terc(u, 0, 1000, { poskozeni: 5 });
+    m.x = u.hrdina.x;
+    aktualizuj(u, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    if (!(zmizel > BLUDNY_KROK.trvani - 2 * DT) || h.bludnychKroku !== 1 || h.hrdina.neviditelny > 0 || Math.abs(u.hrdina.nezranitelny - NEZRANITELNY_PO_RANE * (1 + VYLEPSENI.unik.efekty[0].nasobek * 3)) > 1e-9) {
+      chybyStromu.push(`Bludný krok: zmizel ${zmizel}, kroků ${h.bludnychKroku}, Únik ${u.hrdina.nezranitelny}`);
+    }
+  }
+  {
+    // Magnetická bouře: po bourka s se k hrdinovi rozletí i vzdálené krystaly.
+    const h = hraS({ bourka: 1 });
+    h.krystaly.push({ x: 2000, y: 0, xp: 1 });
+    for (let t = 0; t < VYLEPSENI.bourka.efekty[0].pricti - 1; t += DT) aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    const pred = h.krystaly[0]?.pritahovan;
+    for (let t = 0; t < 2; t += DT) aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    if (pred || h.bourek !== 1 || !(h.krystaly.length === 0 || h.krystaly[0].pritahovan)) chybyStromu.push(`Magnetická bouře: před ${pred}, bouří ${h.bourek}`);
+  }
+  {
+    // Poslední vzdor: Oživení vrátí hrdinu s plnými životy a na POSLEDNI_VZDOR.nezranitelny s nezranitelného.
+    const h = hraS({ oziveni: 1, posledniVzdor: 1 });
+    h.hrdina.hp = 1;
+    const n = terc(h, 0, 1000, { poskozeni: 50 });
+    n.x = h.hrdina.x;
+    aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    if (h.oziveno !== 1 || h.hrdina.hp !== h.hrdina.maxHp || Math.abs(h.hrdina.nezranitelny - POSLEDNI_VZDOR.nezranitelny) > 2 * DT) chybyStromu.push(`Poslední vzdor: oživeno ${h.oziveno}, ${h.hrdina.hp}/${h.hrdina.maxHp}, nezranitelný ${h.hrdina.nezranitelny}`);
+  }
+  {
+    // Trofeje: zabitý boss přidá poškození.
+    const h = hraS({ trofeje: 1 });
+    const sila = h.hrdina.sila;
+    const b = terc(h, 300, 10, { boss: true });
+    zasah(h, b, 100);
+    aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    if (h.trofeji !== 1 || Math.abs(h.hrdina.sila - sila * (1 + VYLEPSENI.trofeje.efekty[0].pricti)) > 1e-9) chybyStromu.push(`Trofeje: ${h.trofeji}, síla ${h.hrdina.sila}`);
+  }
+  {
+    // Léčivá srdce, Smlouvání a Vybíravost.
+    const h = hraS({ leciva: 3 });
+    h.hrdina.hp = 10;
+    h.predmety.push({ druh: 'srdce', x: h.hrdina.x, y: h.hrdina.y });
+    aktualizuj(h, DT, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+    const zl = hraS({ smlouvani: 3 });
+    const obycejna = hraS({});
+    const vyb = hraS({ vybiravost: 5 });
+    if (Math.abs(h.hrdina.hp - Math.min(h.hrdina.maxHp, 10 + 25 * 1.6)) > 1e-6 || !(cenaZbozi(zl, 'kus') < cenaZbozi(obycejna, 'kus')) || !(sanceRarit(vyb).bezna < sanceRarit(obycejna).bezna)) {
+      chybyStromu.push(`srdce ${h.hrdina.hp}, kupec ${cenaZbozi(zl, 'kus')} / ${cenaZbozi(obycejna, 'kus')}, karty ${sanceRarit(vyb).bezna}`);
+    }
+  }
+  {
+    // Plochy: Brodění zpomalí bahnem méně, Poutník vůbec, Otužilost a Poutník pálí lávou méně, Ostruhy kloužou méně.
+    const najdi = (mapa, druh) => {
+      for (let r = 0; r < 4000; r += 8) for (let a = 0; a < 64; a++) {
+        const x = Math.round(Math.cos(a / 64 * Math.PI * 2) * r);
+        const y = Math.round(Math.sin(a / 64 * Math.PI * 2) * r);
+        if (naPlose(mapa, x, y) === druh && naPlose(mapa, x + 6, y) === druh && naPlose(mapa, x - 6, y) === druh) return { x, y };
+      }
+      return null;
+    };
+    const krok = (vylepseni, mapa, druh) => {
+      const h = hraS(vylepseni, VYCHOZI_TRIDA, mapa);
+      Object.assign(h.hrdina, najdi(mapa, druh));
+      const x = h.hrdina.x;
+      aktualizuj(h, DT, { dx: 1, dy: 0 }, SIRKA, VYSKA);
+      return { ujito: h.hrdina.x - x, hp: h.hrdina.hp, h };
+    };
+    const bez = krok({}, 'bazina', 'bahno').ujito;
+    const brodeni = krok({ brodeni: 3 }, 'bazina', 'bahno').ujito;
+    const poutnik = krok({ poutnik: 1 }, 'bazina', 'bahno').ujito;
+    const plna = novaHra(vytvorRng(seminko)).hrdina.rychlost * DT;
+    const lava = (v) => { const k = krok(v, 'sopka', 'lava'); return k.h.hrdina.maxHp - k.hp; };
+    const [lBez, lOt, lPo] = [lava({}), lava({ otuzilost: 3 }), lava({ poutnik: 1 })];
+    const led = (v) => krok(v, 'jezero', 'led').ujito;
+    const [ledBez, ledOs, ledPo] = [led({}), led({ ostruhy: 3 }), led({ poutnik: 1 })];
+    if (!(bez < brodeni && brodeni < poutnik) || Math.abs(poutnik - plna) > 1e-6 || !(lBez > lOt && lOt > 0 && Math.abs(lPo - Math.max(1, Math.round(lBez * POUTNIK.lava))) <= 1)
+      || !(ledBez < ledOs && ledOs < ledPo) || Math.abs(ledPo - plna) > 1e-6) {
+      chybyStromu.push(`plochy: bahno ${bez} / ${brodeni} / ${poutnik} (plná ${plna}), láva ${lBez} / ${lOt} / ${lPo}, led ${ledBez} / ${ledOs} / ${ledPo}`);
+    }
+    vysledekStromu.plochy = { bahno_px: [bez, brodeni, poutnik].map((x) => Math.round(x * 100) / 100), lava: [lBez, lOt, lPo], led_px: [ledBez, ledOs, ledPo].map((x) => Math.round(x * 100) / 100) };
+  }
+  vysledekStromu.uzlu = uzly.length;
+  vysledekStromu.urovni = prehledStromu(plna).vse;
+  vysledekStromu.cena_stromu = CENA_STROMU;
+  vysledekStromu.prevod_stareho = prevedeno.vylepseni;
+}
+vysledek.strom_vylepseni = vysledekStromu;
 console.log(JSON.stringify(vysledek, null, 2));
 
 const chyby = [
   ...chybyTrid, ...chybyDusi, ...chybyRarit, ...new Set(chybyNepratel), ...chybyVybavy, ...chybyLucerny, ...new Set(chybyBeden),
   ...new Set(chybyBossu), ...chybyZbrani, ...new Set(chybyUrovni), ...new Set(chybyHrozby), ...new Set(chybyCisel),
   ...new Set(chybyVystroje), ...new Set(chybyZlata), ...new Set(chybyMap), ...new Set(chybyPasiv), ...chybyZvuku, ...new Set(chybyTezsi),
+  ...chybyStromu,
 ];
 if (maxTrsu > MAX_TRNU) chyby.push(`trsů trnů naráz ${maxTrsu}`);
 if (hra.trida !== VYCHOZI_TRIDA) chyby.push(`simulace nehraje za výchozí třídu (${hra.trida})`);
@@ -5094,8 +5320,9 @@ let profily = zajistiProfily();
 if (JSON.stringify(profily) !== JSON.stringify([{ slot: 1, jmeno: vychoziJmeno(), aktivni: true }])) chybyProfilu.push(`po převodu starých uložení jsou profily ${JSON.stringify(profily)}`);
 if (!stareBezeZmeny()) chybyProfilu.push('převod do profilu změnil stará uložení');
 const puvodni = popisProfilu(1);
+// Vylepšení z doby před stromem: Síla a Oživení zůstanou, cesta k Oživení (Životy, Odolnost) se doplní zadarmo.
 const cekamPuvodni = JSON.stringify({
-  duse: { duse: 123, vylepseni: { sila: 2, oziveni: 1 } }, trida: 'havir', rekord: 400, sbirka: { strazce_hlava: 'vzacna', obr_prsten: 'legendarni' },
+  duse: { duse: 123, vylepseni: { sila: 2, zivoty: 1, odolnost: 1, oziveni: 1 } }, trida: 'havir', rekord: 400, sbirka: { strazce_hlava: 'vzacna', obr_prsten: 'legendarni' },
   mapy: ['louka', 'jeskyne', 'jezero'], mapa: 'jezero',
 });
 if (puvodni !== cekamPuvodni || popisProfilu() !== puvodni) chybyProfilu.push(`profil Hráč nemá stará data: ${puvodni}`);
