@@ -111,7 +111,9 @@
 // a Chamtivost víc duší. Všechny mají ikonu, popis a úrovně bez stropu (kde je strop, dají pak poškození).
 // Překlady: každý klíč z kódu a každé data-t z index.html je ve slovníku (src/texty/cs.js), české texty stránky sedí
 // se slovníkem, v kódu mimo slovník není český text, data vrací texty slovníku (gettery i v kopiích), tvary slov
-// podle čísla sedí a texty kreslené pixelovým písmem písmo umí.
+// podle čísla sedí a texty kreslené pixelovým písmem písmo umí. Angličtina má každý klíč češtiny se stejnými
+// parametry, bez českých písmen, data i kopie po přepnutí vrací anglické texty, čísla a datum podle jazyka, jazyk
+// prohlížeče a uložený jazyk sedí a hra v angličtině hraje stejně.
 import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 import { crc32 as crc32Zlib, inflateSync } from 'node:zlib';
@@ -162,7 +164,8 @@ import {
 import { kodProfilu, prectiKod, souborProfilu, nazevSouboru, crc32, VERZE_KODU } from '../src/prenos.js';
 import { PISMO_NADPISU, PISMENA_LOGA } from '../src/pismo.js';
 import {
-  t, hodnota, dosad, nastavJazyk, JAZYKY, VYCHOZI_JAZYK, cislo as cisloTextu, procenta as procentaTextu,
+  t, hodnota, dosad, tvar, nastavJazyk, aktualniJazyk, jazykProhlizece, JAZYKY, VYCHOZI_JAZYK, SLOVNIKY, cislo as cisloTextu,
+  procenta as procentaTextu, datum as datumTextu,
 } from '../src/texty.js';
 import { svg as svgRamu } from '../nastroje/ramy.mjs';
 import { IKONY, KRESBY, obrazek as obrazekIkony } from '../nastroje/ikony.mjs';
@@ -4974,6 +4977,109 @@ for (const jazyk of JAZYKY) {
   }
 }
 nastavJazyk(VYCHOZI_JAZYK);
+// Angličtina a ostatní jazyky: každý klíč češtiny je i v každém dalším jazyce a nic navíc, stejného druhu (text,
+// seznam stejné délky, větev) se stejnými parametry {jmeno} a stejnými značkami <kbd>. Anglické texty nemají
+// česká písmena. Po přepnutí do angličtiny vrací data anglické texty (gettery) a nikde v datech, kopiích ani
+// textech z funkcí nezůstane čeština. Tvary slov, čísla, procenta a datum podle jazyka, jazyk prohlížeče, uložení
+// jazyka v nastavení a záloha z češtiny pro chybějící klíč. Hra v angličtině hraje přesně stejně jako česky.
+const parametryTextu = (text) => [...new Set([...String(text).matchAll(/\{(\w+)[^}]*\}/g)].map((m) => m[1]))].sort().join(',');
+// kolik tvarů slova podle čísla jazyk používá (čeština 3, angličtina 2): tvary v datech jich mají aspoň tolik
+const pocetTvaru = (jazyk) => 1 + Math.max(...Array.from({ length: 200 }, (_, n) => tvar(n, [0, 1, 2, 3, 4, 5], jazyk)));
+const znackyTextu = (text) => (String(text).match(/<\/?\w+>/g) ?? []).join('');
+function srovnejSlovnik(vzor, jiny, cesta, jazyk) {
+  for (const k of new Set([...Object.keys(vzor), ...Object.keys(jiny ?? {})])) {
+    const a = vzor[k];
+    const b = jiny?.[k];
+    const kde = `${jazyk} ${cesta}${k}`;
+    if (!Object.hasOwn(vzor, k)) { chybyPrekladu.push(`${kde}: navíc, čeština ho nemá`); continue; }
+    if (b === undefined) { chybyPrekladu.push(`${kde}: chybí`); continue; }
+    if (Array.isArray(a) && k === 'tvary') {
+      if (!Array.isArray(b) || b.length < pocetTvaru(jazyk) || b.some((x) => typeof x !== 'string' || !x)) chybyPrekladu.push(`${kde}: má mít ${pocetTvaru(jazyk)} tvary`);
+    } else if (Array.isArray(a)) {
+      if (!Array.isArray(b) || a.length !== b.length) chybyPrekladu.push(`${kde}: má být seznam ${a.length} textů`);
+      else a.forEach((x, i) => { if (typeof b[i] !== 'string' || !b[i] || parametryTextu(x) !== parametryTextu(b[i])) chybyPrekladu.push(`${kde}[${i}]: prázdný nebo jiné parametry`); });
+    } else if (a && typeof a === 'object') {
+      if (!b || typeof b !== 'object' || Array.isArray(b)) chybyPrekladu.push(`${kde}: má být větev`);
+      else if (k === 'datum' && cesta === 'format.') { if (typeof b.locale !== 'string') chybyPrekladu.push(`${kde}: datum bez locale`); }
+      else srovnejSlovnik(a, b, `${cesta}${k}.`, jazyk);
+    } else if (typeof b !== 'string' || !b) chybyPrekladu.push(`${kde}: má být text`);
+    else if (parametryTextu(a) !== parametryTextu(b)) chybyPrekladu.push(`${kde}: parametry ${parametryTextu(b)} místo ${parametryTextu(a)}`);
+    else if (znackyTextu(a) !== znackyTextu(b)) chybyPrekladu.push(`${kde}: značky ${znackyTextu(b)} místo ${znackyTextu(a)}`);
+  }
+}
+if (!JAZYKY.includes('en') || JAZYKY[0] !== VYCHOZI_JAZYK || pocetTvaru('cs') !== 3 || pocetTvaru('en') !== 2) chybyPrekladu.push(`jazyky ${JAZYKY}`);
+for (const jazyk of JAZYKY.filter((j) => j !== VYCHOZI_JAZYK)) srovnejSlovnik(SLOVNIKY[VYCHOZI_JAZYK], SLOVNIKY[jazyk], '', jazyk);
+const textySlovniku = (v) => (typeof v === 'string' ? [v] : Array.isArray(v) ? v.flatMap(textySlovniku) : v && typeof v === 'object' ? Object.values(v).flatMap(textySlovniku) : []);
+const ceskeVAnglictine = textySlovniku(SLOVNIKY.en).filter((x) => DIAKRITIKA_TEXT.test(x) && /[áčďéěíňóřšťúůýž]/i.test(x));
+if (ceskeVAnglictine.length) chybyPrekladu.push(`angličtina má česká písmena: ${ceskeVAnglictine.slice(0, 3).join(' | ')}`);
+nastavJazyk('en');
+if (aktualniJazyk() !== 'en') chybyPrekladu.push('jazyk se nepřepnul na angličtinu');
+for (const [cesta, data] of Object.entries(DATA_SLOVNIKU)) projdiVetev(data, hodnota(cesta, 'en'), cesta);
+// čeština nikde v datech: projde všechny exporty modulů s daty (i kopie) a texty z funkcí
+const moduly = {
+  hra: await import('../src/hra.js'), mapy: await import('../src/mapy.js'), vystroj: await import('../src/vystroj.js'),
+  duse: await import('../src/duse.js'),
+};
+const videnoVDatech = new WeakSet();
+function ceskeTexty(v, cesta, nalez) {
+  if (typeof v === 'string') { if (/[áčďéěíňóřšťúůýž]/i.test(v)) nalez.push(`${cesta}: ${v}`); return nalez; }
+  if (!v || typeof v !== 'object' || videnoVDatech.has(v)) return nalez;
+  videnoVDatech.add(v);
+  for (const [k, x] of Object.entries(v)) ceskeTexty(x, `${cesta}.${k}`, nalez);
+  return nalez;
+}
+const vData = [];
+for (const [jmeno, modul] of Object.entries(moduly)) for (const [k, v] of Object.entries(modul)) if (typeof v === 'object') ceskeTexty(v, `${jmeno}.${k}`, vData);
+const hraEn = novaHra(vytvorRng(5), 'havir', {}, 'jezero');
+const zFunkci = {
+  schopnosti: Object.keys(BOSSOVE).flatMap((d) => schopnostiBosse(d).map((s) => s.nazev)),
+  hrozba: [1, 6, 11].map((u) => moduly.hra.textHrozby(u)),
+  karty: [...nabidka(hraEn), karta(hraEn, 'pasiva', 'stit', 'legendarni'), karta(hraEn, 'leceni', 'leceni', 'vzacna'), karta(hraEn, 'zbran', 'zvon', 'epicka')],
+  kusy: VSECHNY_KUSY.map((k) => [k.nazev, vytvorKus(k.boss, k.slot, 'epicka').nazev]),
+  sady: Object.keys(VYBAVA).flatMap((b) => [...popisSady(b), popisEfektu(b, 1), popisEfektu(b, 4)]),
+  staty: radkyStatu({ maxHp: 2, zbroj: 0.05, sila: 0.04, nabijeni: 0.03, rychlost: 0.02, magnet: 0.1 }),
+  ohlaseni: Object.values(PRICHODY_MAP).flat().map((p) => p.text),
+  jmenoProfilu: vychoziJmeno(),
+};
+ceskeTexty(zFunkci, 'funkce', vData);
+if (vData.length) chybyPrekladu.push(`v angličtině zůstala čeština: ${vData.slice(0, 4).join(' | ')}`);
+if (zFunkci.jmenoProfilu !== 'Player' || ZBRANE.jiskra.nazev !== 'Spark' || BOSSOVE.strazce.prichod !== t('bossove.strazce.prichod')) chybyPrekladu.push('angličtina: jméno profilu, zbraň nebo boss');
+const tvaryEn = [0, 1, 2, 5].map((n) => t('tvary.kusy', { n })).join('|');
+if (tvaryEn !== '0 pieces|1 piece|2 pieces|5 pieces' || t('menu.duse', { n: 1 }) !== '1 soul' || t('tvary.zlataky', { n: 3 }) !== '3 gold') chybyPrekladu.push(`anglické tvary: ${tvaryEn}`);
+if (cisloTextu(1.25) !== '1.3' || procentaTextu(5) !== '5%' || radkyStatu({ zbroj: 0.056 })[0] !== '+5.6% armor') chybyPrekladu.push(`anglická čísla: ${cisloTextu(1.25)} ${procentaTextu(5)} ${radkyStatu({ zbroj: 0.056 })}`);
+if (datumTextu(new Date('2026-11-05T12:00:00Z')) !== '5 Nov 2026') chybyPrekladu.push(`anglické datum: ${datumTextu(new Date('2026-11-05T12:00:00Z'))}`);
+// záloha: co angličtina nemá, vezme se z češtiny
+const bomba = SLOVNIKY.en.hra.bomba;
+delete SLOVNIKY.en.hra.bomba;
+if (t('hra.bomba') !== SLOVNIKY.cs.hra.bomba) chybyPrekladu.push('chybějící anglický klíč nevzal češtinu');
+SLOVNIKY.en.hra.bomba = bomba;
+// hra v angličtině hraje stejně jako česky (texty nemají na pravidla vliv)
+const odehraj = (jazyk) => {
+  nastavJazyk(jazyk);
+  const h = novaHra(vytvorRng(11), 'lovec', {}, 'bazina');
+  for (let i = 0; i < 2400 && !h.konec; i++) {
+    aktualizuj(h, DT, rozhodni(h, i * DT), SIRKA, VYSKA);
+    obsluz(h);
+  }
+  return JSON.stringify([h.cas, h.zabito, h.hrdina.uroven, h.hrdina.hp, h.zlataky, h.nepratele.length, Object.keys(h.zbrane), h.pasivy]);
+};
+const hraCesky = odehraj('cs');
+if (odehraj('en') !== hraCesky) chybyPrekladu.push('hra v angličtině dopadla jinak než česky');
+nastavJazyk(VYCHOZI_JAZYK);
+// jazyk prohlížeče a uložení v nastavení
+const prohlizece = [[['cs-CZ', 'en'], 'cs'], [['sk'], 'cs'], [['en-US'], 'en'], [['de-DE', 'en-GB'], 'en'], [['de-DE', 'cs'], 'cs'], [[], 'en'], [[undefined], 'en']];
+for (const [seznam, cekam] of prohlizece) if (jazykProhlizece(seznam) !== cekam) chybyPrekladu.push(`prohlížeč ${seznam} dal ${jazykProhlizece(seznam)}`);
+{
+  const ulozene = new Map();
+  nahradUloziste({ getItem: (k) => ulozene.get(k) ?? null, setItem: (k, v) => ulozene.set(k, String(v)) });
+  if (nactiNastaveni().jazyk !== '') chybyPrekladu.push('nový hráč má mít jazyk nezvolený');
+  ulozNastaveni({ ...nactiNastaveni(), jazyk: 'en' });
+  if (nactiNastaveni().jazyk !== 'en') chybyPrekladu.push('jazyk se neuložil');
+  for (const spatne of ['de', 7, null, 'EN']) {
+    ulozene.set('hlubiny.nastaveni', JSON.stringify({ jazyk: spatne }));
+    if (nactiNastaveni().jazyk !== '') chybyPrekladu.push(`rozbitý jazyk ${spatne} prošel`);
+  }
+}
 chyby.push(...chybyPrekladu);
 
 // Aplikace (PWA). Manifest má jméno, start a rozsah ./, celou obrazovku a ikony 192, 512 a maskovatelnou 512.
