@@ -13,6 +13,15 @@ import { MAPY, VYCHOZI_MAPA, hash } from './mapy.js';
 import { nakresliText, STYL_PERGAMEN, STYL_NADPISU, STYL_KREV, PISMO_NADPISU } from './pismo.js';
 // t ze slovníku je tu preklad (t je v kreslení skoro všude průběh animace 0..1)
 import { t as preklad } from './texty.js';
+import { barvoslepy, barvyRarity, ZNAKY_RARIT } from './barvy.js';
+import { vzorNebezpeci, znakRarity } from './vzory.js';
+
+// Kde je kamera (levý horní roh obrazovky ve světě) v tomhle snímku: vzory režimu pro barvoslepé drží ke světu.
+const kamera = { x: 0, y: 0 };
+// Režim pro barvoslepé: šikmé pruhy (varování bossů) nebo puntíky (jed) jako výplň, posunuté s kamerou.
+function vzor(ctx, druh) {
+  return vzorNebezpeci(ctx, druh, kamera.x, kamera.y);
+}
 
 const MERITKO = 3;
 // Elita se kreslí po 4 px na pixel spritu (o třetinu větší, ale pořád ostrá) s rudým obrysem.
@@ -313,6 +322,17 @@ function bublina(ctx, x, y, b, cas) {
   ctx.globalAlpha = 0.5 + 0.5 * t;
   ctx.fillStyle = '#9be08a';
   kruhNaZemi(ctx, x, y, b.polomer * (0.5 + 0.5 * t));
+  // pro barvoslepé: kam dosáhne oblak, jsou puntíky (jed) a okraj celého dosahu je vidět hned
+  if (barvoslepy()) {
+    ctx.globalAlpha = 0.45 + 0.4 * t;
+    ctx.fillStyle = vzor(ctx, 'puntiky');
+    kruhNaZemi(ctx, x, y, b.polomer * (0.5 + 0.5 * t), true);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#140c08';
+    kruhNaZemi(ctx, x, y, b.polomer + 3);
+    ctx.fillStyle = '#f3efe6';
+    kruhNaZemi(ctx, x, y, b.polomer);
+  }
   ctx.restore();
   // bublina uprostřed: tmavý obrys, zelená výplň a lesk vlevo nahoře
   const r = Math.round(1 + t * 3);
@@ -517,6 +537,16 @@ function oblak(ctx, x, y, o, cas) {
     for (const [cx, cy, velikost] of chuchvalce) {
       ctx.beginPath();
       ctx.arc(Math.round(cx), Math.round(cy), r * velikost + navic, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  // pro barvoslepé: jed jsou puntíky přes celý oblak
+  if (barvoslepy()) {
+    ctx.globalAlpha = Math.min(1, o.zivot * 2) * (nafouknuti < 1 ? 0.45 : 0.8);
+    ctx.fillStyle = vzorNebezpeci(ctx, 'puntiky');
+    for (const [cx, cy, velikost] of chuchvalce) {
+      ctx.beginPath();
+      ctx.arc(Math.round(cx), Math.round(cy), r * velikost, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -1280,6 +1310,24 @@ function caraNaZemi(ctx, x, y, ux, uy, delka, tloustka) {
   }
 }
 
+// Pro barvoslepé: varování jako pruhovaná plocha (šikmé pruhy, sílí s průběhem) s pruhovaným okrajem v tmavém
+// lemu, ať se pozná na každé zemi a bez barvy.
+function pruhovanyKruh(ctx, x, y, okraj, vypln, sila) {
+  ctx.save();
+  ctx.globalAlpha = sila;
+  ctx.fillStyle = vzor(ctx, 'pruhy');
+  kruhNaZemi(ctx, x, y, vypln, true);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#140c08';
+  kruhNaZemi(ctx, x, y, okraj + MERITKO * 2);
+  kruhNaZemi(ctx, x, y, okraj - MERITKO * 2);
+  ctx.fillStyle = vzor(ctx, 'pruhy');
+  kruhNaZemi(ctx, x, y, okraj);
+  kruhNaZemi(ctx, x, y, okraj + MERITKO);
+  kruhNaZemi(ctx, x, y, okraj - MERITKO);
+  ctx.restore();
+}
+
 // Varování schopností bossů na zemi (pod nepřáteli): rudý kruh dupnutí roste, čára výpadu míří (po zamčení
 // svítí naplno a hrot ukazuje, kam až doběhne), kruhy vyvolání se rozzáří.
 function varovaniNaZemi(ctx, hra, naObrazovce) {
@@ -1296,6 +1344,7 @@ function varovaniNaZemi(ctx, hra, naObrazovce) {
       ctx.globalAlpha = Math.floor(hra.cas * (6 + 14 * t)) % 2 ? 0.5 : 0.95;
       ctx.fillStyle = '#e5484d';
       kruhNaZemi(ctx, p.x, p.y, sch.s.polomer);
+      if (barvoslepy()) pruhovanyKruh(ctx, p.x, p.y, sch.s.polomer, Math.max(6, sch.s.polomer * t), 0.35 + 0.4 * t);
     } else if (sch.id === 'vypad' && sch.faze === 'varovani') {
       const zamceno = sch.zbyva <= sch.s.zamek;
       const od = n.polomer;
@@ -1304,6 +1353,14 @@ function varovaniNaZemi(ctx, hra, naObrazovce) {
       caraNaZemi(ctx, p.x + sch.ux * od, p.y + sch.uy * od, sch.ux, sch.uy, sch.s.delka - od, zamceno ? 8 : 6);
       ctx.fillStyle = zamceno ? '#ff5a5a' : '#e5484d';
       caraNaZemi(ctx, p.x + sch.ux * od, p.y + sch.uy * od, sch.ux, sch.uy, sch.s.delka - od, zamceno ? 4 : 3);
+      // pro barvoslepé: dráha výpadu je pruhovaný pás (tmavý okraj a v něm pruhy)
+      if (barvoslepy()) {
+        ctx.fillStyle = '#140c08';
+        caraNaZemi(ctx, p.x + sch.ux * od, p.y + sch.uy * od, sch.ux, sch.uy, sch.s.delka - od, zamceno ? 18 : 14);
+        ctx.fillStyle = vzor(ctx, 'pruhy');
+        caraNaZemi(ctx, p.x + sch.ux * od, p.y + sch.uy * od, sch.ux, sch.uy, sch.s.delka - od, zamceno ? 12 : 9);
+        ctx.fillStyle = zamceno ? '#ff5a5a' : '#e5484d';
+      }
       // hrot na konci dráhy
       const kx = p.x + sch.ux * sch.s.delka;
       const ky = p.y + sch.uy * sch.s.delka;
@@ -1322,6 +1379,10 @@ function varovaniNaZemi(ctx, hra, naObrazovce) {
         ctx.globalAlpha = Math.floor(hra.cas * (8 + 12 * t)) % 2 ? 0.6 : 1;
         ctx.fillStyle = barva;
         kruhNaZemi(ctx, q.x, q.y, 6 + 10 * t);
+        if (barvoslepy()) {
+          pruhovanyKruh(ctx, q.x, q.y, 6 + 10 * t, 6 + 10 * t, 0.8);
+          ctx.globalAlpha = 1;
+        }
         ctx.fillStyle = '#fff3b0';
         const jiskra = Math.round(((hra.cas * 40 + m.x) % 18));
         ctx.fillRect(Math.round(q.x) - 1, Math.round(q.y - jiskra) - 1, 3, 3);
@@ -1357,6 +1418,7 @@ function utokyNaZemi(ctx, hra, naObrazovce) {
     ctx.globalAlpha = 0.5 + 0.5 * t;
     ctx.fillStyle = k.sit ? '#c9ccd2' : '#e5484d';
     kruhNaZemi(ctx, p.x, p.y, k.polomer);
+    if (barvoslepy()) pruhovanyKruh(ctx, p.x, p.y, k.polomer, 6 + (k.polomer - 10) * t, 0.3 + 0.5 * t);
     ctx.restore();
   }
 }
@@ -1490,7 +1552,13 @@ const PISMO_CISEL = {
   '-': ['...', '...', 'XXX', '...', '...'],
   k: ['X..', 'X.X', 'XX.', 'X.X', 'X.X'],
   M: ['X...X', 'XX.XX', 'X.X.X', 'X...X', 'X...X'],
+  // srdce (léčení) a mince (zlaťáky) za číslem v režimu pro barvoslepé
+  '♥': ['.X.X.', 'XXXXX', 'XXXXX', '.XXX.', '..X..'],
+  '¤': ['.XXX.', 'X.X.X', 'X.X.X', 'X.X.X', '.XXX.'],
 };
+// Režim pro barvoslepé: čísla nad hrdinou, která se liší jen barvou (+ léčení a + zlaťáky, − rána a − útrata),
+// dostanou za číslem srdce nebo minci.
+const ZNACKY_CISEL = { leceni: '♥', sani: '♥', zlato: '¤', utrata: '¤' };
 const OBRYS_CISEL = '#0b0a0f';
 // [výplň, spodek] podle druhu čísla, null = obyčejný zásah.
 const BARVY_CISEL = {
@@ -1650,7 +1718,7 @@ function cisloNadHlavou(ctx, c, p, pixel) {
   const t = Math.min(1, vek / c.trvani);
   const poskok = vek - c.pridano < POSKOK_CISLA ? 1.3 : 1;
   const velikost = Math.max(1, Math.round(pixel * (VELIKOST_CISEL[c.barva] ?? 1) * poskok));
-  const obr = obrazekCisla(c.text, c.barva ?? 'zasah');
+  const obr = obrazekCisla(barvoslepy() && ZNACKY_CISEL[c.barva] ? `${c.text}${ZNACKY_CISEL[c.barva]}` : c.text, c.barva ?? 'zasah');
   const x = p.x + c.smer * pixel * 3 * t;
   const y = p.y - pixel * VYSKOK_CISLA * (1 - (1 - t) ** 2);
   ctx.globalAlpha = Math.max(0, Math.min(1, c.zivot / UNIK_CISLA));
@@ -1759,14 +1827,17 @@ function sipkaKOkraji(ctx, p, sirka, vyska, obr, barva, odsazeni, velikost = 24)
 // rohy, světlou horní hranou a spodní lištou v barvě rarity. Nápis se kreslí jen jednou (podle jména a rarity).
 const CEDULKY = new Map();
 const PIXEL_CEDULKY = 2;
-function cedulkaKusu(nazev, barvy) {
-  const klic = `${nazev}|${barvy.c}`;
+function cedulkaKusu(nazev, barvy, znak = null) {
+  const klic = `${nazev}|${barvy.c}|${znak}`;
   if (CEDULKY.has(klic)) return CEDULKY.get(klic);
   const styl = { ...STYL_PERGAMEN, barvy: ['#fffaf0', barvy.svetla, barvy.svetla, barvy.svetla, barvy.svetla, barvy.svetla, barvy.c], barvaHloubky: '#2a170b' };
   const text = nakresliText(document.createElement('canvas'), nazev.toLocaleUpperCase('cs'), styl);
   const k = PIXEL_CEDULKY;
-  const w = text.width * k + 16 * k;
-  const h = text.height * k + 8 * k;
+  // pro barvoslepé značka rarity před jménem (9×9 pixelů cedulky)
+  const obrZnaku = znak ? znakRarity(znak, k) : null;
+  const odsazeni = obrZnaku ? 13 * k : 0;
+  const w = text.width * k + 16 * k + odsazeni;
+  const h = Math.max(text.height, 9) * k + 8 * k;
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
@@ -1779,7 +1850,8 @@ function cedulkaKusu(nazev, barvy) {
   obdelnik('#2b1c12', k, k, w - 2 * k, h - 2 * k);
   obdelnik('#5a3a22', k, k, w - 2 * k, k);
   obdelnik(barvy.c, k, h - 3 * k, w - 2 * k, 2 * k);
-  g.drawImage(text, 8 * k, 3 * k, text.width * k, text.height * k);
+  if (obrZnaku) g.drawImage(obrZnaku, 7 * k, Math.round((h - 2 * k - obrZnaku.height) / 2));
+  g.drawImage(text, 8 * k + odsazeni, 3 * k, text.width * k, text.height * k);
   CEDULKY.set(klic, c);
   return c;
 }
@@ -1790,7 +1862,7 @@ function otevirani(ctx, hra, naObrazovce, sirka, vyska) {
   const o = hra.otevira;
   const t = Math.min(1, o.cas / TRVANI_OTEVRENI);
   const p = naObrazovce(o);
-  const barvy = BARVY_RARIT[o.kus.rarita] ?? BARVY_RARIT.bezna;
+  const barvy = barvoslepy() ? barvyRarity(o.kus.rarita) : BARVY_RARIT[o.kus.rarita] ?? BARVY_RARIT.bezna;
   ctx.save();
   ctx.fillStyle = `rgba(20,12,8,${(0.5 * Math.min(1, t * 4)).toFixed(3)})`;
   ctx.fillRect(0, 0, sirka, vyska);
@@ -1835,7 +1907,7 @@ function otevirani(ctx, hra, naObrazovce, sirka, vyska) {
     if (obr) sprite(ctx, obr, x, y - vystup, 1, null, velikost);
     if (u >= 1) {
       // cedulka nad kusem, na úzké obrazovce posunutá tak, aby nepřečnívala
-      const cedulka = cedulkaKusu(o.kus.nazev, barvy);
+      const cedulka = cedulkaKusu(o.kus.nazev, barvy, barvoslepy() ? ZNAKY_RARIT[o.kus.rarita] ?? ZNAKY_RARIT.bezna : null);
       const cx = Math.max(4, Math.min(sirka - cedulka.width - 4, Math.round(x - cedulka.width / 2)));
       ctx.drawImage(cedulka, cx, Math.round(y - vystup - velikost / 2 - 10 - cedulka.height));
     }
@@ -1969,6 +2041,8 @@ export function kresli(ctx, hra, { cislaPoskozeni = true, horni = HORNI_BARY, sv
   const kx = hrdina.x - sirka / 2 + (tres ? Math.round((Math.random() * 2 - 1) * tres) : 0);
   const ky = hrdina.y - vyska / 2 + (tres ? Math.round((Math.random() * 2 - 1) * tres) : 0);
   const naObrazovce = (o) => ({ x: o.x - kx, y: o.y - ky });
+  kamera.x = kx;
+  kamera.y = ky;
   const s = staty(hra);
 
   ctx.imageSmoothingEnabled = false;

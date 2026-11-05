@@ -4,6 +4,9 @@
 // takže se rám natáhne na libovolnou velikost a pixely zůstanou ostré při celých násobcích (--px).
 // Spouštět po změně kresby: node nastroje/ramy.mjs (pak node nastroje/verze.mjs)
 import { readFileSync, writeFileSync } from 'node:fs';
+import {
+  KRESBY_ZNAKU, BARVY_ZNAKU, ZNAKY_RARIT, PALETY_RARIT, BARVY_STAVU, REZIMY_BAREV,
+} from '../src/barvy.js';
 
 // Barvy jsou z palety spritů (src/sprity.js) a loga: tmavé dřevo důlní výdřevy, mosaz a téměř černý obrys.
 export const PALETA = {
@@ -237,9 +240,11 @@ export const OBRAZKY = {
   'tl-kriz': TL_KRIZ,
   'tl-packa': TL_PACKA,
 };
+// Značky rarit pro režim pro barvoslepé (kresby a barvy jsou v src/barvy.js, plátno je kreslí z nich taky).
+export const ZNAKY = Object.fromEntries(Object.entries(KRESBY_ZNAKU).map(([id, radky]) => [`znak-${id}`, radky]));
 
 // Řádky téže barvy jdou do jedné cesty (úseky vedle sebe se spojí), ať je SVG malé.
-export function svg(radky) {
+export function svg(radky, paleta = PALETA) {
   const sirka = radky[0].length;
   const cesty = {};
   radky.forEach((radek, y) => {
@@ -250,13 +255,13 @@ export function svg(radky) {
       let delka = 1;
       while (radek[x + delka] === z) delka++;
       if (z !== '.') {
-        if (!PALETA[z]) throw new Error(`neznámá barva ${z}`);
+        if (!paleta[z]) throw new Error(`neznámá barva ${z}`);
         cesty[z] = (cesty[z] ?? '') + `M${x} ${y}h${delka}v1h-${delka}z`;
       }
       x += delka;
     }
   });
-  const telo = Object.entries(cesty).map(([z, d]) => `<path fill='${PALETA[z]}' d='${d}'/>`).join('');
+  const telo = Object.entries(cesty).map(([z, d]) => `<path fill='${paleta[z]}' d='${d}'/>`).join('');
   return `<svg xmlns='http://www.w3.org/2000/svg' width='${sirka}' height='${radky.length}' shape-rendering='crispEdges'>${telo}</svg>`;
 }
 
@@ -264,13 +269,54 @@ const dataUrl = (s) => `url("data:image/svg+xml,${s.replace(/%/g, '%25').replace
 
 const ZACATEK = '/* ramy: začátek (generuje node nastroje/ramy.mjs, ručně neupravovat) */';
 const KONEC = '/* ramy: konec */';
+const ZACATEK_BAREV = '/* barvy: začátek (generuje node nastroje/ramy.mjs ze src/barvy.js, ručně neupravovat) */';
+const KONEC_BAREV = '/* barvy: konec */';
+
+// Text na pruhu rarity: tmavý, nebo světlý, kde má víc kontrastu.
+function jas(barva) {
+  const l = (i) => {
+    const c = parseInt(barva.slice(1 + 2 * i, 3 + 2 * i), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * l(0) + 0.7152 * l(1) + 0.0722 * l(2);
+}
+export function textNaPruhu(barva) {
+  const j = jas(barva);
+  return (j + 0.05) / (jas('#140c08') + 0.05) >= (jas('#fffaf0') + 0.05) / (j + 0.05) ? 'var(--noc)' : '#fffaf0';
+}
+
+// Blok CSS režimu pro barvoslepé: značka každé rarity (--znak) a v každém režimu palety rarit a barvy stavů.
+// :where() drží sílu selektoru jako u .rarita-*, takže stavy karty (vybraná, najetí) dál přebarví rámeček.
+export function blokBarev() {
+  const radky = [ZACATEK_BAREV];
+  for (const [id, znak] of Object.entries(ZNAKY_RARIT)) radky.push(`.rarita-${id} { --znak: var(--znak-${znak}); }`);
+  for (const r of REZIMY_BAREV.filter((x) => x !== 'vyp')) {
+    radky.push(`:where(body[data-barvy="${r}"]) { --ok: ${BARVY_STAVU[r].ok}; --chyba: ${BARVY_STAVU[r].chyba}; }`);
+    for (const [id, b] of Object.entries(PALETY_RARIT[r])) {
+      radky.push(`:where(body[data-barvy="${r}"]) .rarita-${id} { --c: ${b.c}; --c-svetla: ${b.svetla}; --c-pozadi: ${b.pozadi}; --c-zar: ${b.zar}; --c-pas: ${textNaPruhu(b.c)}; }`);
+    }
+  }
+  radky.push(KONEC_BAREV);
+  return radky.join('\n');
+}
+
+function nahradBlok(css, zacatek, konec, blok) {
+  const od = css.indexOf(zacatek);
+  const po = css.indexOf(konec);
+  if (od < 0 || po < 0) throw new Error(`style.css nemá značky ${zacatek} / ${konec}`);
+  return css.slice(0, od) + blok + css.slice(po + konec.length);
+}
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const blok = [ZACATEK, ':root {', ...Object.entries(OBRAZKY).map(([jmeno, radky]) => `  --${jmeno}: ${dataUrl(svg(radky))};`), '}', KONEC].join('\n');
-  const css = readFileSync('style.css', 'utf8');
-  const od = css.indexOf(ZACATEK);
-  const po = css.indexOf(KONEC);
-  if (od < 0 || po < 0) throw new Error('style.css nemá značky ramy: začátek / ramy: konec');
-  writeFileSync('style.css', css.slice(0, od) + blok + css.slice(po + KONEC.length));
-  console.log(`ramy: ${Object.keys(OBRAZKY).join(', ')}`);
+  const blok = [
+    ZACATEK, ':root {',
+    ...Object.entries(OBRAZKY).map(([jmeno, radky]) => `  --${jmeno}: ${dataUrl(svg(radky))};`),
+    ...Object.entries(ZNAKY).map(([jmeno, radky]) => `  --${jmeno}: ${dataUrl(svg(radky, BARVY_ZNAKU))};`),
+    '}', KONEC,
+  ].join('\n');
+  let css = readFileSync('style.css', 'utf8');
+  css = nahradBlok(css, ZACATEK, KONEC, blok);
+  css = nahradBlok(css, ZACATEK_BAREV, KONEC_BAREV, blokBarev());
+  writeFileSync('style.css', css);
+  console.log(`ramy: ${[...Object.keys(OBRAZKY), ...Object.keys(ZNAKY)].join(', ')}, barvy: ${REZIMY_BAREV.join(', ')}`);
 }

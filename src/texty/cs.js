@@ -132,6 +132,18 @@ export default {
       hlasiteji: '{nazev} hlasitěji',
       hlasitost: 'Hlasitost: {nazev}',
     },
+    // Barvy: režim pro barvoslepé (barvy.js), tlačítko za každý režim, popis zvoleného a popisky ukázky vzorů.
+    barvy: {
+      nadpis: 'Barvy',
+      rezimy: { vyp: 'Vypnuto', deuteranopie: 'Deuteranopie', protanopie: 'Protanopie', tritanopie: 'Tritanopie' },
+      popis: {
+        vyp: 'Barvy jako dřív. Režim pro barvoslepé přidá raritám značky a nebezpečí vzory, takže se nic neliší jen barvou.',
+        deuteranopie: 'Zelená splývá s červenou (nejčastější). Rarity mají značku a barvy, které rozeznáš, nebezpečí mají vzor.',
+        protanopie: 'Červená je tmavší a splývá se zelenou. Rarity mají značku a barvy, které rozeznáš, nebezpečí mají vzor.',
+        tritanopie: 'Modrá splývá se zelenou a žlutá s růžovou. Rarity mají značku a barvy, které rozeznáš, nebezpečí mají vzor.',
+      },
+      vzory: { varovani: 'útok bosse', lava: 'láva', bahno: 'bahno', jed: 'jed', led: 'led' },
+    },
     // Světla: režim na tlačítku a řádek pod ním (stav podle osvetleni.js, duvod).
     svetla: {
       nazev: 'Světla',

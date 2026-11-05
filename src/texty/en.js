@@ -125,6 +125,17 @@ export default {
       hlasiteji: '{nazev} louder',
       hlasitost: 'Volume: {nazev}',
     },
+    barvy: {
+      nadpis: 'Colors',
+      rezimy: { vyp: 'Off', deuteranopie: 'Deuteranopia', protanopie: 'Protanopia', tritanopie: 'Tritanopia' },
+      popis: {
+        vyp: 'Colors as usual. Color blind mode gives rarities a symbol and hazards a pattern, so nothing differs by color alone.',
+        deuteranopie: 'Green and red look alike (the most common type). Rarities get a symbol and colors you can tell apart, hazards get a pattern.',
+        protanopie: 'Red looks darker and blends with green. Rarities get a symbol and colors you can tell apart, hazards get a pattern.',
+        tritanopie: 'Blue blends with green and yellow with pink. Rarities get a symbol and colors you can tell apart, hazards get a pattern.',
+      },
+      vzory: { varovani: 'boss attack', lava: 'lava', bahno: 'mud', jed: 'poison', led: 'ice' },
+    },
     svetla: {
       nazev: 'Lights',
       rezimy: { auto: 'auto', zap: 'on', vyp: 'off' },
