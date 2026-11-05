@@ -267,16 +267,19 @@ export function pocetDusi(kolik) {
 }
 
 // Obchod s trvalými vylepšeními. Karta je tlačítko: klik (nebo Enter) koupí další úroveň, když jsou duše.
-// Vrátit duše chce dva stisky, první se jen zeptá. Po každé změně se panel překreslí a výběr zůstane na místě.
+// Nahoře zapuštěná pokladnička s dušemi, karta má ikonu (sprite jako ve hře), úrovně jako dílky a dole cenovku;
+// když duše nestačí, cenovka řekne, kolik chybí. Vrátit duše chce dva stisky, první se jen zeptá.
+// Po každé změně se panel překreslí a výběr zůstane na místě.
 function vyplnVylepseni(panel) {
   const stav = nactiDuse();
   const hlava = prvek('div', 'duse-stav');
-  hlava.append(obrazekSpritu('duse', 3), prvek('b', '', String(stav.duse)), prvek('span', '', pocetDusi(stav.duse)));
+  hlava.append(obrazekSpritu('duse', 3), prvek('span', 'duse-stav-text', 'Máš '));
+  hlava.lastChild.append(prvek('b', '', String(stav.duse)), ` ${pocetDusi(stav.duse)}`);
   const mrizka = prvek('div', 'mrizka-vylepseni');
   const prekresli = (vybrat) => {
     panel.replaceChildren();
     vyplnVylepseni(panel);
-    vyberTlacitko(panel.querySelector(vybrat) ?? panel.querySelector('button'));
+    vyberTlacitko(panel.querySelector(`${vybrat}:not(:disabled)`) ?? panel.querySelector('button'));
   };
   for (const [id, v] of Object.entries(VYLEPSENI)) {
     const uroven = stav.vylepseni[id] ?? 0;
@@ -287,15 +290,20 @@ function vyplnVylepseni(panel) {
     if (v.max === 1) karta.classList.add('jednou');
     if (cena === null) karta.classList.add('hotovo');
     else if (cena > stav.duse) karta.classList.add('drahe');
+    const ikona = prvek('span', 'vylepseni-ikona');
+    ikona.append(obrazekSpritu(v.ikona, 3));
     const nazev = prvek('span', 'vylepseni-hlava');
     nazev.append(prvek('b', '', v.nazev), prvek('span', 'vylepseni-uroven', `${uroven}/${v.max}`));
     const ctverecky = prvek('span', 'ctverecky');
     for (let i = 0; i < v.max; i++) ctverecky.append(prvek('i', i < uroven ? 'plny' : ''));
     const cenovka = prvek('span', 'cena');
     if (cena === null) cenovka.textContent = 'Hotovo';
-    else cenovka.append(obrazekSpritu('duse', 2), prvek('span', '', String(cena)));
-    karta.append(nazev, ctverecky, prvek('small', '', v.popis), cenovka);
-    karta.setAttribute('aria-label', `${v.nazev}, úroveň ${uroven} z ${v.max}, ${cena === null ? 'hotovo' : `cena ${cena} ${pocetDusi(cena)}`}`);
+    else {
+      cenovka.append(obrazekSpritu('duse', 2), prvek('b', '', String(cena)));
+      if (cena > stav.duse) cenovka.append(prvek('small', 'cena-chybi', `chybí ${cena - stav.duse}`));
+    }
+    karta.append(ikona, nazev, ctverecky, prvek('small', 'vylepseni-popis', v.popis), cenovka);
+    karta.setAttribute('aria-label', `${v.nazev}, úroveň ${uroven} z ${v.max}, ${cena === null ? 'hotovo' : `cena ${cena} ${pocetDusi(cena)}${cena > stav.duse ? `, chybí ${cena - stav.duse}` : ''}`}`);
     karta.addEventListener('click', () => {
       odemkniZvuk();
       const novy = kupVylepseni(nactiDuse(), id);
@@ -313,8 +321,9 @@ function vyplnVylepseni(panel) {
     mrizka.append(karta);
   }
   const vratit = utraceno(stav.vylepseni);
-  const tlacitkoVratit = prvek('button', 'menu-tlacitko vratit', vratit ? 'Vrátit duše' : 'Není co vracet');
+  const tlacitkoVratit = prvek('button', 'menu-tlacitko vratit', vratit ? `Vrátit duše (${vratit})` : 'Není co vracet');
   tlacitkoVratit.type = 'button';
+  tlacitkoVratit.disabled = !vratit;
   tlacitkoVratit.dataset.vylepseni = 'vratit';
   tlacitkoVratit.addEventListener('click', () => {
     if (!vratit) return;
