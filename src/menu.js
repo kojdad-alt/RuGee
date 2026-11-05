@@ -20,7 +20,21 @@ import { odemkniZvuk, zvukNakupu, zvukOdmitnuti, zvukHry, nastavZvuk, ukazkaHudb
 import { stav as stavAplikace, pridejNaPlochu, priZmene as priZmeneAplikace } from './aplikace.js';
 import { nastavRezimSvetel, stavSvetel, priZmeneSvetel } from './osvetleni.js';
 import { nakresliText, STYL_LOGA, STYL_PERGAMEN, pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
-import { t, pripojTexty, procenta, datum } from './texty.js';
+import {
+  t, pripojTexty, procenta, datum, hodnota, nastavJazyk, aktualniJazyk, jazykProhlizece, priZmeneJazyka, prelozStranku, JAZYKY,
+} from './texty.js';
+
+// Nastavení (čísla poškození, hlasitost efektů a hudby, ztlumení, světla, jazyk): načte se z prohlížeče, mění ho
+// Nastavení nebo pauza (a klávesa N). Hlasitosti se hned předají zvuku. Jazyk se při prvním spuštění vezme z prohlížeče
+// a uloží, ať se nemění s ním. Nastaví se dřív než profily, ať má první profil jméno ve zvoleném jazyce.
+let nastaveni = nactiNastaveni();
+if (!nastaveni.jazyk) {
+  nastaveni = { ...nastaveni, jazyk: jazykProhlizece() };
+  ulozNastaveni(nastaveni);
+}
+nastavJazyk(nastaveni.jazyk);
+nastavZvuk(nastaveni);
+nastavRezimSvetel(nastaveni.svetla);
 
 // Profily: při prvním spuštění se stará uložení převedou do prvního profilu (ulozeni.js), pak se načte zvolený.
 zajistiProfily();
@@ -38,12 +52,6 @@ let mapa = nactiMapu();
 export function zvolenaMapa() {
   return mapa;
 }
-
-// Nastavení (čísla poškození, hlasitost efektů a hudby, ztlumení): načte se z prohlížeče, mění ho Nastavení
-// nebo pauza (a klávesa N). Hlasitosti se hned předají zvuku.
-let nastaveni = nactiNastaveni();
-nastavZvuk(nastaveni);
-nastavRezimSvetel(nastaveni.svetla);
 
 export function cislaPoskozeni() {
   return nastaveni.cislaPoskozeni;
@@ -692,8 +700,37 @@ function skupinaNaPlochu() {
   return sekce;
 }
 
-// Nastavení: zvuk (hlasitost efektů a hudby, ztlumení N), čísla poškození se světly a Na plochu, každé ve své skupině.
-// Všechno se hned uloží.
+// Jazyk: za každý jazyk tlačítko s jeho jménem v něm samém (Čeština, English), ať ho najde i ten, kdo zvolenému
+// jazyku nerozumí. Zvolený má rozsvícenou kontrolku. Klik jazyk hned přepne a uloží a menu se překreslí (vytvorMenu
+// poslouchá priZmeneJazyka).
+function skupinaJazyka() {
+  const sekce = skupina(t('menu.nastaveni.jazyk'), 'jazyk');
+  const radek = prvek('div', 'radek-tlacitek nastaveni-radek jazyk-radek');
+  for (const j of JAZYKY) {
+    const zvoleny = j === aktualniJazyk();
+    const b = prvek('button', `menu-tlacitko prepinac${zvoleny ? '' : ' vypnuto'}`);
+    b.type = 'button';
+    b.lang = j;
+    b.dataset.jazyk = j;
+    b.setAttribute('aria-pressed', String(zvoleny));
+    b.append(prvek('span', 'prepinac-stav', hodnota('jazyk.nazev', j)));
+    b.addEventListener('click', () => zvolJazyk(j));
+    radek.append(b);
+  }
+  sekce.append(radek);
+  return sekce;
+}
+
+// Uloží a přepne jazyk (texty.js dá vědět všem, kdo poslouchají).
+export function zvolJazyk(jazyk) {
+  if (!JAZYKY.includes(jazyk)) return;
+  nastaveni = { ...nastaveni, jazyk };
+  ulozNastaveni(nastaveni);
+  nastavJazyk(jazyk);
+}
+
+// Nastavení: jazyk, zvuk (hlasitost efektů a hudby, ztlumení N), čísla poškození se světly a Na plochu, každé ve
+// své skupině. Všechno se hned uloží.
 function vyplnNastaveni(panel) {
   const zvuk = skupina(t('menu.nastaveni.zvuk'));
   zvuk.append(ovladaniZvuku());
@@ -703,7 +740,7 @@ function vyplnNastaveni(panel) {
   hra.append(radek, prepinacSvetel());
   panel.append(
     prvek('p', 'podtitul', t('menu.nastaveni.podtitul')),
-    zvuk, hra, skupinaNaPlochu(),
+    skupinaJazyka(), zvuk, hra, skupinaNaPlochu(),
   );
 }
 
@@ -1181,9 +1218,10 @@ export function vytvorMenu({ hrat }) {
   upravLogo(logo);
   addEventListener('resize', () => upravLogo(logo));
 
+  // nazev je getter, ať po přepnutí jazyka stačí tlačítkům přepsat text (prelozVolby)
   const polozky = [
-    { id: 'hrat', nazev: t('menu.hrat'), hlavni: true, akce: hrat },
-    ...Object.entries(ZALOZKY).map(([id, z]) => ({ id, nazev: z.nazev, akce: () => otevri(id) })),
+    { id: 'hrat', get nazev() { return t('menu.hrat'); }, hlavni: true, akce: hrat },
+    ...Object.keys(ZALOZKY).map((id) => ({ id, get nazev() { return ZALOZKY[id].nazev; }, akce: () => otevri(id) })),
   ];
   // Cedulka pod Hrát: zvolený profil a s čím se půjde hrát (postava, mapa, duše), každé s pixelovou ikonou.
   const radekPostavy = prvek('div', 'menu-postava ram-tenky');
@@ -1221,15 +1259,16 @@ export function vytvorMenu({ hrat }) {
   mrizka.append(...polozky.slice(1).map(tlacitkoMenu));
   // Přidat na plochu pod záložkami: jen když to jde. Kde prohlížeč nabízí instalaci, otevře ji, na iPhonu otevře
   // Nastavení s návodem pro Safari. Z plochy a v prohlížeči bez instalace se neukáže.
-  const naPlochu = tlacitkoMenu({
+  const plocha = {
     id: 'plocha',
-    nazev: t('menu.plocha.pridat'),
+    get nazev() { return t('menu.plocha.pridat'); },
     akce() {
       if (stavAplikace().kde === 'nabidka') return pridejNaPlochu();
       otevri('nastaveni');
       zalozka.querySelector('.skupina.plocha')?.scrollIntoView({ block: 'center' });
     },
-  });
+  };
+  const naPlochu = tlacitkoMenu(plocha);
   naPlochu.classList.add('menu-plocha');
   const ukazNaPlochu = () => {
     naPlochu.hidden = !['nabidka', 'ios'].includes(stavAplikace().kde);
@@ -1239,6 +1278,17 @@ export function vytvorMenu({ hrat }) {
   ukazNaPlochu();
   volby.replaceChildren(tlacitkoMenu(polozky[0]), radekPostavy, mrizka, naPlochu);
   document.getElementById('menu-zpet').addEventListener('click', () => zpet());
+  // Přepnutý jazyk (Nastavení): statické texty stránky, tlačítka menu, cedulka a otevřená záložka se hned přepíšou,
+  // výběr zůstane na tlačítku jazyka.
+  const podleId = new Map([...polozky, plocha].map((p) => [p.id, p]));
+  priZmeneJazyka((jazyk) => {
+    prelozStranku();
+    for (const b of volby.querySelectorAll('button[data-id]')) b.textContent = podleId.get(b.dataset.id)?.nazev ?? b.textContent;
+    ukazPostavu();
+    if (!otevrena) return;
+    otevri(otevrena);
+    vyberTlacitko(zalozka.querySelector(`[data-jazyk="${jazyk}"]`) ?? zalozka.querySelector('button'));
+  });
   // Najetí myší vybere tlačítko, jen ne když se píše do pole (jméno profilu, kód), to by mu vzalo klávesnici.
   koren.addEventListener('pointerover', (e) => {
     const b = e.target.closest('button');

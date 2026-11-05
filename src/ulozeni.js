@@ -12,7 +12,7 @@ import { platnaTrida, TRIDY } from './hra.js';
 import { PORADI_MAP, VYCHOZI_MAPA, ODEMKNUTI_MAPY, platnaMapa, predchoziMapa } from './mapy.js';
 import { platnyStav } from './duse.js';
 import { platnaSbirka, pridejDoSbirky } from './vystroj.js';
-import { t } from './texty.js';
+import { t, JAZYKY } from './texty.js';
 
 export const MAX_PROFILU = 5;
 export const MAX_JMENA = 16;
@@ -34,10 +34,11 @@ const MAPA = 'mapa';
 const MAPY = 'mapy';
 
 // Nastavení z menu a pauzy: přepínače ano/ne, hlasitosti zvuku v procentech (efekty 60 %, hudba 40 %,
-// ztlumeno = klávesa N) a volby z výčtu (MOZNOSTI_NASTAVENI: světla auto / zap / vyp). Co v záznamu chybí nebo má
-// špatný druh, platí výchozí, procenta se zaokrouhlí do 0–100.
-export const VYCHOZI_NASTAVENI = { cislaPoskozeni: true, efekty: 60, hudba: 40, ztlumeno: false, svetla: 'auto' };
-export const MOZNOSTI_NASTAVENI = { svetla: ['auto', 'zap', 'vyp'] };
+// ztlumeno = klávesa N) a volby z výčtu (MOZNOSTI_NASTAVENI: světla auto / zap / vyp, jazyk cs / en). Co v záznamu
+// chybí nebo má špatný druh, platí výchozí, procenta se zaokrouhlí do 0–100. Jazyk '' = ještě nezvolený, menu ho při
+// prvním spuštění vezme z prohlížeče a uloží.
+export const VYCHOZI_NASTAVENI = { cislaPoskozeni: true, efekty: 60, hudba: 40, ztlumeno: false, svetla: 'auto', jazyk: '' };
+export const MOZNOSTI_NASTAVENI = { svetla: ['auto', 'zap', 'vyp'], jazyk: JAZYKY };
 // Kdy pojistka světel naposledy zjistila, že s nimi hra zpomalila (ms). Auto pak POMALA_SVETLA_PLATI ms nesvítí.
 const KLIC_POMALA_SVETLA = 'hlubiny.pomalaSvetla';
 export const POMALA_SVETLA_PLATI = 14 * 24 * 3600 * 1000;

@@ -228,7 +228,8 @@ async function main() {
   mkdirSync(VYSTUP, { recursive: true });
   const { chromium } = nactiPlaywright();
   const prohlizec = await chromium.launch();
-  const kontext = await prohlizec.newContext({ viewport: { width: SIRKA, height: VYSKA }, deviceScaleFactor: 1 });
+  // locale: hra si při prvním spuštění vezme jazyk z prohlížeče, ukázky v README jsou česky
+  const kontext = await prohlizec.newContext({ viewport: { width: SIRKA, height: VYSKA }, deviceScaleFactor: 1, locale: 'cs-CZ' });
   // Háček jen pro natáčení: na konec modulu main.js se připíše řádek, který botovi ukáže proměnnou hra.
   await kontext.route(/\/src\/main\.js(\?.*)?$/, async (cesta) => {
     const odpoved = await cesta.fetch();

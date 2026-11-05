@@ -17,6 +17,7 @@ Survivors hra v prohlížeči, jde i na mobilu. Přidáš si ji na plochu a hraj
 - **Zlaťáky** na kupce, přehazování karet a zamčené truhly. Z **duší** si koupíš trvalá vylepšení.
 - **Zvuky a hudba** ze syntezátoru, každá mapa má svou náladu. Hlasitost je v Nastavení, N ztlumí.
 - **Až 5 profilů** na jednom zařízení. Uložení přeneseš jinam kódem nebo souborem, bez serveru.
+- **Česky i anglicky** (English): jazyk se poprvé vezme z prohlížeče, přepneš ho v Nastavení.
 
 ## Ovládání
 
@@ -30,7 +31,6 @@ Survivors hra v prohlížeči, jde i na mobilu. Přidáš si ji na plochu a hraj
 ## Pro vývojáře
 
 Čisté HTML, CSS a JavaScript, bez build kroku.
-
 ```bash
 python3 -m http.server 8000      # pak http://localhost:8000
 node tests/simulace.mjs 1 600    # simulace hry bez prohlížeče

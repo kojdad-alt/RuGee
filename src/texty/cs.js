@@ -3,6 +3,8 @@
 // Nový text přidej sem i do ostatních jazyků. Pixelovým písmem (nadpisy oken, nápisy ve hře) jdou jen znaky,
 // které má src/pismo.js.
 export default {
+  // Jméno jazyka v něm samém (tlačítko v Nastavení ho ukáže ve všech jazycích stejně).
+  jazyk: { nazev: 'Čeština' },
   // Čísla a jednotky: desetinná čárka, mezera před %, datum rekordu.
   format: {
     desetinna: ',',
@@ -99,7 +101,8 @@ export default {
       },
     },
     nastaveni: {
-      podtitul: 'Volby se hned uloží v tomhle prohlížeči a platí pro všechny profily. Stejné najdeš i v pauze.',
+      podtitul: 'Volby se hned uloží v tomhle prohlížeči a platí pro všechny profily. Zvuk, čísla poškození a světla najdeš i v pauze.',
+      jazyk: 'Jazyk',
       zvuk: 'Zvuk',
       hra: 'Hra',
       cislaPoskozeni: 'Čísla poškození',
