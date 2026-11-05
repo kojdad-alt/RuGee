@@ -463,7 +463,7 @@ const OVLADANI = [
     [['1', '2'], 'výbava z truhly: vzít nový kus, nebo nechat nasazený'],
     [['R'], 'přehodit karty za zlaťáky (nebo zdarma od kupce)'],
     [['1–5'], 'u kupce koupit zboží (Esc nebo Q odejít)'],
-    [['P', 'Esc'], 'pauza'],
+    [['P', 'Esc'], 'pauza (na mobilu tlačítko vlevo nahoře)'],
     [['N'], 'ztlumit nebo zapnout zvuk (hlasitost je v Nastavení)'],
   ]],
   ['Menu a konec hry', [
