@@ -586,7 +586,8 @@ export function ovladaniZvuku() {
   const prepinac = prvek('button', 'menu-tlacitko prepinac');
   prepinac.type = 'button';
   const stav = prvek('span', 'prepinac-stav');
-  prepinac.append(prvek('span', '', 'Zvuk (N): '), stav);
+  // „(N)“ je klávesa, na dotykovém displeji se schová (.jen-klavesnice), dvojtečka zůstane
+  prepinac.append(prvek('span', '', 'Zvuk'), prvek('span', 'jen-klavesnice', ' (N)'), prvek('span', '', ': '), stav);
   const ukaz = () => {
     const zapnuto = !nastaveni.ztlumeno;
     stav.textContent = zapnuto ? 'zapnutý' : 'vypnutý';
