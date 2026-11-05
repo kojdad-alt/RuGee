@@ -976,27 +976,42 @@ body.v-menu .hud, body.v-menu .napoveda, body.v-menu .vybava { display: none; }
   text-shadow: 0 2px 0 var(--noc);
 }
 
-.ovladani {
-  display: grid;
-  gap: 8px;
-  margin: 0 auto 16px;
-  width: fit-content;
-  max-width: 100%;
+/* Skupina (Ovládání, Nastavení): destička v tenkém rámu s nadpisem světlým pixelovým písmem zarovnaným vlevo. */
+.skupina {
+  margin: 0 0 14px;
+  padding: 8px 12px 12px;
   text-align: left;
+  background: var(--drevo-2) padding-box;
+  border: calc(2 * var(--px)) solid transparent;
+  border-image: var(--ram-tenky) 2 / calc(2 * var(--px)) repeat;
 }
+
+.skupina-nadpis.nadpis-pixel { justify-content: flex-start; margin: 2px 0 8px; }
+
+/* Ovládání: skupiny pod sebou, v řádku vpravo zarovnané klávesy a vedle co dělají, řádky oddělené tmavou spárou. */
+.ovladani { margin: 0 0 4px; }
 
 .ovladani-radek {
   display: grid;
-  grid-template-columns: 150px 1fr;
+  grid-template-columns: 124px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
+  padding: 5px 0;
+  font-size: 13px;
+  border-top: 2px solid var(--drevo-1);
 }
+
+.ovladani-radek:first-of-type { border-top: none; }
 
 .klavesy {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   justify-content: flex-end;
+}
+
+@media (max-width: 520px) {
+  .ovladani-radek { grid-template-columns: 104px minmax(0, 1fr); gap: 10px; }
 }
 
 kbd {
@@ -1269,29 +1284,38 @@ kbd {
 .konec-duse b { color: var(--duse); font-size: 18px; }
 .konec-duse small { flex-basis: 100%; color: var(--text-tlumeny); }
 
-/* Přepínač nastavení (Nastavení i pauza): stav za dvojtečkou zeleně, vypnutý šedě. */
+/* Přepínač nastavení (Nastavení i pauza): za dvojtečkou stav s pixelovou kontrolkou, zapnuto zelená s leskem,
+   vypnuto zhaslá rudá. */
 .menu-tlacitko.prepinac { font-size: 14px; padding: 8px 28px 10px; }
-.prepinac-stav { color: #7cf08a; }
-.menu-tlacitko.prepinac.vypnuto .prepinac-stav { color: var(--text-tlumeny); }
-.nastaveni-radek { margin-bottom: 12px; }
+.prepinac-stav { color: var(--ok); white-space: nowrap; }
 
-/* Nastavení a pauza. Zvuk: řádek hlasitosti = název, −, pruh (klik nebo tah), procenta, +. Pruh je po 10 %
-   rozdělený na dílky jako ukazatel v pixelové hře, ztlumený zvuk (N) celé ovládání zešedí. */
-.nastaveni-nadpis {
-  margin: 18px 0 10px;
-  font-size: 15px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--zlata);
+.prepinac-stav::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin: 0 7px 0 2px;
+  vertical-align: -1px;
+  background: var(--ok);
+  box-shadow: inset 2px 2px 0 #d8ffdc, inset -2px -2px 0 #2f9a45, 0 0 0 2px var(--noc);
 }
+
+.menu-tlacitko.prepinac.vypnuto .prepinac-stav { color: var(--pergamen-tlumeny); }
+.menu-tlacitko.prepinac.vypnuto .prepinac-stav::before { background: #5a1f1a; box-shadow: inset 2px 2px 0 #7a2c24, inset -2px -2px 0 #3a120e, 0 0 0 2px var(--noc); }
+.nastaveni-radek { margin: 2px 0 0; }
+
+/* Nastavení a pauza. Zvuk: řádek hlasitosti = název, −, pruh (klik nebo tah), procenta, +. Pruh je zapuštěný
+   jako pruh postupu: mosazná výplň s leskem, po 10 % dílky a na konci výplně mosazný jezdec. Ztlumený zvuk (N)
+   celé ovládání ztlumí. */
 .zvuk-nastaveni {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
   width: min(440px, 100%);
-  margin: 0 auto 12px;
+  margin: 0 auto;
 }
+
 .hlasitost {
   display: grid;
   grid-template-columns: 66px 40px minmax(60px, 1fr) 76px 40px;
@@ -1299,13 +1323,17 @@ kbd {
   gap: 8px;
   width: 100%;
 }
+
 .hlasitost-nazev {
   text-align: left;
   font-weight: bold;
   font-size: 13px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: var(--pergamen);
+  text-shadow: 0 2px 0 var(--noc);
 }
+
 .hlasitost .menu-tlacitko.hlasitost-krok {
   min-width: 0;
   width: 40px;
@@ -1313,33 +1341,70 @@ kbd {
   font-size: 20px;
   letter-spacing: 0;
 }
+
 .hlasitost .menu-tlacitko.hlasitost-krok.vybrano::before { display: none; }
+
 .hlasitost-pruh {
   position: relative;
-  height: 20px;
-  background: #15131b;
-  border: 3px solid var(--okraj);
-  box-shadow: inset 0 3px 0 #000;
+  height: 22px;
+  background: var(--drevo-0);
+  border: 3px solid var(--noc);
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.5);
   cursor: pointer;
   touch-action: none;
 }
+
 .hlasitost-pruh i {
   position: absolute;
   inset: 0 auto 0 0;
-  background: linear-gradient(#ffe08a, #e9c46a 45%, #c4862f);
+  background: var(--mosaz);
+  box-shadow: inset 0 3px 0 var(--mosaz-lesk), inset 0 -3px 0 var(--mosaz-stin);
 }
+
+/* jezdec na konci výplně: přesahuje pruh nahoru i dolů, ať je vidět, kde hlasitost je, i na telefonu */
+.hlasitost-pruh i::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  right: -5px;
+  width: 6px;
+  background: var(--mosaz-svetla);
+  box-shadow: inset -2px 0 0 var(--mosaz-stin), 0 0 0 2px var(--noc);
+  z-index: 1;
+}
+
+.hlasitost.nula .hlasitost-pruh i::after { right: -6px; background: var(--drevo-4); box-shadow: inset -2px 0 0 var(--drevo-2), 0 0 0 2px var(--noc); }
+
 .hlasitost-pruh::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), #15131b calc(10% - 2px) 10%);
+  background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), var(--noc) calc(10% - 2px) 10%);
   pointer-events: none;
 }
-.hlasitost-cislo { color: var(--zlata); font-size: 14px; text-align: right; white-space: nowrap; }
-.hlasitost.nula .hlasitost-cislo { color: var(--text-tlumeny); }
+
+.hlasitost-cislo { color: var(--mosaz); font-size: 14px; text-align: right; white-space: nowrap; text-shadow: 0 2px 0 var(--noc); }
+.hlasitost.nula .hlasitost-cislo { color: var(--pergamen-tlumeny); }
 .zvuk-nastaveni.ztlumeno .hlasitost { opacity: 0.45; }
 .pauza .zvuk-nastaveni { margin: 4px 0 0; width: 100%; }
 .pauza .zvuk-nastaveni .prepinac { align-self: stretch; }
+
+/* Telefon: nahoře název a procenta, pod nimi −, pruh přes celou šířku a + (dřív + přetékalo z okna). */
+@media (max-width: 600px) {
+  .hlasitost {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    grid-template-areas: 'nazev nazev cislo' 'minus pruh plus';
+    gap: 4px 12px;
+  }
+
+  .hlasitost-nazev { grid-area: nazev; }
+  .hlasitost-cislo { grid-area: cislo; }
+  .hlasitost-pruh { grid-area: pruh; height: 26px; }
+  .hlasitost .menu-tlacitko.hlasitost-krok { width: 44px; }
+  .hlasitost .hlasitost-krok:first-of-type { grid-area: minus; }
+  .hlasitost .hlasitost-krok:last-of-type { grid-area: plus; }
+}
 
 /* Krátké hlášení po klávese N dole uprostřed nad nápovědou. */
 .zvuk-hlaseni {
