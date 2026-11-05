@@ -1,0 +1,21 @@
+{
+  "id": "./",
+  "name": "RuGee",
+  "short_name": "RuGee",
+  "description": "Přežij v hlubinách co nejdéle. Pixelová hra v prohlížeči, jde hrát i bez internetu.",
+  "lang": "cs",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#140c08",
+  "theme_color": "#140c08",
+  "categories": ["games"],
+  "icons": [
+    { "src": "ikony/ikona-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "ikony/ikona-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "ikony/ikona-maska-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

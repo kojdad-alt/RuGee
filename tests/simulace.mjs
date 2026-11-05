@@ -96,10 +96,15 @@
 // (poslední smazat nejde) a rozbitý záznam profilu nic neshodí. Kód uložení: export → import dá stejná data (i ze
 // souboru .rugee, s mezerami a textem okolo), poškozený, useknutý nebo cizí kód se odmítne a import nové profily
 // pojmenuje bez kolize a přepsání smaže rekordy, které kód nemá.
+// Aplikace (PWA): manifest a ikony (PNG pixel po pixelu podle nastroje/ikony.mjs), odkazy v index.html, sw.js
+// s verzí a seznamem souborů podle nastroje/verze.mjs a service worker v náhradním prostředí: instalace, smazání
+// starých keší, stránka ze sítě a bez sítě z keše, soubory hry z keše, cizí adresy nechá prohlížeči.
 // Pasivy II: Upíří zub vrací život za zabití (s šancí, nejvýš SANI_ZA_SEKUNDU za sekundu, náhodu vln neposune),
 // Trnová zbroj vrací útočníkovi podíl rány, Štít zastaví jednu ránu a dobíjí se, Moudrost dá víc zkušeností
 // a Chamtivost víc duší. Všechny mají ikonu, popis a úrovně bez stropu (kde je strop, dají pak poškození).
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { crc32 as crc32Zlib, inflateSync } from 'node:zlib';
 import { vytvorRng } from '../src/rng.js';
 import * as zvuk from '../src/zvuk.js';
 import {
@@ -146,6 +151,8 @@ import {
 import { kodProfilu, prectiKod, souborProfilu, nazevSouboru, crc32, VERZE_KODU } from '../src/prenos.js';
 import { PISMO_NADPISU, PISMENA_LOGA } from '../src/pismo.js';
 import { svg as svgRamu } from '../nastroje/ramy.mjs';
+import { IKONY, KRESBY, obrazek as obrazekIkony } from '../nastroje/ikony.mjs';
+import { verzeHry, strankaSOtisky, blokSw, ZACATEK_SW, KONEC_SW } from '../nastroje/verze.mjs';
 import {
   MAPY, PORADI_MAP, VYCHOZI_MAPA, ODEMKNUTI_MAPY, VELIKOST_DLAZDICE, PRICHODY_MAP, naLedu, ledovaDlazdice, odKdy, platnaMapa,
   plochaMapy, dlazdicePlochy, naPlose, prekazkaNaDlazdici, kruhPrekazky, hloubkaVPrekazce, VOLNO_U_STARTU,
@@ -4821,7 +4828,7 @@ for (const [znak, zaklad] of Object.entries(DIAKRITIKA)) {
   if (!g || g.slice(3).join() !== PISMO_NADPISU[zaklad].slice(3).join() || !g.slice(0, 3).join('').includes('X')) chybyPisma.push(`${znak} nemá diakritiku nad ${zaklad}`);
 }
 const nadpisyOken = [...readFileSync(new URL('../index.html', import.meta.url), 'utf8').matchAll(/<h2[^>]*>([^<]+)<\/h2>/g)].map((m) => m[1]);
-for (const text of [...nadpisyOken, 'Postavy', 'Mapy', 'Vylepšení', 'Sbírka', 'Rekordy', 'Ovládání', 'Nastavení', 'Profil']) {
+for (const text of [...nadpisyOken, 'Postavy', 'Mapy', 'Vylepšení', 'Sbírka', 'Rekordy', 'Ovládání', 'Nastavení', 'Profil', 'Na plochu']) {
   for (const z of text.toLocaleUpperCase('cs')) if (!PISMO_NADPISU[z]) chybyPisma.push(`nadpis „${text}“: písmo nemá znak ${z}`);
 }
 if (nadpisyOken.length < 5) chybyPisma.push(`v index.html je jen ${nadpisyOken.length} nadpisů oken`);
@@ -4833,6 +4840,156 @@ for (const radky of [['KK', 'Kh'], ['Kh', 'K']]) {
   if (spadlo !== (radky[1].length !== 2)) chybyPisma.push(`kontrola tvaru rámu: ${radky}`);
 }
 chyby.push(...chybyPisma);
+
+// Aplikace (PWA). Manifest má jméno, start a rozsah ./, celou obrazovku a ikony 192, 512 a maskovatelnou 512.
+// Každá ikona v ikony/ je PNG v udané velikosti a pixel po pixelu taková, jakou ji teď nakreslí nastroje/ikony.mjs
+// (po změně spritu Havíře nebo rámu je potřeba ikony přegenerovat). index.html odkazuje na manifest, ikonu záložky
+// a ikonu pro iPhone. sw.js má VERZI a seznam souborů přesně podle nastroje/verze.mjs (zapomenuté verze.mjs =
+// hráči by zůstali ve staré keši) a každý soubor ze seznamu existuje. Service worker v náhradním prostředí
+// (falešné caches a fetch): instalace uloží celou verzi do rugee-<VERZE> mimo HTTP keš a hned se aktivuje,
+// aktivace smaže keše starých verzí (cizí nechá) a převezme stránky, stránka jde ze sítě (mimo HTTP keš, i s ?seed)
+// a bez sítě nebo při pomalé síti z keše, do keše se z navigace nic nezapíše, soubory hry jdou z keše bez sítě
+// a cizí adresy, jiné stránky a POST nechá prohlížeči.
+const chybyAplikace = [];
+const koren = new URL('../', import.meta.url);
+const ctiSoubor = (cesta) => readFileSync(new URL(cesta, koren));
+const manifest = JSON.parse(ctiSoubor('manifest.webmanifest'));
+if (manifest.name !== 'RuGee' || manifest.short_name !== 'RuGee' || manifest.start_url !== './' || manifest.scope !== './' || manifest.lang !== 'cs') chybyAplikace.push('manifest: jméno, start, rozsah nebo jazyk');
+if (manifest.display !== 'fullscreen' || !/^#[0-9a-f]{6}$/.test(manifest.background_color) || !/^#[0-9a-f]{6}$/.test(manifest.theme_color)) chybyAplikace.push('manifest: zobrazení nebo barvy');
+const ikonaManifestu = (velikost, ucel) => manifest.icons.find((i) => i.sizes === `${velikost}x${velikost}` && i.purpose === ucel && i.type === 'image/png');
+if (!ikonaManifestu(192, 'any') || !ikonaManifestu(512, 'any') || !ikonaManifestu(512, 'maskable')) chybyAplikace.push('manifest nemá ikony 192, 512 a maskovatelnou 512');
+// PNG z ikony.mjs: IHDR (RGBA 8 bitů), řádky s filtrem 0 v IDAT. Vrátí { sirka, vyska, data } nebo null.
+function prectiPng(buf) {
+  if (buf.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') return null;
+  let sirka = 0;
+  let vyska = 0;
+  const idat = [];
+  for (let i = 8; i < buf.length;) {
+    const delka = buf.readUInt32BE(i);
+    const typ = buf.toString('ascii', i + 4, i + 8);
+    const obsah = buf.subarray(i + 8, i + 8 + delka);
+    if (buf.readUInt32BE(i + 8 + delka) !== crc32Zlib(buf.subarray(i + 4, i + 8 + delka))) return null;
+    if (typ === 'IHDR') {
+      sirka = obsah.readUInt32BE(0);
+      vyska = obsah.readUInt32BE(4);
+      if (obsah[8] !== 8 || obsah[9] !== 6) return null;
+    }
+    if (typ === 'IDAT') idat.push(obsah);
+    i += 12 + delka;
+  }
+  const radky = inflateSync(Buffer.concat(idat));
+  const data = Buffer.alloc(sirka * vyska * 4);
+  for (let y = 0; y < vyska; y++) {
+    if (radky[y * (sirka * 4 + 1)] !== 0) return null;
+    radky.copy(data, y * sirka * 4, y * (sirka * 4 + 1) + 1, (y + 1) * (sirka * 4 + 1));
+  }
+  return { sirka, vyska, data };
+}
+for (const { soubor, kresba, velikost } of IKONY) {
+  const obr = prectiPng(ctiSoubor(`ikony/${soubor}`));
+  if (!obr || obr.sirka !== velikost || obr.vyska !== velikost) chybyAplikace.push(`ikona ${soubor} není PNG ${velikost}×${velikost}`);
+  else if (!obr.data.equals(obrazekIkony(KRESBY[kresba](), velikost))) chybyAplikace.push(`ikona ${soubor} nesedí s kresbou (node nastroje/ikony.mjs)`);
+}
+for (const i of manifest.icons) if (!IKONY.some((k) => `ikony/${k.soubor}` === i.src)) chybyAplikace.push(`manifest chce ikonu ${i.src}, kterou ikony.mjs nedělá`);
+const stranka = ctiSoubor('index.html').toString();
+const odkaz = (rel) => stranka.match(new RegExp(`<link rel="${rel}"[^>]*href="([^"]+)"`))?.[1];
+if (odkaz('manifest') !== 'manifest.webmanifest') chybyAplikace.push('index.html neodkazuje na manifest');
+for (const rel of ['icon', 'apple-touch-icon']) {
+  const href = odkaz(rel);
+  if (!href || !IKONY.some((k) => `ikony/${k.soubor}` === href)) chybyAplikace.push(`index.html: ${rel} ${href}`);
+}
+if (!/<meta name="theme-color" content="#[0-9a-f]{6}">/.test(stranka)) chybyAplikace.push('index.html nemá theme-color');
+const zdrojSw = ctiSoubor('sw.js').toString();
+const ocekavanaVerze = verzeHry(stranka);
+const blokVSw = zdrojSw.slice(zdrojSw.indexOf(ZACATEK_SW), zdrojSw.indexOf(KONEC_SW) + KONEC_SW.length);
+if (blokVSw !== blokSw(ocekavanaVerze)) chybyAplikace.push('sw.js nemá aktuální verzi a seznam souborů (node nastroje/verze.mjs)');
+if (strankaSOtisky(stranka) !== stranka) chybyAplikace.push('index.html nemá aktuální otisky (node nastroje/verze.mjs)');
+for (const u of ocekavanaVerze.soubory) {
+  if (u === './') continue;
+  try { ctiSoubor(u.replace(/^\.\//, '').replace(/\?v=[0-9a-f]+$/, '')); } catch { chybyAplikace.push(`sw.js chce soubor ${u}, který není`); }
+}
+// Service worker v náhradním prostředí.
+{
+  const MISTO = 'https://kojdad-alt.github.io/RuGee/';
+  const klic = (r) => (typeof r === 'string' ? r : r.url);
+  const kese = new Map();
+  const otevri = (jmeno) => {
+    if (!kese.has(jmeno)) kese.set(jmeno, new Map());
+    const k = kese.get(jmeno);
+    return {
+      async addAll(pozadavky) {
+        for (const p of pozadavky) k.set(klic(p), await falesnyFetch(p));
+      },
+      async put(p, odpoved) { k.set(klic(p), odpoved); },
+      async match(p) { return k.get(klic(p))?.clone(); },
+    };
+  };
+  const caches = {
+    async open(jmeno) { return otevri(jmeno); },
+    // Jen s cacheName (sw.js jinak nehledá) a bez zakládání keše.
+    async match(p, volby = {}) { return kese.get(volby.cacheName)?.get(klic(p))?.clone(); },
+    async keys() { return [...kese.keys()]; },
+    async delete(jmeno) { return kese.delete(jmeno); },
+  };
+  const sit = { online: true, pomala: false, pozadavky: [] };
+  async function falesnyFetch(p, volby = {}) {
+    sit.pozadavky.push({ url: klic(p), cache: volby.cache ?? p.cache });
+    if (sit.pomala) return new Promise(() => {});
+    if (!sit.online) throw new TypeError('Failed to fetch');
+    return new Response(`síť ${klic(p)}`);
+  }
+  const posluchaci = {};
+  const stavSw = { skip: false, claim: false };
+  const self = {
+    location: { href: `${MISTO}sw.js` },
+    addEventListener: (typ, f) => { posluchaci[typ] = f; },
+    skipWaiting: async () => { stavSw.skip = true; },
+    clients: { claim: async () => { stavSw.claim = true; } },
+  };
+  const prostredi = vm.createContext({
+    self, caches, fetch: falesnyFetch, Request, Response, URL,
+    setTimeout: (f, _ms, ...a) => setTimeout(f, 0, ...a), clearTimeout,
+  });
+  vm.runInContext(zdrojSw, prostredi);
+  // Verze a seznam, které sw.js opravdu má (když nesedí s verze.mjs, hlásí to kontrola výš).
+  const { verze: verzeSw, soubory: souborySw } = vm.runInContext('({ verze: VERZE, soubory: [...SOUBORY] })', prostredi);
+  const udalost = (typ, data = {}) => {
+    let slib = null;
+    let odpoved = null;
+    posluchaci[typ]({ ...data, waitUntil: (p) => { slib = p; }, respondWith: (p) => { odpoved = p; } });
+    return { slib, odpoved };
+  };
+  const absolutni = (u) => new URL(u, MISTO).href;
+  const kes = `rugee-${verzeSw}`;
+  await udalost('install').slib;
+  const ulozeno = [...(kese.get(kes)?.keys() ?? [])];
+  if (JSON.stringify(ulozeno) !== JSON.stringify(souborySw.map(absolutni)) || !stavSw.skip) chybyAplikace.push(`instalace uložila ${ulozeno.length} souborů do ${[...kese.keys()]}`);
+  if (sit.pozadavky.some((p) => p.cache !== 'reload')) chybyAplikace.push('instalace vzala soubor z HTTP keše');
+  kese.set('rugee-stara', new Map());
+  kese.set('cizi', new Map());
+  await udalost('activate').slib;
+  if (kese.has('rugee-stara') || !kese.has('cizi') || !kese.has(kes) || !stavSw.claim) chybyAplikace.push(`aktivace nechala keše ${[...kese.keys()]}`);
+  const nacti = async (url, mode = 'navigate', method = 'GET') => {
+    sit.pozadavky = [];
+    const { odpoved } = udalost('fetch', { request: { url: absolutni(url), mode, method } });
+    return odpoved ? (await odpoved).text() : null;
+  };
+  if (await nacti('./?seed=3') !== `síť ${MISTO}?seed=3` || sit.pozadavky[0]?.cache !== 'no-cache') chybyAplikace.push('stránka online nejde ze sítě mimo HTTP keš');
+  if ((await kese.get(kes)?.get(absolutni('./'))?.clone().text()) !== `síť ${MISTO}`) chybyAplikace.push('navigace přepsala stránku v keši');
+  sit.online = false;
+  if (await nacti('./') !== `síť ${MISTO}` || await nacti('./index.html') !== `síť ${MISTO}`) chybyAplikace.push('stránka bez sítě nejde z keše');
+  sit.online = true;
+  sit.pomala = true;
+  if (await nacti('./') !== `síť ${MISTO}`) chybyAplikace.push('stránka při pomalé síti nejde z keše');
+  sit.pomala = false;
+  sit.online = false;
+  const styl = souborySw.find((u) => u.startsWith('./style.css')) ?? './style.css';
+  if (await nacti(styl, 'no-cors') !== `síť ${absolutni(styl)}` || sit.pozadavky.length) chybyAplikace.push('soubor hry nejde bez sítě z keše');
+  for (const [url, mode, method] of [['./docs/BALANC.md', 'no-cors', 'GET'], ['./docs/tema.html', 'navigate', 'GET'], ['https://jinde.cz/x.js', 'cors', 'GET'], ['./', 'navigate', 'POST'], ['./style.css?v=00000000', 'no-cors', 'GET']]) {
+    if (await nacti(url, mode, method) !== null) chybyAplikace.push(`service worker převzal ${method} ${url}`);
+  }
+}
+chyby.push(...chybyAplikace);
 if (chyby.length) {
   console.error('CHYBA:', chyby.join('; '));
   process.exit(1);

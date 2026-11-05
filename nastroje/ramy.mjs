@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 // Barvy jsou z palety spritů (src/sprity.js) a loga: tmavé dřevo důlní výdřevy, mosaz a téměř černý obrys.
-const PALETA = {
+export const PALETA = {
   K: '#140c08', // obrys
   h: '#b98250', // světlá hrana trámu
   w: '#8a5a35', // dřevo (jako násada krumpáče)
@@ -164,7 +164,7 @@ const VYMENA = [
   '....K.......',
 ];
 
-const OBRAZKY = {
+export const OBRAZKY = {
   'ram-drevo': RAM_DREVO,
   'ram-mosaz': RAM_MOSAZ,
   'ram-tenky': RAM_TENKY,

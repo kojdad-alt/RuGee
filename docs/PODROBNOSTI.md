@@ -55,6 +55,20 @@ Téma oken je **důlní dřevo a mosaz**: okna jsou z trámů důlní výdřevy 
 
 Test hlídá, že každý znak písma má stejný tvar, česká písmena mají diakritiku nad základním písmenem, všechny nadpisy oken z `index.html` i záložky menu jdou napsat a logo má všechna písmena.
 
+## Aplikace a hraní bez internetu
+
+Hra je PWA: v Chromu a Edgi (Android i počítač) jde nainstalovat, v Safari na iPhonu přidat na plochu (Sdílet → Přidat na plochu), otevře se přes celou obrazovku s vlastní ikonou a po první návštěvě jde hrát i bez internetu.
+
+- **Přidat na plochu** (`src/aplikace.js`): kde prohlížeč instalaci nabízí (`beforeinstallprompt`), je pod záložkami menu tlačítko Přidat na plochu, které otevře jeho nabídku. Na iPhonu tlačítko otevře Nastavení se skupinou Na plochu a návodem pro Safari. Z plochy a v prohlížečích bez instalace se tlačítko neukáže, skupina Na plochu v Nastavení jen napíše, kde instalaci hledat, a jestli je hra uložená pro hraní bez internetu.
+- **Ikony** kreslí `nastroje/ikony.mjs` z pixel artu hry: Havíř ze `src/sprity.js` s obrysem jako ve hře, za ním světlo lucerny ve dvou stupních dřeva, prkna a rám okna z `nastroje/ramy.mjs`. PNG zapisuje vlastním malým kodérem (`node:zlib`), každý bod kresby je celý čtverec, takže ikony jsou ostré: `ikona-192.png` a `ikona-512.png` (rám okna), `ikona-maska-512.png` (maskovatelná, prkna do krajů a Havíř v bezpečném kruhu), `ikona-apple-180.png` (plocha iPhonu) a `ikona-32.png` (záložka prohlížeče). Po změně spritu nebo rámu: `node nastroje/ikony.mjs` a pak `node nastroje/verze.mjs`.
+- **Manifest** `manifest.webmanifest`: jméno RuGee, start a rozsah `./` (funguje pod `/RuGee/` na GitHub Pages i lokálně), celá obrazovka, barva `--noc`.
+- **Service worker** `sw.js` při instalaci stáhne celou verzi (stránku, styl, všechny moduly s otisky, manifest a ikony) do keše `rugee-<VERZE>` mimo HTTP keš prohlížeče a hned se aktivuje, aktivace smaže keše starých verzí. Stránka jde vždycky nejdřív ze sítě (mimo HTTP keš), takže první načtení po nasazení je nová verze; z keše se vezme jen bez sítě nebo když síť do 4 s neodpoví. Skripty a styl mají v adrese otisk, takže se berou z keše, a co v ní ještě není, jde ze sítě. Cizí adresy a jiné stránky (třeba `docs/`) nechává prohlížeči.
+- **Nová verze nezůstane viset**: `node nastroje/verze.mjs` zapíše do `sw.js` seznam souborů a `VERZE` = otisk stránky, stylu, modulů, manifestu a ikon, takže každá změna změní i `sw.js`. `aplikace.js` ho registruje s `updateViaCache: 'none'` (prohlížeč si `sw.js` stahuje vždy ze sítě) a na novou verzi se ptá hned po načtení a po každém návratu do hry z pozadí. Když nová verze převezme stránku, která běží se starými soubory (moduly z import mapy v keši nové verze nejsou), stránka se sama obnoví, ale jen v hlavním menu, ne uprostřed hry, v záložce ani při psaní; jinak počká na návrat do menu.
+
+Na vlastním počítači (`localhost`, `127.0.0.1`) se service worker registruje jen s `?offline` v adrese (http://localhost:8000/?offline), jinak by dával moduly z keše a změna bez `verze.mjs` by nebyla vidět; bez `?offline` se případný starý worker odregistruje.
+
+Test hlídá manifest a ikony (PNG pixel po pixelu podle `ikony.mjs`), odkazy v `index.html`, že `sw.js` má verzi a seznam souborů přesně podle `verze.mjs` (zapomenuté `verze.mjs` test shodí) a service worker v náhradním prostředí s falešnou keší a sítí: instalace, mazání starých keší, stránka ze sítě a bez sítě nebo při pomalé síti z keše, soubory hry z keše a cizí adresy nechá být. V prohlížeči (Playwright, Chromium) je ověřené, že hra jde nainstalovat (Chromium nehlásí žádnou chybu instalace), bez sítě se načte a hraje, nová verze se v menu sama načte, uprostřed hry ne, první otevření po nasazení je nová verze i se serverem, který posílá `Cache-Control: max-age=600` jako GitHub Pages, a bez sítě je pak taky nová.
+
 ## Pro vývoj
 
 Čistý HTML, CSS a JavaScript bez build kroku. Spuštění u sebe:
@@ -101,4 +115,4 @@ Potřebuje Python 3.9+ s Pillow, Node, ffmpeg a Playwright s Chromiem (`npm i pl
 
 ## Nová verze
 
-Po každé změně kódu spusť `node nastroje/verze.mjs`. Do `index.html` zapíše otisky souborů (`?v=…`), aby hráči po nasazení nedostali z cache starý modul.
+Po každé změně kódu spusť `node nastroje/verze.mjs`. Do `index.html` zapíše otisky souborů (`?v=…`), aby hráči po nasazení nedostali z cache starý modul, a do `sw.js` novou verzi se seznamem souborů pro hraní bez internetu (viz [Aplikace](#aplikace-a-hraní-bez-internetu)).
