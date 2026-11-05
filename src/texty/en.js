@@ -23,6 +23,7 @@ export default {
     uroven: 'Level',
     urovenKratce: 'Lv.',
     hrozba: 'Threat',
+    hrozbaNavic: 'Threat +{n} for the hero\'s strength',
     zabito: 'Kills',
   },
 
@@ -339,6 +340,7 @@ export default {
     odemcenaMapa: 'Map unlocked: {mapa}',
     zvukVypnuty: 'Sound off (N)',
     zvukZapnuty: 'Sound on (N)',
+    obkliceni: 'Surrounded! Keep moving',
     hrozba: {
       sili: 'Threat {n}: enemies grow stronger',
       elity: 'Threat {n}: elites are coming',
@@ -551,6 +553,7 @@ export default {
     vypad: { nazev: 'Charge' },
     vyvolani: { nazev: 'Summon' },
     vejir: { nazev: 'Fan' },
+    skok: { nazev: 'Leap' },
   },
   bossove: {
     strazce: {

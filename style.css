@@ -294,6 +294,13 @@ html, body {
   white-space: nowrap;
 }
 
+/* Hrozba navíc za sílu hrdiny: „+N“ zlatě za číslem. */
+.hrozba-navic {
+  margin-left: 4px;
+  font-style: normal;
+  color: #ffd27a;
+}
+
 .hrozba.roste {
   animation: hrozba-roste 0.6s steps(4);
 }

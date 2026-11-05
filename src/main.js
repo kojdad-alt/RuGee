@@ -1,5 +1,5 @@
 import { vytvorRng } from './rng.js';
-import { novaHra, aktualizuj, vyber, rozhodniKus, TRIDY, kup, odejdiOdKupce, prehod, PORADI_ZBOZI } from './hra.js';
+import { novaHra, aktualizuj, vyber, rozhodniKus, TRIDY, kup, odejdiOdKupce, prehod, PORADI_ZBOZI, hrozbaNavic } from './hra.js';
 import { kresli, kresliMenu } from './kresleni.js';
 import { dusZaHru, DUSE_ZA } from './duse.js';
 import {
@@ -365,18 +365,26 @@ function jenKlavesnice(text) {
   return e;
 }
 
-// Hrozba pod časem: číslo se mění jednou za minutu a štítek přitom krátce poskočí (CSS animace .roste).
+// Hrozba pod časem: číslo se mění jednou za minutu a štítek přitom krátce poskočí (CSS animace .roste). Za ním
+// „+N“, o kolik stupňů je hrozba výš kvůli síle hrdiny (přizpůsobení hrozby).
 let ukazanaHrozba = null;
-function ukazHrozbu(uroven) {
-  if (uroven === ukazanaHrozba) return;
+let ukazanaNavic = null;
+function ukazHrozbu(uroven, navic) {
+  if (uroven === ukazanaHrozba && navic === ukazanaNavic) return;
   const stitek = el('hrozba');
   el('hrozba-cislo').textContent = uroven;
+  const plus = el('hrozba-navic');
+  plus.hidden = !(navic > 0);
+  plus.textContent = navic > 0 ? `+${navic}` : '';
+  if (navic > 0) stitek.title = t('hud.hrozbaNavic', { n: navic });
+  else stitek.removeAttribute('title');
   stitek.classList.remove('roste');
-  if (ukazanaHrozba !== null && uroven > ukazanaHrozba) {
+  if (ukazanaHrozba !== null && (uroven > ukazanaHrozba || navic > ukazanaNavic)) {
     void stitek.offsetWidth;
     stitek.classList.add('roste');
   }
   ukazanaHrozba = uroven;
+  ukazanaNavic = navic;
 }
 
 // Pruh životů dole: šířka výplně, číslo a pod 30 % blikání; mění DOM jen při změně životů.
@@ -419,7 +427,7 @@ function hud() {
     ukazanyCas = cas;
     horniOkraj = Math.round(document.querySelector('.hud').getBoundingClientRect().bottom) + 10;
   }
-  ukazHrozbu(hra.hrozba);
+  ukazHrozbu(hra.hrozba, hrozbaNavic(hra));
   el('xp-pruh').style.width = `${Math.min(100, (hrdina.xp / hrdina.potreba) * 100)}%`;
   // Překreslí se jen když se výbava změnila (po výběru vylepšení nebo v nové hře).
   ukazVybavu(vybava, hra, el('zivoty-sloty'));
