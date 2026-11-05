@@ -976,18 +976,6 @@ body.v-menu .hud, body.v-menu .napoveda, body.v-menu .vybava { display: none; }
   text-shadow: 0 2px 0 var(--noc);
 }
 
-.tabulka {
-  display: grid;
-  grid-template-columns: auto auto;
-  gap: 6px 20px;
-  justify-content: center;
-  text-align: left;
-  margin: 0 0 16px;
-}
-
-.tabulka dt { color: var(--text-tlumeny); }
-.tabulka dd { margin: 0; color: var(--zlata); font-weight: bold; }
-
 .ovladani {
   display: grid;
   gap: 8px;
@@ -1660,25 +1648,80 @@ kbd {
   .trida.mapa .trida-text { padding: 0 2px; }
 }
 
-/* Rekordy po mapách: nadpis v barvě mapy, pod ním tabulka nebo krátká věta. */
+/* Rekordy po mapách: destička v tenkém rámu, v hlavičce ikona mapy, jméno v barvě mapy a datum. Vlevo
+   nejdelší přežití pixelovým písmem (jako nadpisy), vpravo zapuštěná tabulka s postavou, hrozbou, úrovní
+   a zabitími. Zamčená mapa je tmavší se šedou ikonou a zámkem. */
 .rekord-mapy {
-  margin: 0 0 12px;
-  padding: 8px 10px 2px;
-  background: #1c1a23;
-  border: 2px solid var(--okraj);
-  border-left: 6px solid var(--mapa);
+  margin: 0 0 14px;
+  padding: 8px 10px 10px;
+  text-align: left;
+  background: var(--drevo-2) padding-box;
+  border: calc(2 * var(--px)) solid transparent;
+  border-image: var(--ram-tenky) 2 / calc(2 * var(--px)) repeat;
 }
 
-.rekord-mapy h3 {
-  margin: 0 0 8px;
+.rekord-hlava { display: flex; align-items: center; gap: 9px; }
+.rekord-hlava canvas { flex: none; }
+
+.rekord-hlava h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   color: var(--mapa);
   font-size: 15px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  text-shadow: 0 2px 0 var(--noc);
 }
 
-.rekord-mapy .tabulka { margin-bottom: 8px; }
-.rekord-prazdny { margin: 0 0 8px; color: var(--text-tlumeny); font-size: 13px; }
+.rekord-kdy { flex: none; color: var(--pergamen-tlumeny); font-size: 12px; }
+
+.rekord-telo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.rekord-cas {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 132px;
+  padding: 6px 10px 8px;
+}
+
+.rekord-cas small { color: var(--pergamen-tlumeny); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.rekord-staty {
+  flex: 1;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  align-items: center;
+  margin: 0;
+  padding: 7px 10px;
+  background: var(--drevo-0);
+  border: 2px solid var(--noc);
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.45);
+}
+
+.rekord-staty dt { color: var(--pergamen-tlumeny); font-size: 13px; }
+.rekord-staty dd { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--mosaz); font-weight: bold; }
+.rekord-staty dd canvas { margin: -3px 0; }
+
+.rekord-prazdny { margin: 6px 0 0; color: var(--pergamen-tlumeny); font-size: 13px; }
+.rekord-mapy.zamcena { background-color: var(--drevo-1); }
+.rekord-mapy.zamcena .rekord-hlava canvas:first-child { filter: grayscale(0.85) brightness(0.6); }
+.rekord-mapy.zamcena h3 { color: var(--pergamen-tlumeny); }
+.rekord-mapy.zamcena .rekord-prazdny { color: var(--chyba); }
+
+@media (max-width: 520px) {
+  .rekord-telo { flex-direction: column; align-items: stretch; gap: 8px; }
+  .rekord-cas { flex-direction: row; justify-content: center; gap: 12px; padding: 2px 0; }
+}
 
 /* Profil: karty profilů jako karty postav (sprite postavy profilu, jméno, duše, mapy, sbírka, rekord), pod nimi
    hlášení a tlačítka akcí v mřížce, na telefonu po dvou. Pole pro jméno a kód jako pruh hlasitosti: tmavá
