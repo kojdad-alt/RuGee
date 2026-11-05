@@ -164,8 +164,6 @@ function vybavaUJoysticku() {
 // Pauza (P nebo Esc): hra stojí a okno z trámů nabídne Pokračovat a pod ním skupiny jako v Nastavení: Hra (čísla
 // poškození, světla) a Zvuk (hlasitost, ztlumení). Pořadí šipek je stejné jako dřív. Volby se staví pokaždé znovu, ať
 // ukazují, co je zrovna uložené (mohlo se změnit v menu).
-const UKONCENI_OD = 180;
-
 function nastavPauzu(zapnout) {
   hra.pauza = zapnout;
   el('pauza').hidden = !zapnout;
@@ -178,18 +176,16 @@ function nastavPauzu(zapnout) {
   pokracovat.className = 'menu-tlacitko hlavni';
   pokracovat.type = 'button';
   pokracovat.addEventListener('click', () => { if (hra?.pauza) nastavPauzu(false); });
-  // Ukončit hru jde až od UKONCENI_OD s (ať se z běhu neodchází po minutě). Běh skončí jako po smrti:
-  // zapíše se rekord, připíšou se duše a z obrazovky konce se jde do menu.
-  const smi = hra.cas >= UKONCENI_OD;
-  const ukoncit = textovyPrvek('button', smi ? t('pauza.ukoncit') : t('pauza.ukoncitOd', { cas: formatCas(UKONCENI_OD) }));
-  ukoncit.className = 'menu-tlacitko';
+  // Ukončit hru (Daliik 5. 11.): kdykoli, ale bez odměny – žádné duše ani rekord, rovnou do menu.
+  // Co se zapsalo už během hry (nálezy výbavy, odemčená mapa), zůstává.
+  const ukoncit = textovyPrvek('button', t('pauza.ukoncit'));
+  ukoncit.append(' ', textovyPrvek('small', t('pauza.bezOdmeny')));
+  ukoncit.className = 'menu-tlacitko pauza-ukoncit';
   ukoncit.type = 'button';
-  ukoncit.disabled = !smi;
   ukoncit.addEventListener('click', () => {
-    if (!hra?.pauza || hra.konec || hra.cas < UKONCENI_OD) return;
-    hra.ukonceno = true;
-    hra.konec = true;
-    nastavPauzu(false);
+    if (!hra?.pauza || hra.konec) return;
+    hra.pauza = false;
+    doMenu();
   });
   const volbyHry = skupina(t('menu.nastaveni.hra'));
   volbyHry.append(prepinacNastaveni('cislaPoskozeni', t('menu.nastaveni.cislaPoskozeni')), prepinacSvetel());
@@ -306,7 +302,7 @@ function zapisKonec() {
   const stitek = el('konec-stitek');
   stitek.textContent = novy ? t('konec.novyRekord') : t('konec.rekord', { cas: formatCas(rekord.cas), uroven: rekord.uroven, zabito: rekord.zabito });
   stitek.classList.toggle('novy', novy);
-  pixelovyNadpis(el('konec-nadpis'), t(hra.ukonceno ? 'konec.nadpisUkonceno' : 'konec.nadpis'), { styl: STYL_KREV, min: 2, max: 4 });
+  pixelovyNadpis(el('konec-nadpis'), t('konec.nadpis'), { styl: STYL_KREV, min: 2, max: 4 });
 
   const cas = textovyPrvek('div', '');
   cas.className = 'konec-cas';

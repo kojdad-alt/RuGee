@@ -1290,6 +1290,16 @@ body.v-menu .hud, body.v-menu .zivoty-hrdiny, body.v-menu .vybava { display: non
 
 .menu-tlacitko.potvrdit.vybrano, .menu-tlacitko.potvrdit:focus-visible { --tl-lice: #7d2e26; --tl-obrys: var(--chyba); --tl-text: #ffe3e3; }
 
+/* Ukončit hru v pauze: pod nápisem drobně, že běh skončí bez odměny. */
+.pauza-ukoncit small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72em;
+  opacity: 0.75;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .menu-tlacitko:disabled {
   --tl-lice: var(--drevo-1);
   --tl-obrys: var(--noc);
