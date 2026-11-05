@@ -517,6 +517,11 @@ addEventListener('resize', zmenVelikost);
 el('znovu').addEventListener('click', () => { if (hra?.konec) start(); });
 el('do-menu').addEventListener('click', () => { if (hra?.konec) doMenu(); });
 el('prehodit').addEventListener('click', prehodKarty);
+// Pauza na dotyk: tlačítko vlevo v liště (CSS ho ukáže jen na dotykovém displeji). Funguje jako P, takže ne v okně
+// karet, výbavy, kupce ani po prohře; v pauze ji klepnutí zase pustí.
+el('hud-pauza').addEventListener('click', () => {
+  if (!vMenu && hra && !hra.konec && !hra.volby && !hra.porovnani && !hra.obchod) nastavPauzu(!hra.pauza);
+});
 el('odejit').addEventListener('click', odejdi);
 
 // Ikonka lebky, zlaťáku a klíče v horní liště (sprity z sprity.js, stejné jako ve hře).

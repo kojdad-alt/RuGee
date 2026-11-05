@@ -4,17 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RuGee</title>
-<link rel="stylesheet" href="style.css?v=2371baea">
+<link rel="stylesheet" href="style.css?v=58f617f3">
 </head>
 <body class="v-menu">
 <canvas id="platno" aria-label="RuGee"></canvas>
 
-<div class="hud" aria-hidden="true">
-  <div class="xp"><div id="xp-pruh" class="xp-pruh"></div></div>
+<div class="hud">
+  <div class="xp" aria-hidden="true"><div id="xp-pruh" class="xp-pruh"></div></div>
   <div class="hud-radek">
-    <span class="hud-uroven"><span class="hud-popis">Úroveň</span><span class="hud-popis-kratky">Úr.</span> <b id="uroven">1</b></span>
-    <span class="hud-stred"><span id="cas" class="cas">0:00</span><span id="hrozba" class="hrozba">Hrozba <b id="hrozba-cislo">1</b></span></span>
-    <span class="hud-vpravo"><span class="hud-zabito"><i id="lebka-ikona"></i><span class="hud-popis">Zabito</span> <b id="zabito">0</b></span><span id="hud-zlato" class="hud-zlato"><i id="zlato-ikona"></i><b id="zlataky">0</b></span><span id="hud-klice" class="hud-klice" hidden><i id="klic-ikona"></i><b id="klice">0</b></span></span>
+    <span class="hud-vlevo"><button id="hud-pauza" class="menu-tlacitko hud-pauza" type="button" aria-label="Pauza" title="Pauza"></button><span class="hud-uroven" aria-hidden="true"><span class="hud-popis">Úroveň</span><span class="hud-popis-kratky">Úr.</span> <b id="uroven">1</b></span></span>
+    <span class="hud-stred" aria-hidden="true"><span id="cas" class="cas">0:00</span><span id="hrozba" class="hrozba">Hrozba <b id="hrozba-cislo">1</b></span></span>
+    <span class="hud-vpravo" aria-hidden="true"><span class="hud-zabito"><i id="lebka-ikona"></i><span class="hud-popis">Zabito</span> <b id="zabito">0</b></span><span id="hud-zlato" class="hud-zlato"><i id="zlato-ikona"></i><b id="zlataky">0</b></span><span id="hud-klice" class="hud-klice" hidden><i id="klic-ikona"></i><b id="klice">0</b></span></span>
   </div>
 </div>
 <div id="vybava" class="vybava" aria-hidden="true"></div>
@@ -30,7 +30,7 @@
       <button id="menu-zpet" class="menu-tlacitko" type="button">Zpět (Esc)</button>
     </div>
   </div>
-  <p class="menu-pata">Šipky a Enter, klik nebo dotyk</p>
+  <p class="menu-pata"><span class="jen-klavesnice">Šipky a Enter, klik nebo dotyk</span><span class="jen-dotyk">Vyber klepnutím na tlačítko</span></p>
 </section>
 
 <section id="volba" class="vyber" hidden>
@@ -84,7 +84,7 @@
   </div>
 </section>
 
-<p class="napoveda">Pohyb: WASD, šipky nebo tah prstem · zbraně střílí samy · P pauza · N zvuk</p>
+<p class="napoveda"><span class="jen-klavesnice">Pohyb: WASD, šipky nebo tah prstem · zbraně střílí samy · P pauza · N zvuk</span><span class="jen-dotyk">Pohyb: tah prstem · zbraně střílí samy · pauza vlevo nahoře</span></p>
 <p id="zvuk-hlaseni" class="zvuk-hlaseni" role="status" hidden></p>
 <script type="importmap">
 {
@@ -93,9 +93,9 @@
     "./src/hra.js": "./src/hra.js?v=c6d39541",
     "./src/kresleni.js": "./src/kresleni.js?v=33b31b9a",
     "./src/louka.js": "./src/louka.js?v=aff52225",
-    "./src/main.js": "./src/main.js?v=32565f6b",
+    "./src/main.js": "./src/main.js?v=60d3c174",
     "./src/mapy.js": "./src/mapy.js?v=8be105f4",
-    "./src/menu.js": "./src/menu.js?v=9bbcbd8d",
+    "./src/menu.js": "./src/menu.js?v=7784cfd2",
     "./src/obchod.js": "./src/obchod.js?v=9208c128",
     "./src/pismo.js": "./src/pismo.js?v=910d689d",
     "./src/prenos.js": "./src/prenos.js?v=96f989e1",
@@ -109,6 +109,6 @@
   }
 }
 </script>
-<script type="module" src="src/main.js?v=32565f6b"></script>
+<script type="module" src="src/main.js?v=60d3c174"></script>
 </body>
 </html>
