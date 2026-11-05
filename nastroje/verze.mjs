@@ -1,6 +1,6 @@
 // Přidá ke skriptům a stylu v index.html otisk obsahu (?v=…), aby prohlížeč po nové verzi
-// nevzal starý soubor z cache. Vnořené importy mezi moduly řeší import mapa. V ní jsou i shadery (src/shadery/*.glsl),
-// osvetleni.js si podle ní najde jejich adresu s otiskem.
+// nevzal starý soubor z cache. Vnořené importy mezi moduly řeší import mapa. V ní jsou i slovníky jazyků
+// (src/texty/*.js) a shadery (src/shadery/*.glsl), osvetleni.js si podle ní najde jejich adresu s otiskem.
 // Do sw.js zapíše seznam souborů hry (stejné adresy s otisky) a VERZI = otisk všeho dohromady (stránka, styl,
 // moduly, manifest, ikony). Každá změna tak změní i sw.js, prohlížeč pozná novou verzi a stáhne ji do nové keše.
 // Spouštět po každé změně kódu: node nastroje/verze.mjs (test pak hlídá, že sw.js sedí)
@@ -15,12 +15,18 @@ const otisk = (soubor) => createHash('sha1').update(cti(soubor)).digest('hex').s
 export const ZACATEK_SW = '// verze: začátek (generuje node nastroje/verze.mjs, ručně neupravovat)';
 export const KONEC_SW = '// verze: konec';
 
-// Import mapa modulů a shaderů: './src/x.js' → './src/x.js?v=otisk', './src/shadery/y.glsl' → '…?v=otisk'.
+// Soubory s danou příponou v podsložce src (třeba 'texty', '.js' → ['texty/cs.js']), bez složky prázdné.
+function vPodslozce(slozka, pripona) {
+  const url = new URL(`src/${slozka}/`, KOREN);
+  return existsSync(url) ? readdirSync(url).filter((f) => f.endsWith(pripona)).sort().map((f) => `${slozka}/${f}`) : [];
+}
+
+// Import mapa modulů, slovníků a shaderů: './src/x.js' → './src/x.js?v=otisk', './src/texty/cs.js' a
+// './src/shadery/y.glsl' stejně.
 export function mapaModulu() {
   const moduly = readdirSync(new URL('src/', KOREN)).filter((f) => f.endsWith('.js')).sort();
-  const slozkaShaderu = new URL('src/shadery/', KOREN);
-  const shadery = existsSync(slozkaShaderu) ? readdirSync(slozkaShaderu).filter((f) => f.endsWith('.glsl')).sort().map((f) => `shadery/${f}`) : [];
-  return Object.fromEntries([...moduly, ...shadery].map((f) => [`./src/${f}`, `./src/${f}?v=${otisk(`src/${f}`)}`]));
+  const soubory = [...moduly, ...vPodslozce('texty', '.js'), ...vPodslozce('shadery', '.glsl')];
+  return Object.fromEntries(soubory.map((f) => [`./src/${f}`, `./src/${f}?v=${otisk(`src/${f}`)}`]));
 }
 
 // index.html s aktuální import mapou a otisky u main.js a style.css.
@@ -65,5 +71,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   writeFileSync(new URL('sw.js', KOREN), sw.slice(0, od) + blokSw(hra) + sw.slice(po + KONEC_SW.length));
   const mapa = Object.keys(mapaModulu());
   const shaderu = mapa.filter((f) => f.endsWith('.glsl')).length;
-  console.log(`verze: ${mapa.length - shaderu} modulů + ${shaderu} shaderů + style.css, sw.js ${hra.verze} (${hra.soubory.length} souborů)`);
+  const slovniku = mapa.filter((f) => f.startsWith('./src/texty/')).length;
+  console.log(`verze: ${mapa.length - shaderu - slovniku} modulů + ${slovniku} slovníků + ${shaderu} shaderů + style.css, sw.js ${hra.verze} (${hra.soubory.length} souborů)`);
 }

@@ -1,0 +1,833 @@
+// Čeština: všechny texty hry. Klíče bere kód přes t('větev.klíč') ze src/texty.js, každý jazyk má stejné klíče
+// (test to hlídá). {jmeno} je parametr, {n|a|b|c} tvar slova podle čísla n (1 | 2–4 | 5 a víc).
+// Nový text přidej sem i do ostatních jazyků. Pixelovým písmem (nadpisy oken, nápisy ve hře) jdou jen znaky,
+// které má src/pismo.js.
+export default {
+  // Čísla a jednotky: desetinná čárka, mezera před %, datum rekordu.
+  format: {
+    desetinna: ',',
+    procenta: '{n} %',
+    datum: { locale: 'cs-CZ' },
+  },
+  // Tvary slov podle čísla: {n|1|2–4|5 a víc}.
+  tvary: {
+    duse: '{n|duše|duše|duší}',
+    zlataky: '{n} {n|zlaťák|zlaťáky|zlaťáků}',
+    kusy: '{n} {n|kus|kusy|kusů}',
+  },
+
+  // index.html: popis stránky, horní lišta, nápovědy oken a tlačítka (data-t).
+  stranka: {
+    popis: 'Přežij v hlubinách co nejdéle. Pixelová hra v prohlížeči, jde hrát i bez internetu.',
+    napovedaKlavesnice: 'Pohyb: WASD, šipky nebo tah prstem · zbraně střílí samy · P pauza · N zvuk',
+    napovedaDotyk: 'Pohyb: tah prstem · zbraně střílí samy · pauza vlevo nahoře',
+  },
+  hud: {
+    pauza: 'Pauza',
+    uroven: 'Úroveň',
+    urovenKratce: 'Úr.',
+    hrozba: 'Hrozba',
+    zabito: 'Zabito',
+  },
+
+  // Hlavní menu a jeho záložky.
+  menu: {
+    podtitul: 'Přežij v hlubinách co nejdéle',
+    volbyAria: 'Hlavní menu',
+    zpet: 'Zpět',
+    pataKlavesnice: 'Šipky a Enter, klik nebo dotyk',
+    pataDotyk: 'Vyber klepnutím na tlačítko',
+    hrat: 'Hrát',
+    profilCedulka: 'Profil: ',
+    duse: '{n} {n|duše|duše|duší}',
+    zvoleno: 'Zvoleno',
+    postavy: {
+      zacina: 'Začíná: ',
+      podtitul: 'Vyber, za koho půjdeš do hlubin. Volba se zapamatuje.',
+    },
+    mapy: {
+      boss: 'Hlavní boss: ',
+      tezsi: 'Těžší: nepřátelé {zivoty} životů a {poskozeni} poškození',
+      rekord: 'Rekord ',
+      bezRekordu: 'Zatím bez rekordu',
+      zamceno: 'Zamčeno: přežij {cas} na mapě {mapa}',
+      zamcenoAria: ', zamčeno',
+      postup: 'zatím {nejlepe} z {cil}',
+      podtitul: 'Kde budeš přežívat. Další mapa se odemkne, když na té předchozí vydržíš {cas}.',
+    },
+    vylepseni: {
+      mas: 'Máš ',
+      hotovo: 'Hotovo',
+      chybi: 'chybí {n}',
+      aria: '{nazev}, úroveň {uroven} z {max}, {stav}',
+      ariaHotovo: 'hotovo',
+      ariaCena: 'cena {n} {n|duše|duše|duší}',
+      ariaChybi: ', chybí {n}',
+      vratit: 'Vrátit duše ({n})',
+      nicKVraceni: 'Není co vracet',
+      potvrdit: 'Opravdu? Vrátí se {n} {n|duše|duše|duší}',
+      podtitul: 'Za duše z každé výpravy si kup trvalou sílu. Platí od začátku každé hry.',
+    },
+    sbirka: {
+      objeveno: 'Objeveno ',
+      zCelkem: ' z {n}',
+      podtitul: 'Výbava z truhel bossů platí jen v jedné hře. Tady je všechno, co jsi kdy našel, v nejlepší raritě.',
+    },
+    rekordy: {
+      podtitul: 'Nejlepší výpravy profilu {jmeno}, každá mapa zvlášť',
+      prazdny: 'Zatím žádný rekord. Dej Hrát a vydrž co nejdéle.',
+      nejdelsi: 'Nejdelší přežití',
+    },
+    ovladani: {
+      podtitul: 'Zbraně střílí samy, ty jen uhýbáš a sbíráš krystaly.',
+      pata: 'Hlasitost, čísla poškození a světla najdeš v Nastavení.',
+      skupiny: { pohyb: 'Pohyb', veHre: 'Ve hře', menu: 'Menu a konec hry' },
+      klavesy: { sipky: 'šipky', tah: 'tah prstem' },
+      radky: {
+        pohyb: 'pohyb',
+        pohybMobil: 'pohyb na mobilu',
+        vyber: 'výběr vylepšení (nebo klik, šipky a Enter)',
+        vybava: 'výbava z truhly: vzít nový kus, nebo nechat nasazený',
+        prehodit: 'přehodit karty za zlaťáky (nebo zdarma od kupce)',
+        kupec: 'u kupce koupit zboží (Esc nebo Q odejít)',
+        pauza: 'pauza (na mobilu tlačítko vlevo nahoře)',
+        zvuk: 'ztlumit nebo zapnout zvuk (hlasitost je v Nastavení)',
+        vyberMenu: 'výběr v menu',
+        zpetMenu: 'zpět v menu',
+        znovu: 'znovu po prohře',
+        menuPoProhre: 'menu po prohře',
+      },
+    },
+    nastaveni: {
+      podtitul: 'Volby se hned uloží v tomhle prohlížeči a platí pro všechny profily. Stejné najdeš i v pauze.',
+      zvuk: 'Zvuk',
+      hra: 'Hra',
+      cislaPoskozeni: 'Čísla poškození',
+      zapnuto: 'zapnuto',
+      vypnuto: 'vypnuto',
+    },
+    zvuk: {
+      nazev: 'Zvuk',
+      zapnuty: 'zapnutý',
+      vypnuty: 'vypnutý',
+      efekty: 'Efekty',
+      hudba: 'Hudba',
+      tiseji: '{nazev} tišeji',
+      hlasiteji: '{nazev} hlasitěji',
+      hlasitost: 'Hlasitost: {nazev}',
+    },
+    // Světla: režim na tlačítku a řádek pod ním (stav podle osvetleni.js, duvod).
+    svetla: {
+      nazev: 'Světla',
+      rezimy: { auto: 'auto', zap: 'zapnutá', vyp: 'vypnutá' },
+      stav: {
+        auto: 'Svítí, dokud hra běží plynule. Když se zpomalí, vypnou se samy.',
+        zap: 'Svítí vždycky, i kdyby hra zpomalila.',
+        vypnuto: 'Jednoduchá tma bez WebGL, nejrychlejší.',
+        nacita: 'Světla se načítají…',
+        webgl: 'Prohlížeč neumí WebGL, svítí jednoduchá tma.',
+        pomale: 'Prohlížeč kreslí WebGL bez grafické karty, svítí jednoduchá tma. Zapnout jde ručně.',
+        shadery: 'Světla se nepodařilo načíst, svítí jednoduchá tma.',
+        kontrola: 'V tomhle prohlížeči světla nejdou, svítí jednoduchá tma.',
+        fps: 'Se světly se hra zpomalovala, svítí jednoduchá tma. Zapnout jde ručně.',
+        ztraceno: 'Grafika se restartovala, světla se za chvíli vrátí.',
+      },
+    },
+    // Na plochu (aplikace.js): text podle toho, kde hra běží (kde).
+    plocha: {
+      nadpis: 'Na plochu',
+      pridat: 'Přidat na plochu',
+      offline: ' Hra je uložená v zařízení a jde hrát i bez internetu.',
+      kde: {
+        plocha: 'Hraješ z plochy jako aplikace.',
+        nabidka: 'Hra dostane ikonu na ploše a otevře se přes celou obrazovku.',
+        ios: 'V Safari klepni na Sdílet (čtvereček se šipkou nahoru) a vyber Přidat na plochu.',
+        prohlizec: 'V nabídce prohlížeče najdeš Přidat na plochu nebo Nainstalovat.',
+      },
+    },
+    profil: {
+      podtitul: 'Každý profil má vlastní duše, vylepšení, rekordy, sbírku a mapy. Nastavení zvuku je společné.',
+      pata: 'Exportovat dá kód uložení a soubor {pripona}, Importovat je nahraje v jiném prohlížeči nebo zařízení. Nic se neposílá na server.',
+      duseATrida: '{n} {n|duše|duše|duší} · {trida}',
+      nejdelsi: 'Nejdelší přežití ',
+      postup: 'Mapy {mapy}/{map} · sbírka {sbirka}/{kusu}',
+      vKodu: 'V kódu',
+      hrajes: 'Hraješ',
+      prepnuto: 'Hraješ za profil {jmeno}.',
+      plno: 'Plno ({n}/{n})',
+      novy: 'Nový profil',
+      prejmenovat: 'Přejmenovat',
+      smazat: 'Smazat',
+      posledni: 'Poslední profil smazat nejde',
+      opravduSmazat: 'Opravdu smazat {jmeno}?',
+      varovaniSmazani: 'Smazáním zmizí duše, vylepšení, rekordy, sbírka i mapy profilu {jmeno}. Stiskni znovu, nebo dej Zpět.',
+      nejdeSmazat: 'Profil nejde smazat.',
+      smazano: 'Profil {jmeno} je smazaný. Hraješ za {aktivni}.',
+      exportovat: 'Exportovat',
+      importovat: 'Importovat',
+      jmeno: 'Jméno profilu',
+      ulozitJmeno: 'Uložit jméno',
+      zalozit: 'Založit profil',
+      prejmenovano: 'Profil se teď jmenuje {jmeno}.',
+      zalozeno: 'Profil {jmeno} je založený a hraješ za něj.',
+      noveJmeno: 'Nové jméno pro profil {jmeno}, nejvýš {max} znaků.',
+      novyOdNuly: 'Nový profil začne od nuly: bez duší, vylepšení, rekordů a sbírky. Jméno má nejvýš {max} znaků.',
+      kod: 'Kód uložení',
+      kopirovat: 'Kopírovat kód',
+      zkopirovano: 'Kód je ve schránce. V jiném zařízení ho vlož do Profil → Importovat.',
+      nejdeZkopirovat: 'Zkopírovat nejde. Označ kód v poli a zkopíruj ho sám.',
+      stahnout: 'Stáhnout {pripona}',
+      stahujeSe: 'Stahuje se soubor {soubor}.',
+      nejdeStahnout: 'Stáhnout nejde, zkopíruj kód.',
+      export: 'Export',
+      exportPodtitul: 'Tenhle kód přenese profil do jiného prohlížeče nebo zařízení: tam dej Profil → Importovat a kód vlož, nebo vyber stažený soubor. Nic se neposílá na server.',
+      vlozKod: 'Sem vlož kód uložení (RUGEE1.…)',
+      kodOk: 'Kód je v pořádku. Kam ho nahrát?',
+      nacist: 'Načíst kód',
+      vybratSoubor: 'Vybrat soubor {pripona}',
+      import: 'Import',
+      importPodtitul: 'Vlož kód uložení z jiného zařízení, nebo vyber stažený soubor {pripona}. Než se cokoli přepíše, uvidíš, co v kódu je.',
+      jakoNovy: 'Jako nový profil',
+      prepsat: 'Přepsat {jmeno}',
+      opravduPrepsat: 'Opravdu přepsat {jmeno}?',
+      nahrano: 'Nahráno do profilu {jmeno}. Hraješ za něj.',
+      // Chyby z ulozeni.js a prenos.js (klíč = chyba).
+      chyby: {
+        jmeno: 'Napiš jméno (aspoň jeden znak).',
+        obsazene: 'Tohle jméno už má jiný profil.',
+        plno: 'Víc než {max} profilů nejde. Nějaký smaž nebo přepiš.',
+        uloziste: 'Prohlížeč nedovolí ukládat (anonymní okno?), profil se neuloží.',
+        neni: 'Ten profil už neexistuje.',
+        prazdny: 'Vlož kód uložení, nebo vyber soubor {pripona}.',
+        format: 'Tohle není kód uložení RuGee.',
+        neuplny: 'Kód je useknutý, chybí mu konec. Zkopíruj ho celý znovu.',
+        soucet: 'Kód je poškozený nebo neúplný (nesedí kontrolní součet). Zkopíruj ho celý znovu.',
+        verze: 'Kód je z jiné verze hry. Obnov stránku a zkus to znovu.',
+        obsah: 'Kód je poškozený, data v něm nejdou přečíst.',
+        soubor: 'Soubor nejde přečíst.',
+      },
+    },
+  },
+  zalozky: {
+    postavy: { nazev: 'Postavy' },
+    mapy: { nazev: 'Mapy' },
+    vylepseni: { nazev: 'Vylepšení' },
+    sbirka: { nazev: 'Sbírka' },
+    rekordy: { nazev: 'Rekordy' },
+    ovladani: { nazev: 'Ovládání' },
+    nastaveni: { nazev: 'Nastavení' },
+    profil: { nazev: 'Profil' },
+  },
+  // Údaje o hře v rekordech a na konci.
+  udaje: {
+    postava: 'Postava',
+    mapa: 'Mapa',
+    hrozba: 'Hrozba',
+    uroven: 'Úroveň',
+    zabito: 'Zabito',
+    bossove: 'Bossové',
+    vybava: 'Výbava bossů',
+  },
+  profil: {
+    vychoziJmeno: 'Hráč',
+    cislo: 'Profil {n}',
+  },
+  prenos: {
+    hlavicka: 'RuGee: uložení profilu „{jmeno}“. Nahraješ ho v menu Profil → Importovat.',
+    bezJmena: 'profil',
+  },
+
+  // Okna ve hře: nová úroveň a truhly, porovnání výbavy, kupec, pauza, konec.
+  volba: {
+    napovedaKlavesnice: 'Vyber jedno vylepšení (klávesy 1–3 nebo šipky a Enter)',
+    napovedaDotyk: 'Klepni na jedno vylepšení',
+    novaUroven: 'Nová úroveň',
+    truhlaBosse: 'Truhla bosse',
+    zamcenaTruhla: 'Zamčená truhla',
+    uroven: 'Úroveň {n}',
+    bossPorazen: 'Boss poražen',
+    odemcenoKlicem: 'Odemčeno klíčem',
+    odemcenoZa: 'Odemčeno za {n} zlaťáků',
+    novaZbran: 'Nová zbraň',
+    nove: 'Nové',
+    urovenKratce: ' · úr. {n}',
+    urovenZDo: 'Úroveň {od} → {uroven}',
+    nasazeno: 'Nasazeno: {kus}',
+    prehodit: 'Přehodit karty',
+    zdarma: 'zdarma ×{n}',
+    prehoditZdarmaAria: 'Přehodit karty zdarma, zbývá {n}',
+    prehoditZaAria: 'Přehodit karty za {n} zlaťáků',
+    sance: 'Šance na kartu:',
+    sanceTruhla: 'Truhla dává aspoň vzácnou kartu:',
+  },
+  porovnani: {
+    napovedaKlavesnice: '1 = Vzít, 2 = Nechat (nebo šipky a Enter)',
+    napovedaDotyk: 'Klepni na kus, který si necháš',
+    nadpis: 'Výbava bosse',
+    koupeno: 'Koupeno u kupce',
+    podtitul: 'Slot {slot} už je obsazený. Kus, který si nenecháš, se rozloží na zlaťáky.',
+    novy: 'Nový',
+    vzit: 'Vzít',
+    staryDa: 'starý dá {zlataky}',
+    nasazeny: 'Nasazený',
+    nechat: 'Nechat',
+    novyDa: 'nový dá {zlataky}',
+  },
+  obchod: {
+    napovedaKlavesnice: 'Kupuj za zlaťáky (klávesy 1–5 nebo šipky a Enter), Esc = odejít',
+    napovedaDotyk: 'Klepni na zboží, které chceš koupit',
+    odejit: 'Odejít',
+    nadpis: 'Vůz kupce',
+    stitek: 'Kupec tu bude ještě {n} s',
+    mas: 'Máš',
+    prehozeniZdarma: 'přehození zdarma: {n}',
+    koupeno: 'Koupeno: {text}',
+    naVoze: 'Na voze: ',
+    aria: '{i}. {nazev} za {cena}. {popis}.',
+  },
+  pauza: {
+    nadpis: 'Pauza',
+    pokracovat: 'Pokračovat',
+    napovedaKlavesnice: 'Hra stojí. <kbd>P</kbd>, <kbd>Esc</kbd> nebo Pokračovat ji pustí dál.',
+    napovedaDotyk: 'Hra stojí, Pokračovat ji pustí dál.',
+  },
+  konec: {
+    nadpis: 'Horda tě pohltila',
+    znovu: 'Znovu',
+    menu: 'Menu',
+    novyRekord: 'Nový rekord!',
+    rekord: 'Rekord mapy {cas} · úroveň {uroven} · zabito {zabito}',
+    prezil: '{trida} přežil',
+    oziven: 'Duše tě jednou vrátily.',
+    odemcena: 'Odemčena nová mapa: {mapa}!',
+    chamtivost: ' · chamtivost {n}',
+    rozpis: 'čas {cas} · zabití {zabiti} · bossové {bossove} · zlaťáky {zlataky}{chamtivost} · celkem {celkem}',
+    zlataky: ' {zlataky} nevyužito → {n} {n|duše|duše|duší} ({za} zl = 1 duše)',
+    utraceno: ' · utraceno {n}',
+    duse: '+{n} {n|duše|duše|duší}',
+  },
+
+  // Nápisy a hlášky ve hře (hra.js, kresleni.js).
+  hra: {
+    oziveni: 'Duše tě vrátily z hlubin',
+    bomba: 'Bomba!',
+    zuri: '{boss} zuří',
+    vybavaBosse: 'Výbava bosse: {kus}',
+    odemcenaMapa: 'Odemčena mapa: {mapa}',
+    zvukVypnuty: 'Zvuk vypnutý (N)',
+    zvukZapnuty: 'Zvuk zapnutý (N)',
+    hrozba: {
+      sili: 'Hrozba {n}: nepřátelé sílí',
+      elity: 'Hrozba {n}: přicházejí elity',
+      casteji: 'Hrozba {n}: víc elit, silnější bossové',
+    },
+    kupec: {
+      prijel: 'Přijel kupec! Šipka ukáže, kde stojí',
+      odjel: 'Kupec odjel',
+      neni: 'Kupec tu není',
+      vyprodano: 'Vyprodáno',
+      plneZivoty: 'Máš plné životy',
+      maloZlataku: 'Málo zlaťáků',
+    },
+    // Co hrdina koupil (řádek v okně kupce).
+    koupeno: {
+      lektvar: '+{n} životů',
+      prehozeni: 'Přehození zdarma: {n}',
+      vylepseni: '{nazev} {od} → {uroven} ({rarita})',
+      kus: '{kus} ({rarita})',
+      klic: 'Klíčů: {n}',
+    },
+  },
+  kresleni: {
+    otevreKlic: 'Otevře klíč',
+    otevrit: 'Otevřít: {n} zl',
+    zamceno: 'Zamčeno: klíč nebo {n} zl',
+    zuri: 'Zuří',
+    sekundy: '{n} s',
+  },
+  // Řádky na kartě vylepšení (hra.js, popisUrovni a karta).
+  karta: {
+    vickrat: '{n}× {radek}',
+    silaVsech: '+{n} % poškození všech zbraní',
+    poskozeni: '+{n} % poškození',
+    doleciVse: 'Doléčí všechny životy',
+    doleci: 'Doléčí {n} životů',
+    odpocinek: 'Odpočinek',
+  },
+  // Data hry: větve se jmény jako v kódu, pripojTexty je připojí k ZBRANE, PASIVY, BOSSOVE… (stejné klíče).
+  // Zbraně: popis = řádek karty za úrovně 1–5, dal.texty = co přidá každá třetí úroveň nad pátou.
+  zbrane: {
+    jiskra: {
+      nazev: 'Jiskra',
+      popis: [
+        'Střílí jiskry na nejbližšího nepřítele.',
+        '+1 jiskra',
+        'Rychlejší střelba',
+        '+1 jiskra',
+        'Větší poškození',
+      ],
+      dal: {
+        texty: { pocet: '+1 jiskra', nabiti: 'Rychlejší střelba' },
+      },
+    },
+    lucerna: {
+      nazev: 'Lucerna',
+      popis: [
+        'Žár lucerny pálí nepřátele kolem tebe.',
+        'Větší dosah',
+        'Silnější žár',
+        'Větší dosah',
+        'Silnější žár',
+      ],
+      dal: {
+        texty: { velikost: 'Větší dosah', nabiti: 'Častější žár' },
+      },
+    },
+    krumpace: {
+      nazev: 'Krumpáče',
+      popis: ['Krumpáč krouží kolem tebe.', '+1 krumpáč', 'Rychlejší otáčení', '+1 krumpáč', 'Větší poškození'],
+      dal: {
+        texty: { pocet: '+1 krumpáč', velikost: 'Širší kruh' },
+      },
+    },
+    blesk: {
+      nazev: 'Blesk',
+      popis: [
+        'Blesk udeří do nepřítele a přeskočí na další.',
+        '+1 přeskok',
+        'Častější údery',
+        '+2 přeskoky',
+        'Větší poškození',
+      ],
+      dal: {
+        texty: { pocet: '+1 přeskok', nabiti: 'Častější údery', velikost: 'Delší přeskoky' },
+      },
+    },
+    trny: {
+      nazev: 'Trnová past',
+      popis: [
+        'Pod nejbližším nepřítelem vyraší trny, které zraňují a zpomalí.',
+        '+1 trs trnů',
+        'Větší trsy, vydrží déle',
+        '+1 trs trnů',
+        'Ostřejší trny, zpomalí víc',
+      ],
+      dal: {
+        texty: { pocet: '+1 trs trnů', velikost: 'Větší trsy' },
+      },
+    },
+    zrcadlo: {
+      nazev: 'Zrcadlový štít',
+      popis: [
+        'Zrcadlo krouží těsně u tebe, vrací střely a odhodí, kdo se ho dotkne.',
+        '+1 zrcadlo',
+        'Silnější odhození',
+        '+1 zrcadlo',
+        'Větší zrcadla, víc poškození',
+      ],
+      dal: {
+        texty: { pocet: '+1 zrcadlo', velikost: 'Větší zrcadla' },
+      },
+    },
+    svetlusky: {
+      nazev: 'Světlušky',
+      popis: [
+        'Roj světlušek se sám vrhá na nepřátele a vrací se k tobě.',
+        '+1 světluška',
+        'Rychlejší let, kratší odpočinek',
+        '+1 světluška',
+        'Žhavější světlušky',
+      ],
+      dal: {
+        texty: { pocet: '+1 světluška', nabiti: 'Kratší odpočinek', velikost: 'Delší výlety' },
+      },
+    },
+    mraz: {
+      nazev: 'Mrazivý krystal',
+      popis: [
+        'Krystal dopadne do hloučku nepřátel, mráz je zpomalí a pak je roztříští.',
+        '+1 krystal',
+        'Větší zóna, roztříští dřív',
+        '+1 krystal',
+        'Tvrdší mráz, víc poškození',
+      ],
+      dal: {
+        texty: { pocet: '+1 krystal', velikost: 'Větší ledová zóna', nabiti: 'Častější krystaly' },
+      },
+    },
+    zvon: {
+      nazev: 'Zvon hlubin',
+      popis: [
+        'Zvon nad tebou odbíjí: zvuková vlna odhodí a omráčí nepřátele kolem.',
+        'Větší dosah vlny',
+        'Silnější odhození, delší omráčení',
+        'Ozvěna: druhá vlna hned po první',
+        'Hlubší tón, víc poškození',
+      ],
+      dal: {
+        texty: { velikost: 'Větší dosah vlny', nabiti: 'Častější zvonění', pocet: '+1 ozvěna' },
+      },
+    },
+    cep: {
+      nazev: 'Cep na řetězu',
+      popis: [
+        'Těžká koule na řetězu se kývá za tebou. Čím rychleji letí, tím víc bolí.',
+        'Delší řetěz',
+        'Těžší koule, prudší rozmach',
+        '+1 koule na vlastním řetězu',
+        'Větší ostnatá koule',
+      ],
+      dal: {
+        texty: { velikost: 'Delší řetěz, větší koule', pocet: '+1 koule' },
+      },
+    },
+    seminka: {
+      nazev: 'Semínkové bomby',
+      popis: [
+        'Trousíš za sebou semínka, po vteřině vybuchnou v trnitý keř.',
+        '+1 semínko',
+        'Větší výbuch, keř vydrží déle',
+        '+1 semínko',
+        'Prudší výbuch, ostřejší trny',
+      ],
+      dal: {
+        texty: { pocet: '+1 semínko', velikost: 'Větší výbuch a keř' },
+      },
+    },
+    korene: {
+      nazev: 'Kořeny',
+      popis: [
+        'Kořen proběhne pod zemí k nepříteli, vyrazí a chvíli ho drží a svírá.',
+        '+1 kořen',
+        'Kořeny drží déle a chytí i sousedy',
+        '+1 kořen',
+        'Trnité kořeny svírají silněji',
+      ],
+      dal: {
+        texty: { pocet: '+1 kořen', velikost: 'Kořeny chytí širší kruh', nabiti: 'Častější kořeny' },
+      },
+    },
+    stopa: {
+      nazev: 'Ohnivá stopa',
+      popis: [
+        'Kudy jdeš, tudy hoří: plameny za tebou pálí každého, kdo do nich vleze.',
+        'Širší plameny',
+        'Plameny hoří déle',
+        'Kdo projde ohněm, ještě chvíli hoří',
+        'Žhavější oheň',
+      ],
+      dal: {
+        texty: { velikost: 'Širší plameny', nabiti: 'Oheň pálí častěji' },
+      },
+    },
+    prak: {
+      nazev: 'Odrazný kámen',
+      popis: [
+        'Prak vystřelí kámen, který se odráží od nepřítele k nepříteli a s každým odrazem víc bolí.',
+        '+2 odrazy',
+        'Rychlejší střelba',
+        '+1 kámen',
+        'Těžší kámen',
+      ],
+      dal: {
+        texty: { pocet: '+1 odraz', nabiti: 'Rychlejší střelba', velikost: 'Delší odrazy' },
+      },
+    },
+  },
+  // Pasivy: popis = řádek za úrovně 1–5, popisDal = za každou další, popisPrvni = jen 1. úroveň ({s} = sekundy).
+  pasivy: {
+    srdce: { nazev: 'Srdce', popis: '+20 max. životů a doléčení', popisDal: '+10 max. životů a doléčení' },
+    boty: { nazev: 'Boty', popis: '+12 % rychlost pohybu', popisDal: '+3 % rychlost pohybu' },
+    magnet: {
+      nazev: 'Magnet',
+      popis: '+40 % dosah sběru krystalů',
+      popisDal: '+10 % dosah sběru krystalů',
+    },
+    sila: {
+      nazev: 'Síla',
+      popis: '+15 % poškození všech zbraní',
+      popisDal: '+5 % poškození všech zbraní',
+    },
+    krit: {
+      nazev: 'Kritický zásah',
+      popis: '+5 % šance na dvojnásobnou ránu',
+      popisDal: '+2 % šance na dvojnásobnou ránu',
+    },
+    rozpeti: {
+      nazev: 'Rozpětí',
+      popis: '+8 % velikost oblastí a dosah zbraní',
+      popisDal: '+2 % velikost oblastí a dosah zbraní',
+    },
+    ozvena: {
+      nazev: 'Ozvěna',
+      popis: '+6 % šance, že zbraň udeří podruhé',
+      popisDal: '+2 % šance, že zbraň udeří podruhé',
+    },
+    vydrz: {
+      nazev: 'Výdrž',
+      popis: '+10 % trvání oblastí a efektů',
+      popisDal: '+3 % trvání oblastí a efektů',
+    },
+    rychleRuce: {
+      nazev: 'Rychlé ruce',
+      popis: '-6 % nabíjení všech zbraní',
+      popisDal: '-1,5 % nabíjení všech zbraní',
+    },
+    prival: {
+      nazev: 'Příval',
+      popis: '+1 střela nebo kus všem zbraním',
+      popisDal: '+1 střela nebo kus všem zbraním',
+    },
+    zbroj: {
+      nazev: 'Zbroj',
+      popis: '-1 poškození z každé rány nepřátel',
+      popisDal: '-1 poškození z každé rány nepřátel',
+    },
+    regenerace: { nazev: 'Regenerace', popis: '+0,4 životů za sekundu', popisDal: '+0,4 životů za sekundu' },
+    stesti: {
+      nazev: 'Štěstí',
+      popis: '+20 % šance na srdce a magnet',
+      popisDal: '+20 % šance na srdce a magnet',
+    },
+    upiriZub: {
+      nazev: 'Upíří zub',
+      popis: '+4 % šance, že zabití vrátí 1 život',
+      popisDal: '+1 % šance, že zabití vrátí 1 život',
+    },
+    trnovaZbroj: {
+      nazev: 'Trnová zbroj',
+      popis: '+50 % rány se vrátí útočníkovi',
+      popisDal: '+15 % rány se vrátí útočníkovi',
+    },
+    stit: {
+      nazev: 'Štít',
+      popisPrvni: 'Bublina každých {s} s zastaví jednu ránu',
+      popis: 'Štít se dobije o {s} s dřív',
+      popisDal: 'Štít se dobije o 0,25 s dřív',
+    },
+    moudrost: {
+      nazev: 'Moudrost',
+      popis: '+5 % zkušeností z krystalů',
+      popisDal: '+2 % zkušeností z krystalů',
+    },
+    chamtivost: { nazev: 'Chamtivost', popis: '+10 % duší na konci hry', popisDal: '+3 % duší na konci hry' },
+  },
+  rarity: {
+    bezna: { nazev: 'Běžná' },
+    vzacna: { nazev: 'Vzácná' },
+    epicka: { nazev: 'Epická' },
+    legendarni: { nazev: 'Legendární' },
+  },
+  tridy: {
+    lovec: {
+      nazev: 'Lovec',
+      vyhoda: '+15 % rychlost pohybu',
+      popis: 'Stopař z okraje lesa. Uteče skoro všemu.',
+    },
+    havir: { nazev: 'Havíř', vyhoda: '+30 % životů', popis: 'Zná každou štolu. Vydrží ránu jako skála.' },
+    svetlonos: {
+      nazev: 'Světlonoš',
+      vyhoda: '+50 % dosah sběru',
+      popis: 'Nese světlo do tmy. Krystaly letí k němu samy.',
+    },
+    bourlivak: {
+      nazev: 'Bouřlivák',
+      vyhoda: '-20 % nabíjení zbraní',
+      popis: 'Volá bouři z hlubin. Udeří dřív než ostatní.',
+    },
+  },
+  schopnosti: {
+    dupnuti: { nazev: 'Dupnutí' },
+    hod: { nazev: 'Hod' },
+    vypad: { nazev: 'Výpad' },
+    vyvolani: { nazev: 'Vyvolání' },
+    vejir: { nazev: 'Vějíř' },
+  },
+  // Bossové: jméno nad pruhem, nápis při příchodu a štítek truhly.
+  bossove: {
+    strazce: {
+      nazev: 'Strážce hlubin',
+      prichod: 'Země se třese, přichází Strážce hlubin',
+      porazen: 'Strážce hlubin poražen',
+    },
+    matka: {
+      nazev: 'Matka pavouků',
+      prichod: 'Ze tmy se spouští Matka pavouků',
+      porazen: 'Matka pavouků poražena',
+    },
+    obr: {
+      nazev: 'Kamenný obr',
+      prichod: 'Zem duní pod kroky Kamenného obra',
+      porazen: 'Kamenný obr poražen',
+    },
+    bludicka: {
+      nazev: 'Bludička',
+      prichod: 'Ve tmě bliká Bludička. Nechoď za ní',
+      porazen: 'Bludička poražena',
+    },
+    lavovy_obr: {
+      nazev: 'Lávový obr',
+      prichod: 'Sopka se otřásá, z lávy vystupuje Lávový obr',
+      porazen: 'Lávový obr poražen',
+    },
+    bahenni_bludicka: {
+      nazev: 'Bahenní bludička',
+      prichod: 'Nad bahnem se rozsvítila Bahenní bludička',
+      porazen: 'Bahenní bludička poražena',
+    },
+    kosteny_kral: {
+      nazev: 'Kostěný král',
+      prichod: 'Hroby se otvírají, vstává Kostěný král',
+      porazen: 'Kostěný král poražen',
+    },
+  },
+  zbozi: {
+    lektvar: { nazev: 'Lektvar léčení', popis: 'Doléčí polovinu životů' },
+    prehozeni: { nazev: 'Přehození karet', popis: '2× přehodit karty zdarma' },
+    vylepseni: { nazev: 'Náhodné vylepšení', popis: 'Tvoje zbraň nebo pasiva, aspoň vzácná karta' },
+    kus: { nazev: 'Kus výbavy bosse', popis: 'Náhodný kus sady některého bosse' },
+    klic: { nazev: 'Klíč', popis: 'Odemkne zamčenou truhlu' },
+  },
+  // Trvalá vylepšení za duše (duse.js).
+  vylepseni: {
+    sila: { nazev: 'Síla', popis: '+5 % poškození všech zbraní' },
+    zivoty: { nazev: 'Životy', popis: '+10 max. životů' },
+    rychlost: { nazev: 'Rychlost', popis: '+4 % rychlost pohybu' },
+    magnet: { nazev: 'Magnet', popis: '+10 % dosah sběru krystalů' },
+    stesti: { nazev: 'Štěstí', popis: '+20 % šance na srdce, magnet a vzácnější karty' },
+    zkusenosti: { nazev: 'Zkušenosti', popis: '+5 % zkušeností z krystalů' },
+    oziveni: { nazev: 'Oživení', popis: 'Jednou za hru tě duše vrátí s půlkou životů' },
+  },
+  // Mapy (mapy.js): jméno a popis v menu, ohlášení první smečky.
+  mapy: {
+    louka: {
+      nazev: 'Louka',
+      popis: 'Tráva, květiny a staré kameny. Tady každá výprava začíná.',
+      smecky: { text: 'Ze tmy vyje smečka vlků' },
+    },
+    jeskyne: {
+      nazev: 'Jeskyně hlubin',
+      popis: 'Tma, krápníky a krystaly ve skále. Lucerna tu svítí dál, ze stropu se spouštějí pavouci.',
+    },
+    jezero: {
+      nazev: 'Zamrzlé jezero',
+      popis: 'Sníh a led. Na ledu hrdina klouže a těžko brzdí, z mlhy vyjí vlci a krouží ledoví duchové.',
+      smecky: { text: 'Z mlhy vyje smečka vlků' },
+    },
+    sopka: {
+      nazev: 'Sopka',
+      popis: 'Černá skála a lávové tůně, které pálí. Vzduchem létají jiskry a ze skal lezou ohniví brouci.',
+    },
+    bazina: {
+      nazev: 'Bažina',
+      popis: 'Bahno zpomaluje a z něj stoupají jedové bubliny. V rákosí skáčou žáby a rostou houbáci.',
+    },
+    hrbitov: {
+      nazev: 'Hřbitov za noci',
+      popis: 'Náhrobky, kříže a mlha. V noci tu vstávají kostlivci a mezi hroby bloudí duchové.',
+      smecky: { text: 'Za zdí hřbitova vyje smečka' },
+    },
+  },
+  // Ohlášení příchodu druhu nepřítele na mapě (prichody.<mapa>.<druh>).
+  prichody: {
+    louka: {
+      duch: 'Hlubinami bloudí duchové',
+      houbak: 'Na louce vyrašili houbáci',
+      pavouk: 'Z hlubin lezou pavouci',
+    },
+    jeskyne: {
+      pavouk: 'Ze stropu se spouštějí pavouci',
+      kostlivec: 'V kostnici se pohnuly kosti',
+      duch: 'Ve tmě bloudí duchové',
+      houbak: 'Ve vlhku vyrašili houbáci',
+    },
+    jezero: { vlk: 'Po sněhu se plíží vlci', ledovy_duch: 'Nad ledem krouží ledoví duchové' },
+    sopka: { kostlivec: 'Z popela vstávají kostlivci', pavouk: 'Z puklin lezou pavouci' },
+    bazina: { houbak: 'Z bahna rostou houbáci', duch: 'Nad bažinou bloudí duchové' },
+    hrbitov: {
+      kostlivec: 'Z hrobů vstávají kostlivci',
+      duch: 'Mezi hroby bloudí duchové',
+      pavouk: 'Z krypt lezou pavouci',
+    },
+  },
+  // Výbava bossů (vystroj.js): sloty, staty (tvary podle čísla), rarity, efekty a sady s kusy.
+  vystroj: {
+    sloty: {
+      hlava: { nazev: 'Hlava' },
+      telo: { nazev: 'Tělo' },
+      amulet: { nazev: 'Amulet' },
+      prsten: { nazev: 'Prsten' },
+    },
+    staty: {
+      maxHp: {
+        nazev: 'životů',
+        tvary: ['život', 'životy', 'životů'],
+      },
+      zbroj: { nazev: 'zbroj' },
+      sila: { nazev: 'poškození' },
+      nabijeni: { nazev: 'rychlost nabíjení' },
+      rychlost: { nazev: 'rychlost pohybu' },
+      magnet: { nazev: 'dosah sběru' },
+    },
+    rarity: {
+      bezna: { nazev: 'Běžná' },
+      vzacna: { nazev: 'Vzácná' },
+      epicka: { nazev: 'Epická' },
+      legendarni: { nazev: 'Legendární' },
+    },
+    efekty: {
+      vlna: { nazev: 'Rázová vlna' },
+      sit: { nazev: 'Pavučina' },
+      kuze: { nazev: 'Kamenná kůže' },
+      zmizeni: { nazev: 'Bludný plamen' },
+    },
+    sady: {
+      strazce: {
+        sada: 'Sada Strážce hlubin',
+        kusy: {
+          hlava: { nazev: 'Rohaté hledí' },
+          telo: { nazev: 'Kamenný krunýř' },
+          amulet: { nazev: 'Žhnoucí jádro' },
+          prsten: { nazev: 'Prsten strážce' },
+        },
+      },
+      matka: {
+        sada: 'Sada Matky pavouků',
+        kusy: {
+          hlava: { nazev: 'Koruna osmi očí' },
+          telo: { nazev: 'Hedvábný plášť' },
+          amulet: { nazev: 'Rudé přesýpací hodiny' },
+          prsten: { nazev: 'Prsten pavučiny' },
+        },
+      },
+      obr: {
+        sada: 'Sada Kamenného obra',
+        kusy: {
+          hlava: { nazev: 'Mechová přilba' },
+          telo: { nazev: 'Balvanová zbroj' },
+          amulet: { nazev: 'Oko z tyrkysu' },
+          prsten: { nazev: 'Prsten obra' },
+        },
+      },
+      bludicka: {
+        sada: 'Sada Bludičky',
+        kusy: {
+          hlava: { nazev: 'Plamenná kápě' },
+          telo: { nazev: 'Závoj mlhy' },
+          amulet: { nazev: 'Bludný plamínek' },
+          prsten: { nazev: 'Prsten bludiček' },
+        },
+      },
+    },
+    // Popisy efektů sad (vystroj.js, EFEKTY_VYBAVY.popis) a bonusy sad.
+    popisEfektu: {
+      vlna: 'Každých {kazdych} s od tebe vyběhne rázová vlna za {poskozeni} poškození',
+      sit: '{sance} zásahů zbraní zapřede nepřítele na {trvani} s do sítě',
+      kuze: 'Dotyk nepřítele bolí o {snizeni} méně a odhodí ho',
+      zmizeni: 'Po ráně na {trvani} s zmizíš nepřátelům z očí (jednou za {pauza} s)',
+    },
+    bonusSady: '{n} {n|kus|kusy|kusů}: {bonusy}',
+    silnejsi: 'silnější {efekt}',
+    nejsilnejsi: 'nejsilnější {efekt}',
+  },
+};

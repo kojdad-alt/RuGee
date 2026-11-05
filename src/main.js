@@ -3,7 +3,7 @@ import { novaHra, aktualizuj, vyber, rozhodniKus, TRIDY, kup, odejdiOdKupce, pre
 import { kresli, kresliMenu } from './kresleni.js';
 import { dusZaHru, DUSE_ZA } from './duse.js';
 import {
-  vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, zvolenaMapa, obrazekSpritu, pocetDusi, cislaPoskozeni,
+  vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, zvolenaMapa, obrazekSpritu, cislaPoskozeni,
   prepinacNastaveni, prepinacSvetel, ovladaniZvuku, prepniZtlumeni, skupina, ikonaMapy,
 } from './menu.js';
 import { pixelovyNadpis, prizpusobNadpisy, STYL_KREV } from './pismo.js';
@@ -17,6 +17,7 @@ import { ukazObchod, zatresZbozim, textZlataku } from './obchod.js';
 import { ukazVybavu } from './vybava.js';
 import { registruj as registrujAplikaci, novaVerze, priZmene as priZmeneAplikace } from './aplikace.js';
 import { svetlaProSnimek } from './osvetleni.js';
+import { t, prelozStranku } from './texty.js';
 
 const platno = document.getElementById('platno');
 const ctx = platno.getContext('2d');
@@ -163,17 +164,17 @@ function nastavPauzu(zapnout) {
     document.activeElement?.blur?.();
     return;
   }
-  const pokracovat = textovyPrvek('button', 'Pokračovat');
+  const pokracovat = textovyPrvek('button', t('pauza.pokracovat'));
   pokracovat.append(jenKlavesnice(' (P)'));
   pokracovat.className = 'menu-tlacitko hlavni';
   pokracovat.type = 'button';
   pokracovat.addEventListener('click', () => { if (hra?.pauza) nastavPauzu(false); });
-  const volbyHry = skupina('Hra');
-  volbyHry.append(prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'), prepinacSvetel());
-  const zvuk = skupina('Zvuk');
+  const volbyHry = skupina(t('menu.nastaveni.hra'));
+  volbyHry.append(prepinacNastaveni('cislaPoskozeni', t('menu.nastaveni.cislaPoskozeni')), prepinacSvetel());
+  const zvuk = skupina(t('menu.nastaveni.zvuk'));
   zvuk.append(ovladaniZvuku());
   el('pauza-volby').replaceChildren(pokracovat, volbyHry, zvuk);
-  pixelovyNadpis(el('pauza-nadpis'), 'Pauza', { min: 3, max: 4 });
+  pixelovyNadpis(el('pauza-nadpis'), t('pauza.nadpis'), { min: 3, max: 4 });
   vyberTlacitko(pokracovat);
 }
 
@@ -264,7 +265,7 @@ function zapisNalezy() {
 function hlidejOdemceni() {
   if (!mapaKOdemceni || hra.cas < ODEMKNUTI_MAPY) return;
   odemkniMapu(mapaKOdemceni);
-  hra.oznameni = { text: `Odemčena mapa: ${MAPY[mapaKOdemceni].nazev}`, zivot: 3 };
+  hra.oznameni = { text: t('hra.odemcenaMapa', { mapa: MAPY[mapaKOdemceni].nazev }), zivot: 3 };
   zvukHry('odemceni');
   odemcenaVHre = mapaKOdemceni;
   mapaKOdemceni = null;
@@ -281,15 +282,15 @@ function zapisKonec() {
   };
   const { novy, rekord } = zapisVysledek(vysledek, hra.mapa);
   const stitek = el('konec-stitek');
-  stitek.textContent = novy ? 'Nový rekord!' : `Rekord mapy ${formatCas(rekord.cas)} · úroveň ${rekord.uroven} · zabito ${rekord.zabito}`;
+  stitek.textContent = novy ? t('konec.novyRekord') : t('konec.rekord', { cas: formatCas(rekord.cas), uroven: rekord.uroven, zabito: rekord.zabito });
   stitek.classList.toggle('novy', novy);
-  pixelovyNadpis(el('konec-nadpis'), 'Horda tě pohltila', { styl: STYL_KREV, min: 2, max: 4 });
+  pixelovyNadpis(el('konec-nadpis'), t('konec.nadpis'), { styl: STYL_KREV, min: 2, max: 4 });
 
   const cas = textovyPrvek('div', '');
   cas.className = 'konec-cas';
   const cislo = textovyPrvek('span', '');
   pixelovyNadpis(cislo, formatCas(hra.cas), { min: 4, max: 5 });
-  cas.append(textovyPrvek('small', `${TRIDY[hra.trida].nazev} přežil`), cislo);
+  cas.append(textovyPrvek('small', t('konec.prezil', { trida: TRIDY[hra.trida].nazev })), cislo);
   const udaje = document.createElement('dl');
   udaje.className = 'konec-udaje';
   const pridej = (nazev, hodnota, ikona = null, trida = '') => {
@@ -300,18 +301,18 @@ function zapisKonec() {
     udaje.append(textovyPrvek('dt', nazev), dd);
   };
   const kusu = hra.nalezy.length;
-  pridej('Postava', TRIDY[hra.trida].nazev, obrazekSpritu(hra.trida, 2));
-  pridej('Mapa', MAPY[hra.mapa].nazev, ikonaMapy(hra.mapa, 2), 'konec-mapa');
+  pridej(t('udaje.postava'), TRIDY[hra.trida].nazev, obrazekSpritu(hra.trida, 2));
+  pridej(t('udaje.mapa'), MAPY[hra.mapa].nazev, ikonaMapy(hra.mapa, 2), 'konec-mapa');
   udaje.lastElementChild.style.setProperty('--mapa', MAPY[hra.mapa].barva);
-  pridej('Hrozba', hra.hrozba);
-  pridej('Úroveň', hra.hrdina.uroven);
-  pridej('Zabito', hra.zabito);
-  pridej('Bossové', hra.zabitoBossu);
-  pridej('Výbava bossů', `${kusu} ${kusu === 1 ? 'kus' : kusu >= 2 && kusu <= 4 ? 'kusy' : 'kusů'}`);
+  pridej(t('udaje.hrozba'), hra.hrozba);
+  pridej(t('udaje.uroven'), hra.hrdina.uroven);
+  pridej(t('udaje.zabito'), hra.zabito);
+  pridej(t('udaje.bossove'), hra.zabitoBossu);
+  pridej(t('udaje.vybava'), t('tvary.kusy', { n: kusu }));
   const poznamky = [];
-  if (hra.oziveno) poznamky.push(textovyPrvek('p', 'Duše tě jednou vrátily.'));
+  if (hra.oziveno) poznamky.push(textovyPrvek('p', t('konec.oziven')));
   if (odemcenaVHre) {
-    const p = textovyPrvek('p', `Odemčena nová mapa: ${MAPY[odemcenaVHre].nazev}!`);
+    const p = textovyPrvek('p', t('konec.odemcena', { mapa: MAPY[odemcenaVHre].nazev }));
     p.className = 'ok';
     poznamky.push(p);
   }
@@ -323,20 +324,22 @@ function zapisKonec() {
   // Duše za hru se připíšou hned, utratit se dají v menu Vylepšení.
   const duse = dusZaHru(hra);
   const { duse: celkem } = pripisDuse(duse.celkem);
-  const chamtivost = duse.chamtivost > 0 ? ` · chamtivost ${duse.chamtivost}` : '';
-  const rozpis = textovyPrvek('small', `čas ${duse.cas} · zabití ${duse.zabiti} · bossové ${duse.strazci} · zlaťáky ${duse.zlataky}${chamtivost} · celkem ${celkem}`);
+  const chamtivost = duse.chamtivost > 0 ? t('konec.chamtivost', { n: duse.chamtivost }) : '';
+  const rozpis = textovyPrvek('small', t('konec.rozpis', {
+    cas: duse.cas, zabiti: duse.zabiti, bossove: duse.strazci, zlataky: duse.zlataky, chamtivost, celkem,
+  }));
   // Nevyužité zlaťáky se mění v duše (DUSE_ZA.zlataku za jednu), zbytek propadne.
   const utraceno = Object.values(hra.utraceno).reduce((a, b) => a + b, 0);
   const zlato = textovyPrvek('small', '');
   zlato.className = 'konec-zlato';
   zlato.append(
     obrazekSpritu('zlatak', 2),
-    ` ${textZlataku(hra.zlataky)} nevyužito → ${duse.zlataky} ${pocetDusi(duse.zlataky)} (${DUSE_ZA.zlataku} zl = 1 duše)`,
-    utraceno ? ` · utraceno ${utraceno}` : '',
+    t('konec.zlataky', { zlataky: textZlataku(hra.zlataky), n: duse.zlataky, za: DUSE_ZA.zlataku }),
+    utraceno ? t('konec.utraceno', { n: utraceno }) : '',
   );
   el('konec-duse').replaceChildren(
     obrazekSpritu('duse', 3),
-    textovyPrvek('b', `+${duse.celkem} ${pocetDusi(duse.celkem)}`),
+    textovyPrvek('b', t('konec.duse', { n: duse.celkem })),
     zlato,
     rozpis,
   );
@@ -413,7 +416,7 @@ function prepniZvuk() {
   odemkniZvuk();
   const ztlumeno = prepniZtlumeni();
   const hlaseni = el('zvuk-hlaseni');
-  hlaseni.textContent = ztlumeno ? 'Zvuk vypnutý (N)' : 'Zvuk zapnutý (N)';
+  hlaseni.textContent = ztlumeno ? t('hra.zvukVypnuty') : t('hra.zvukZapnuty');
   hlaseni.hidden = false;
   clearTimeout(hlaseniZvuku);
   hlaseniZvuku = setTimeout(() => { hlaseni.hidden = true; }, 1400);
@@ -547,6 +550,8 @@ el('odejit').addEventListener('click', odejdi);
 el('lebka-ikona').replaceWith(obrazekSpritu('lebka', 2));
 el('zlato-ikona').replaceWith(obrazekSpritu('zlatak', 2));
 el('klic-ikona').replaceWith(obrazekSpritu('klic', 2));
+// Statické texty stránky (data-t v index.html) ve zvoleném jazyce.
+prelozStranku();
 zmenVelikost();
 doMenu();
 registrujAplikaci();

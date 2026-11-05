@@ -3,6 +3,9 @@
 // na jezeře, láva na sopce, bahno a jedové bubliny v bažině, sníh, jiskry, mlha). Pravidla (hra.js) i kreslení
 // (louka.js, kresleni.js) berou mapu odsud. Bez DOM, ať to jde i v simulaci.
 // Novou mapu přidáš do MAPY (pořadí klíčů je pořadí map). Odemkne se přežitím ODEMKNUTI_MAPY s na mapě před ní.
+// Jméno, popis a ohlášení příchodů jsou ve slovníku (src/texty/cs.js, větve mapy a prichody).
+import { textem, hodnota, pripojTexty, VYCHOZI_JAZYK } from './texty.js';
+
 export const VELIKOST_DLAZDICE = 48;
 export const ODEMKNUTI_MAPY = 300;
 export const VYCHOZI_MAPA = 'louka';
@@ -37,19 +40,17 @@ export function hash(x, y) {
 // vychází. obtiznost: o kolik mají nepřátelé (i bossové a jejich útoky) víc životů a poškození než na Louce.
 export const MAPY = {
   louka: {
-    nazev: 'Louka',
-    popis: 'Tráva, květiny a staré kameny. Tady každá výprava začíná.',
     barva: '#7fc46a',
     boss: 'strazce',
     nepratele: [
       { druh: 'netopyr', od: 0, vaha: 1 },
       { druh: 'slizak', od: 60, vaha: 1 },
-      { druh: 'duch', od: 90, vaha: 1, text: 'Hlubinami bloudí duchové' },
-      { druh: 'houbak', od: 120, vaha: 1, text: 'Na louce vyrašili houbáci' },
+      { druh: 'duch', od: 90, vaha: 1 },
+      { druh: 'houbak', od: 120, vaha: 1 },
       { druh: 'kostlivec', od: 150, vaha: 1 },
-      { druh: 'pavouk', od: 240, vaha: 1, text: 'Z hlubin lezou pavouci' },
+      { druh: 'pavouk', od: 240, vaha: 1 },
     ],
-    smecky: { druh: 'vlk', od: 190, kazdych: 24, text: 'Ze tmy vyje smečka vlků' },
+    smecky: { druh: 'vlk', od: 190, kazdych: 24 },
     okraje: 'rgba(0,0,0,0.45)',
     podlaha: {
       seminko: 20261104,
@@ -133,17 +134,15 @@ export const MAPY = {
   // (tma.svetlo = poloměr světla v px, s lucernou o tma.lucerna + dosah lucerny víc) a lucerna má o dosahLucerny
   // větší dosah. Víc netopýrů a pavouci už od začátku, vlci sem nechodí. Hlavní boss je Matka pavouků.
   jeskyne: {
-    nazev: 'Jeskyně hlubin',
-    popis: 'Tma, krápníky a krystaly ve skále. Lucerna tu svítí dál, ze stropu se spouštějí pavouci.',
     barva: '#6fc3ff',
     boss: 'matka',
     nepratele: [
       { druh: 'netopyr', od: 0, vaha: 3 },
-      { druh: 'pavouk', od: 45, vaha: 2, text: 'Ze stropu se spouštějí pavouci' },
+      { druh: 'pavouk', od: 45, vaha: 2 },
       { druh: 'slizak', od: 70, vaha: 1 },
-      { druh: 'kostlivec', od: 100, vaha: 2, text: 'V kostnici se pohnuly kosti' },
-      { druh: 'duch', od: 160, vaha: 1, text: 'Ve tmě bloudí duchové' },
-      { druh: 'houbak', od: 220, vaha: 1, text: 'Ve vlhku vyrašili houbáci' },
+      { druh: 'kostlivec', od: 100, vaha: 2 },
+      { druh: 'duch', od: 160, vaha: 1 },
+      { druh: 'houbak', od: 220, vaha: 1 },
     ],
     smecky: null,
     obtiznost: { zivoty: 1.35, poskozeni: 1.3 },
@@ -260,18 +259,16 @@ export const MAPY = {
   // přibližuje jen o led.prilnavost za sekundu, takže se rozjíždí i brzdí pomalu. Vlci a ledoví duchové, na sněhu
   // smrky a kameny (překážky). Hlavní boss je Bludička, co bloudí v mlze nad ledem.
   jezero: {
-    nazev: 'Zamrzlé jezero',
-    popis: 'Sníh a led. Na ledu hrdina klouže a těžko brzdí, z mlhy vyjí vlci a krouží ledoví duchové.',
     barva: '#bfe6ff',
     boss: 'bludicka',
     nepratele: [
       { druh: 'netopyr', od: 0, vaha: 2 },
-      { druh: 'vlk', od: 40, vaha: 1, text: 'Po sněhu se plíží vlci' },
-      { druh: 'ledovy_duch', od: 75, vaha: 2, text: 'Nad ledem krouží ledoví duchové' },
+      { druh: 'vlk', od: 40, vaha: 1 },
+      { druh: 'ledovy_duch', od: 75, vaha: 2 },
       { druh: 'slizak', od: 110, vaha: 1 },
       { druh: 'kostlivec', od: 170, vaha: 1 },
     ],
-    smecky: { druh: 'vlk', od: 130, kazdych: 18, text: 'Z mlhy vyje smečka vlků' },
+    smecky: { druh: 'vlk', od: 130, kazdych: 18 },
     obtiznost: { zivoty: 1.4, poskozeni: 1.3 },
     led: { bunka: 7, prah: 0.56, prilnavost: 2.6 },
     snezeni: 70,
@@ -399,16 +396,14 @@ export const MAPY = {
   // za ránu, mezi ranami chvíle klidu jako u jedu). Vzduchem letí žhavé jiskry, nejčastěji chodí ohniví brouci.
   // Hlavní boss je Lávový obr.
   sopka: {
-    nazev: 'Sopka',
-    popis: 'Černá skála a lávové tůně, které pálí. Vzduchem létají jiskry a ze skal lezou ohniví brouci.',
     barva: '#ff7a2f',
     boss: 'lavovy_obr',
     nepratele: [
       { druh: 'ohnivy_brouk', od: 0, vaha: 4 },
       { druh: 'netopyr', od: 0, vaha: 1 },
       { druh: 'slizak', od: 80, vaha: 1 },
-      { druh: 'kostlivec', od: 120, vaha: 1, text: 'Z popela vstávají kostlivci' },
-      { druh: 'pavouk', od: 200, vaha: 1, text: 'Z puklin lezou pavouci' },
+      { druh: 'kostlivec', od: 120, vaha: 1 },
+      { druh: 'pavouk', od: 200, vaha: 1 },
     ],
     smecky: null,
     obtiznost: { zivoty: 1.4, poskozeni: 1.3 },
@@ -577,16 +572,14 @@ export const MAPY = {
   // vidět (kruh na zemi), pak praskne v jedový oblak jako po houbákovi. Houbáci a skákající žáby.
   // Hlavní boss je Bahenní bludička.
   bazina: {
-    nazev: 'Bažina',
-    popis: 'Bahno zpomaluje a z něj stoupají jedové bubliny. V rákosí skáčou žáby a rostou houbáci.',
     barva: '#9be08a',
     boss: 'bahenni_bludicka',
     nepratele: [
       { druh: 'zaba', od: 0, vaha: 3 },
       { druh: 'netopyr', od: 0, vaha: 1 },
-      { druh: 'houbak', od: 35, vaha: 2, text: 'Z bahna rostou houbáci' },
+      { druh: 'houbak', od: 35, vaha: 2 },
       { druh: 'slizak', od: 70, vaha: 2 },
-      { druh: 'duch', od: 150, vaha: 1, text: 'Nad bažinou bloudí duchové' },
+      { druh: 'duch', od: 150, vaha: 1 },
     ],
     smecky: null,
     obtiznost: { zivoty: 1.5, poskozeni: 1.4 },
@@ -733,18 +726,16 @@ export const MAPY = {
   // Hřbitov za noci: tma jako v jeskyni, jen slabší (svítí měsíc), přes hroby se plazí mlha (mlha.pocet chuchvalců,
   // mlha.sila = jak hustá). Náhrobky a kříže překážejí, chodí kostlivci a duchové. Hlavní boss je Kostěný král.
   hrbitov: {
-    nazev: 'Hřbitov za noci',
-    popis: 'Náhrobky, kříže a mlha. V noci tu vstávají kostlivci a mezi hroby bloudí duchové.',
     barva: '#c9ccd2',
     boss: 'kosteny_kral',
     nepratele: [
       { druh: 'netopyr', od: 0, vaha: 2 },
-      { druh: 'kostlivec', od: 25, vaha: 3, text: 'Z hrobů vstávají kostlivci' },
-      { druh: 'duch', od: 50, vaha: 2, text: 'Mezi hroby bloudí duchové' },
+      { druh: 'kostlivec', od: 25, vaha: 3 },
+      { druh: 'duch', od: 50, vaha: 2 },
       { druh: 'slizak', od: 110, vaha: 1 },
-      { druh: 'pavouk', od: 200, vaha: 1, text: 'Z krypt lezou pavouci' },
+      { druh: 'pavouk', od: 200, vaha: 1 },
     ],
-    smecky: { druh: 'vlk', od: 230, kazdych: 30, text: 'Za zdí hřbitova vyje smečka' },
+    smecky: { druh: 'vlk', od: 230, kazdych: 30 },
     obtiznost: { zivoty: 1.6, poskozeni: 1.45 },
     tma: { sila: 0.62, svetlo: 240, lucerna: 60, barva: '8,10,26' },
     mlha: { pocet: 9, barva: '196,206,226', sila: 0.12 },
@@ -894,6 +885,14 @@ export const MAPY = {
   },
 };
 
+pripojTexty(MAPY, 'mapy');
+// Ohlášení příchodu druhu (slovník prichody.<mapa>.<druh>): text mají jen druhy, které se ohlašují.
+for (const [id, m] of Object.entries(MAPY)) {
+  for (const d of m.nepratele) {
+    const klic = `prichody.${id}.${d.druh}`;
+    if (hodnota(klic, VYCHOZI_JAZYK) !== undefined) textem(d, 'text', klic);
+  }
+}
 export const PORADI_MAP = Object.keys(MAPY);
 
 export function platnaMapa(id) {
@@ -921,8 +920,9 @@ export function odKdy(mapa, druh) {
 // Ohlášení na mapě seřazená podle času: příchody druhů s textem a první smečka.
 export const PRICHODY_MAP = Object.fromEntries(PORADI_MAP.map((id) => {
   const m = MAPY[id];
-  const prichody = m.nepratele.filter((d) => d.text).map(({ od, text }) => ({ od, text }));
-  if (m.smecky?.text) prichody.push({ od: m.smecky.od, text: m.smecky.text });
+  // text zůstane getter (ohlášení je v jazyce, který platí, když druh přijde)
+  const prichody = m.nepratele.filter((d) => d.text).map((d) => ({ od: d.od, get text() { return d.text; } }));
+  if (m.smecky?.text) prichody.push({ od: m.smecky.od, get text() { return m.smecky.text; } });
   return [id, prichody.sort((a, b) => a.od - b.od)];
 }));
 

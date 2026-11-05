@@ -12,10 +12,12 @@ import { platnaTrida, TRIDY } from './hra.js';
 import { PORADI_MAP, VYCHOZI_MAPA, ODEMKNUTI_MAPY, platnaMapa, predchoziMapa } from './mapy.js';
 import { platnyStav } from './duse.js';
 import { platnaSbirka, pridejDoSbirky } from './vystroj.js';
+import { t } from './texty.js';
 
 export const MAX_PROFILU = 5;
 export const MAX_JMENA = 16;
-export const VYCHOZI_JMENO = 'Hráč';
+// Jméno prvního profilu a profilu bez jména (ve zvoleném jazyce, česky Hráč).
+export const vychoziJmeno = () => t('profil.vychoziJmeno');
 const SLOTY = Array.from({ length: MAX_PROFILU }, (_, i) => i + 1);
 
 // Společné klíče, bez profilu.
@@ -106,7 +108,7 @@ export function platneJmeno(text) {
 }
 
 function jmenoProfilu(slot) {
-  return platneJmeno(nacti(klic(slot, JMENO))) || `Profil ${slot}`;
+  return platneJmeno(nacti(klic(slot, JMENO))) || t('profil.cislo', { n: slot });
 }
 
 // Zvolený profil tohoto okna (null = ještě nenačtený z úložiště).
@@ -126,7 +128,7 @@ export function aktivniSlot() {
 // Při prvním spuštění s profily (žádný profil nemá jméno) dostane slot 1 jméno Hráč. Jeho data jsou stará
 // uložení pod původními klíči, takže se tím celá převedou do prvního profilu.
 function zalozPrvni() {
-  if (!SLOTY.some(existuje)) uloz(klic(1, JMENO), VYCHOZI_JMENO);
+  if (!SLOTY.some(existuje)) uloz(klic(1, JMENO), vychoziJmeno());
 }
 
 // Volá se při startu hry (a v testech po výměně úložiště): převede stará uložení a načte zvolený profil.
@@ -140,12 +142,12 @@ export function zajistiProfily() {
 export function seznamProfilu() {
   const zvoleny = aktivniSlot();
   const seznam = SLOTY.filter(existuje).map((slot) => ({ slot, jmeno: jmenoProfilu(slot), aktivni: slot === zvoleny }));
-  return seznam.length ? seznam : [{ slot: zvoleny, jmeno: VYCHOZI_JMENO, aktivni: true }];
+  return seznam.length ? seznam : [{ slot: zvoleny, jmeno: vychoziJmeno(), aktivni: true }];
 }
 
 export function aktivniProfil() {
   const slot = aktivniSlot();
-  return { slot, jmeno: existuje(slot) ? jmenoProfilu(slot) : VYCHOZI_JMENO };
+  return { slot, jmeno: existuje(slot) ? jmenoProfilu(slot) : vychoziJmeno() };
 }
 
 function jmenoObsazene(jmeno, kromeSlotu = null) {
@@ -155,7 +157,7 @@ function jmenoObsazene(jmeno, kromeSlotu = null) {
 
 // Jméno, které ještě žádný jiný profil nemá: Hráč, Hráč 2, Hráč 3…
 function volneJmeno(jmeno, kromeSlotu = null) {
-  const zaklad = platneJmeno(jmeno) || VYCHOZI_JMENO;
+  const zaklad = platneJmeno(jmeno) || vychoziJmeno();
   if (!jmenoObsazene(zaklad, kromeSlotu)) return zaklad;
   for (let n = 2; ; n++) {
     const pripona = ` ${n}`;
@@ -361,7 +363,7 @@ export function platnaDataProfilu(data) {
   const mapa = platnaMapa(d.mapa);
   const duse = platnyStav(d.duse);
   return {
-    jmeno: platneJmeno(d.jmeno) || VYCHOZI_JMENO,
+    jmeno: platneJmeno(d.jmeno) || vychoziJmeno(),
     trida: platnaTrida(d.trida),
     mapa: mapy.includes(mapa) ? mapa : VYCHOZI_MAPA,
     mapy,
@@ -376,7 +378,7 @@ export function dataProfilu(slot = aktivniSlot()) {
   const rekordy = {};
   for (const id of PORADI_MAP) rekordy[id] = nactiRekord(id, slot);
   return platnaDataProfilu({
-    jmeno: existuje(slot) ? jmenoProfilu(slot) : VYCHOZI_JMENO,
+    jmeno: existuje(slot) ? jmenoProfilu(slot) : vychoziJmeno(),
     trida: nactiTridu(slot),
     mapa: nactiMapu(slot),
     mapy: odemceneMapy(slot),

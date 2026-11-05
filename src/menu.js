@@ -20,6 +20,7 @@ import { odemkniZvuk, zvukNakupu, zvukOdmitnuti, zvukHry, nastavZvuk, ukazkaHudb
 import { stav as stavAplikace, pridejNaPlochu, priZmene as priZmeneAplikace } from './aplikace.js';
 import { nastavRezimSvetel, stavSvetel, priZmeneSvetel } from './osvetleni.js';
 import { nakresliText, STYL_LOGA, STYL_PERGAMEN, pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
+import { t, pripojTexty, procenta, datum } from './texty.js';
 
 // Profily: při prvním spuštění se stará uložení převedou do prvního profilu (ulozeni.js), pak se načte zvolený.
 zajistiProfily();
@@ -51,6 +52,9 @@ export function cislaPoskozeni() {
 export function formatCas(s) {
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
+
+// Pevná mezera před %, ať se procenta neodtrhnou od čísla (+6,5 % zbroj). V angličtině mezera před % není.
+const pevne = (text) => text.replace(/ %/g, ' %');
 
 function prvek(znacka, trida = '', text = null) {
   const e = document.createElement(znacka);
@@ -136,21 +140,21 @@ function portret(jmeno, meritko = 5) {
 // Karta třídy je tlačítko: klik (nebo Enter) třídu zvolí a uloží, zvolená karta má mosazné kování a cedulku.
 function vyplnPostavy(panel) {
   const mrizka = prvek('div', 'mrizka-trid');
-  const karty = Object.entries(TRIDY).map(([id, t]) => {
+  const karty = Object.entries(TRIDY).map(([id, tr]) => {
     const karta = prvek('button', 'trida');
     karta.type = 'button';
     karta.dataset.trida = id;
-    const zbran = ZBRANE[t.zbran];
-    const zacina = prvek('small', 'trida-zbran', 'Začíná: ');
+    const zbran = ZBRANE[tr.zbran];
+    const zacina = prvek('small', 'trida-zbran', t('menu.postavy.zacina'));
     zacina.append(obrazekSpritu(zbran.ikona, 2), prvek('span', '', zbran.nazev));
     const text = prvek('span', 'trida-text');
     text.append(
-      prvek('b', '', t.nazev),
+      prvek('b', '', tr.nazev),
       zacina,
-      prvek('small', 'trida-vyhoda', t.vyhoda),
-      prvek('small', '', t.popis),
+      prvek('small', 'trida-vyhoda', tr.vyhoda),
+      prvek('small', '', tr.popis),
     );
-    karta.append(portret(id), text, prvek('span', 'trida-stitek', 'Zvoleno'));
+    karta.append(portret(id), text, prvek('span', 'trida-stitek', t('menu.zvoleno')));
     karta.addEventListener('click', () => {
       trida = platnaTrida(id);
       ulozTridu(trida);
@@ -167,7 +171,7 @@ function vyplnPostavy(panel) {
   }
   oznacZvolenou();
   mrizka.append(...karty);
-  panel.append(prvek('p', 'podtitul', 'Vyber, za koho půjdeš do hlubin. Volba se zapamatuje.'), mrizka);
+  panel.append(prvek('p', 'podtitul', t('menu.postavy.podtitul')), mrizka);
 }
 
 // Pruh postupu: zapuštěný, dílků je tolik, kolik je celkem (mapy po minutách, sbírka po kusech).
@@ -210,36 +214,36 @@ function vyplnMapy(panel) {
     const text = prvek('span', 'trida-text');
     text.append(prvek('b', '', m.nazev), prvek('small', 'mapa-popis', m.popis));
     const boss = poradiBossu(id)[0];
-    const jmenoBosse = prvek('span', '', 'Hlavní boss: ');
+    const jmenoBosse = prvek('span', '', t('menu.mapy.boss'));
     jmenoBosse.append(prvek('em', '', BOSSOVE[boss].nazev));
     text.append(radekSIkonou('mapa-boss', obrazekSpritu(boss, 1), jmenoBosse));
     const ob = obtiznostMapy(id);
     if (ob.zivoty > 1 || ob.poskozeni > 1) {
       // pevná mezera, ať se % neodtrhne od čísla
-      const procent = (x) => `+${Math.round((x - 1) * 100)} %`;
+      const procent = (x) => pevne(`+${procenta(Math.round((x - 1) * 100))}`);
       text.append(radekSIkonou('mapa-obtiznost', obrazekSpritu('lebka', 2),
-        prvek('span', '', `Těžší: nepřátelé ${procent(ob.zivoty)} životů a ${procent(ob.poskozeni)} poškození`)));
+        prvek('span', '', t('menu.mapy.tezsi', { zivoty: procent(ob.zivoty), poskozeni: procent(ob.poskozeni) }))));
     }
     const rekord = nactiRekord(id);
     if (odemcena) {
-      const radek = prvek('small', 'mapa-rekord', rekord ? 'Rekord ' : 'Zatím bez rekordu');
+      const radek = prvek('small', 'mapa-rekord', rekord ? t('menu.mapy.rekord') : t('menu.mapy.bezRekordu'));
       if (rekord) radek.append(prvek('em', '', formatCas(rekord.cas)));
       text.append(radek);
     } else {
       const pred = predchoziMapa(id);
       const nejlepe = nactiRekord(pred)?.cas ?? 0;
       text.append(radekSIkonou('mapa-zamek', obrazekSpritu('zamek', 2),
-        prvek('span', '', `Zamčeno: přežij ${formatCas(ODEMKNUTI_MAPY)} na mapě ${MAPY[pred].nazev}`)));
+        prvek('span', '', t('menu.mapy.zamceno', { cas: formatCas(ODEMKNUTI_MAPY), mapa: MAPY[pred].nazev }))));
       if (nejlepe > 0) {
         // Postup k odemčení: pruh rozdělený po minutách, vedle nejlepší čas na předchozí mapě.
         const postup = prvek('small', 'mapa-postup');
         const pruh = pruhPostupu('', nejlepe, ODEMKNUTI_MAPY, Math.round(ODEMKNUTI_MAPY / 60));
-        postup.append(pruh, prvek('span', '', `zatím ${formatCas(nejlepe)} z ${formatCas(ODEMKNUTI_MAPY)}`));
+        postup.append(pruh, prvek('span', '', t('menu.mapy.postup', { nejlepe: formatCas(nejlepe), cil: formatCas(ODEMKNUTI_MAPY) })));
         text.append(postup);
       }
     }
-    karta.append(okno, text, prvek('span', 'trida-stitek', 'Zvoleno'));
-    karta.setAttribute('aria-label', `${m.nazev}${odemcena ? '' : ', zamčeno'}`);
+    karta.append(okno, text, prvek('span', 'trida-stitek', t('menu.zvoleno')));
+    karta.setAttribute('aria-label', `${m.nazev}${odemcena ? '' : t('menu.mapy.zamcenoAria')}`);
     karta.addEventListener('click', () => {
       if (!odemcena) {
         odemkniZvuk();
@@ -265,14 +269,14 @@ function vyplnMapy(panel) {
   oznacZvolenou();
   mrizka.append(...karty);
   panel.append(
-    prvek('p', 'podtitul', `Kde budeš přežívat. Další mapa se odemkne, když na té předchozí vydržíš ${formatCas(ODEMKNUTI_MAPY)}.`),
+    prvek('p', 'podtitul', t('menu.mapy.podtitul', { cas: formatCas(ODEMKNUTI_MAPY) })),
     mrizka,
   );
 }
 
-// 1–4 duše, jinak duší (0 duší, 5 duší).
+// 1–4 duše, jinak duší (0 duší, 5 duší): jen slovo, číslo se píše před něj.
 export function pocetDusi(kolik) {
-  return kolik >= 1 && kolik <= 4 ? 'duše' : 'duší';
+  return t('tvary.duse', { n: kolik });
 }
 
 // Obchod s trvalými vylepšeními. Karta je tlačítko: klik (nebo Enter) koupí další úroveň, když jsou duše.
@@ -282,7 +286,7 @@ export function pocetDusi(kolik) {
 function vyplnVylepseni(panel) {
   const stav = nactiDuse();
   const hlava = prvek('div', 'duse-stav');
-  hlava.append(obrazekSpritu('duse', 3), prvek('span', 'duse-stav-text', 'Máš '));
+  hlava.append(obrazekSpritu('duse', 3), prvek('span', 'duse-stav-text', t('menu.vylepseni.mas')));
   hlava.lastChild.append(prvek('b', '', String(stav.duse)), ` ${pocetDusi(stav.duse)}`);
   const mrizka = prvek('div', 'mrizka-vylepseni');
   const prekresli = (vybrat) => {
@@ -306,13 +310,15 @@ function vyplnVylepseni(panel) {
     const ctverecky = prvek('span', 'ctverecky');
     for (let i = 0; i < v.max; i++) ctverecky.append(prvek('i', i < uroven ? 'plny' : ''));
     const cenovka = prvek('span', 'cena');
-    if (cena === null) cenovka.textContent = 'Hotovo';
+    if (cena === null) cenovka.textContent = t('menu.vylepseni.hotovo');
     else {
       cenovka.append(obrazekSpritu('duse', 2), prvek('b', '', String(cena)));
-      if (cena > stav.duse) cenovka.append(prvek('small', 'cena-chybi', `chybí ${cena - stav.duse}`));
+      if (cena > stav.duse) cenovka.append(prvek('small', 'cena-chybi', t('menu.vylepseni.chybi', { n: cena - stav.duse })));
     }
     karta.append(ikona, nazev, ctverecky, prvek('small', 'vylepseni-popis', v.popis), cenovka);
-    karta.setAttribute('aria-label', `${v.nazev}, úroveň ${uroven} z ${v.max}, ${cena === null ? 'hotovo' : `cena ${cena} ${pocetDusi(cena)}${cena > stav.duse ? `, chybí ${cena - stav.duse}` : ''}`}`);
+    const stavKarty = cena === null ? t('menu.vylepseni.ariaHotovo')
+      : `${t('menu.vylepseni.ariaCena', { n: cena })}${cena > stav.duse ? t('menu.vylepseni.ariaChybi', { n: cena - stav.duse }) : ''}`;
+    karta.setAttribute('aria-label', t('menu.vylepseni.aria', { nazev: v.nazev, uroven, max: v.max, stav: stavKarty }));
     karta.addEventListener('click', () => {
       odemkniZvuk();
       const novy = kupVylepseni(nactiDuse(), id);
@@ -330,7 +336,7 @@ function vyplnVylepseni(panel) {
     mrizka.append(karta);
   }
   const vratit = utraceno(stav.vylepseni);
-  const tlacitkoVratit = prvek('button', 'menu-tlacitko vratit', vratit ? `Vrátit duše (${vratit})` : 'Není co vracet');
+  const tlacitkoVratit = prvek('button', 'menu-tlacitko vratit', vratit ? t('menu.vylepseni.vratit', { n: vratit }) : t('menu.vylepseni.nicKVraceni'));
   tlacitkoVratit.type = 'button';
   tlacitkoVratit.disabled = !vratit;
   tlacitkoVratit.dataset.vylepseni = 'vratit';
@@ -338,7 +344,7 @@ function vyplnVylepseni(panel) {
     if (!vratit) return;
     if (!tlacitkoVratit.classList.contains('potvrdit')) {
       tlacitkoVratit.classList.add('potvrdit');
-      tlacitkoVratit.textContent = `Opravdu? Vrátí se ${vratit} ${pocetDusi(vratit)}`;
+      tlacitkoVratit.textContent = t('menu.vylepseni.potvrdit', { n: vratit });
       return;
     }
     ulozDuse(vratDuse(nactiDuse()));
@@ -347,7 +353,7 @@ function vyplnVylepseni(panel) {
   const radek = prvek('div', 'radek-tlacitek vratit-radek');
   radek.append(tlacitkoVratit);
   panel.append(
-    prvek('p', 'podtitul', 'Za duše z každé výpravy si kup trvalou sílu. Platí od začátku každé hry.'),
+    prvek('p', 'podtitul', t('menu.vylepseni.podtitul')),
     hlava,
     mrizka,
     radek,
@@ -359,15 +365,13 @@ function vyplnVylepseni(panel) {
 // má barvu nejlepší nalezené rarity. Neobjevený kus je jen stín a ???. Dole bonusy za 2 a 4 kusy se štítky.
 function vyplnSbirku(panel) {
   const sbirka = nactiSbirku();
-  // pevná mezera před %, ať se procenta neodtrhnou od čísla (+6,5 % zbroj)
-  const pevne = (text) => text.replace(/ %/g, ' %');
   const objeveno = Object.keys(sbirka).length;
   const stav = prvek('div', 'sbirka-stav');
-  const text = prvek('span', '', 'Objeveno ');
-  text.append(prvek('b', '', String(objeveno)), ` z ${VSECHNY_KUSY.length}`);
+  const text = prvek('span', '', t('menu.sbirka.objeveno'));
+  text.append(prvek('b', '', String(objeveno)), t('menu.sbirka.zCelkem', { n: VSECHNY_KUSY.length }));
   stav.append(text, pruhPostupu('sbirka-pruh', objeveno, VSECHNY_KUSY.length));
   panel.append(
-    prvek('p', 'podtitul', 'Výbava z truhel bossů platí jen v jedné hře. Tady je všechno, co jsi kdy našel, v nejlepší raritě.'),
+    prvek('p', 'podtitul', t('menu.sbirka.podtitul')),
     stav,
   );
   for (const boss of PORADI_SAD) {
@@ -413,7 +417,7 @@ function vyplnSbirku(panel) {
 // a zabití. Mapa bez rekordu to jen řekne, zamčená má šedou ikonu, zámek a co ji odemkne.
 function vyplnRekordy(panel) {
   const odemcene = odemceneMapy();
-  panel.append(prvek('p', 'podtitul', `Nejlepší výpravy profilu ${aktivniProfil().jmeno}, každá mapa zvlášť`));
+  panel.append(prvek('p', 'podtitul', t('menu.rekordy.podtitul', { jmeno: aktivniProfil().jmeno })));
   for (const id of PORADI_MAP) {
     const odemcena = odemcene.includes(id);
     const rekord = odemcena ? nactiRekord(id) : null;
@@ -422,11 +426,11 @@ function vyplnRekordy(panel) {
     const hlava = prvek('div', 'rekord-hlava');
     hlava.append(ikonaMapy(id, 3), prvek('h3', '', MAPY[id].nazev));
     const kdy = rekord?.datum ? new Date(rekord.datum) : null;
-    if (kdy && !Number.isNaN(kdy.getTime())) hlava.append(prvek('span', 'rekord-kdy', kdy.toLocaleDateString('cs-CZ')));
+    if (kdy && !Number.isNaN(kdy.getTime())) hlava.append(prvek('span', 'rekord-kdy', datum(kdy)));
     if (!odemcena) hlava.append(obrazekSpritu('zamek', 2));
     blok.append(hlava);
-    if (!odemcena) blok.append(prvek('p', 'rekord-prazdny', `Zamčeno: přežij ${formatCas(ODEMKNUTI_MAPY)} na mapě ${MAPY[predchoziMapa(id)].nazev}`));
-    else if (!rekord) blok.append(prvek('p', 'rekord-prazdny', 'Zatím žádný rekord. Dej Hrát a vydrž co nejdéle.'));
+    if (!odemcena) blok.append(prvek('p', 'rekord-prazdny', t('menu.mapy.zamceno', { cas: formatCas(ODEMKNUTI_MAPY), mapa: MAPY[predchoziMapa(id)].nazev })));
+    else if (!rekord) blok.append(prvek('p', 'rekord-prazdny', t('menu.rekordy.prazdny')));
     else blok.append(teloRekordu(rekord));
     panel.append(blok);
   }
@@ -437,7 +441,7 @@ function teloRekordu(rekord) {
   const cas = prvek('div', 'rekord-cas');
   const cislo = prvek('span', 'rekord-cas-cislo');
   pixelovyNadpis(cislo, formatCas(rekord.cas), { min: 3, max: 4 });
-  cas.append(prvek('small', '', 'Nejdelší přežití'), cislo);
+  cas.append(prvek('small', '', t('menu.rekordy.nejdelsi')), cislo);
   const staty = prvek('dl', 'rekord-staty');
   const pridej = (nazev, hodnota, ikona = null) => {
     const dd = prvek('dd');
@@ -445,35 +449,36 @@ function teloRekordu(rekord) {
     dd.append(String(hodnota));
     staty.append(prvek('dt', '', nazev), dd);
   };
-  if (Object.hasOwn(TRIDY, rekord.trida ?? '')) pridej('Postava', TRIDY[rekord.trida].nazev, obrazekSpritu(rekord.trida, 2));
+  if (Object.hasOwn(TRIDY, rekord.trida ?? '')) pridej(t('udaje.postava'), TRIDY[rekord.trida].nazev, obrazekSpritu(rekord.trida, 2));
   // Starší rekordy hrozbu nemají, ta se dopočítá z času (každá minuta +1).
-  pridej('Hrozba', Number.isInteger(rekord.hrozba) ? rekord.hrozba : silaHrozby(rekord.cas).uroven);
-  pridej('Úroveň', rekord.uroven ?? '–');
-  pridej('Zabito', rekord.zabito ?? '–');
+  pridej(t('udaje.hrozba'), Number.isInteger(rekord.hrozba) ? rekord.hrozba : silaHrozby(rekord.cas).uroven);
+  pridej(t('udaje.uroven'), rekord.uroven ?? '–');
+  pridej(t('udaje.zabito'), rekord.zabito ?? '–');
   telo.append(cas, staty);
   return telo;
 }
 
-// Ovládání po skupinách: [nadpis, řádky [klávesy, co dělají]].
+// Ovládání po skupinách: [skupina, řádky [klávesy, co dělají]]. Texty jsou ve slovníku (menu.ovladani), klávesa
+// v uvozovkách jako 'sipky' je slovo ze slovníku (menu.ovladani.klavesy), ostatní se píšou, jak jsou.
 const OVLADANI = [
-  ['Pohyb', [
+  ['pohyb', [
     [['W', 'A', 'S', 'D'], 'pohyb'],
-    [['šipky'], 'pohyb'],
-    [['tah prstem'], 'pohyb na mobilu'],
+    [['@sipky'], 'pohyb'],
+    [['@tah'], 'pohybMobil'],
   ]],
-  ['Ve hře', [
-    [['1', '2', '3'], 'výběr vylepšení (nebo klik, šipky a Enter)'],
-    [['1', '2'], 'výbava z truhly: vzít nový kus, nebo nechat nasazený'],
-    [['R'], 'přehodit karty za zlaťáky (nebo zdarma od kupce)'],
-    [['1–5'], 'u kupce koupit zboží (Esc nebo Q odejít)'],
-    [['P', 'Esc'], 'pauza (na mobilu tlačítko vlevo nahoře)'],
-    [['N'], 'ztlumit nebo zapnout zvuk (hlasitost je v Nastavení)'],
+  ['veHre', [
+    [['1', '2', '3'], 'vyber'],
+    [['1', '2'], 'vybava'],
+    [['R'], 'prehodit'],
+    [['1–5'], 'kupec'],
+    [['P', 'Esc'], 'pauza'],
+    [['N'], 'zvuk'],
   ]],
-  ['Menu a konec hry', [
-    [['↑', '↓', 'Enter'], 'výběr v menu'],
-    [['Esc'], 'zpět v menu'],
-    [['R'], 'znovu po prohře'],
-    [['M'], 'menu po prohře'],
+  ['menu', [
+    [['↑', '↓', 'Enter'], 'vyberMenu'],
+    [['Esc'], 'zpetMenu'],
+    [['R'], 'znovu'],
+    [['M'], 'menuPoProhre'],
   ]],
 ];
 
@@ -495,7 +500,7 @@ export function prepinacNastaveni(klic, nazev) {
   b.append(prvek('span', '', `${nazev}: `), stav);
   const ukaz = () => {
     const zapnuto = nastaveni[klic];
-    stav.textContent = zapnuto ? 'zapnuto' : 'vypnuto';
+    stav.textContent = zapnuto ? t('menu.nastaveni.zapnuto') : t('menu.nastaveni.vypnuto');
     b.classList.toggle('vypnuto', !zapnuto);
     b.setAttribute('aria-pressed', String(zapnuto));
   };
@@ -511,20 +516,8 @@ export function prepinacNastaveni(klic, nazev) {
 // Světla (osvetleni.js): jedno tlačítko jako ostatní přepínače, klik nebo Enter střídá Auto → Zap → Vyp. Kontrolka:
 // mosazná auto, zelená zapnutá, zhaslá rudá vypnutá. Pod ním jeden řádek, co se zrovna děje (svítí, prohlížeč
 // neumí WebGL, pojistka je vypnula…). Stejné je v Nastavení i v pauze.
+// Texty režimů a řádku pod tlačítkem jsou ve slovníku (menu.svetla.rezimy a menu.svetla.stav podle duvod ze stavSvetel).
 const DALSI_REZIM = { auto: 'zap', zap: 'vyp', vyp: 'auto' };
-const TEXTY_REZIMU = { auto: 'auto', zap: 'zapnutá', vyp: 'vypnutá' };
-const TEXTY_SVETEL = {
-  auto: 'Svítí, dokud hra běží plynule. Když se zpomalí, vypnou se samy.',
-  zap: 'Svítí vždycky, i kdyby hra zpomalila.',
-  vypnuto: 'Jednoduchá tma bez WebGL, nejrychlejší.',
-  nacita: 'Světla se načítají…',
-  webgl: 'Prohlížeč neumí WebGL, svítí jednoduchá tma.',
-  pomale: 'Prohlížeč kreslí WebGL bez grafické karty, svítí jednoduchá tma. Zapnout jde ručně.',
-  shadery: 'Světla se nepodařilo načíst, svítí jednoduchá tma.',
-  kontrola: 'V tomhle prohlížeči světla nejdou, svítí jednoduchá tma.',
-  fps: 'Se světly se hra zpomalovala, svítí jednoduchá tma. Zapnout jde ručně.',
-  ztraceno: 'Grafika se restartovala, světla se za chvíli vrátí.',
-};
 
 export function prepinacSvetel() {
   const box = prvek('div', 'svetla-volba');
@@ -532,16 +525,17 @@ export function prepinacSvetel() {
   b.type = 'button';
   b.dataset.nastaveni = 'svetla';
   const stavPrvek = prvek('span', 'prepinac-stav');
-  b.append(prvek('span', '', 'Světla: '), stavPrvek);
+  b.append(prvek('span', '', `${t('menu.svetla.nazev')}: `), stavPrvek);
   const text = prvek('p', 'svetla-text');
   const ukaz = () => {
     const rezim = nastaveni.svetla;
     const { duvod } = stavSvetel();
-    stavPrvek.textContent = TEXTY_REZIMU[rezim];
+    const texty = t('menu.svetla.stav');
+    stavPrvek.textContent = t(`menu.svetla.rezimy.${rezim}`);
     b.classList.toggle('vypnuto', rezim === 'vyp');
     b.classList.toggle('auto', rezim === 'auto');
     b.setAttribute('aria-pressed', rezim === 'vyp' ? 'false' : rezim === 'zap' ? 'true' : 'mixed');
-    text.textContent = rezim === 'vyp' ? TEXTY_SVETEL.vypnuto : TEXTY_SVETEL[duvod] ?? TEXTY_SVETEL[rezim];
+    text.textContent = rezim === 'vyp' ? texty.vypnuto : texty[duvod] ?? texty[rezim];
   };
   b.addEventListener('click', () => {
     nastaveni = { ...nastaveni, svetla: DALSI_REZIM[nastaveni.svetla] ?? 'auto' };
@@ -576,11 +570,11 @@ function radekHlasitosti(klic, nazev) {
   const plus = prvek('button', 'menu-tlacitko hlasitost-krok', '+');
   minus.type = 'button';
   plus.type = 'button';
-  minus.setAttribute('aria-label', `${nazev} tišeji`);
-  plus.setAttribute('aria-label', `${nazev} hlasitěji`);
+  minus.setAttribute('aria-label', t('menu.zvuk.tiseji', { nazev }));
+  plus.setAttribute('aria-label', t('menu.zvuk.hlasiteji', { nazev }));
   const pruh = prvek('span', 'hlasitost-pruh');
   pruh.setAttribute('role', 'slider');
-  pruh.setAttribute('aria-label', `Hlasitost: ${nazev}`);
+  pruh.setAttribute('aria-label', t('menu.zvuk.hlasitost', { nazev }));
   pruh.setAttribute('aria-valuemin', '0');
   pruh.setAttribute('aria-valuemax', '100');
   const vypln = prvek('i');
@@ -589,7 +583,7 @@ function radekHlasitosti(klic, nazev) {
   const ukaz = () => {
     const v = nastaveni[klic];
     vypln.style.width = `${v}%`;
-    cislo.textContent = v > 0 ? `${v} %` : 'vypnuto';
+    cislo.textContent = v > 0 ? procenta(v) : t('menu.nastaveni.vypnuto');
     pruh.setAttribute('aria-valuenow', String(v));
     radek.classList.toggle('nula', v === 0);
   };
@@ -637,10 +631,10 @@ export function ovladaniZvuku() {
   prepinac.type = 'button';
   const stav = prvek('span', 'prepinac-stav');
   // „(N)“ je klávesa, na dotykovém displeji se schová (.jen-klavesnice), dvojtečka zůstane
-  prepinac.append(prvek('span', '', 'Zvuk'), prvek('span', 'jen-klavesnice', ' (N)'), prvek('span', '', ': '), stav);
+  prepinac.append(prvek('span', '', t('menu.zvuk.nazev')), prvek('span', 'jen-klavesnice', ' (N)'), prvek('span', '', ': '), stav);
   const ukaz = () => {
     const zapnuto = !nastaveni.ztlumeno;
-    stav.textContent = zapnuto ? 'zapnutý' : 'vypnutý';
+    stav.textContent = zapnuto ? t('menu.zvuk.zapnuty') : t('menu.zvuk.vypnuty');
     prepinac.classList.toggle('vypnuto', !zapnuto);
     prepinac.setAttribute('aria-pressed', String(zapnuto));
     box.classList.toggle('ztlumeno', !zapnuto);
@@ -652,7 +646,7 @@ export function ovladaniZvuku() {
   });
   obnovy.set(box, ukaz);
   ukaz();
-  box.append(radekHlasitosti('efekty', 'Efekty'), radekHlasitosti('hudba', 'Hudba'), prepinac);
+  box.append(radekHlasitosti('efekty', t('menu.zvuk.efekty')), radekHlasitosti('hudba', t('menu.zvuk.hudba')), prepinac);
   return box;
 }
 
@@ -660,42 +654,36 @@ export function ovladaniZvuku() {
 function vyplnOvladani(panel) {
   const mrizka = prvek('div', 'ovladani');
   for (const [nazev, radky] of OVLADANI) {
-    const sekce = skupina(nazev);
+    const sekce = skupina(t(`menu.ovladani.skupiny.${nazev}`));
     for (const [klavesy, co] of radky) {
       const radek = prvek('div', 'ovladani-radek');
       const kde = prvek('span', 'klavesy');
-      kde.append(...klavesy.map((k) => prvek('kbd', '', k)));
-      radek.append(kde, prvek('span', '', co));
+      kde.append(...klavesy.map((k) => prvek('kbd', '', k.startsWith('@') ? t(`menu.ovladani.klavesy.${k.slice(1)}`) : k)));
+      radek.append(kde, prvek('span', '', t(`menu.ovladani.radky.${co}`)));
       sekce.append(radek);
     }
     mrizka.append(sekce);
   }
   panel.append(
-    prvek('p', 'podtitul', 'Zbraně střílí samy, ty jen uhýbáš a sbíráš krystaly.'), mrizka,
-    prvek('p', 'podtitul ovladani-pata', 'Hlasitost, čísla poškození a světla najdeš v Nastavení.'),
+    prvek('p', 'podtitul', t('menu.ovladani.podtitul')), mrizka,
+    prvek('p', 'podtitul ovladani-pata', t('menu.ovladani.pata')),
   );
 }
 
 // Na plochu (aplikace.js): kde prohlížeč instalaci nabízí, tlačítko ji otevře, jinde text, kde ji hledat (Safari
 // na iPhonu: Sdílet → Přidat na plochu). Když je hra uložená pro hraní bez internetu, napíše to.
-const TEXTY_PLOCHY = {
-  plocha: 'Hraješ z plochy jako aplikace.',
-  nabidka: 'Hra dostane ikonu na ploše a otevře se přes celou obrazovku.',
-  ios: 'V Safari klepni na Sdílet (čtvereček se šipkou nahoru) a vyber Přidat na plochu.',
-  prohlizec: 'V nabídce prohlížeče najdeš Přidat na plochu nebo Nainstalovat.',
-};
-
+// Texty jsou ve slovníku (menu.plocha.kde podle stavu aplikace).
 function skupinaNaPlochu() {
-  const sekce = skupina('Na plochu', 'plocha');
+  const sekce = skupina(t('menu.plocha.nadpis'), 'plocha');
   const text = prvek('p', 'plocha-text');
   const radek = prvek('div', 'radek-tlacitek nastaveni-radek plocha-radek');
-  const tlacitko = prvek('button', 'menu-tlacitko', 'Přidat na plochu');
+  const tlacitko = prvek('button', 'menu-tlacitko', t('menu.plocha.pridat'));
   tlacitko.type = 'button';
   tlacitko.addEventListener('click', () => pridejNaPlochu());
   radek.append(tlacitko);
   const ukaz = () => {
     const { kde, offline } = stavAplikace();
-    text.textContent = TEXTY_PLOCHY[kde] + (offline ? ' Hra je uložená v zařízení a jde hrát i bez internetu.' : '');
+    text.textContent = t(`menu.plocha.kde.${kde}`) + (offline ? t('menu.plocha.offline') : '');
     radek.hidden = kde !== 'nabidka';
   };
   const odhlas = priZmeneAplikace(() => (sekce.isConnected ? ukaz() : odhlas()));
@@ -707,14 +695,14 @@ function skupinaNaPlochu() {
 // Nastavení: zvuk (hlasitost efektů a hudby, ztlumení N), čísla poškození se světly a Na plochu, každé ve své skupině.
 // Všechno se hned uloží.
 function vyplnNastaveni(panel) {
-  const zvuk = skupina('Zvuk');
+  const zvuk = skupina(t('menu.nastaveni.zvuk'));
   zvuk.append(ovladaniZvuku());
-  const hra = skupina('Hra');
+  const hra = skupina(t('menu.nastaveni.hra'));
   const radek = prvek('div', 'radek-tlacitek nastaveni-radek');
-  radek.append(prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'));
+  radek.append(prepinacNastaveni('cislaPoskozeni', t('menu.nastaveni.cislaPoskozeni')));
   hra.append(radek, prepinacSvetel());
   panel.append(
-    prvek('p', 'podtitul', 'Volby se hned uloží v tomhle prohlížeči a platí pro všechny profily. Stejné najdeš i v pauze.'),
+    prvek('p', 'podtitul', t('menu.nastaveni.podtitul')),
     zvuk, hra, skupinaNaPlochu(),
   );
 }
@@ -724,20 +712,8 @@ function vyplnNastaveni(panel) {
 // profilem. Nový profil, přejmenování, export a import se otevřou ve stejném panelu ve skupině s pixelovým
 // nadpisem, Esc nebo Zpět vrátí seznam. Smazat a přepsat chtějí dva stisky, první se jen zeptá (u smazání hlášení
 // napíše, co všechno zmizí). Nic se neposílá na server (prenos.js).
-const TEXTY_CHYB = {
-  jmeno: 'Napiš jméno (aspoň jeden znak).',
-  obsazene: 'Tohle jméno už má jiný profil.',
-  plno: `Víc než ${MAX_PROFILU} profilů nejde. Nějaký smaž nebo přepiš.`,
-  uloziste: 'Prohlížeč nedovolí ukládat (anonymní okno?), profil se neuloží.',
-  neni: 'Ten profil už neexistuje.',
-  prazdny: `Vlož kód uložení, nebo vyber soubor ${PRIPONA_SOUBORU}.`,
-  format: 'Tohle není kód uložení RuGee.',
-  neuplny: 'Kód je useknutý, chybí mu konec. Zkopíruj ho celý znovu.',
-  soucet: 'Kód je poškozený nebo neúplný (nesedí kontrolní součet). Zkopíruj ho celý znovu.',
-  verze: 'Kód je z jiné verze hry. Obnov stránku a zkus to znovu.',
-  obsah: 'Kód je poškozený, data v něm nejdou přečíst.',
-  soubor: 'Soubor nejde přečíst.',
-};
+// Texty chyb jsou ve slovníku (menu.profil.chyby, klíč = chyba z ulozeni.js a prenos.js).
+const textChyby = (chyba) => t(`menu.profil.chyby.${chyba}`, { max: MAX_PROFILU, pripona: PRIPONA_SOUBORU });
 
 // Panel záložky Profil, jestli je v něm otevřené podokno a z kterého tlačítka (po Zpět se na něj vrátí výběr).
 let panelProfilu = null;
@@ -798,13 +774,13 @@ function zamerPole(pole) {
 function obsahKarty(karta, prehled, jmeno, stitek) {
   const text = prvek('span', 'trida-text');
   const duse = prvek('small', 'profil-duse');
-  duse.append(obrazekSpritu('duse', 2), prvek('span', '', `${prehled.duse} ${pocetDusi(prehled.duse)} · ${TRIDY[prehled.trida].nazev}`));
-  const rekord = prvek('small', 'profil-rekord', prehled.rekord ? 'Nejdelší přežití ' : 'Zatím bez rekordu');
+  duse.append(obrazekSpritu('duse', 2), prvek('span', '', t('menu.profil.duseATrida', { n: prehled.duse, trida: TRIDY[prehled.trida].nazev })));
+  const rekord = prvek('small', 'profil-rekord', prehled.rekord ? t('menu.profil.nejdelsi') : t('menu.mapy.bezRekordu'));
   if (prehled.rekord) rekord.append(prvek('em', '', formatCas(prehled.rekord)));
   text.append(
     prvek('b', 'profil-jmeno', jmeno),
     duse,
-    prvek('small', '', `Mapy ${prehled.mapy}/${PORADI_MAP.length} · sbírka ${prehled.sbirka}/${VSECHNY_KUSY.length}`),
+    prvek('small', '', t('menu.profil.postup', { mapy: prehled.mapy, map: PORADI_MAP.length, sbirka: prehled.sbirka, kusu: VSECHNY_KUSY.length })),
     rekord,
   );
   karta.append(portret(prehled.trida, 4), text, prvek('span', 'trida-stitek', stitek));
@@ -813,7 +789,7 @@ function obsahKarty(karta, prehled, jmeno, stitek) {
 function nahledDat(data) {
   const nahled = prvek('div', 'trida profil nahled zvolena');
   const prehled = prehledDat(data);
-  obsahKarty(nahled, prehled, prehled.jmeno, 'V kódu');
+  obsahKarty(nahled, prehled, prehled.jmeno, t('menu.profil.vKodu'));
   return nahled;
 }
 
@@ -828,50 +804,50 @@ function vyplnProfil(panel, zprava = '', chyba = false) {
     const karta = prvek('button', 'trida profil');
     karta.type = 'button';
     karta.dataset.profil = String(p.slot);
-    obsahKarty(karta, prehledProfilu(p.slot), p.jmeno, 'Hraješ');
+    obsahKarty(karta, prehledProfilu(p.slot), p.jmeno, t('menu.profil.hrajes'));
     karta.classList.toggle('zvolena', p.aktivni);
     karta.setAttribute('aria-pressed', String(p.aktivni));
     karta.addEventListener('click', () => {
       if (p.aktivni) return;
       if (!prepniProfil(p.slot)) {
-        vyplnProfil(panel, TEXTY_CHYB.neni, true);
+        vyplnProfil(panel, textChyby('neni'), true);
         vyberTlacitko(panel.querySelector('.zvolena'));
         return;
       }
       obnovProfil();
-      vyplnProfil(panel, `Hraješ za profil ${p.jmeno}.`);
+      vyplnProfil(panel, t('menu.profil.prepnuto', { jmeno: p.jmeno }));
       vyberTlacitko(panel.querySelector(`[data-profil="${p.slot}"]`));
     });
     mrizka.append(karta);
   }
   const hlaseni = hlaseniProfilu(zprava, chyba);
   const plno = profily.length >= MAX_PROFILU;
-  const novy = tlacitko(plno ? `Plno (${MAX_PROFILU}/${MAX_PROFILU})` : 'Nový profil');
+  const novy = tlacitko(plno ? t('menu.profil.plno', { n: MAX_PROFILU }) : t('menu.profil.novy'));
   novy.disabled = plno;
   novy.addEventListener('click', () => podoknoJmena(panel, null));
-  const prejmenovat = tlacitko('Přejmenovat');
+  const prejmenovat = tlacitko(t('menu.profil.prejmenovat'));
   prejmenovat.addEventListener('click', () => podoknoJmena(panel, zvoleny));
-  const smazat = tlacitko('Smazat');
+  const smazat = tlacitko(t('menu.profil.smazat'));
   smazat.disabled = profily.length < 2;
-  if (smazat.disabled) smazat.title = 'Poslední profil smazat nejde';
+  if (smazat.disabled) smazat.title = t('menu.profil.posledni');
   smazat.addEventListener('click', () => {
     if (!smazat.classList.contains('potvrdit')) {
       smazat.classList.add('potvrdit');
-      smazat.textContent = `Opravdu smazat ${zvoleny.jmeno}?`;
-      ukazHlaseni(hlaseni, `Smazáním zmizí duše, vylepšení, rekordy, sbírka i mapy profilu ${zvoleny.jmeno}. Stiskni znovu, nebo dej Zpět.`, 'varovani');
+      smazat.textContent = t('menu.profil.opravduSmazat', { jmeno: zvoleny.jmeno });
+      ukazHlaseni(hlaseni, t('menu.profil.varovaniSmazani', { jmeno: zvoleny.jmeno }), 'varovani');
       return;
     }
     if (!smazProfil(zvoleny.slot)) {
-      vyplnProfil(panel, 'Profil nejde smazat.', true);
+      vyplnProfil(panel, t('menu.profil.nejdeSmazat'), true);
     } else {
       obnovProfil();
-      vyplnProfil(panel, `Profil ${zvoleny.jmeno} je smazaný. Hraješ za ${aktivniProfil().jmeno}.`);
+      vyplnProfil(panel, t('menu.profil.smazano', { jmeno: zvoleny.jmeno, aktivni: aktivniProfil().jmeno }));
     }
     vyberTlacitko(panel.querySelector('.zvolena'));
   });
-  const exportovat = tlacitko('Exportovat');
+  const exportovat = tlacitko(t('menu.profil.exportovat'));
   exportovat.addEventListener('click', () => podoknoExportu(panel));
-  const importovat = tlacitko('Importovat');
+  const importovat = tlacitko(t('menu.profil.importovat'));
   importovat.addEventListener('click', () => podoknoImportu(panel));
   const akce = prvek('div', 'profil-akce profil-akce-seznam');
   for (const [id, b] of Object.entries({ novy, prejmenovat, smazat, exportovat, importovat })) {
@@ -879,11 +855,11 @@ function vyplnProfil(panel, zprava = '', chyba = false) {
     akce.append(b);
   }
   panel.append(
-    prvek('p', 'podtitul', 'Každý profil má vlastní duše, vylepšení, rekordy, sbírku a mapy. Nastavení zvuku je společné.'),
+    prvek('p', 'podtitul', t('menu.profil.podtitul')),
     mrizka,
     hlaseni,
     akce,
-    prvek('p', 'podtitul profil-pata', `Exportovat dá kód uložení a soubor ${PRIPONA_SOUBORU}, Importovat je nahraje v jiném prohlížeči nebo zařízení. Nic se neposílá na server.`),
+    prvek('p', 'podtitul profil-pata', t('menu.profil.pata', { pripona: PRIPONA_SOUBORU })),
   );
 }
 
@@ -918,18 +894,18 @@ function podoknoJmena(panel, profil) {
   formular.noValidate = true;
   const pole = prvek('input', 'profil-pole');
   Object.assign(pole, {
-    type: 'text', maxLength: MAX_JMENA, value: profil?.jmeno ?? '', placeholder: 'Jméno profilu', autocomplete: 'off', spellcheck: false,
+    type: 'text', maxLength: MAX_JMENA, value: profil?.jmeno ?? '', placeholder: t('menu.profil.jmeno'), autocomplete: 'off', spellcheck: false,
   });
-  pole.setAttribute('aria-label', 'Jméno profilu');
+  pole.setAttribute('aria-label', t('menu.profil.jmeno'));
   pole.setAttribute('enterkeyhint', 'done');
   const hlaseni = hlaseniProfilu();
-  const potvrdit = prvek('button', 'menu-tlacitko hlavni', profil ? 'Uložit jméno' : 'Založit profil');
+  const potvrdit = prvek('button', 'menu-tlacitko hlavni', profil ? t('menu.profil.ulozitJmeno') : t('menu.profil.zalozit'));
   potvrdit.type = 'submit';
   formular.addEventListener('submit', (e) => {
     e.preventDefault();
     const vysledek = profil ? prejmenujProfil(profil.slot, pole.value) : vytvorProfil(pole.value);
     if (vysledek.chyba) {
-      ukazHlaseni(hlaseni, TEXTY_CHYB[vysledek.chyba], true);
+      ukazHlaseni(hlaseni, textChyby(vysledek.chyba), true);
       odmitni(pole);
       zamerPole(pole);
       return;
@@ -938,7 +914,7 @@ function podoknoJmena(panel, profil) {
       prepniProfil(vysledek.slot);
       obnovProfil();
     }
-    vyplnProfil(panel, profil ? `Profil se teď jmenuje ${vysledek.jmeno}.` : `Profil ${vysledek.jmeno} je založený a hraješ za něj.`);
+    vyplnProfil(panel, t(profil ? 'menu.profil.prejmenovano' : 'menu.profil.zalozeno', { jmeno: vysledek.jmeno }));
     vyberTlacitko(panel.querySelector('.zvolena'));
   });
   escZpet(pole);
@@ -949,12 +925,12 @@ function podoknoJmena(panel, profil) {
     }
   });
   formular.append(pole, hlaseni, radekTlacitek(potvrdit));
-  const sekce = skupina(profil ? 'Přejmenovat' : 'Nový profil', 'profil-sekce');
+  const sekce = skupina(profil ? t('menu.profil.prejmenovat') : t('menu.profil.novy'), 'profil-sekce');
   sekce.append(formular);
   panel.append(
     prvek('p', 'podtitul', profil
-      ? `Nové jméno pro profil ${profil.jmeno}, nejvýš ${MAX_JMENA} znaků.`
-      : `Nový profil začne od nuly: bez duší, vylepšení, rekordů a sbírky. Jméno má nejvýš ${MAX_JMENA} znaků.`),
+      ? t('menu.profil.noveJmeno', { jmeno: profil.jmeno, max: MAX_JMENA })
+      : t('menu.profil.novyOdNuly', { max: MAX_JMENA })),
     sekce,
   );
   zamerPole(pole);
@@ -1000,30 +976,28 @@ function podoknoExportu(panel) {
   const kod = kodProfilu(data);
   const pole = prvek('textarea', 'profil-kod');
   Object.assign(pole, { readOnly: true, rows: 5, value: kod, spellcheck: false });
-  pole.setAttribute('aria-label', 'Kód uložení');
+  pole.setAttribute('aria-label', t('menu.profil.kod'));
   pole.addEventListener('focus', () => pole.select());
   escZpet(pole);
   const hlaseni = hlaseniProfilu();
-  const kopirovat = tlacitko('Kopírovat kód', 'hlavni');
+  const kopirovat = tlacitko(t('menu.profil.kopirovat'), 'hlavni');
   kopirovat.dataset.export = 'kopirovat';
   kopirovat.addEventListener('click', async () => {
     const povedlo = await zkopiruj(kod, pole);
-    ukazHlaseni(hlaseni, povedlo
-      ? 'Kód je ve schránce. V jiném zařízení ho vlož do Profil → Importovat.'
-      : 'Zkopírovat nejde. Označ kód v poli a zkopíruj ho sám.', !povedlo);
+    ukazHlaseni(hlaseni, povedlo ? t('menu.profil.zkopirovano') : t('menu.profil.nejdeZkopirovat'), !povedlo);
     vyberTlacitko(kopirovat);
   });
   const soubor = nazevSouboru(data.jmeno);
-  const stahnout = tlacitko(`Stáhnout ${PRIPONA_SOUBORU}`);
+  const stahnout = tlacitko(t('menu.profil.stahnout', { pripona: PRIPONA_SOUBORU }));
   stahnout.dataset.export = 'stahnout';
   stahnout.addEventListener('click', () => {
     const povedlo = stahniSoubor(soubor, souborProfilu(data));
-    ukazHlaseni(hlaseni, povedlo ? `Stahuje se soubor ${soubor}.` : 'Stáhnout nejde, zkopíruj kód.', !povedlo);
+    ukazHlaseni(hlaseni, povedlo ? t('menu.profil.stahujeSe', { soubor }) : t('menu.profil.nejdeStahnout'), !povedlo);
   });
-  const sekce = skupina('Export', 'profil-sekce');
+  const sekce = skupina(t('menu.profil.export'), 'profil-sekce');
   sekce.append(nahledDat(data), pole, hlaseni, radekTlacitek(kopirovat, stahnout));
   panel.append(
-    prvek('p', 'podtitul', 'Tenhle kód přenese profil do jiného prohlížeče nebo zařízení: tam dej Profil → Importovat a kód vlož, nebo vyber stažený soubor. Nic se neposílá na server.'),
+    prvek('p', 'podtitul', t('menu.profil.exportPodtitul')),
     sekce,
   );
   // Pole je vysoké přesně na celý kód (nejvýš 240 px, pak se v něm posouvá).
@@ -1036,8 +1010,8 @@ function podoknoExportu(panel) {
 function podoknoImportu(panel) {
   otevriPodokno(panel, 'importovat');
   const pole = prvek('textarea', 'profil-kod');
-  Object.assign(pole, { rows: 4, placeholder: 'Sem vlož kód uložení (RUGEE1.…)', spellcheck: false });
-  for (const [nazev, hodnota] of [['aria-label', 'Kód uložení'], ['autocomplete', 'off'], ['autocapitalize', 'off'], ['autocorrect', 'off']]) {
+  Object.assign(pole, { rows: 4, placeholder: t('menu.profil.vlozKod'), spellcheck: false });
+  for (const [nazev, hodnota] of [['aria-label', t('menu.profil.kod')], ['autocomplete', 'off'], ['autocapitalize', 'off'], ['autocorrect', 'off']]) {
     pole.setAttribute(nazev, hodnota);
   }
   const hlaseni = hlaseniProfilu();
@@ -1046,20 +1020,20 @@ function podoknoImportu(panel) {
     const { data, chyba } = prectiKod(text);
     cile.replaceChildren();
     if (chyba) {
-      ukazHlaseni(hlaseni, TEXTY_CHYB[chyba], true);
+      ukazHlaseni(hlaseni, textChyby(chyba), true);
       odmitni(pole);
       return;
     }
-    ukazHlaseni(hlaseni, 'Kód je v pořádku. Kam ho nahrát?');
+    ukazHlaseni(hlaseni, t('menu.profil.kodOk'));
     ukazCileImportu(panel, cile, data);
   };
-  const nacist = tlacitko('Načíst kód', 'hlavni');
+  const nacist = tlacitko(t('menu.profil.nacist'), 'hlavni');
   nacist.dataset.import = 'nacist';
   nacist.addEventListener('click', () => precti(pole.value));
   const vstup = prvek('input');
   vstup.type = 'file';
   vstup.hidden = true;
-  const vybrat = tlacitko(`Vybrat soubor ${PRIPONA_SOUBORU}`);
+  const vybrat = tlacitko(t('menu.profil.vybratSoubor', { pripona: PRIPONA_SOUBORU }));
   vybrat.dataset.import = 'soubor';
   vybrat.addEventListener('click', () => vstup.click());
   vstup.addEventListener('change', async () => {
@@ -1073,7 +1047,7 @@ function podoknoImportu(panel) {
       precti(text);
     } catch {
       cile.replaceChildren();
-      ukazHlaseni(hlaseni, TEXTY_CHYB.soubor, true);
+      ukazHlaseni(hlaseni, textChyby('soubor'), true);
     }
   });
   escZpet(pole);
@@ -1083,10 +1057,10 @@ function podoknoImportu(panel) {
       precti(pole.value);
     }
   });
-  const sekce = skupina('Import', 'profil-sekce');
+  const sekce = skupina(t('menu.profil.import'), 'profil-sekce');
   sekce.append(pole, hlaseni, radekTlacitek(nacist, vybrat), vstup, cile);
   panel.append(
-    prvek('p', 'podtitul', `Vlož kód uložení z jiného zařízení, nebo vyber stažený soubor ${PRIPONA_SOUBORU}. Než se cokoli přepíše, uvidíš, co v kódu je.`),
+    prvek('p', 'podtitul', t('menu.profil.importPodtitul', { pripona: PRIPONA_SOUBORU })),
     sekce,
   );
   // S myší se rovnou dá vložit (Ctrl+V), na dotykovém displeji by vyskočila klávesnice přes tlačítko souboru.
@@ -1098,18 +1072,18 @@ function ukazCileImportu(panel, cile, data) {
   const profily = seznamProfilu();
   const plno = profily.length >= MAX_PROFILU;
   const tlacitka = prvek('div', 'profil-akce');
-  const novy = tlacitko(plno ? `Plno (${MAX_PROFILU}/${MAX_PROFILU})` : 'Jako nový profil', 'hlavni');
+  const novy = tlacitko(plno ? t('menu.profil.plno', { n: MAX_PROFILU }) : t('menu.profil.jakoNovy'), 'hlavni');
   novy.disabled = plno;
   novy.dataset.cil = 'novy';
   novy.addEventListener('click', () => dokonciImport(panel, data, null));
   tlacitka.append(novy);
   for (const p of profily) {
-    const prepsat = tlacitko(`Přepsat ${p.jmeno}`);
+    const prepsat = tlacitko(t('menu.profil.prepsat', { jmeno: p.jmeno }));
     prepsat.dataset.cil = String(p.slot);
     prepsat.addEventListener('click', () => {
       if (!prepsat.classList.contains('potvrdit')) {
         prepsat.classList.add('potvrdit');
-        prepsat.textContent = `Opravdu přepsat ${p.jmeno}?`;
+        prepsat.textContent = t('menu.profil.opravduPrepsat', { jmeno: p.jmeno });
         return;
       }
       dokonciImport(panel, data, p.slot);
@@ -1123,26 +1097,28 @@ function ukazCileImportu(panel, cile, data) {
 function dokonciImport(panel, data, slot) {
   const vysledek = importujProfil(data, slot);
   if (vysledek.chyba) {
-    vyplnProfil(panel, TEXTY_CHYB[vysledek.chyba], true);
+    vyplnProfil(panel, textChyby(vysledek.chyba), true);
   } else {
     prepniProfil(vysledek.slot);
     obnovProfil();
-    vyplnProfil(panel, `Nahráno do profilu ${vysledek.jmeno}. Hraješ za něj.`);
+    vyplnProfil(panel, t('menu.profil.nahrano', { jmeno: vysledek.jmeno }));
   }
   vyberTlacitko(panel.querySelector('.zvolena'));
 }
 
+// Jména záložek jsou ve slovníku (zalozky.<id>.nazev).
 export const ZALOZKY = {
-  postavy: { nazev: 'Postavy', vypln: vyplnPostavy },
-  mapy: { nazev: 'Mapy', vypln: vyplnMapy },
-  vylepseni: { nazev: 'Vylepšení', vypln: vyplnVylepseni },
-  sbirka: { nazev: 'Sbírka', vypln: vyplnSbirku },
-  rekordy: { nazev: 'Rekordy', vypln: vyplnRekordy },
-  ovladani: { nazev: 'Ovládání', vypln: vyplnOvladani },
-  nastaveni: { nazev: 'Nastavení', vypln: vyplnNastaveni },
+  postavy: { vypln: vyplnPostavy },
+  mapy: { vypln: vyplnMapy },
+  vylepseni: { vypln: vyplnVylepseni },
+  sbirka: { vypln: vyplnSbirku },
+  rekordy: { vypln: vyplnRekordy },
+  ovladani: { vypln: vyplnOvladani },
+  nastaveni: { vypln: vyplnNastaveni },
   // zpet: Esc nebo Zpět v podokně záložky vrátí její hlavní obsah (vrací true), jinak se záložka zavře.
-  profil: { nazev: 'Profil', vypln: (panel) => vyplnProfil(panel), zpet: zpetZProfilu },
+  profil: { vypln: (panel) => vyplnProfil(panel), zpet: zpetZProfilu },
 };
+pripojTexty(ZALOZKY, 'zalozky');
 
 // Logo se zvětšuje jen celými násobky, aby pixely zůstaly ostré. Na nízké obrazovce (telefon na šířku, malý
 // notebook) je menší, ať se pod něj vejde deska s tlačítky.
@@ -1206,7 +1182,7 @@ export function vytvorMenu({ hrat }) {
   addEventListener('resize', () => upravLogo(logo));
 
   const polozky = [
-    { id: 'hrat', nazev: 'Hrát', hlavni: true, akce: hrat },
+    { id: 'hrat', nazev: t('menu.hrat'), hlavni: true, akce: hrat },
     ...Object.entries(ZALOZKY).map(([id, z]) => ({ id, nazev: z.nazev, akce: () => otevri(id) })),
   ];
   // Cedulka pod Hrát: zvolený profil a s čím se půjde hrát (postava, mapa, duše), každé s pixelovou ikonou.
@@ -1218,7 +1194,7 @@ export function vytvorMenu({ hrat }) {
   };
   const ukazPostavu = () => {
     const { duse } = nactiDuse();
-    const profil = prvek('span', 'menu-profil', 'Profil: ');
+    const profil = prvek('span', 'menu-profil', t('menu.profilCedulka'));
     profil.append(prvek('b', '', aktivniProfil().jmeno));
     const udaje = prvek('span', 'menu-udaje');
     const naMape = udaj(ikonaMapy(mapa), MAPY[mapa].nazev, 'menu-mapa');
@@ -1226,7 +1202,7 @@ export function vytvorMenu({ hrat }) {
     udaje.append(
       udaj(obrazekSpritu(trida, 3), TRIDY[trida].nazev, 'menu-trida'),
       naMape,
-      udaj(obrazekSpritu('duse', 3), `${duse} ${pocetDusi(duse)}`, 'menu-duse'),
+      udaj(obrazekSpritu('duse', 3), t('menu.duse', { n: duse }), 'menu-duse'),
     );
     radekPostavy.replaceChildren(profil, udaje);
   };
@@ -1247,7 +1223,7 @@ export function vytvorMenu({ hrat }) {
   // Nastavení s návodem pro Safari. Z plochy a v prohlížeči bez instalace se neukáže.
   const naPlochu = tlacitkoMenu({
     id: 'plocha',
-    nazev: 'Přidat na plochu',
+    nazev: t('menu.plocha.pridat'),
     akce() {
       if (stavAplikace().kde === 'nabidka') return pridejNaPlochu();
       otevri('nastaveni');

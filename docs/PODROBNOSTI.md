@@ -81,6 +81,17 @@ Na vlastním počítači (`localhost`, `127.0.0.1`) se service worker registruje
 
 Test hlídá manifest a ikony (PNG pixel po pixelu podle `ikony.mjs`), odkazy v `index.html`, že `sw.js` má verzi a seznam souborů přesně podle `verze.mjs` (zapomenuté `verze.mjs` test shodí) a service worker v náhradním prostředí s falešnou keší a sítí: instalace, mazání starých keší, stránka ze sítě a bez sítě nebo při pomalé síti z keše, soubory hry z keše a cizí adresy nechá být. V prohlížeči (Playwright, Chromium) je ověřené, že hra jde nainstalovat (Chromium nehlásí žádnou chybu instalace), bez sítě se načte a hraje, nová verze se v menu sama načte, uprostřed hry ne, první otevření po nasazení je nová verze i se serverem, který posílá `Cache-Control: max-age=600` jako GitHub Pages, a bez sítě je pak taky nová.
 
+## Texty a překlady
+
+Všechny texty hry jsou ve slovníku [`src/texty/cs.js`](../src/texty/cs.js): menu a jeho záložky, okna ve hře, horní lišta, karty vylepšení, jména a popisy zbraní, pasiv, tříd, bossů, map, zboží a výbavy, nápisy a hlášky. Kód je bere funkcí `t('klíč', {parametry})` ze [`src/texty.js`](../src/texty.js), klíč je cesta ve slovníku (`menu.zpet`, `bossove.strazce.prichod`).
+
+- **Parametry a tvary:** `{jmeno}` v textu dosadí parametr, `{n|zlaťák|zlaťáky|zlaťáků}` vybere tvar slova podle čísla n (čeština: 1 | 2–4 | jinak). Desetinná čárka, mezera před % a datum rekordu jsou ve větvi `format` (`cislo`, `procenta`, `datum` v `texty.js`).
+- **Data:** zbraně, pasivy, bossové, mapy, výbava a další data texty sama nemají. `pripojTexty(ZBRANE, 'zbrane')` jim podle stejnojmenné větve slovníku přidá gettery, takže kód čte dál `ZBRANE.jiskra.nazev` a po přepnutí jazyka hned dostane nový text. Kopie dat (seznam všech kusů, ohlášení příchodů na mapách, schopnosti bossů) čtou getter, ne text z doby načtení.
+- **index.html:** statické texty mají `data-t` (mění se jen první text v prvku, ať zůstane klávesa „ (Esc)“ nebo číslo hrozby), `data-t-html` (nápověda pauzy se značkami `<kbd>`) a `data-t-aria-label`, `data-t-title`, `data-t-content`. Přeloží je `prelozStranku()` při startu. Nadpisy oken, které kreslí kód pixelovým písmem, v `index.html` text nemají.
+- **Nový text** patří do slovníku, ne do kódu. Slovníky jsou v import mapě a v `sw.js` jako moduly (`node nastroje/verze.mjs` je najde ve `src/texty/`).
+
+Test hlídá, že každý klíč z kódu (i skládaný za běhu: skupiny Ovládání, stavy Na plochu a Světel, chyby profilu) a každé `data-t` je ve slovníku, že české texty v `index.html` sedí se slovníkem, že v kódu mimo slovník už není žádný český text, že data vrací texty své větve slovníku a kopie jsou gettery a že texty kreslené pixelovým písmem (nadpisy oken, záložky, skupiny, jména a nápisy bossů, ohlášení, kusy výbavy) písmo umí. Při převodu do slovníku se nezměnil ani jeden text: test vypsal stejný výsledek do čísla, 26 her `--json` dopadlo stejně, data a karty vyšly stejně do písmene a v prohlížeči (Playwright, desktop i telefon) mají všechny obrazovky menu, záložky, podokna profilu, okna ve hře, pauza a konec stejné HTML a stejné pixely jako dřív.
+
 ## Pro vývoj
 
 Čistý HTML, CSS a JavaScript bez build kroku. Spuštění u sebe:
