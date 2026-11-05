@@ -489,8 +489,10 @@ export const VUDCE = { dosah: 130, rychlost: 1.25 };
 export const TLAK_BOSSU = { od: 3, zaMinutu: 0.03, min: 0.5, stani: 0.6, dohani: 380, dohaniRychlost: 1.7 };
 
 const MAX_KRYSTALU = 300;
-const SANCE_SRDCE = 0.012;
-const SANCE_MAGNET = 0.003;
+// Srdce a magnet z nepřátel: dřív 1,2 % a 0,3 %, padalo jich moc (Daliik 5. 11.). Teď zhruba srdce za minutu
+// a magnet za 3–4 minuty při ~300 zabitích za minutu; Štěstí šanci dál násobí.
+const SANCE_SRDCE = 0.004;
+const SANCE_MAGNET = 0.001;
 const LECENI_SRDCE = 25;
 const BOSS_KAZDYCH = 180;
 const MAX_CASTIC = 400;
