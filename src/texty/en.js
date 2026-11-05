@@ -312,12 +312,16 @@ export default {
   pauza: {
     nadpis: 'Paused',
     pokracovat: 'Resume',
+    ukoncit: 'Quit run',
+    bezOdmeny: 'no reward, souls and record from {cas}',
+    sOdmenou: 'with souls and record',
     napovedaKlavesnice: 'The game is paused. <kbd>P</kbd>, <kbd>Esc</kbd> or Resume gets it going again.',
     napovedaDotyk: 'The game is paused, Resume gets it going again.',
     napovedaOvladac: 'The game is paused. {start}, {b} or Resume gets it going again.',
   },
   konec: {
     nadpis: 'The horde got you',
+    nadpisUkonceno: 'Run over',
     znovu: 'Retry',
     menu: 'Menu',
     novyRekord: 'New record!',
