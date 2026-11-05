@@ -68,6 +68,18 @@ Nástroj pustí simulaci za každou postavu na každé mapě s několika semínk
 
 Jednu hru se strojovým výstupem pustí i sama simulace: `node tests/simulace.mjs 3 900 --json --trida havir --mapa sopka` vypíše jeden řádek JSON (výsledek, průběh po minutách, příchod a pád každého bosse), `--vylepseni max` zapne všechna trvalá vylepšení a `--json --seznam` místo hry vypíše postavy, mapy, bossy a sílu hrozby po minutách. Bez `--json` běží test úplně stejně jako dřív.
 
+## Ukázky
+
+<img src="ukazky/menu.png" alt="Hlavní menu" width="32%"> <img src="ukazky/boj.png" alt="Boj uprostřed hordy" width="32%"> <img src="ukazky/uroven.png" alt="Okno nové úrovně" width="32%">
+
+```bash
+python3 nastroje/ukazky.py
+```
+
+GIF v README a tři screenshoty v `docs/ukazky/` (menu, boj a okno nové úrovně) dělá `nastroje/ukazky.py`. Pustí hru na lokálním serveru a `nastroje/natoc.mjs` ji v Chromiu bez okna (Playwright) nechá hrát jednoduchým botem: utíká od nepřátel, sbírá krystaly, na úrovni bere nejdřív zbraně, od kupce hned odejde a po prohře dá Znovu. Stav hry vidí přes jeden řádek připsaný jen do natáčené kopie `src/main.js`, soubor v repu se nemění. Natáčí se 230 s se semínkem 1, aby přišel i první boss. Snímky jdou z prohlížeče v PNG rovnou do ffmpeg: celá obrazovka do `video.mkv`, střed kolem hrdiny bezeztrátově do `stred.mkv` (vestavěné video Playwrightu pixel art rozmaže a GIF z něj vyjde čtyřikrát větší). Python pak spočítá, jaká část výřezu se mezi snímky změní, a vezme nejakčnějších 6 s, ve kterých není žádné okno ani cuknutí. Výřez se drží kolem hrdiny a vyhne se horní liště, přehledu výbavy i nápovědě. GIF má vlastní paletu bez rozptylu barev, takže pixely zůstanou ostré; kdyby měl přes 4 MB, zkusí méně snímků, méně barev nebo kratší úsek. Fotka boje je ta z nejakčnější chvíle, okno úrovně první po 40 s hry. Do `docs/ukazky/ukazky.json` se zapíše otisk kódu, úsek videa, čas ve hře a velikosti souborů.
+
+Potřebuje Python 3.9+ s Pillow, Node, ffmpeg a Playwright s Chromiem (`npm i playwright && npx playwright install chromium`, nebo `PLAYWRIGHT_MODUL=/cesta/k/node_modules/playwright`). Volby: `--sekund 120`, `--seed 3`, `--delka 5`, `--max-mb 3`, `--vystup jinam` (jinak se přepíše `docs/ukazky`), `--prace slozka` (natočení si nechá) a `--z-natoceni slozka` (nenatáčí, jen znovu vybere úsek a udělá výstup). Ukázky přegeneruj po větší změně vzhledu a commitni je; každá nová verze GIFu přidá do historie repa pár MB, tak ne po každé drobnosti.
+
 ## Nová verze
 
 Po každé změně kódu spusť `node nastroje/verze.mjs`. Do `index.html` zapíše otisky souborů (`?v=…`), aby hráči po nasazení nedostali z cache starý modul.

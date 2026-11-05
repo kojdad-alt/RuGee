@@ -1,0 +1,51 @@
+{
+ "otisk_kodu": "8d29cc74",
+ "seminko": 1,
+ "natoceno_s": 232.9,
+ "her": 1,
+ "usek_videa_s": [
+  214.1,
+  220.1
+ ],
+ "cas_hry": [
+  "3:14",
+  "3:20"
+ ],
+ "zmena_za_snimek": 0.1658,
+ "orez": {
+  "x": 404,
+  "y": 212,
+  "sirka": 472,
+  "vyska": 296
+ },
+ "gif": {
+  "sirka": 472,
+  "vyska": 296,
+  "fps": 15,
+  "barev": 128,
+  "sekund": 6.0,
+  "bajtu": 3135755
+ },
+ "fotky": {
+  "menu": {
+   "sirka": 1280,
+   "vyska": 720,
+   "bajtu": 307028,
+   "paleta": false
+  },
+  "boj": {
+   "sirka": 1280,
+   "vyska": 720,
+   "bajtu": 348918,
+   "paleta": false,
+   "cas_hry": "3:13"
+  },
+  "uroven": {
+   "sirka": 1280,
+   "vyska": 720,
+   "bajtu": 297975,
+   "paleta": false,
+   "uroven": 5
+  }
+ }
+}

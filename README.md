@@ -1,11 +1,11 @@
 <!-- README drž krátké. Podrobnosti o nových věcech patří do docs/PODROBNOSTI.md. -->
 # RuGee
 
-Survivors hra v prohlížeči. Ty se jen hýbeš, zbraně střílí samy a hordy nepřátel nekončí. Vydržíš co nejdéle?
+Survivors hra v prohlížeči, nic se neinstaluje a jde i na mobilu. Ty se jen hýbeš, zbraně střílí samy a hordy nepřátel nekončí. Vydržíš co nejdéle?
 
 ### ▶ [Hrát](https://kojdad-alt.github.io/RuGee/)
 
-Nic se neinstaluje, jde to i na mobilu.
+[![Ukázka ze hry: hrdina uprostřed hordy, zbraně střílí samy](docs/ukazky/hra.gif)](https://kojdad-alt.github.io/RuGee/)
 
 ## Co tě čeká
 
