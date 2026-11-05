@@ -27,6 +27,8 @@
   .rarity { display: flex; flex-wrap: wrap; gap: 10px; }
   .rarity span { padding: 4px 10px; color: var(--c-svetla); background: var(--c-pozadi); box-shadow: 0 0 0 2px var(--c), 0 0 0 4px var(--noc); }
   .pole { width: 100%; padding: 10px 12px; font: inherit; color: var(--pergamen); }
+  .karty-odmen { flex-wrap: wrap; }
+  .karty-odmen .karta { flex-basis: 190px; animation: none; }
 </style>
 </head>
 <body>
@@ -71,6 +73,13 @@
     <div class="karty-ukazka" id="karty"></div>
   </section>
   <section class="ram">
+    <h3>Karty odměn (nová úroveň, truhla bosse)</h3>
+    <p>Dřevěná destička s pixelovým rámečkem a pruhem v barvě rarity, ikona ve výklenku, úrovně jako dílky. Vyšší
+      rarity mají pixelovou záři po krocích, vybraná karta světlý rámeček, mosazný lem a šipku v pruhu.</p>
+    <div class="karty karty-odmen" id="odmeny"></div>
+  </section>
+
+  <section class="ram">
     <h3>Nadpisy pixelovým písmem</h3>
     <div class="nadpisy" id="nadpisy"></div>
   </section>
@@ -113,6 +122,18 @@
     karta.append(portret);
     karta.insertAdjacentHTML('beforeend', `<span class="trida-text"><b>.trida</b><small>${stav}</small></span><span class="trida-stitek">Zvoleno</span>`);
     document.getElementById('karty').append(karta);
+  }
+  for (const [rarita, nazev, ikona, trida] of [
+    ['bezna', 'Běžná', 'krumpace', ''], ['vzacna', 'Vzácná', 'boty', ''], ['epicka', 'Epická', 'krit', 'vybrano'], ['legendarni', 'Legendární', 'zvon', ''],
+  ]) {
+    const karta = document.createElement('button');
+    karta.type = 'button';
+    karta.className = `karta rarita-${rarita} ${trida}`.trim();
+    karta.innerHTML = `<span class="karta-rarita">${nazev}</span><span class="karta-ikona"></span><span class="karta-text">
+      <b class="karta-nazev">.rarita-${rarita}</b><span class="karta-uroven">${trida ? 'vybraná' : 'Úroveň 2 → 3'}</span>
+      <span class="karta-ctverecky"><i class="plny"></i><i class="plny"></i><i class="novy"></i><i></i><i></i></span></span>`;
+    karta.querySelector('.karta-ikona').append(sprite(ikona, 6));
+    document.getElementById('odmeny').append(karta);
   }
   pixelovyNadpis(document.getElementById('nadpis'), 'RuGee – vzhled', { max: 4 });
   const nadpisy = document.getElementById('nadpisy');

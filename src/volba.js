@@ -1,5 +1,6 @@
-// Okno výběru vylepšení při nové úrovni a z truhly bosse. Karta má raritu (barevný pixelový rámeček,
-// u vyšších záře), ikonu zbraně nebo pasivy, úrovně jako čtverečky a bonus rarity. Jen DOM:
+// Okno výběru vylepšení při nové úrovni a z truhly bosse. Karta je dřevěná destička s raritou (pixelový rámeček
+// a pruh v barvě rarity, u vyšších pixelová záře), ikonou zbraně nebo pasivy ve výklenku, úrovněmi jako dílky
+// a bonusem rarity. Nadpis okna je pixelovým písmem (pismo.js). Jen DOM:
 // co karta dá a jak často která rarita padá, je v hra.js. Animace příchodu karet je v style.css.
 // Tady je i okno porovnání výbavy bossů (nový kus do obsazeného slotu: Vzít / Nechat), karty kusů vypadají
 // stejně jako karty vylepšení. Co kusy dávají, je v vystroj.js. Pod kartami je tlačítko Přehodit (za zlaťáky
@@ -11,6 +12,7 @@ import {
 } from './vystroj.js';
 import { obrazekSpritu, vyberTlacitko } from './menu.js';
 import { cenaSMinci } from './obchod.js';
+import { pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
 
 function prvek(znacka, trida = '', text = null) {
   const e = document.createElement(znacka);
@@ -100,7 +102,8 @@ export function ukazVolby(okno, hra, zvol) {
   const porazen = BOSSOVE[hra.truhlaOd]?.porazen ?? 'Boss poražen';
   const odemceno = hra.odemceno === 'klic' ? 'Odemčeno klíčem' : `Odemčeno za ${CENA_ZAMCENE} zlaťáků`;
   okno.querySelector('#volba-stitek').textContent = zamcena ? odemceno : truhla ? porazen : `Úroveň ${hra.hrdina.uroven}`;
-  okno.querySelector('#volba-nadpis').textContent = zamcena ? 'Zamčená truhla' : truhla ? 'Truhla bosse' : 'Nová úroveň';
+  // Nadpis pixelovým písmem jako v menu (text zůstane pro čtečky), po odkrytí okna se měřítko přepočítá.
+  pixelovyNadpis(okno.querySelector('#volba-nadpis'), zamcena ? 'Zamčená truhla' : truhla ? 'Truhla bosse' : 'Nová úroveň', { min: 2, max: 4 });
   const kus = okno.querySelector('#volba-kus');
   if (kus) radekKusu(kus, truhla ? hra.truhlaKus : null);
 
@@ -125,6 +128,7 @@ export function ukazVolby(okno, hra, zvol) {
   }
 
   okno.hidden = false;
+  prizpusobNadpisy(okno);
   return Math.max(0, ...hra.volby.map((v) => PORADI_RARIT.indexOf(v.rarita)));
 }
 
