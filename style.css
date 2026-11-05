@@ -226,11 +226,6 @@ html, body {
   text-align: center;
 }
 
-.okno:not(.ram) {
-  background: var(--panel);
-  border: 3px solid var(--okraj);
-}
-
 .okno.ram {
   max-height: calc(100% - 24px);
   overflow-y: auto;
@@ -238,13 +233,6 @@ html, body {
 }
 
 .okno h2.nadpis-pixel { margin: 0 0 2px; }
-
-.okno h2 {
-  margin: 0;
-  color: var(--zlata);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
 
 .podtitul {
   margin: 6px 0 16px;
@@ -1397,20 +1385,6 @@ kbd {
 .vratit-radek { margin-bottom: 12px; }
 .menu-tlacitko.vratit { font-size: 14px; padding: 8px 28px 10px; }
 
-/* Duše na obrazovce konce hry */
-.konec-duse {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 4px 10px;
-  margin: -4px 0 16px;
-}
-
-.konec-duse:empty { display: none; }
-.konec-duse b { color: var(--duse); font-size: 18px; }
-.konec-duse small { flex-basis: 100%; color: var(--text-tlumeny); }
-
 /* Přepínač nastavení (Nastavení i pauza): za dvojtečkou stav s pixelovou kontrolkou, zapnuto zelená s leskem,
    vypnuto zhaslá rudá. */
 .menu-tlacitko.prepinac { font-size: 14px; padding: 8px 28px 10px; }
@@ -1821,9 +1795,111 @@ kbd {
   .zbozi-zasoba { margin-top: 2px; }
 }
 
-/* Konec hry: kolik zlaťáků zbylo a kolik z nich je duší. */
-.konec-duse small.konec-zlato { color: var(--zlata); }
+/* Konec hry: okno z trámů se závojem přes hru, nad nadpisem štítek s rekordem (nový rekord mosazný, jinak tmavá
+   cedulka), nadpis krvavým pixelovým písmem. Přehled běhu: vlevo čas velkým pixelovým písmem, vpravo zapuštěná
+   tabulka (postava a mapa s ikonou, hrozba, úroveň, zabití, bossové, výbava), pod ní poznámky. Dole pokladnička
+   s dušemi za hru jako ve Vylepšeních a tlačítka Znovu (mosazné) a Menu. */
+.okno.konec { width: min(620px, calc(100% - 24px)); padding: 12px 18px 16px; }
+
+.konec-stitek {
+  display: inline-block;
+  max-width: 100%;
+  margin: 2px 0 10px;
+  padding: 2px 10px 3px;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pergamen-tlumeny);
+  background: var(--drevo-0);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px var(--noc);
+}
+
+.konec-stitek.novy {
+  letter-spacing: 0.14em;
+  color: var(--noc);
+  background: var(--mosaz);
+  box-shadow: inset 0 2px 0 var(--mosaz-lesk), inset 0 -2px 0 var(--mosaz-stin), 0 0 0 2px var(--noc);
+}
+
+.konec-prehled {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 12px 16px;
+  margin: 14px 0 14px;
+  text-align: left;
+}
+
+.konec-cas {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 150px;
+  padding: 4px 6px;
+}
+
+.konec-cas small { color: var(--pergamen-tlumeny); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 0 2px 0 var(--noc); }
+
+.konec-udaje {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 14px;
+  align-items: center;
+  margin: 0;
+  padding: 7px 12px;
+  background: var(--drevo-0);
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px var(--noc);
+}
+
+.konec-udaje dt { color: var(--pergamen-tlumeny); font-size: 13px; }
+.konec-udaje dd { display: flex; align-items: center; gap: 6px; min-width: 0; margin: 0; color: var(--mosaz); font-weight: bold; }
+.konec-udaje dd canvas { flex: none; margin: -3px 0; }
+.konec-udaje dd.konec-mapa { color: var(--mapa, var(--mosaz)); }
+
+.konec-poznamky { flex-basis: 100%; display: grid; gap: 4px; }
+.konec-poznamky p { margin: 0; color: var(--duse); font-size: 13px; font-weight: bold; text-align: center; text-shadow: 0 2px 0 var(--noc); }
+.konec-poznamky p.ok { color: var(--ok); }
+
+/* Duše za hru: zapuštěná pokladnička, velký počet duší, pod ním zlaťáky a rozpis. */
+.konec-duse {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 10px;
+  margin: 0 0 16px;
+  padding: 6px 12px 8px;
+  background: var(--drevo-0) padding-box;
+  border: calc(2 * var(--px)) solid transparent;
+  border-image: var(--ram-tenky) 2 / calc(2 * var(--px)) repeat;
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.45);
+  text-shadow: 0 2px 0 var(--noc);
+}
+
+.konec-duse:empty { display: none; }
+.konec-duse b { color: var(--duse); font-size: 20px; }
+.konec-duse small { flex-basis: 100%; color: var(--pergamen-tlumeny); font-size: 12px; }
+.konec-duse small.konec-zlato { color: var(--mosaz); }
 .konec-zlato canvas { vertical-align: -5px; }
+
+@media (max-width: 520px) {
+  .okno.konec { padding: 8px 10px 12px; }
+  .konec-prehled { flex-direction: column; gap: 10px; margin: 10px 0; }
+  .konec-cas { flex-direction: row; gap: 12px; padding: 0; }
+  .konec .radek-tlacitek { gap: 10px; }
+  .konec .radek-tlacitek .menu-tlacitko { flex: 1 1 120px; min-width: 0; padding: 10px 10px 12px 26px; font-size: 16px; letter-spacing: 0.04em; }
+}
+
+/* Úzký telefon (320 px): Znovu a Menu pod sebou, ať se nelámou. */
+@media (max-width: 360px) {
+  .konec .radek-tlacitek .menu-tlacitko { flex-basis: 100%; }
+}
 
 /* Výběr mapy v záložce Mapy: karta jako u postav (.trida), vlevo náhled podlahy s nepřáteli v dřevěném okénku
    (tenký rám), vpravo jméno v barvě mapy a řádky s pixelovými ikonami (boss, lebka obtížnosti, zámek).

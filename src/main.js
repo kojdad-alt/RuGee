@@ -4,9 +4,9 @@ import { kresli, kresliMenu } from './kresleni.js';
 import { dusZaHru, DUSE_ZA } from './duse.js';
 import {
   vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, zvolenaMapa, obrazekSpritu, pocetDusi, cislaPoskozeni,
-  prepinacNastaveni, ovladaniZvuku, prepniZtlumeni, skupina,
+  prepinacNastaveni, ovladaniZvuku, prepniZtlumeni, skupina, ikonaMapy,
 } from './menu.js';
-import { pixelovyNadpis } from './pismo.js';
+import { pixelovyNadpis, prizpusobNadpisy, STYL_KREV } from './pismo.js';
 import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu } from './ulozeni.js';
 import { MAPY, ODEMKNUTI_MAPY, dalsiMapa } from './mapy.js';
 import {
@@ -254,21 +254,54 @@ function hlidejOdemceni() {
 }
 
 // Rekordy se drží jen v tomhle prohlížeči (ulozeni.js), každá mapa svůj. V menu je ukazuje záložka Rekordy.
+// Obrazovka konce: nad nadpisem štítek s rekordem (nový mosazně), nadpis krvavým pixelovým písmem, pod ním přehled
+// běhu: vlevo čas velkým pixelovým písmem, vpravo postava, mapa, hrozba, úroveň, zabití, bossové a výbava,
+// pod tím poznámky (oživení, odemčená mapa) a pokladnička s dušemi za hru.
 function zapisKonec() {
   const vysledek = {
     cas: Math.floor(hra.cas), uroven: hra.hrdina.uroven, zabito: hra.zabito, hrozba: hra.hrozba, trida: hra.trida, mapa: hra.mapa,
     datum: new Date().toISOString(),
   };
   const { novy, rekord } = zapisVysledek(vysledek, hra.mapa);
-  const text = `${TRIDY[hra.trida].nazev} přežil ${formatCas(hra.cas)} na mapě ${MAPY[hra.mapa].nazev} (hrozba ${hra.hrozba}), úroveň ${hra.hrdina.uroven}, zabito ${hra.zabito}, bossů ${hra.zabitoBossu}.`;
-  const radekRekordu = novy
-    ? 'Nový rekord!'
-    : `Rekord: ${formatCas(rekord.cas)}, úroveň ${rekord.uroven}, zabito ${rekord.zabito}.`;
-  const oziveni = hra.oziveno ? ' Duše tě jednou vrátily.' : '';
+  const stitek = el('konec-stitek');
+  stitek.textContent = novy ? 'Nový rekord!' : `Rekord mapy ${formatCas(rekord.cas)} · úroveň ${rekord.uroven} · zabito ${rekord.zabito}`;
+  stitek.classList.toggle('novy', novy);
+  pixelovyNadpis(el('konec-nadpis'), 'Horda tě pohltila', { styl: STYL_KREV, min: 2, max: 4 });
+
+  const cas = textovyPrvek('div', '');
+  cas.className = 'konec-cas';
+  const cislo = textovyPrvek('span', '');
+  pixelovyNadpis(cislo, formatCas(hra.cas), { min: 4, max: 5 });
+  cas.append(textovyPrvek('small', `${TRIDY[hra.trida].nazev} přežil`), cislo);
+  const udaje = document.createElement('dl');
+  udaje.className = 'konec-udaje';
+  const pridej = (nazev, hodnota, ikona = null, trida = '') => {
+    const dd = textovyPrvek('dd', '');
+    if (trida) dd.className = trida;
+    if (ikona) dd.append(ikona);
+    dd.append(String(hodnota));
+    udaje.append(textovyPrvek('dt', nazev), dd);
+  };
   const kusu = hra.nalezy.length;
-  const vystroj = kusu ? ` Výbava bossů: ${kusu} ${kusu === 1 ? 'kus' : kusu <= 4 ? 'kusy' : 'kusů'}.` : '';
-  const odemceno = odemcenaVHre ? ` Odemčena nová mapa: ${MAPY[odemcenaVHre].nazev}!` : '';
-  el('konec-text').textContent = `${text}${oziveni}${vystroj} ${radekRekordu}${odemceno}`;
+  pridej('Postava', TRIDY[hra.trida].nazev, obrazekSpritu(hra.trida, 2));
+  pridej('Mapa', MAPY[hra.mapa].nazev, ikonaMapy(hra.mapa, 2), 'konec-mapa');
+  udaje.lastElementChild.style.setProperty('--mapa', MAPY[hra.mapa].barva);
+  pridej('Hrozba', hra.hrozba);
+  pridej('Úroveň', hra.hrdina.uroven);
+  pridej('Zabito', hra.zabito);
+  pridej('Bossové', hra.zabitoBossu);
+  pridej('Výbava bossů', `${kusu} ${kusu === 1 ? 'kus' : kusu >= 2 && kusu <= 4 ? 'kusy' : 'kusů'}`);
+  const poznamky = [];
+  if (hra.oziveno) poznamky.push(textovyPrvek('p', 'Duše tě jednou vrátily.'));
+  if (odemcenaVHre) {
+    const p = textovyPrvek('p', `Odemčena nová mapa: ${MAPY[odemcenaVHre].nazev}!`);
+    p.className = 'ok';
+    poznamky.push(p);
+  }
+  const poznamka = textovyPrvek('div', '');
+  poznamka.className = 'konec-poznamky';
+  poznamka.append(...poznamky);
+  el('konec-text').replaceChildren(cas, udaje, ...(poznamky.length ? [poznamka] : []));
 
   // Duše za hru se připíšou hned, utratit se dají v menu Vylepšení.
   const duse = dusZaHru(hra);
@@ -383,6 +416,7 @@ function smycka(t) {
   if (hra.konec && el('konec').hidden) {
     zapisKonec();
     el('konec').hidden = false;
+    prizpusobNadpisy(el('konec'));
     vyberTlacitko(el('znovu'));
   }
   kresli(ctx, hra, { cislaPoskozeni: cislaPoskozeni() });

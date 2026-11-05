@@ -109,7 +109,7 @@ function vyrezMapy(id) {
   return vyrez;
 }
 
-function ikonaMapy(id, meritko = 3) {
+export function ikonaMapy(id, meritko = 3) {
   const [podlaha, x, y] = vyrezMapy(id);
   const c = prvek('canvas', 'pixel');
   c.width = 10;
