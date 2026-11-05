@@ -103,13 +103,15 @@ export function nazevSouboru(jmeno) {
 }
 
 // Přečte kód uložení z textu (vložený kód, celý soubor .rugee, klidně s mezerami, zalomením nebo textem okolo).
-// Vrací { data } (už zkontrolovaná jako z úložiště), nebo { chyba }: prazdny, format (žádný kód), soucet (nesedí
-// kontrolní součet = poškozený nebo useknutý kód), verze (kód z jiné verze hry), obsah (data nejdou přečíst).
+// Vrací { data } (už zkontrolovaná jako z úložiště), nebo { chyba }: prazdny, format (žádný kód), neuplny (začátek
+// RUGEE1. tam je, ale chybí konec se součtem = useknutý kód), soucet (nesedí kontrolní součet = poškozený kód),
+// verze (kód z jiné verze hry), obsah (data nejdou přečíst).
 export function prectiKod(text) {
   if (typeof text !== 'string' || !text.trim()) return { chyba: 'prazdny' };
   if (text.length > MAX_DELKA_KODU) return { chyba: 'format' };
-  const nalezy = [...text.replace(/\s+/g, '').matchAll(/RUGEE(\d{1,3})\.([A-Za-z0-9_-]+)\.([0-9a-fA-F]{8})/g)];
-  if (!nalezy.length) return { chyba: 'format' };
+  const bezMezer = text.replace(/\s+/g, '');
+  const nalezy = [...bezMezer.matchAll(/RUGEE(\d{1,3})\.([A-Za-z0-9_-]+)\.([0-9a-fA-F]{8})/g)];
+  if (!nalezy.length) return { chyba: /RUGEE\d{1,3}\./.test(bezMezer) ? 'neuplny' : 'format' };
   const platny = nalezy.find(([, verze, telo, soucet]) => crc32(`${PREDPONA}${verze}.${telo}`) === soucet.toLowerCase());
   if (!platny) return { chyba: 'soucet' };
   const [, verze, telo] = platny;
