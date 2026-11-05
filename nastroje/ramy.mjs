@@ -143,6 +143,27 @@ const SIPKA = [
   'KK....',
 ];
 
+// Výměna (porovnání výbavy): dvě mosazné šipky proti sobě, nový kus za nasazený. Na telefonu se otočí o 90°.
+const VYMENA = [
+  '.......K....',
+  '.......KK...',
+  '.......KYK..',
+  'KKKKKKKKYgK.',
+  'KYYYYYYYYggK',
+  'KoooooooggoK',
+  'KKKKKKKKgoK.',
+  '....K..KoK..',
+  '...KK..KK...',
+  '..KYK..K....',
+  '.KgYKKKKKKKK',
+  'KggYYYYYYYYK',
+  'KoggoooooooK',
+  '.KogKKKKKKKK',
+  '..KoK.......',
+  '...KK.......',
+  '....K.......',
+];
+
 const OBRAZKY = {
   'ram-drevo': RAM_DREVO,
   'ram-mosaz': RAM_MOSAZ,
@@ -152,6 +173,7 @@ const OBRAZKY = {
   'ram-karta-zvolena-vybrana': KARTA_ZVOLENA_VYBRANA,
   deska: DESKA,
   sipka: SIPKA,
+  vymena: VYMENA,
 };
 
 // Řádky téže barvy jdou do jedné cesty (úseky vedle sebe se spojí), ať je SVG malé.
