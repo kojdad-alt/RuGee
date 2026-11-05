@@ -23,6 +23,7 @@
   .tlacitka small { display: block; margin-top: 4px; color: var(--pergamen-tlumeny); font-size: 12px; text-align: center; }
   .tlacitka .menu-tlacitko { width: 100%; padding-left: 28px; padding-right: 28px; }
   .nadpisy { display: grid; gap: 12px; }
+  .karty-ukazka { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px 24px; padding: 8px 0 0 20px; }
   .rarity { display: flex; flex-wrap: wrap; gap: 10px; }
   .rarity span { padding: 4px 10px; color: var(--c-svetla); background: var(--c-pozadi); box-shadow: 0 0 0 2px var(--c), 0 0 0 4px var(--noc); }
   .pole { width: 100%; padding: 10px 12px; font: inherit; color: var(--pergamen); }
@@ -64,6 +65,12 @@
   </section>
 
   <section class="ram">
+    <h3>Karty (Postavy, Mapy, Profil)</h3>
+    <p>Destička v tenkém rámu, vlevo výklenek s postavou na prkně podlahy. Vybraná má mosazný obrys a šipku,
+      zvolená mosazné kování a cedulku.</p>
+    <div class="karty-ukazka" id="karty"></div>
+  </section>
+  <section class="ram">
     <h3>Nadpisy pixelovým písmem</h3>
     <div class="nadpisy" id="nadpisy"></div>
   </section>
@@ -84,6 +91,29 @@
 </main>
 <script type="module">
   import { pixelovyNadpis, STYL_PERGAMEN } from '../src/pismo.js';
+  import { sprity } from '../src/sprity.js';
+  const sprite = (jmeno, meritko) => {
+    const c = document.createElement('canvas');
+    c.width = sprity[jmeno].width;
+    c.height = sprity[jmeno].height;
+    c.className = 'pixel';
+    c.getContext('2d').drawImage(sprity[jmeno], 0, 0);
+    c.style.width = `${c.width * meritko}px`;
+    return c;
+  };
+  for (const [trida, postava, stav] of [
+    ['', 'lovec', 'běžná'], ['vybrano', 'havir', 'vybraná'], ['zvolena', 'svetlonos', 'zvolená'], ['zvolena vybrano', 'bourlivak', 'zvolená a vybraná'],
+  ]) {
+    const karta = document.createElement('button');
+    karta.type = 'button';
+    karta.className = `trida ${trida}`.trim();
+    const portret = document.createElement('span');
+    portret.className = 'trida-portret';
+    portret.append(sprite(postava, 5));
+    karta.append(portret);
+    karta.insertAdjacentHTML('beforeend', `<span class="trida-text"><b>.trida</b><small>${stav}</small></span><span class="trida-stitek">Zvoleno</span>`);
+    document.getElementById('karty').append(karta);
+  }
   pixelovyNadpis(document.getElementById('nadpis'), 'RuGee – vzhled', { max: 4 });
   const nadpisy = document.getElementById('nadpisy');
   for (const [text, volby] of [
