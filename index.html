@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RuGee</title>
-<link rel="stylesheet" href="style.css?v=7ec9f854">
+<link rel="stylesheet" href="style.css?v=2371baea">
 </head>
 <body class="v-menu">
 <canvas id="platno" aria-label="RuGee"></canvas>
@@ -12,9 +12,9 @@
 <div class="hud" aria-hidden="true">
   <div class="xp"><div id="xp-pruh" class="xp-pruh"></div></div>
   <div class="hud-radek">
-    <span>Úroveň <b id="uroven">1</b></span>
+    <span class="hud-uroven"><span class="hud-popis">Úroveň</span><span class="hud-popis-kratky">Úr.</span> <b id="uroven">1</b></span>
     <span class="hud-stred"><span id="cas" class="cas">0:00</span><span id="hrozba" class="hrozba">Hrozba <b id="hrozba-cislo">1</b></span></span>
-    <span>Zabito <b id="zabito">0</b><span id="hud-zlato" class="hud-zlato"><i id="zlato-ikona"></i><b id="zlataky">0</b></span><span id="hud-klice" class="hud-klice" hidden><i id="klic-ikona"></i><b id="klice">0</b></span></span>
+    <span class="hud-vpravo"><span class="hud-zabito"><i id="lebka-ikona"></i><span class="hud-popis">Zabito</span> <b id="zabito">0</b></span><span id="hud-zlato" class="hud-zlato"><i id="zlato-ikona"></i><b id="zlataky">0</b></span><span id="hud-klice" class="hud-klice" hidden><i id="klic-ikona"></i><b id="klice">0</b></span></span>
   </div>
 </div>
 <div id="vybava" class="vybava" aria-hidden="true"></div>
@@ -91,9 +91,9 @@
   "imports": {
     "./src/duse.js": "./src/duse.js?v=dece0508",
     "./src/hra.js": "./src/hra.js?v=c6d39541",
-    "./src/kresleni.js": "./src/kresleni.js?v=62661a66",
+    "./src/kresleni.js": "./src/kresleni.js?v=33b31b9a",
     "./src/louka.js": "./src/louka.js?v=aff52225",
-    "./src/main.js": "./src/main.js?v=8d05a288",
+    "./src/main.js": "./src/main.js?v=32565f6b",
     "./src/mapy.js": "./src/mapy.js?v=8be105f4",
     "./src/menu.js": "./src/menu.js?v=9bbcbd8d",
     "./src/obchod.js": "./src/obchod.js?v=9208c128",
@@ -109,6 +109,6 @@
   }
 }
 </script>
-<script type="module" src="src/main.js?v=8d05a288"></script>
+<script type="module" src="src/main.js?v=32565f6b"></script>
 </body>
 </html>

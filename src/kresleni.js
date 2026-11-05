@@ -10,7 +10,7 @@ import {
 } from './hra.js';
 import { kresliPodlahu } from './louka.js';
 import { MAPY, VYCHOZI_MAPA, hash } from './mapy.js';
-import { nakresliText, STYL_PERGAMEN } from './pismo.js';
+import { nakresliText, STYL_PERGAMEN, STYL_NADPISU, STYL_KREV, PISMO_NADPISU } from './pismo.js';
 
 const MERITKO = 3;
 // Elita se kreslí po 4 px na pixel spritu (o třetinu větší, ale pořád ostrá) s rudým obrysem.
@@ -85,6 +85,7 @@ const TRESENI_TRUHLY = 0.3;
 const VYSTUP_KUSU = 54;
 const SKOK_TRUHLY = 1.6;
 // Pruhy bossů nahoře: začínají pod horní lištou (úroveň, čas a pod ním hrozba), každý další o VYSKA_BARU níž.
+// HORNI_BARY platí, dokud main.js nezměří skutečný spodek lišty (kresli(..., { horni })).
 const HORNI_BARY = 76;
 const VYSKA_BARU = 48;
 const PORTRET = 40;
@@ -1844,66 +1845,101 @@ function vlnyHrdiny(ctx, hra, naObrazovce) {
   }
 }
 
-// Text se stínem pod sebou (jako nápisy při příchodu).
+// Text se stínem pod sebou (jako nápisy při příchodu), stín v barvě obrysu kitu.
 function napis(ctx, text, x, y, barva) {
-  ctx.fillStyle = '#000';
+  ctx.fillStyle = '#140c08';
   ctx.fillText(text, x + 1, y + 2);
   ctx.fillStyle = barva;
   ctx.fillText(text, x, y);
 }
 
-// Velký pruh bosse: vlevo portrét se spritem, nad pruhem jméno a životy, pruh s dílky po desetinách.
+// Nápis pixelovým písmem oken (pismo.js): nakreslí se jednou a schová (podle textu a stylu, nejvýš 80 různých).
+// Vrátí plátno a celý násobek pixelu, který se vejde do šířky (nejvýš max). Když písmo nemá některý znak nebo by
+// nápis nešel aspoň ve dvojnásobku, vrátí null a kreslí se obyčejným písmem jako dřív.
+const PIXELOVE_NAPISY = new Map();
+function pixelovyNapis(text, styl, sirka, max = 3) {
+  const velke = text.toLocaleUpperCase('cs');
+  if ([...velke].some((z) => !PISMO_NADPISU[z])) return null;
+  const klic = `${velke}|${styl.barvy.join()}`;
+  let platno = PIXELOVE_NAPISY.get(klic);
+  if (!platno) {
+    platno = nakresliText(document.createElement('canvas'), velke, styl);
+    PIXELOVE_NAPISY.set(klic, platno);
+    if (PIXELOVE_NAPISY.size > 80) PIXELOVE_NAPISY.delete(PIXELOVE_NAPISY.keys().next().value);
+  }
+  const k = Math.min(max, Math.floor(sirka / platno.width));
+  return k >= 2 ? { platno, k, w: platno.width * k, h: platno.height * k } : null;
+}
+
+// Jméno bosse nad pruhem: pixelové písmo v barvě bosse s hloubkou v jeho tmavé barvě.
+const stylBosse = (barvy) => ({ ...STYL_NADPISU, barvy: ['#fffaf0', barvy.text, barvy.text, barvy.text, barvy.text, barvy.text, barvy.pruh], barvaHloubky: barvy.tmava });
+
+// Velký pruh bosse: vlevo portrét se spritem v rámečku barvy bosse s mosaznými nýty v rozích, nad pruhem jméno
+// (na širší obrazovce pixelovým písmem v barvě bosse) a životy, pruh zapuštěný s dílky po desetinách.
 function bossBar(ctx, bar, x, y, sirka, cas) {
   const barvy = BARVY_BOSSU[bar.druh] ?? BARVY_BOSSU.strazce;
-  // portrét: tmavý obrys, rámeček v barvě bosse, uvnitř sprite dvakrát zvětšený
-  ctx.fillStyle = '#0b0a0f';
+  // portrét: tmavý obrys, rámeček v barvě bosse, uvnitř zapuštěné dřevo a sprite dvakrát zvětšený
+  ctx.fillStyle = '#140c08';
   ctx.fillRect(x, y, PORTRET, PORTRET);
   ctx.fillStyle = barvy.tmava;
   ctx.fillRect(x + 2, y + 2, PORTRET - 4, PORTRET - 4);
-  ctx.fillStyle = '#17151d';
+  ctx.fillStyle = '#1f140d';
   ctx.fillRect(x + 4, y + 4, PORTRET - 8, PORTRET - 8);
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(x + 4, y + 4, PORTRET - 8, 3);
+  ctx.fillStyle = '#e9c46a';
+  for (const [nx, ny] of [[2, 2], [PORTRET - 4, 2], [2, PORTRET - 4], [PORTRET - 4, PORTRET - 4]]) ctx.fillRect(x + nx, y + ny, 2, 2);
   const obr = sprity[bar.druh] ?? sprity.strazce;
   const v = Math.min(PORTRET - 6, obr.width * 2);
   ctx.drawImage(obr, Math.round(x + (PORTRET - v) / 2), Math.round(y + (PORTRET - v) / 2), v, v);
 
   const px = x + PORTRET + 8;
   const ps = sirka - PORTRET - 8;
-  ctx.font = 'bold 14px ui-monospace, Menlo, monospace';
-  ctx.textAlign = 'left';
-  napis(ctx, bar.nazev.toUpperCase(), px, y + 13, barvy.text);
-  if (bar.nepritel?.zuri && Math.floor(cas * 3) % 2 === 0) {
-    const za = px + ctx.measureText(bar.nazev.toUpperCase()).width + 10;
-    napis(ctx, 'ZUŘÍ', za, y + 13, '#ff5a5a');
+  const nazev = bar.nazev.toUpperCase();
+  const zuri = bar.nepritel?.zuri && Math.floor(cas * 3) % 2 === 0;
+  // pixelové jméno jen tam, kde se vejde i se ZUŘÍ a životy (na telefonu obyčejné písmo)
+  const pixel = ps >= 420 ? pixelovyNapis(nazev, stylBosse(barvy), ps, 2) : null;
+  if (pixel) {
+    ctx.drawImage(pixel.platno, px, y + 15 - pixel.h, pixel.w, pixel.h);
+    const krev = zuri ? pixelovyNapis('Zuří', STYL_KREV, ps, 2) : null;
+    if (krev) ctx.drawImage(krev.platno, px + pixel.w + 8, y + 15 - krev.h, krev.w, krev.h);
+  } else {
+    ctx.font = 'bold 14px ui-monospace, Menlo, monospace';
+    ctx.textAlign = 'left';
+    napis(ctx, nazev, px, y + 13, barvy.text);
+    if (zuri) napis(ctx, 'ZUŘÍ', px + ctx.measureText(nazev).width + 10, y + 13, '#ff5a5a');
   }
   ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
   ctx.textAlign = 'right';
-  napis(ctx, `${Math.ceil(bar.hp)} / ${bar.maxHp}`, x + sirka, y + 13, '#ece6da');
+  napis(ctx, `${Math.ceil(bar.hp)} / ${bar.maxHp}`, x + sirka, y + 13, '#f3e6c8');
 
   const py = y + 20;
   const pv = 18;
-  ctx.fillStyle = '#0b0a0f';
+  ctx.fillStyle = '#140c08';
   ctx.fillRect(px, py, ps, pv);
   ctx.fillStyle = barvy.tmava;
   ctx.fillRect(px + 2, py + 2, ps - 4, pv - 4);
-  ctx.fillStyle = '#1d1b24';
+  ctx.fillStyle = '#1f140d';
   ctx.fillRect(px + 4, py + 4, ps - 8, pv - 8);
   const vnitrek = ps - 8;
   const zbyva = Math.round(vnitrek * Math.max(0, Math.min(1, bar.hp / bar.maxHp)));
   const drzi = Math.round(vnitrek * Math.max(0, Math.min(1, ubytek(bar.nepritel, cas) / bar.maxHp)));
   if (drzi > zbyva) {
-    ctx.fillStyle = '#f3efe6';
+    ctx.fillStyle = '#fff1c4';
     ctx.fillRect(px + 4 + zbyva, py + 4, drzi - zbyva, pv - 8);
   }
   ctx.fillStyle = barvy.pruh;
   ctx.fillRect(px + 4, py + 4, zbyva, pv - 8);
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.fillRect(px + 4, py + 4, zbyva, 3);
-  ctx.fillStyle = 'rgba(11,10,15,0.45)';
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillRect(px + 4, py + pv - 6, zbyva, 2);
+  ctx.fillStyle = 'rgba(20,12,8,0.5)';
   for (let i = 1; i < 10; i++) ctx.fillRect(px + 4 + Math.round((vnitrek * i) / 10), py + 4, 1, pv - 8);
 }
 
 // nastaveni.cislaPoskozeni = false schová čísla zásahů a ran (léčení a zlaťáky zůstanou).
-export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
+export function kresli(ctx, hra, { cislaPoskozeni = true, horni = HORNI_BARY } = {}) {
   const { width: sirka, height: vyska } = ctx.canvas;
   const { hrdina } = hra;
   // Po zásahu hrdiny se celý svět krátce otřese, slábne k nule. V pauze a ve volbě stojí.
@@ -2292,44 +2328,64 @@ export function kresli(ctx, hra, { cislaPoskozeni = true } = {}) {
   // pruhy bossů nahoře, pod sebou v pořadí, jak přišli
   const bary = bossBary(hra);
   const sirkaBaru = Math.min(640, sirka - 32);
-  bary.forEach((bar, i) => bossBar(ctx, bar, Math.round((sirka - sirkaBaru) / 2), HORNI_BARY + i * VYSKA_BARU, sirkaBaru, hra.cas));
+  bary.forEach((bar, i) => bossBar(ctx, bar, Math.round((sirka - sirkaBaru) / 2), horni + i * VYSKA_BARU, sirkaBaru, hra.cas));
 
+  // nápis je pod pruhy bossů, ať je nepřekryje (zlaté pixelové písmo oken, dlouhý nápis na úzké obrazovce
+  // obyčejným písmem)
+  const yNapisu = Math.max(horni + 14, horni + bary.length * VYSKA_BARU + 26);
+  let pod = yNapisu;
   if (hra.oznameni) {
-    // nápis je pod pruhy bossů, ať je nepřekryje
-    const yNapisu = Math.max(90, HORNI_BARY + bary.length * VYSKA_BARU + 26);
     ctx.save();
     ctx.globalAlpha = Math.min(1, hra.oznameni.zivot);
-    // na úzké obrazovce se písmo zmenší, ať se nápis vejde celý
-    ctx.font = 'bold 22px ui-monospace, Menlo, monospace';
-    const sirkaNapisu = ctx.measureText(hra.oznameni.text).width;
-    if (sirkaNapisu > sirka - 24) ctx.font = `bold ${Math.max(11, Math.floor((22 * (sirka - 24)) / sirkaNapisu))}px ui-monospace, Menlo, monospace`;
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#000';
-    ctx.fillText(hra.oznameni.text, sirka / 2 + 2, yNapisu + 2);
-    ctx.fillStyle = '#e9c46a';
-    ctx.fillText(hra.oznameni.text, sirka / 2, yNapisu);
+    const pixel = pixelovyNapis(hra.oznameni.text, STYL_NADPISU, sirka - 24, 3);
+    if (pixel) {
+      ctx.drawImage(pixel.platno, Math.round((sirka - pixel.w) / 2), yNapisu + 6 - pixel.h, pixel.w, pixel.h);
+      pod = yNapisu + 6;
+    } else {
+      // na úzké obrazovce se písmo zmenší, ať se nápis vejde celý
+      ctx.font = 'bold 22px ui-monospace, Menlo, monospace';
+      const sirkaNapisu = ctx.measureText(hra.oznameni.text).width;
+      if (sirkaNapisu > sirka - 24) ctx.font = `bold ${Math.max(11, Math.floor((22 * (sirka - 24)) / sirkaNapisu))}px ui-monospace, Menlo, monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#140c08';
+      ctx.fillText(hra.oznameni.text, sirka / 2 + 2, yNapisu + 2);
+      ctx.fillStyle = '#e9c46a';
+      ctx.fillText(hra.oznameni.text, sirka / 2, yNapisu);
+    }
     ctx.restore();
   }
-  if (hra.hlaseniHrozby) hlaseniHrozby(ctx, hra, sirka, Math.max(90, HORNI_BARY + bary.length * VYSKA_BARU + 26) + (hra.oznameni ? 30 : 0));
+  if (hra.hlaseniHrozby) hlaseniHrozby(ctx, hra, sirka, (hra.oznameni ? pod + 34 : yNapisu));
 }
 
-// Krátké ohlášení vyšší hrozby: menší rudý nápis pod hlavním (příchod bosse ani nového druhu nepřepíše).
-// Na začátku krátce poskočí a ke konci zprůhlední.
+// Krátké ohlášení vyšší hrozby: menší rudý nápis pod hlavním (příchod bosse ani nového druhu nepřepíše), krvavým
+// pixelovým písmem na tmavé dřevěné liště. Na začátku krátce poskočí a ke konci zprůhlední.
 function hlaseniHrozby(ctx, hra, sirka, y) {
   const { text, zivot } = hra.hlaseniHrozby;
   const stari = TRVANI_HLASENI_HROZBY - zivot;
   ctx.save();
   ctx.globalAlpha = Math.max(0, Math.min(1, zivot * 2, stari * 6));
-  ctx.font = 'bold 16px ui-monospace, Menlo, monospace';
-  const sirkaNapisu = ctx.measureText(text).width;
-  if (sirkaNapisu > sirka - 24) ctx.font = `bold ${Math.max(10, Math.floor((16 * (sirka - 24)) / sirkaNapisu))}px ui-monospace, Menlo, monospace`;
-  ctx.textAlign = 'center';
   const yNapisu = Math.round(y - 6 * Math.max(0, 1 - stari * 5));
-  // tmavý pruh pod nápisem, ať je čitelný i přes nepřátele
-  const pruh = Math.min(sirka, ctx.measureText(text).width + 24);
-  ctx.fillStyle = 'rgba(11,10,15,0.6)';
-  ctx.fillRect(Math.round((sirka - pruh) / 2), yNapisu - 17, Math.round(pruh), 24);
-  napis(ctx, text, sirka / 2, yNapisu, '#f08a8d');
+  const pixel = pixelovyNapis(text, STYL_KREV, sirka - 48, 2);
+  if (pixel) {
+    // tmavá lišta pod nápisem s obrysem, ať je čitelný i přes nepřátele
+    const w = Math.min(sirka, pixel.w + 24);
+    const lx = Math.round((sirka - w) / 2);
+    const ly = yNapisu - pixel.h + 2;
+    ctx.fillStyle = 'rgba(20,12,8,0.85)';
+    ctx.fillRect(lx, ly - 4, w, pixel.h + 8);
+    ctx.fillStyle = '#5a1f1a';
+    ctx.fillRect(lx, ly + pixel.h + 2, w, 2);
+    ctx.drawImage(pixel.platno, Math.round((sirka - pixel.w) / 2), ly, pixel.w, pixel.h);
+  } else {
+    ctx.font = 'bold 16px ui-monospace, Menlo, monospace';
+    const sirkaNapisu = ctx.measureText(text).width;
+    if (sirkaNapisu > sirka - 24) ctx.font = `bold ${Math.max(10, Math.floor((16 * (sirka - 24)) / sirkaNapisu))}px ui-monospace, Menlo, monospace`;
+    ctx.textAlign = 'center';
+    const pruh = Math.min(sirka, ctx.measureText(text).width + 24);
+    ctx.fillStyle = 'rgba(20,12,8,0.75)';
+    ctx.fillRect(Math.round((sirka - pruh) / 2), yNapisu - 17, Math.round(pruh), 24);
+    napis(ctx, text, sirka / 2, yNapisu, '#f08a8d');
+  }
   ctx.restore();
 }
 
