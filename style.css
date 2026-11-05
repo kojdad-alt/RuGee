@@ -871,18 +871,44 @@ body[data-barvy] .sance i {
   }
 }
 
-.napoveda {
+/* Životy hrdiny dole uprostřed (místo nápovědy ovládání, ta je v menu Ovládání): zapuštěná dřevěná lišta v tenkém
+   mosazném rámu, výplň v barvě chyby (v režimu pro barvoslepé se mění s paletou), číslo životů vpravo.
+   Pod 30 % výplň po krocích bliká (ne při omezeném pohybu). Na dotyk nereaguje, joystick jde chytit i přes ni. */
+.zivoty-hrdiny {
   position: fixed;
   bottom: 8px;
-  left: 0;
-  right: 0;
-  margin: 0;
-  text-align: center;
-  color: var(--pergamen-tlumeny);
-  text-shadow: 0 2px 0 var(--noc);
-  font-size: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, 62vw);
+  display: flex;
+  align-items: center;
+  gap: 8px;
   pointer-events: none;
 }
+.zivoty-pruh {
+  flex: 1;
+  height: 12px;
+  background: var(--drevo-0);
+  border: 2px solid var(--mosaz-stin);
+  box-shadow: 0 0 0 2px var(--noc), inset 0 2px 0 rgb(0 0 0 / 0.45);
+}
+.zivoty-vypln {
+  height: 100%;
+  width: 100%;
+  background: var(--chyba);
+  box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.28), inset 0 2px 0 rgb(255 255 255 / 0.22);
+}
+.zivoty-hrdiny.malo .zivoty-vypln { animation: zivoty-malo 0.8s steps(2) infinite; }
+@keyframes zivoty-malo { 50% { filter: brightness(1.6); } }
+.zivoty-cislo {
+  min-width: 64px;
+  color: var(--pergamen);
+  text-shadow: 0 2px 0 var(--noc);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+@media (prefers-reduced-motion: reduce) { .zivoty-hrdiny.malo .zivoty-vypln { animation: none; } }
 
 /* Přehled výbavy vlevo dole nad nápovědou: řada zbraní, pod ní řada pasiv. Políčko = zapuštěná dřevěná jamka se
    spritem a v pravém dolním rohu číslo úrovně, prázdná jamka je jen tmavý obrys. Rámeček mění barvu od 5. (zlatý), 10. (tyrkysový) a 15. úrovně (rubínový, pulzuje).
@@ -1014,7 +1040,7 @@ canvas.stin { filter: brightness(0); opacity: 0.35; }
    z trámů. Na desce velké mosazné Hrát, cedulka se zvoleným profilem, postavou, mapou a dušemi a pod ní záložky
    ve dvou sloupcích (vlevo hra, vpravo zbytek; šipky jdou prvním sloupcem dolů a pak druhým). Záložka se otevře
    ve stejném rámu s nadpisem pixelovým písmem. */
-body.v-menu .hud, body.v-menu .napoveda, body.v-menu .vybava { display: none; }
+body.v-menu .hud, body.v-menu .zivoty-hrdiny, body.v-menu .vybava { display: none; }
 
 .menu {
   position: fixed;

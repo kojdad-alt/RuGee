@@ -16,9 +16,7 @@ export default {
 
   stranka: {
     popis: 'Survive in the depths as long as you can. A pixel game in your browser that also works offline.',
-    napovedaKlavesnice: 'Move: WASD, arrows or swipe · weapons fire on their own · P pause · N sound',
-    napovedaDotyk: 'Move: swipe · weapons fire on their own · pause at top left',
-    napovedaOvladac: 'Move: {packa} or {kriz} · weapons fire on their own · {start} pause · {zpet} sound',
+    zivoty: 'Health',
   },
   hud: {
     pauza: 'Pause',

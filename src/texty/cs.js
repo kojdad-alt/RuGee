@@ -21,9 +21,7 @@ export default {
   // index.html: popis stránky, horní lišta, nápovědy oken a tlačítka (data-t).
   stranka: {
     popis: 'Přežij v hlubinách co nejdéle. Pixelová hra v prohlížeči, jde hrát i bez internetu.',
-    napovedaKlavesnice: 'Pohyb: WASD, šipky nebo tah prstem · zbraně střílí samy · P pauza · N zvuk',
-    napovedaDotyk: 'Pohyb: tah prstem · zbraně střílí samy · pauza vlevo nahoře',
-    napovedaOvladac: 'Pohyb: {packa} nebo {kriz} · zbraně střílí samy · {start} pauza · {zpet} zvuk',
+    zivoty: 'Životy',
   },
   hud: {
     pauza: 'Pauza',

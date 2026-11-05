@@ -379,9 +379,26 @@ function ukazHrozbu(uroven) {
   ukazanaHrozba = uroven;
 }
 
+// Pruh životů dole: šířka výplně, číslo a pod 30 % blikání; mění DOM jen při změně životů.
+let ukazaneZivoty = '';
+function zivotyHrdiny(hrdina) {
+  const hp = Math.max(0, Math.ceil(hrdina.hp));
+  const max = Math.max(1, Math.round(hrdina.maxHp));
+  const klic = hp + '/' + max;
+  if (klic === ukazaneZivoty) return;
+  ukazaneZivoty = klic;
+  const procent = Math.min(100, (hp / max) * 100);
+  el('zivoty-vypln').style.width = procent + '%';
+  el('zivoty-cislo').textContent = hp + ' / ' + max;
+  const pruh = el('zivoty-hrdiny');
+  pruh.setAttribute('aria-valuenow', String(Math.round(procent)));
+  pruh.classList.toggle('malo', procent < 30);
+}
+
 function hud() {
   const { hrdina } = hra;
   el('uroven').textContent = hrdina.uroven;
+  zivotyHrdiny(hrdina);
   el('zabito').textContent = hra.zabito;
   el('zlataky').textContent = hra.zlataky;
   // Přibyly zlaťáky: počet poskočí.
