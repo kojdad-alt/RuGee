@@ -11,12 +11,12 @@ import {
 import { kodProfilu, souborProfilu, nazevSouboru, prectiKod, PRIPONA_SOUBORU, MAX_DELKA_KODU } from './prenos.js';
 import { MAPY, PORADI_MAP, ODEMKNUTI_MAPY, predchoziMapa } from './mapy.js';
 import { nahledMapy, kresliPodlahu } from './louka.js';
-import { VYLEPSENI, cenaVylepseni, kupVylepseni, vratDuse, utraceno, stavUzlu, popisVylepseni } from './duse.js';
+import { vyplnStrom, klavesaStromu } from './strom.js';
 import {
   VYBAVA, PORADI_SAD, PORADI_SLOTU, SLOTY, VSECHNY_KUSY, RARITY_VYBAVY, EFEKTY_VYBAVY, idKusu, vytvorKus, radkyStatu,
   popisEfektu, popisSady,
 } from './vystroj.js';
-import { odemkniZvuk, zvukNakupu, zvukOdmitnuti, zvukHry, nastavZvuk, ukazkaHudby } from './zvuk.js';
+import { odemkniZvuk, zvukOdmitnuti, zvukHry, nastavZvuk, ukazkaHudby } from './zvuk.js';
 import { stav as stavAplikace, pridejNaPlochu, priZmene as priZmeneAplikace } from './aplikace.js';
 import { nastavRezimSvetel, stavSvetel, priZmeneSvetel } from './osvetleni.js';
 import { nakresliText, STYL_LOGA, STYL_PERGAMEN, pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
@@ -289,89 +289,6 @@ function vyplnMapy(panel) {
 // 1–4 duše, jinak duší (0 duší, 5 duší): jen slovo, číslo se píše před něj.
 export function pocetDusi(kolik) {
   return t('tvary.duse', { n: kolik });
-}
-
-// Obchod s trvalými vylepšeními. Karta je tlačítko: klik (nebo Enter) koupí další úroveň, když jsou duše.
-// Nahoře zapuštěná pokladnička s dušemi, karta má ikonu (sprite jako ve hře), úrovně jako dílky a dole cenovku;
-// když duše nestačí, cenovka řekne, kolik chybí. Vrátit duše chce dva stisky, první se jen zeptá.
-// Po každé změně se panel překreslí a výběr zůstane na místě.
-function vyplnVylepseni(panel) {
-  const stav = nactiDuse();
-  const hlava = prvek('div', 'duse-stav');
-  hlava.append(obrazekSpritu('duse', 3), prvek('span', 'duse-stav-text', t('menu.vylepseni.mas')));
-  hlava.lastChild.append(prvek('b', '', String(stav.duse)), ` ${pocetDusi(stav.duse)}`);
-  const mrizka = prvek('div', 'mrizka-vylepseni');
-  const prekresli = (vybrat) => {
-    panel.replaceChildren();
-    vyplnVylepseni(panel);
-    vyberTlacitko(panel.querySelector(`${vybrat}:not(:disabled)`) ?? panel.querySelector('button'));
-  };
-  // Strom vylepšení: zatím jako karty, jen uzly, které jdou koupit nebo už jsou koupené.
-  for (const [id, v] of Object.entries(VYLEPSENI)) {
-    if (stavUzlu(stav.vylepseni, id) === 'zamceny') continue;
-    const uroven = stav.vylepseni[id] ?? 0;
-    const cena = cenaVylepseni(id, uroven);
-    const karta = prvek('button', 'vylepseni');
-    karta.type = 'button';
-    karta.dataset.vylepseni = id;
-    if (v.max === 1) karta.classList.add('jednou');
-    if (cena === null) karta.classList.add('hotovo');
-    else if (cena > stav.duse) karta.classList.add('drahe');
-    const ikona = prvek('span', 'vylepseni-ikona');
-    ikona.append(obrazekSpritu(v.ikona, 3));
-    const nazev = prvek('span', 'vylepseni-hlava');
-    nazev.append(prvek('b', '', v.nazev), prvek('span', 'vylepseni-uroven', `${uroven}/${v.max}`));
-    const ctverecky = prvek('span', 'ctverecky');
-    for (let i = 0; i < v.max; i++) ctverecky.append(prvek('i', i < uroven ? 'plny' : ''));
-    const cenovka = prvek('span', 'cena');
-    if (cena === null) cenovka.textContent = t('menu.vylepseni.hotovo');
-    else {
-      cenovka.append(obrazekSpritu('duse', 2), prvek('b', '', String(cena)));
-      if (cena > stav.duse) cenovka.append(prvek('small', 'cena-chybi', t('menu.vylepseni.chybi', { n: cena - stav.duse })));
-    }
-    karta.append(ikona, nazev, ctverecky, prvek('small', 'vylepseni-popis', popisVylepseni(id, cena === null ? uroven : uroven + 1)), cenovka);
-    const stavKarty = cena === null ? t('menu.vylepseni.ariaHotovo')
-      : `${t('menu.vylepseni.ariaCena', { n: cena })}${cena > stav.duse ? t('menu.vylepseni.ariaChybi', { n: cena - stav.duse }) : ''}`;
-    karta.setAttribute('aria-label', t('menu.vylepseni.aria', { nazev: v.nazev, uroven, max: v.max, stav: stavKarty }));
-    karta.addEventListener('click', () => {
-      odemkniZvuk();
-      const novy = kupVylepseni(nactiDuse(), id);
-      if (!novy) {
-        zvukOdmitnuti();
-        karta.classList.remove('zatrast');
-        void karta.offsetWidth;
-        karta.classList.add('zatrast');
-        return;
-      }
-      ulozDuse(novy);
-      zvukNakupu();
-      prekresli(`[data-vylepseni="${id}"]`);
-    });
-    mrizka.append(karta);
-  }
-  const vratit = utraceno(stav.vylepseni);
-  const tlacitkoVratit = prvek('button', 'menu-tlacitko vratit', vratit ? t('menu.vylepseni.vratit', { n: vratit }) : t('menu.vylepseni.nicKVraceni'));
-  tlacitkoVratit.type = 'button';
-  tlacitkoVratit.disabled = !vratit;
-  tlacitkoVratit.dataset.vylepseni = 'vratit';
-  tlacitkoVratit.addEventListener('click', () => {
-    if (!vratit) return;
-    if (!tlacitkoVratit.classList.contains('potvrdit')) {
-      tlacitkoVratit.classList.add('potvrdit');
-      tlacitkoVratit.textContent = t('menu.vylepseni.potvrdit', { n: vratit });
-      return;
-    }
-    ulozDuse(vratDuse(nactiDuse()));
-    prekresli('[data-vylepseni="vratit"]');
-  });
-  const radek = prvek('div', 'radek-tlacitek vratit-radek');
-  radek.append(tlacitkoVratit);
-  panel.append(
-    prvek('p', 'podtitul', t('menu.vylepseni.podtitul')),
-    hlava,
-    mrizka,
-    radek,
-  );
 }
 
 // Sbírka výbavy bossů: co hráč kdy našel (v nejlepší raritě), sada po sadě. Nahoře pruh, kolik je objeveno.
@@ -1239,7 +1156,8 @@ function dokonciImport(panel, data, slot) {
 export const ZALOZKY = {
   postavy: { vypln: vyplnPostavy },
   mapy: { vypln: vyplnMapy },
-  vylepseni: { vypln: vyplnVylepseni },
+  // Strom vylepšení (src/strom.js): širší okno a vlastní šipky (skáčou mezi uzly, klavesa vrací true, když ji vzal).
+  vylepseni: { vypln: vyplnStrom, klavesa: klavesaStromu, siroka: true },
   sbirka: { vypln: vyplnSbirku },
   rekordy: { vypln: vyplnRekordy },
   ovladani: { vypln: vyplnOvladani },
@@ -1404,6 +1322,7 @@ export function vytvorMenu({ hrat }) {
     pixelovyNadpis(document.getElementById('menu-nadpis'), z.nazev, { max: innerWidth > 600 ? 4 : 3 });
     const panel = document.getElementById('menu-panel');
     panel.replaceChildren();
+    zalozka.classList.toggle('siroka', Boolean(z.siroka));
     z.vypln(panel);
     volby.hidden = true;
     zalozka.hidden = false;
@@ -1443,6 +1362,7 @@ export function vytvorMenu({ hrat }) {
         zpet();
         return;
       }
+      if (otevrena && ZALOZKY[otevrena].klavesa?.(e)) return;
       ovladejTlacitka(koren, e);
     },
     // Ovladač v menu (main.js): směry a A jako šipky a Enter, B zpět ze záložky (podokna Profilu), Start v hlavním
@@ -1458,7 +1378,10 @@ export function vytvorMenu({ hrat }) {
         return;
       }
       const klavesa = { nahoru: 'ArrowUp', dolu: 'ArrowDown', vlevo: 'ArrowLeft', vpravo: 'ArrowRight', a: 'Enter' }[akce];
-      if (klavesa) ovladejTlacitka(koren, { key: klavesa, repeat: false, zOvladace: true, preventDefault() {} });
+      if (!klavesa) return;
+      const umela = { key: klavesa, repeat: false, zOvladace: true, preventDefault() {} };
+      if (otevrena && ZALOZKY[otevrena].klavesa?.(umela)) return;
+      ovladejTlacitka(koren, umela);
     },
   };
 }
