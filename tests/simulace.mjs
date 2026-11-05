@@ -4602,7 +4602,9 @@ const zmenZnak = (text, i) => text.slice(0, i) + (text[i] === 'A' ? 'B' : 'A') +
 const teloHrace = kodHrace.split('.')[1];
 const spatneKody = [
   ['', 'prazdny'], ['   ', 'prazdny'], [null, 'prazdny'], [42, 'prazdny'],
-  ['ahoj', 'format'], ['RUGEE1.', 'format'], [kodHrace.slice(0, -9), 'format'], ['x'.repeat(30000), 'format'],
+  ['ahoj', 'format'], [kodHrace.slice(7), 'format'], ['x'.repeat(30000), 'format'],
+  ['RUGEE1.', 'neuplny'], [kodHrace.slice(0, -9), 'neuplny'], [kodHrace.slice(0, -3), 'neuplny'], [kodHrace.slice(0, 40), 'neuplny'],
+  [`můj kód: ${kodHrace.slice(0, 60)}\n${kodHrace.slice(60, -12)}`, 'neuplny'],
   [zmenZnak(kodHrace, 20), 'soucet'], [zmenZnak(kodHrace, kodHrace.length - 12), 'soucet'], [kodHrace.slice(0, 50) + kodHrace.slice(60), 'soucet'],
   [kodHrace.slice(0, -1) + (kodHrace.endsWith('0') ? '1' : '0'), 'soucet'],
   [vyrobKod(teloHrace, VERZE_KODU + 1), 'verze'],

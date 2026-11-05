@@ -482,6 +482,7 @@ const TEXTY_CHYB = {
   neni: 'Ten profil už neexistuje.',
   prazdny: `Vlož kód uložení, nebo vyber soubor ${PRIPONA_SOUBORU}.`,
   format: 'Tohle není kód uložení RuGee.',
+  neuplny: 'Kód je useknutý, chybí mu konec. Zkopíruj ho celý znovu.',
   soucet: 'Kód je poškozený nebo neúplný (nesedí kontrolní součet). Zkopíruj ho celý znovu.',
   verze: 'Kód je z jiné verze hry. Obnov stránku a zkus to znovu.',
   obsah: 'Kód je poškozený, data v něm nejdou přečíst.',
