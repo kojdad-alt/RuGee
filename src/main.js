@@ -348,12 +348,15 @@ function prepniZvuk() {
   hlaseniZvuku = setTimeout(() => { hlaseni.hidden = true; }, 1400);
 }
 
+const omezenyPohyb = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+
 function smycka(t) {
   const dt = Math.min(0.05, (t - posledni) / 1000 || 0);
   posledni = t;
   if (vMenu) {
     hudba(null);
-    kresliMenu(ctx, t / 1000, zvolenaTrida(), zvolenaMapa());
+    // Kdo má v systému omezený pohyb, tomu pozadí menu stojí (hrdina uprostřed honičky, mapa neujíždí).
+    kresliMenu(ctx, omezenyPohyb?.matches ? 6 : t / 1000, zvolenaTrida(), zvolenaMapa());
     requestAnimationFrame(smycka);
     return;
   }

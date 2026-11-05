@@ -2332,12 +2332,13 @@ export function kresliMenu(ctx, cas, postava = VYCHOZI_TRIDA, idMapy = VYCHOZI_M
   if (mapa.mlha) mlha(ctx, mapa.mlha, cas * 12, 0, sirka, vyska, cas);
   if (mapa.tma) tmaKolem(ctx, { ...mapa.tma, sila: Math.min(mapa.tma.sila, 0.55) }, hx, y, 220, cas);
 
-  // ztmavení, ať jsou logo a tlačítka dobře čitelné
-  ctx.fillStyle = `rgba(11,10,15,${mapa.menuTma ?? 0.35})`;
+  // ztmavení do teplé hnědé (barva obrysu rámů), ať jsou logo a deska s tlačítky dobře čitelné a mapa
+  // nebije do očí; k okrajům ještě tmavší
+  ctx.fillStyle = `rgba(20,12,8,${mapa.menuTma ?? 0.35})`;
   ctx.fillRect(0, 0, sirka, vyska);
   const tma = ctx.createRadialGradient(sirka / 2, vyska / 2, Math.min(sirka, vyska) * 0.3, sirka / 2, vyska / 2, Math.max(sirka, vyska) * 0.75);
-  tma.addColorStop(0, 'rgba(0,0,0,0)');
-  tma.addColorStop(1, 'rgba(0,0,0,0.5)');
+  tma.addColorStop(0, 'rgba(20,12,8,0)');
+  tma.addColorStop(1, 'rgba(20,12,8,0.6)');
   ctx.fillStyle = tma;
   ctx.fillRect(0, 0, sirka, vyska);
 }

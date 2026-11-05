@@ -732,7 +732,10 @@ canvas.stin { filter: brightness(0); opacity: 0.35; }
   .vybava { transition: none; }
 }
 
-/* Hlavní menu: přes louku nakreslenou na plátně, tlačítka jako kostky s hranou dole. */
+/* Hlavní menu přes zvolenou mapu na plátně: zlaté logo, pod ním podtitul mezi mosaznými lištami a deska s rámem
+   z trámů. Na desce velké mosazné Hrát, cedulka se zvoleným profilem, postavou, mapou a dušemi a pod ní záložky
+   ve dvou sloupcích (vlevo hra, vpravo zbytek; šipky jdou prvním sloupcem dolů a pak druhým). Záložka se otevře
+   ve stejném rámu s nadpisem pixelovým písmem. */
 body.v-menu .hud, body.v-menu .napoveda, body.v-menu .vybava { display: none; }
 
 .menu {
@@ -741,8 +744,9 @@ body.v-menu .hud, body.v-menu .napoveda, body.v-menu .vybava { display: none; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px 16px 12px;
+  padding: 20px 16px 12px;
   overflow-y: auto;
+  color: var(--pergamen);
 }
 
 .menu[hidden], .menu-volby[hidden], .menu-zalozka[hidden] { display: none; }
@@ -757,21 +761,111 @@ body.v-menu .hud, body.v-menu .napoveda, body.v-menu .vybava { display: none; }
 
 .pixel { image-rendering: pixelated; }
 
-.logo { display: block; }
+.logo { display: block; filter: drop-shadow(0 4px 0 rgba(20, 12, 8, 0.6)); }
 
 .menu-podtitul {
-  margin: 12px 0 0;
-  color: var(--text-tlumeny);
-  text-shadow: 0 2px 0 #000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0 0;
+  color: var(--pergamen);
+  text-shadow: 0 2px 0 var(--noc);
   letter-spacing: 0.04em;
 }
 
+/* mosazné lišty vedle podtitulu: tři pixely na výšku, světlá horní hrana a tmavý obrys */
+.menu-podtitul::before, .menu-podtitul::after {
+  content: '';
+  flex: none;
+  width: 24px;
+  height: 6px;
+  background: var(--mosaz);
+  box-shadow: inset 0 2px 0 var(--mosaz-lesk), inset 0 -2px 0 var(--mosaz-stin), 0 0 0 2px var(--noc);
+}
+
 .menu-volby {
+  display: grid;
+  gap: 12px;
+  width: min(460px, 100%);
+  margin-top: 18px;
+  padding: 12px;
+}
+
+.menu-volby .menu-tlacitko.hlavni {
+  font-size: 24px;
+  letter-spacing: 0.2em;
+  padding: 13px 32px 15px;
+}
+
+.menu-mrizka {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(var(--radku, 4), auto);
+  grid-auto-flow: column;
+  gap: 10px 12px;
+}
+
+.menu-mrizka .menu-tlacitko {
+  min-width: 0;
+  font-size: 15px;
+  padding: 9px 14px 11px 22px;
+}
+
+.menu-mrizka .menu-tlacitko.vybrano::before { left: 7px; }
+
+/* Cedulka pod Hrát: zapuštěná do desky, nahoře profil, pod ním postava, mapa a duše s ikonami. */
+.menu-postava {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  width: min(300px, 100%);
-  margin-top: 24px;
+  gap: 6px;
+  padding: 7px 10px 8px;
+  background-color: var(--drevo-0);
+  text-shadow: 0 2px 0 var(--noc);
+}
+
+.menu-profil {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pergamen-tlumeny);
+}
+
+.menu-profil b { color: var(--mosaz); letter-spacing: 0.04em; text-transform: none; font-size: 14px; }
+
+.menu-udaje {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 18px;
+}
+
+.menu-udaj {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  color: var(--pergamen);
+}
+
+.menu-udaj canvas { flex: none; }
+.menu-mapa span { color: var(--mapa, var(--pergamen)); }
+.menu-duse span { color: var(--duse); }
+
+@media (max-width: 600px) {
+  .menu { padding-top: 14px; }
+  .menu-podtitul { gap: 8px; font-size: 13px; letter-spacing: 0.02em; }
+  .menu-podtitul::before, .menu-podtitul::after { width: 12px; }
+  .menu-volby { gap: 10px; padding: 8px; margin-top: 14px; }
+  .menu-volby .menu-tlacitko.hlavni { font-size: 22px; }
+  .menu-mrizka { gap: 8px 8px; }
+  .menu-mrizka .menu-tlacitko { font-size: 14px; letter-spacing: 0.05em; padding: 9px 8px 11px 18px; }
+  .menu-mrizka .menu-tlacitko.vybrano::before { left: 5px; }
+  .menu-udaje { gap: 2px 12px; }
+  .menu-udaj { font-size: 13px; gap: 5px; }
+}
+
+@media (max-width: 340px) {
+  .menu-mrizka { grid-template-columns: 1fr; grid-auto-flow: row; }
 }
 
 /* Tlačítko z kitu: dřevěná destička s obrysem, světlá hrana nahoře a vlevo, stín dole a vpravo, rohy zkosené
@@ -860,26 +954,22 @@ body.v-menu .hud, body.v-menu .napoveda, body.v-menu .vybava { display: none; }
 
 .menu-zalozka {
   width: min(560px, 100%);
-  margin-top: 24px;
-  background: var(--panel);
-  border: 3px solid var(--okraj);
-  box-shadow: 0 4px 0 #000;
-  padding: 16px;
+  margin-top: 18px;
+  padding: 14px 16px 16px;
   text-align: center;
 }
 
-.menu-zalozka h2 {
-  margin: 0;
-  color: var(--zlata);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.menu-zalozka h2 { margin: 2px 0 4px; }
+
+@media (max-width: 600px) {
+  .menu-zalozka { padding: 10px 10px 12px; margin-top: 14px; }
 }
 
 .menu-pata {
-  margin: 16px 0 0;
-  color: var(--text-tlumeny);
+  margin: 14px 0 0;
+  color: var(--pergamen-tlumeny);
   font-size: 12px;
-  text-shadow: 0 2px 0 #000;
+  text-shadow: 0 2px 0 var(--noc);
 }
 
 .tabulka {
@@ -941,13 +1031,6 @@ kbd {
 .radek-tlacitek .menu-tlacitko { min-width: 170px; }
 
 /* Výběr třídy v záložce Postavy: karta se spritem vlevo a textem vpravo, zvolená svítí zlatě. */
-.menu-postava {
-  margin: -4px 0 2px;
-  text-align: center;
-  color: var(--text-tlumeny);
-  font-size: 13px;
-  text-shadow: 0 2px 0 #000;
-}
 
 .mrizka-trid {
   display: grid;
@@ -1408,8 +1491,6 @@ kbd {
 /* Profil: karty profilů jako karty postav (sprite postavy profilu, jméno, duše, mapy, sbírka, rekord), pod nimi
    hlášení a tlačítka akcí v mřížce, na telefonu po dvou. Pole pro jméno a kód jako pruh hlasitosti: tmavá
    prohlubeň s okrajem, zaměřené zlatě. Písmo polí 16 px, ať iPhone při psaní nepřibližuje stránku. */
-.menu-postava > span { display: block; }
-.menu-postava b { color: var(--zlata); }
 
 .mrizka-profilu {
   display: grid;
