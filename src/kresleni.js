@@ -223,6 +223,19 @@ function svetlaVeTme(ctx, zare, hra, naObrazovce) {
   ctx.restore();
 }
 
+// Se světly: krystaly ve skále mají vlastní světlo (svetla.js), tady se přes tmu jen přičtou jejich svítící pixely,
+// ať je krystal sám jasný a ostrý.
+function zareVeTme(ctx, zare, hra) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < zare.length; i++) {
+    const z = zare[i];
+    ctx.globalAlpha = 0.3 + 0.1 * Math.sin(hra.cas * 2 + i * 1.7);
+    ctx.drawImage(z.obr, z.x, z.y, z.velikost, z.velikost);
+  }
+  ctx.restore();
+}
+
 // Sněžení na jezeře: vločky padají a vítr je pomalu nosí stranou. Posouvají se jen napůl se světem (jsou ve
 // vzduchu nad ním), takže při běhu je vidět, že hrdina jde. Jen podle času, nic se neukládá.
 function snezeni(ctx, pocet, kx, ky, sirka, vyska, cas) {
@@ -1938,8 +1951,14 @@ function bossBar(ctx, bar, x, y, sirka, cas) {
   for (let i = 1; i < 10; i++) ctx.fillRect(px + 4 + Math.round((vnitrek * i) / 10), py + 4, 1, pv - 8);
 }
 
-// nastaveni.cislaPoskozeni = false schová čísla zásahů a ran (léčení a zlaťáky zůstanou).
-export function kresli(ctx, hra, { cislaPoskozeni = true, horni = HORNI_BARY } = {}) {
+// Co kreslič světel (osvetleni.js) potřebuje vědět o snímku. Jeden objekt na celou hru, v každém snímku se jen přepíše.
+const POHLED = {
+  kx: 0, ky: 0, sirka: 0, vyska: 0, s: null, polomer: 0, dosvit: 0, lucerna: false, lucernaX: 0, lucernaY: 0, zare: null,
+};
+
+// nastaveni.cislaPoskozeni = false schová čísla zásahů a ran (léčení a zlaťáky zůstanou). svetla = kreslič světel
+// z osvetleni.js (null = tma a ztmavení okrajů jako dřív, bez WebGL).
+export function kresli(ctx, hra, { cislaPoskozeni = true, horni = HORNI_BARY, svetla = null } = {}) {
   const { width: sirka, height: vyska } = ctx.canvas;
   const { hrdina } = hra;
   // Po zásahu hrdiny se celý svět krátce otřese, slábne k nule. V pauze a ve volbě stojí.
@@ -2248,8 +2267,27 @@ export function kresli(ctx, hra, { cislaPoskozeni = true, horni = HORNI_BARY } =
   if (mapa.snezeni) snezeni(ctx, mapa.snezeni, kx, ky, sirka, vyska, hra.cas);
   if (mapa.jiskry) jiskry(ctx, mapa.jiskry, kx, ky, sirka, vyska, hra.cas);
   if (mapa.mlha) mlha(ctx, mapa.mlha, kx, ky, sirka, vyska, hra.cas);
-  // Tma jeskyně je pod šipkami k bossům a kupci, ať jsou pořád vidět.
-  if (mapa.tma) {
+  // Tma jeskyně (a se světly i viněta) je pod šipkami k bossům a kupci, ať jsou pořád vidět. Se světly (WebGL)
+  // svítí hrdina, lucerna, krystaly, oheň, výbuchy a schopnosti bossů. Když kreslič světel není nebo nejde,
+  // kreslí se tma jako dřív.
+  let osvetleno = false;
+  if (svetla) {
+    POHLED.kx = kx;
+    POHLED.ky = ky;
+    POHLED.sirka = sirka;
+    POHLED.vyska = vyska;
+    POHLED.s = s;
+    POHLED.zare = zare;
+    POHLED.polomer = mapa.tma ? mapa.tma.svetlo : 0;
+    POHLED.dosvit = lucerna ? polomerSvetla(hra, s) : 0;
+    POHLED.lucerna = Boolean(lucerna);
+    POHLED.lucernaX = lucerna ? lucerna.x : 0;
+    POHLED.lucernaY = lucerna ? lucerna.y : 0;
+    osvetleno = svetla.kresli(ctx, hra, POHLED);
+  }
+  if (osvetleno) {
+    if (mapa.tma) zareVeTme(ctx, zare, hra);
+  } else if (mapa.tma) {
     tmaKolem(ctx, mapa.tma, stred.x, stred.y, polomerSvetla(hra, s), hra.cas);
     svetlaVeTme(ctx, zare, hra, naObrazovce);
   }
@@ -2315,12 +2353,14 @@ export function kresli(ctx, hra, { cislaPoskozeni = true, horni = HORNI_BARY } =
 
   if (hra.otevira) otevirani(ctx, hra, naObrazovce, sirka, vyska);
 
-  // ztmavení u okrajů (barva podle mapy), ať je hrdina uprostřed vidět nejlíp
-  const tma = ctx.createRadialGradient(sirka / 2, vyska / 2, Math.min(sirka, vyska) * 0.4, sirka / 2, vyska / 2, Math.max(sirka, vyska) * 0.8);
-  tma.addColorStop(0, 'rgba(0,0,0,0)');
-  tma.addColorStop(1, mapa.okraje ?? 'rgba(0,0,0,0.45)');
-  ctx.fillStyle = tma;
-  ctx.fillRect(0, 0, sirka, vyska);
+  // ztmavení u okrajů (barva podle mapy), ať je hrdina uprostřed vidět nejlíp (se světly je to viněta v nich)
+  if (!osvetleno) {
+    const tma = ctx.createRadialGradient(sirka / 2, vyska / 2, Math.min(sirka, vyska) * 0.4, sirka / 2, vyska / 2, Math.max(sirka, vyska) * 0.8);
+    tma.addColorStop(0, 'rgba(0,0,0,0)');
+    tma.addColorStop(1, mapa.okraje ?? 'rgba(0,0,0,0.45)');
+    ctx.fillStyle = tma;
+    ctx.fillRect(0, 0, sirka, vyska);
+  }
 
   // čísla až nad ztmavením, ať jsou čitelná i u okraje
   cislaNadHlavami(ctx, hra, naObrazovce, pixelCisel(sirka, vyska), cislaPoskozeni);

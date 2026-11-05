@@ -1,10 +1,11 @@
 // Přidá ke skriptům a stylu v index.html otisk obsahu (?v=…), aby prohlížeč po nové verzi
-// nevzal starý soubor z cache. Vnořené importy mezi moduly řeší import mapa.
+// nevzal starý soubor z cache. Vnořené importy mezi moduly řeší import mapa. V ní jsou i shadery (src/shadery/*.glsl),
+// osvetleni.js si podle ní najde jejich adresu s otiskem.
 // Do sw.js zapíše seznam souborů hry (stejné adresy s otisky) a VERZI = otisk všeho dohromady (stránka, styl,
 // moduly, manifest, ikony). Každá změna tak změní i sw.js, prohlížeč pozná novou verzi a stáhne ji do nové keše.
 // Spouštět po každé změně kódu: node nastroje/verze.mjs (test pak hlídá, že sw.js sedí)
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 
 // Cesty jsou od kořene repa (skript i test ho volají odkudkoli).
 const KOREN = new URL('../', import.meta.url);
@@ -14,10 +15,12 @@ const otisk = (soubor) => createHash('sha1').update(cti(soubor)).digest('hex').s
 export const ZACATEK_SW = '// verze: začátek (generuje node nastroje/verze.mjs, ručně neupravovat)';
 export const KONEC_SW = '// verze: konec';
 
-// Import mapa modulů: './src/x.js' → './src/x.js?v=otisk'.
+// Import mapa modulů a shaderů: './src/x.js' → './src/x.js?v=otisk', './src/shadery/y.glsl' → '…?v=otisk'.
 export function mapaModulu() {
   const moduly = readdirSync(new URL('src/', KOREN)).filter((f) => f.endsWith('.js')).sort();
-  return Object.fromEntries(moduly.map((f) => [`./src/${f}`, `./src/${f}?v=${otisk(`src/${f}`)}`]));
+  const slozkaShaderu = new URL('src/shadery/', KOREN);
+  const shadery = existsSync(slozkaShaderu) ? readdirSync(slozkaShaderu).filter((f) => f.endsWith('.glsl')).sort().map((f) => `shadery/${f}`) : [];
+  return Object.fromEntries([...moduly, ...shadery].map((f) => [`./src/${f}`, `./src/${f}?v=${otisk(`src/${f}`)}`]));
 }
 
 // index.html s aktuální import mapou a otisky u main.js a style.css.
@@ -60,5 +63,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const po = sw.indexOf(KONEC_SW);
   if (od < 0 || po < 0) throw new Error('sw.js nemá značky verze: začátek / verze: konec');
   writeFileSync(new URL('sw.js', KOREN), sw.slice(0, od) + blokSw(hra) + sw.slice(po + KONEC_SW.length));
-  console.log(`verze: ${Object.keys(mapaModulu()).length} modulů + style.css, sw.js ${hra.verze} (${hra.soubory.length} souborů)`);
+  const mapa = Object.keys(mapaModulu());
+  const shaderu = mapa.filter((f) => f.endsWith('.glsl')).length;
+  console.log(`verze: ${mapa.length - shaderu} modulů + ${shaderu} shaderů + style.css, sw.js ${hra.verze} (${hra.soubory.length} souborů)`);
 }

@@ -99,6 +99,13 @@
 // Aplikace (PWA): manifest a ikony (PNG pixel po pixelu podle nastroje/ikony.mjs), odkazy v index.html, sw.js
 // s verzí a seznamem souborů podle nastroje/verze.mjs a service worker v náhradním prostředí: instalace, smazání
 // starých keší, stránka ze sítě a bez sítě z keše, soubory hry z keše, cizí adresy nechá prohlížeči.
+// Světla (WebGL): co svítí sbírá svetla.js bez DOM. Ve tmě svítí hrdina (poloměr jako tma bez světel) a lucerna,
+// na světlých mapách jen záře (oheň, láva, výbuchy) a na Louce nic. Světel je nejvýš MAX_SVETEL (krystaly, láva
+// a jiskry mají svůj strop), všechna jsou na obrazovce, čísla konečná a za počtem se do pole nic nezapíše. Bomba
+// přezáří, varování bosse svítí. Pojistka: plynulá hra světla nechá, když se světly hra zpomalí a bez nich ne,
+// vypne je, když je pomalé celé zařízení, zkusí to jednou a nechá je, pauza měření jen přeruší. Nastavení světel
+// (auto/zap/vyp, rozbité = auto) a paměť pomalého zařízení. Shadery (.glsl) mají všechny atributy a uniformy, které
+// kód plní, jsou WebGL 1 a v import mapě i v sw.js mají otisk. Bez prohlížeče (bez WebGL) světla nesvítí a nic nespadne.
 // Pasivy II: Upíří zub vrací život za zabití (s šancí, nejvýš SANI_ZA_SEKUNDU za sekundu, náhodu vln neposune),
 // Trnová zbroj vrací útočníkovi podíl rány, Štít zastaví jednu ránu a dobíjí se, Moudrost dá víc zkušeností
 // a Chamtivost víc duší. Všechny mají ikonu, popis a úrovně bez stropu (kde je strop, dají pak poškození).
@@ -147,12 +154,17 @@ import {
   nactiSbirku, zapisNalez, nactiMapu, ulozMapu, odemceneMapy, odemkniMapu,
   MAX_PROFILU, MAX_JMENA, VYCHOZI_JMENO, zajistiProfily, seznamProfilu, aktivniProfil, vytvorProfil, prejmenujProfil,
   prepniProfil, smazProfil, dataProfilu, platnaDataProfilu, importujProfil, prehledProfilu,
+  VYCHOZI_NASTAVENI, MOZNOSTI_NASTAVENI, pomalaSvetla, zapisPomalaSvetla, POMALA_SVETLA_PLATI,
 } from '../src/ulozeni.js';
 import { kodProfilu, prectiKod, souborProfilu, nazevSouboru, crc32, VERZE_KODU } from '../src/prenos.js';
 import { PISMO_NADPISU, PISMENA_LOGA } from '../src/pismo.js';
 import { svg as svgRamu } from '../nastroje/ramy.mjs';
 import { IKONY, KRESBY, obrazek as obrazekIkony } from '../nastroje/ikony.mjs';
 import { verzeHry, strankaSOtisky, blokSw, ZACATEK_SW, KONEC_SW } from '../nastroje/verze.mjs';
+import {
+  MAX_SVETEL, PRVKU_SVETLA, MAX_KRYSTALU, MAX_LAVY, MAX_JISKER, POJISTKA, REZIMY_SVETEL, sberSvetel, osvetleniMapy, vytvorPojistku,
+} from '../src/svetla.js';
+import { SHADERY, UNIFORMY, ATRIBUTY, stavSvetel, svetlaProSnimek, nastavRezimSvetel } from '../src/osvetleni.js';
 import {
   MAPY, PORADI_MAP, VYCHOZI_MAPA, ODEMKNUTI_MAPY, VELIKOST_DLAZDICE, PRICHODY_MAP, naLedu, ledovaDlazdice, odKdy, platnaMapa,
   plochaMapy, dlazdicePlochy, naPlose, prekazkaNaDlazdici, kruhPrekazky, hloubkaVPrekazce, VOLNO_U_STARTU,
@@ -4687,7 +4699,9 @@ ulozNastaveni({ ...nactiNastaveni(), hudba: 70 });
 prepniProfil(1);
 if (popisProfilu() !== puvodni || nactiDuse().duse !== 123) chybyProfilu.push(`po přepnutí zpět má Hráč ${popisProfilu()}`);
 if (nactiNastaveni().hudba !== 70) chybyProfilu.push('nastavení není společné všem profilům');
-ulozNastaveni(JSON.parse(STARE_ULOZENI['hlubiny.nastaveni']));
+// staré nastavení zpátky přesně tak, jak bylo zapsané (nové volby, třeba světla, v něm chybí a mají výchozí)
+ulozisteProfilu.set('hlubiny.nastaveni', STARE_ULOZENI['hlubiny.nastaveni']);
+if (nactiNastaveni().svetla !== 'auto') chybyProfilu.push(`staré nastavení bez světel nemá auto: ${nactiNastaveni().svetla}`);
 prepniProfil(bratr.slot);
 if (popisProfilu() !== bratrovo || nactiDuse().duse !== 50 - cenaVylepseni('zivoty', 0) || nactiTridu() !== 'bourlivak') chybyProfilu.push(`druhý profil po přepnutí: ${popisProfilu()}`);
 // Zvolený profil se pamatuje (po novém spuštění je zvolený pořád on).
@@ -4990,6 +5004,197 @@ for (const u of ocekavanaVerze.soubory) {
   }
 }
 chyby.push(...chybyAplikace);
+
+// ---------- Světla ----------
+const chybySvetel = [];
+const poleSvetel = new Float32Array(MAX_SVETEL * PRVKU_SVETLA + PRVKU_SVETLA);
+const pohledNa = (h, navic = {}) => ({
+  kx: h.hrdina.x - SIRKA / 2, ky: h.hrdina.y - VYSKA / 2, sirka: SIRKA, vyska: VYSKA, s: staty(h),
+  polomer: MAPY[h.mapa].tma?.svetlo ?? 0, dosvit: 0, lucerna: false, lucernaX: 0, lucernaY: 0, zare: [], ...navic,
+});
+// Světla jako objekty, s kontrolou, že jsou na obrazovce, konečná a za počtem se nic nezapsalo.
+const svetlaHry = (h, pohled, kde) => {
+  poleSvetel.fill(-12345);
+  const n = sberSvetel(poleSvetel, h, pohled);
+  if (!(n >= 0 && n <= MAX_SVETEL)) chybySvetel.push(`${kde}: ${n} světel`);
+  if (poleSvetel[n * PRVKU_SVETLA] !== -12345) chybySvetel.push(`${kde}: zápis za posledním světlem`);
+  const svetla = [];
+  for (let i = 0; i < n; i++) {
+    const [x, y, r, cr, cg, cb, jadro] = poleSvetel.subarray(i * PRVKU_SVETLA, (i + 1) * PRVKU_SVETLA);
+    if (![x, y, r, cr, cg, cb, jadro].every(Number.isFinite) || r <= 0 || Math.min(cr, cg, cb) < 0 || jadro < 0 || jadro >= 1) {
+      chybySvetel.push(`${kde}: světlo ${i} má čísla ${[x, y, r, cr, cg, cb, jadro]}`);
+    }
+    if (x + r < 0 || y + r < 0 || x - r > pohled.sirka || y - r > pohled.vyska) chybySvetel.push(`${kde}: světlo ${i} mimo obrazovku`);
+    svetla.push({ x, y, r, sila: Math.max(cr, cg, cb), barva: [cr, cg, cb] });
+  }
+  return svetla;
+};
+for (const id of PORADI_MAP) {
+  const o = osvetleniMapy(id);
+  const m = MAPY[id];
+  if (o.tma !== (m.tma?.sila ?? 0) || o.hrdina !== Boolean(m.tma)) chybySvetel.push(`${id}: tma ${o.tma}, hrdina ${o.hrdina}`);
+  if (!(o.vineta.sila > 0 && o.vineta.sila <= 1) || o.vineta.barva.some((c) => !(c >= 0 && c <= 1))) chybySvetel.push(`${id}: viněta ${JSON.stringify(o.vineta)}`);
+  if (id !== 'louka' && !o.svetla) chybySvetel.push(`${id}: nesbírá světla`);
+}
+if (osvetleniMapy('louka').svetla || osvetleniMapy('louka').pricitat) chybySvetel.push('Louka má mít jen vinětu');
+// Rozehraná jeskyně: lucerna, Ohnivá stopa, světlušky, jiskry a blesk, bot chvíli běhá.
+{
+  const h = novaHra(vytvorRng(seminko), 'svetlonos', {}, 'jeskyne');
+  Object.assign(h.zbrane, { stopa: { uroven: 5, nabiti: 0 }, svetlusky: { uroven: 5, nabiti: 0 }, jiskra: { uroven: 5, nabiti: 0 }, blesk: { uroven: 5, nabiti: 0 } });
+  h.hrdina.nezranitelny = 1e9;
+  for (let t = 0; t < 60; t += DT) {
+    aktualizuj(h, DT, rozhodni(h, t), SIRKA, VYSKA);
+    if (h.volby) vyber(h, h.volby[0]);
+    if (h.porovnani) rozhodniKus(h, false);
+    if (h.obchod) odejdiOdKupce(h);
+  }
+  const s = staty(h);
+  const dosvit = MAPY.jeskyne.tma.svetlo + MAPY.jeskyne.tma.lucerna + s.lucerna.dosah;
+  const pohled = pohledNa(h, { dosvit, lucerna: true, lucernaX: SIRKA / 2 - 21, lucernaY: VYSKA / 2 - 3 });
+  const svetla = svetlaHry(h, pohled, 'jeskyně');
+  const [hrdina, lucerna] = svetla;
+  if (!hrdina || hrdina.x !== SIRKA / 2 || hrdina.y !== VYSKA / 2 || Math.abs(hrdina.r / MAPY.jeskyne.tma.svetlo - 1) > 0.05) chybySvetel.push(`světlo hrdiny ${JSON.stringify(hrdina)}`);
+  if (!lucerna || Math.abs(lucerna.r / dosvit - 1) > 0.05 || lucerna.x !== SIRKA / 2 - 21) chybySvetel.push(`světlo lucerny ${JSON.stringify(lucerna)} (dosvit ${dosvit})`);
+  if (svetla.length < 5) chybySvetel.push(`v rozehrané jeskyni svítí jen ${svetla.length} světel`);
+  if (h.plameny.length && !svetla.some((l) => l.barva[0] > l.barva[2] * 2 && l !== lucerna && l !== hrdina)) chybySvetel.push('Ohnivá stopa nesvítí');
+  // Bez lucerny svítí jen hrdina.
+  const bez = svetlaHry(h, pohledNa(h), 'jeskyně bez lucerny');
+  if (bez.length && bez[1] && Math.abs(bez[1].r / dosvit - 1) < 0.05) chybySvetel.push('bez lucerny svítí lucerna');
+  // Spousta krystalů, jisker a lávy: každá skupina má strop a celkem nikdy víc než MAX_SVETEL.
+  for (let i = 0; i < 400; i++) h.krystaly.push({ x: h.hrdina.x + (i % 40) * 30 - 600, y: h.hrdina.y + Math.floor(i / 40) * 60 - 300, hodnota: 1 });
+  for (let i = 0; i < 200; i++) h.strely.push({ x: h.hrdina.x + i, y: h.hrdina.y, vx: 0, vy: 0, velikost: 4 });
+  const zare = Object.assign([], { zhave: Array.from({ length: 300 }, (_, i) => [(i % 30) * 48 - 48, Math.floor(i / 30) * 48 - 48, i]), dlazdice: 48 });
+  const plno = svetlaHry(h, { ...pohled, zare }, 'jeskyně plná');
+  // krystal svítí tyrkysově (nejvíc zelená), jiskra žlutě (nejvíc červená), obojí poloměrem 26 px
+  const krystalu = plno.filter((l) => l.r === 26 && l.barva[1] > l.barva[0]).length;
+  const jisker = plno.filter((l) => l.r === 26 && l.barva[0] > l.barva[1]).length;
+  if (plno.length > MAX_SVETEL || krystalu > MAX_KRYSTALU || jisker > MAX_JISKER || !krystalu || !jisker) {
+    chybySvetel.push(`plná jeskyně: ${plno.length} světel, krystalů ${krystalu}, jisker ${jisker}`);
+  }
+  h.krystaly.length = 0;
+  h.strely.length = 0;
+  // Bomba přezáří (síla přes 1) a sahá skoro přes celou obrazovku.
+  h.vybuch = TRVANI_VYBUCHU * 0.9;
+  const bomba = svetlaHry(h, pohled, 'bomba');
+  if (!bomba.some((l) => l.sila > 1 && l.r > 150)) chybySvetel.push('bomba nesvítí');
+  h.vybuch = 0;
+}
+// Láva na Sopce: nejvýš MAX_LAVY světel, i když je žhavých dlaždic moc. Hrdina ani lucerna na světle nesvítí.
+{
+  const h = tichaMapa('sopka');
+  h.zbrane = { lucerna: { uroven: 3, nabiti: 0 } };
+  const zare = Object.assign([], { zhave: Array.from({ length: 500 }, (_, i) => [(i % 27) * 48 - 48, Math.floor(i / 27) * 48 - 48, i]), dlazdice: 48 });
+  const svetla = svetlaHry(h, pohledNa(h, { zare, lucerna: true, dosvit: 300, lucernaX: SIRKA / 2, lucernaY: VYSKA / 2 }), 'sopka');
+  if (!svetla.length || svetla.length > MAX_LAVY) chybySvetel.push(`láva: ${svetla.length} světel`);
+  if (svetla.some((l) => l.r >= 300)) chybySvetel.push('na Sopce svítí lucerna jako ve tmě');
+  const louka = tichaMapa('louka');
+  louka.vybuch = TRVANI_VYBUCHU / 2;
+  if (svetlaHry(louka, pohledNa(louka, { zare }), 'louka').length) chybySvetel.push('na Louce něco svítí');
+}
+// Varování bosse (dupnutí) svítí rudě, i když je boss na kraji světla hrdiny.
+{
+  const [h, b] = sSchopnosti('obr', 'dupnuti', 200, 0);
+  h.mapa = 'jeskyne';
+  let videno = false;
+  dokudVaruje(h, b, () => {
+    videno ||= svetlaHry(h, pohledNa(h), 'dupnutí').some((l) => Math.abs(l.x - (SIRKA / 2 + b.x)) < 1 && l.barva[0] > l.barva[1] * 2);
+  });
+  if (!videno) chybySvetel.push('varování dupnutí nesvítí');
+}
+// Pojistka v simulovaném čase: fps(svitit) = kolik snímků za sekundu je se světly a bez nich.
+const pojistkaZa = (sekund, fps, { pauzy = false } = {}) => {
+  const p = vytvorPojistku();
+  let t = 0;
+  let snimku = 0;
+  let vypnutoV = null;
+  let tmaVSekundach = 0;
+  while (t < sekund) {
+    const dt = 1 / fps(p.svitit);
+    p.snimek(pauzy && snimku % 50 === 49 ? 1.5 : dt);
+    if (!p.svitit) tmaVSekundach += dt;
+    if (p.vypnuto && vypnutoV === null) vypnutoV = t;
+    t += dt;
+    snimku += 1;
+  }
+  return { p, vypnutoV, tmaVSekundach };
+};
+{
+  const plynule = pojistkaZa(120, () => 60);
+  if (!plynule.p.svitit || plynule.p.stav.zkousek) chybySvetel.push('pojistka vypnula světla v plynulé hře');
+  const hz120 = pojistkaZa(60, (sviti) => (sviti ? 100 : 120));
+  if (!hz120.p.svitit || hz120.p.stav.zkousek) chybySvetel.push('pojistka vypnula světla na 120Hz displeji se 100 FPS');
+  const pomala = pojistkaZa(60, (sviti) => (sviti ? 30 : 60));
+  const nejpozdeji = POJISTKA.okno * (POJISTKA.pomalych + 1) + POJISTKA.usazeni + 1;
+  if (!pomala.p.vypnuto || pomala.p.svitit || !(pomala.vypnutoV <= nejpozdeji)) chybySvetel.push(`pojistka nevypnula zpomalující světla (vypnuto v ${pomala.vypnutoV} s)`);
+  const zarizeni = pojistkaZa(120, () => 30);
+  if (zarizeni.p.vypnuto || !zarizeni.p.svitit || zarizeni.p.stav.zkousek !== 1 || zarizeni.tmaVSekundach > POJISTKA.okno + POJISTKA.usazeni + 0.2) {
+    chybySvetel.push(`pomalé zařízení: vypnuto ${zarizeni.p.vypnuto}, zkoušek ${zarizeni.p.stav.zkousek}, bez světel ${zarizeni.tmaVSekundach.toFixed(1)} s`);
+  }
+  const sPauzami = pojistkaZa(60, () => 60, { pauzy: true });
+  if (!sPauzami.p.svitit || sPauzami.p.stav.zkousek) chybySvetel.push('pauzy spustily pojistku');
+  const jenPauzy = vytvorPojistku();
+  for (let i = 0; i < 100; i++) jenPauzy.snimek(i % 2 ? 0.3 : NaN);
+  if (!jenPauzy.svitit || jenPauzy.stav.posledniFps) chybySvetel.push('dlouhé snímky (záložka na pozadí) se počítaly do FPS');
+}
+// Nastavení světel a paměť pomalého zařízení.
+{
+  const mapa = new Map();
+  nahradUloziste({ getItem: (k) => mapa.get(k) ?? null, setItem: (k, v) => mapa.set(k, String(v)), removeItem: (k) => mapa.delete(k) });
+  if (VYCHOZI_NASTAVENI.svetla !== 'auto' || JSON.stringify(MOZNOSTI_NASTAVENI.svetla) !== JSON.stringify(REZIMY_SVETEL)) chybySvetel.push('výchozí světla nejsou auto');
+  if (nactiNastaveni().svetla !== 'auto') chybySvetel.push('bez nastavení nejsou světla auto');
+  for (const r of REZIMY_SVETEL) {
+    ulozNastaveni({ ...nactiNastaveni(), svetla: r });
+    if (nactiNastaveni().svetla !== r) chybySvetel.push(`světla ${r} se neuložila`);
+  }
+  for (const spatne of ['ano', true, 3, null, 'AUTO']) {
+    mapa.set('hlubiny.nastaveni', JSON.stringify({ svetla: spatne }));
+    if (nactiNastaveni().svetla !== 'auto') chybySvetel.push(`rozbitá světla ${JSON.stringify(spatne)} nejsou auto`);
+  }
+  const ted = 1_800_000_000_000;
+  if (pomalaSvetla(ted)) chybySvetel.push('bez záznamu je zařízení pomalé');
+  zapisPomalaSvetla(ted - 1000);
+  if (!pomalaSvetla(ted)) chybySvetel.push('pomalé zařízení se nezapamatovalo');
+  if (pomalaSvetla(ted + POMALA_SVETLA_PLATI)) chybySvetel.push('pomalé zařízení se pamatuje navždy');
+  zapisPomalaSvetla(ted + 60_000);
+  if (pomalaSvetla(ted)) chybySvetel.push('záznam z budoucnosti platí');
+  zapisPomalaSvetla(null);
+  if (pomalaSvetla(ted) || mapa.has('hlubiny.pomalaSvetla')) chybySvetel.push('paměť pomalého zařízení se nesmazala');
+  mapa.set('hlubiny.pomalaSvetla', '"ne"');
+  if (pomalaSvetla(ted)) chybySvetel.push('rozbitá paměť pomalého zařízení platí');
+  // Bez prohlížeče (Node, žádné WebGL): světla nesvítí a kreslí se tma jako dřív.
+  for (const r of [...REZIMY_SVETEL, 'nesmysl']) {
+    nastavRezimSvetel(r, { znovu: true });
+    if (svetlaProSnimek(1 / 60, true) !== null || stavSvetel().svitit) chybySvetel.push(`bez WebGL v režimu ${r} svítí`);
+  }
+  if (stavSvetel().rezim !== 'auto') chybySvetel.push(`neznámý režim světel je ${stavSvetel().rezim}, ne auto`);
+}
+// Shadery: soubory jsou, mají atributy a uniformy, které osvetleni.js plní, jsou WebGL 1 a mají otisk v import mapě
+// i v seznamu service workeru.
+{
+  const zdroj = (jmeno) => readFileSync(new URL(`../src/shadery/${jmeno}.glsl`, import.meta.url), 'utf8');
+  const deklarace = (text, druh) => new Set([...text.matchAll(new RegExp(`^\\s*${druh}\\s+\\w+\\s+(\\w+)`, 'gm'))].map((m) => m[1]));
+  for (const program of ['svetla', 'obraz']) {
+    const vrchol = zdroj(`${program}-vrchol`);
+    const pixel = zdroj(`${program}-pixel`);
+    const uniformy = new Set([...deklarace(vrchol, 'uniform'), ...deklarace(pixel, 'uniform')]);
+    for (const u of UNIFORMY[program]) if (!uniformy.has(u)) chybySvetel.push(`shader ${program} nemá uniformu ${u}`);
+    for (const u of uniformy) if (!UNIFORMY[program].includes(u)) chybySvetel.push(`uniformu ${u} v shaderu ${program} nikdo neplní`);
+    const atributy = deklarace(vrchol, 'attribute');
+    if (JSON.stringify([...atributy]) !== JSON.stringify(ATRIBUTY[program])) chybySvetel.push(`shader ${program} má atributy ${[...atributy]}`);
+    const varyingVrchol = deklarace(vrchol, 'varying');
+    for (const v of deklarace(pixel, 'varying')) if (!varyingVrchol.has(v)) chybySvetel.push(`varying ${v} v ${program}-pixel chybí ve vrcholu`);
+    if (!/precision mediump float;/.test(pixel) || /#version/.test(vrchol + pixel) || !/gl_FragColor/.test(pixel) || !/gl_Position/.test(vrchol)) chybySvetel.push(`shader ${program} není WebGL 1`);
+  }
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  const mapaImportu = JSON.parse(/<script type="importmap">([\s\S]*?)<\/script>/.exec(html)[1]).imports;
+  for (const jmeno of SHADERY) {
+    const cesta = `./src/shadery/${jmeno}.glsl`;
+    const adresa = mapaImportu[cesta];
+    if (!/\?v=[0-9a-f]{8}$/.test(adresa ?? '') || !sw.includes(`'${adresa}'`)) chybySvetel.push(`shader ${jmeno} nemá otisk v import mapě nebo sw.js (${adresa})`);
+  }
+}
+chyby.push(...chybySvetel);
 if (chyby.length) {
   console.error('CHYBA:', chyby.join('; '));
   process.exit(1);

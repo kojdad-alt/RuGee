@@ -18,6 +18,7 @@ import {
 } from './vystroj.js';
 import { odemkniZvuk, zvukNakupu, zvukOdmitnuti, zvukHry, nastavZvuk, ukazkaHudby } from './zvuk.js';
 import { stav as stavAplikace, pridejNaPlochu, priZmene as priZmeneAplikace } from './aplikace.js';
+import { nastavRezimSvetel, stavSvetel, priZmeneSvetel } from './osvetleni.js';
 import { nakresliText, STYL_LOGA, STYL_PERGAMEN, pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
 
 // Profily: při prvním spuštění se stará uložení převedou do prvního profilu (ulozeni.js), pak se načte zvolený.
@@ -41,6 +42,7 @@ export function zvolenaMapa() {
 // nebo pauza (a klávesa N). Hlasitosti se hned předají zvuku.
 let nastaveni = nactiNastaveni();
 nastavZvuk(nastaveni);
+nastavRezimSvetel(nastaveni.svetla);
 
 export function cislaPoskozeni() {
   return nastaveni.cislaPoskozeni;
@@ -506,6 +508,53 @@ export function prepinacNastaveni(klic, nazev) {
   return b;
 }
 
+// Světla (osvetleni.js): jedno tlačítko jako ostatní přepínače, klik nebo Enter střídá Auto → Zap → Vyp. Kontrolka:
+// mosazná auto, zelená zapnutá, zhaslá rudá vypnutá. Pod ním jeden řádek, co se zrovna děje (svítí, prohlížeč
+// neumí WebGL, pojistka je vypnula…). Stejné je v Nastavení i v pauze.
+const DALSI_REZIM = { auto: 'zap', zap: 'vyp', vyp: 'auto' };
+const TEXTY_REZIMU = { auto: 'auto', zap: 'zapnutá', vyp: 'vypnutá' };
+const TEXTY_SVETEL = {
+  auto: 'Svítí, dokud hra běží plynule. Když se zpomalí, vypnou se samy.',
+  zap: 'Svítí vždycky, i kdyby hra zpomalila.',
+  vypnuto: 'Jednoduchá tma bez WebGL, nejrychlejší.',
+  nacita: 'Světla se načítají…',
+  webgl: 'Prohlížeč neumí WebGL, svítí jednoduchá tma.',
+  pomale: 'Prohlížeč kreslí WebGL bez grafické karty, svítí jednoduchá tma. Zapnout jde ručně.',
+  shadery: 'Světla se nepodařilo načíst, svítí jednoduchá tma.',
+  kontrola: 'V tomhle prohlížeči světla nejdou, svítí jednoduchá tma.',
+  fps: 'Se světly se hra zpomalovala, svítí jednoduchá tma. Zapnout jde ručně.',
+  ztraceno: 'Grafika se restartovala, světla se za chvíli vrátí.',
+};
+
+export function prepinacSvetel() {
+  const box = prvek('div', 'svetla-volba');
+  const b = prvek('button', 'menu-tlacitko prepinac');
+  b.type = 'button';
+  b.dataset.nastaveni = 'svetla';
+  const stavPrvek = prvek('span', 'prepinac-stav');
+  b.append(prvek('span', '', 'Světla: '), stavPrvek);
+  const text = prvek('p', 'svetla-text');
+  const ukaz = () => {
+    const rezim = nastaveni.svetla;
+    const { duvod } = stavSvetel();
+    stavPrvek.textContent = TEXTY_REZIMU[rezim];
+    b.classList.toggle('vypnuto', rezim === 'vyp');
+    b.classList.toggle('auto', rezim === 'auto');
+    b.setAttribute('aria-pressed', rezim === 'vyp' ? 'false' : rezim === 'zap' ? 'true' : 'mixed');
+    text.textContent = rezim === 'vyp' ? TEXTY_SVETEL.vypnuto : TEXTY_SVETEL[duvod] ?? TEXTY_SVETEL[rezim];
+  };
+  b.addEventListener('click', () => {
+    nastaveni = { ...nastaveni, svetla: DALSI_REZIM[nastaveni.svetla] ?? 'auto' };
+    ulozNastaveni(nastaveni);
+    nastavRezimSvetel(nastaveni.svetla, { znovu: true });
+    ukaz();
+  });
+  const odhlas = priZmeneSvetel(() => (box.isConnected ? ukaz() : odhlas()));
+  ukaz();
+  box.append(b, text);
+  return box;
+}
+
 function zmenNastaveni(zmena) {
   nastaveni = { ...nastaveni, ...zmena };
   ulozNastaveni(nastaveni);
@@ -623,7 +672,7 @@ function vyplnOvladani(panel) {
   }
   panel.append(
     prvek('p', 'podtitul', 'Zbraně střílí samy, ty jen uhýbáš a sbíráš krystaly.'), mrizka,
-    prvek('p', 'podtitul ovladani-pata', 'Hlasitost a čísla poškození najdeš v Nastavení.'),
+    prvek('p', 'podtitul ovladani-pata', 'Hlasitost, čísla poškození a světla najdeš v Nastavení.'),
   );
 }
 
@@ -655,7 +704,7 @@ function skupinaNaPlochu() {
   return sekce;
 }
 
-// Nastavení: zvuk (hlasitost efektů a hudby, ztlumení N), čísla poškození a Na plochu, každé ve své skupině.
+// Nastavení: zvuk (hlasitost efektů a hudby, ztlumení N), čísla poškození se světly a Na plochu, každé ve své skupině.
 // Všechno se hned uloží.
 function vyplnNastaveni(panel) {
   const zvuk = skupina('Zvuk');
@@ -663,7 +712,7 @@ function vyplnNastaveni(panel) {
   const hra = skupina('Hra');
   const radek = prvek('div', 'radek-tlacitek nastaveni-radek');
   radek.append(prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'));
-  hra.append(radek);
+  hra.append(radek, prepinacSvetel());
   panel.append(
     prvek('p', 'podtitul', 'Volby se hned uloží v tomhle prohlížeči a platí pro všechny profily. Stejné najdeš i v pauze.'),
     zvuk, hra, skupinaNaPlochu(),
