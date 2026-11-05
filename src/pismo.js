@@ -129,6 +129,13 @@ export const STYL_PERGAMEN = {
   barvaHloubky: '#4f3019',
 };
 
+// Krvavě rudý nápis (konec hry), stejný tvar jako zlatý, hloubka tmavá vínová.
+export const STYL_KREV = {
+  ...STYL_NADPISU,
+  barvy: ['#ffe3dc', '#ffb4a8', '#ff8a7a', '#f2665a', '#dc4a42', '#c23a34', '#a42c28'],
+  barvaHloubky: '#4a120c',
+};
+
 // Nakreslí text do plátna v jednotkách pixelů písma (plátno má přesně velikost nápisu i s obrysem).
 // Znak, který písmo nemá, se nakreslí jako otazník. Prázdné řádky nahoře (bez diakritiky) se oříznou.
 export function nakresliText(platno, text, styl = STYL_NADPISU) {

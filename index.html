@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RuGee</title>
-<link rel="stylesheet" href="style.css?v=131a0598">
+<link rel="stylesheet" href="style.css?v=7ec9f854">
 </head>
 <body class="v-menu">
 <canvas id="platno" aria-label="RuGee"></canvas>
@@ -73,12 +73,13 @@
   <div id="pauza-volby" class="radek-tlacitek"></div>
 </section>
 
-<section id="konec" class="okno" hidden>
-  <h2>Horda tě pohltila</h2>
-  <p id="konec-text" class="podtitul"></p>
+<section id="konec" class="okno konec ram" hidden>
+  <p id="konec-stitek" class="konec-stitek"></p>
+  <h2 id="konec-nadpis">Horda tě pohltila</h2>
+  <div id="konec-text" class="konec-prehled"></div>
   <p id="konec-duse" class="konec-duse"></p>
   <div class="radek-tlacitek">
-    <button id="znovu" class="menu-tlacitko" type="button">Znovu (R)</button>
+    <button id="znovu" class="menu-tlacitko hlavni" type="button">Znovu (R)</button>
     <button id="do-menu" class="menu-tlacitko" type="button">Menu (M)</button>
   </div>
 </section>
@@ -92,11 +93,11 @@
     "./src/hra.js": "./src/hra.js?v=c6d39541",
     "./src/kresleni.js": "./src/kresleni.js?v=62661a66",
     "./src/louka.js": "./src/louka.js?v=aff52225",
-    "./src/main.js": "./src/main.js?v=14571bf2",
+    "./src/main.js": "./src/main.js?v=8d05a288",
     "./src/mapy.js": "./src/mapy.js?v=8be105f4",
-    "./src/menu.js": "./src/menu.js?v=f721e0d9",
+    "./src/menu.js": "./src/menu.js?v=9bbcbd8d",
     "./src/obchod.js": "./src/obchod.js?v=9208c128",
-    "./src/pismo.js": "./src/pismo.js?v=06c4ba63",
+    "./src/pismo.js": "./src/pismo.js?v=910d689d",
     "./src/prenos.js": "./src/prenos.js?v=96f989e1",
     "./src/rng.js": "./src/rng.js?v=60bdabbe",
     "./src/sprity.js": "./src/sprity.js?v=9dd6beb8",
@@ -108,6 +109,6 @@
   }
 }
 </script>
-<script type="module" src="src/main.js?v=14571bf2"></script>
+<script type="module" src="src/main.js?v=8d05a288"></script>
 </body>
 </html>
