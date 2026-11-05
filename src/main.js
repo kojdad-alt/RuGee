@@ -4,8 +4,9 @@ import { kresli, kresliMenu } from './kresleni.js';
 import { dusZaHru, DUSE_ZA } from './duse.js';
 import {
   vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, zvolenaMapa, obrazekSpritu, pocetDusi, cislaPoskozeni,
-  prepinacNastaveni, ovladaniZvuku, prepniZtlumeni,
+  prepinacNastaveni, ovladaniZvuku, prepniZtlumeni, skupina,
 } from './menu.js';
+import { pixelovyNadpis } from './pismo.js';
 import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu } from './ulozeni.js';
 import { MAPY, ODEMKNUTI_MAPY, dalsiMapa } from './mapy.js';
 import {
@@ -136,8 +137,9 @@ function vybavaUJoysticku() {
   vybava.classList.toggle('u-joysticku', blizko);
 }
 
-// Pauza (P nebo Esc): hra stojí a okno nabídne přepínač čísel poškození a Pokračovat.
-// Přepínač se staví pokaždé znovu, ať ukazuje, co je zrovna uložené (mohlo se změnit v menu).
+// Pauza (P nebo Esc): hra stojí a okno z trámů nabídne Pokračovat a pod ním skupiny jako v Nastavení: Hra (čísla
+// poškození) a Zvuk (hlasitost, ztlumení). Pořadí šipek je stejné jako dřív. Volby se staví pokaždé znovu, ať
+// ukazují, co je zrovna uložené (mohlo se změnit v menu).
 function nastavPauzu(zapnout) {
   hra.pauza = zapnout;
   el('pauza').hidden = !zapnout;
@@ -149,7 +151,12 @@ function nastavPauzu(zapnout) {
   pokracovat.className = 'menu-tlacitko hlavni';
   pokracovat.type = 'button';
   pokracovat.addEventListener('click', () => { if (hra?.pauza) nastavPauzu(false); });
-  el('pauza-volby').replaceChildren(pokracovat, prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'), ovladaniZvuku());
+  const volbyHry = skupina('Hra');
+  volbyHry.append(prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'));
+  const zvuk = skupina('Zvuk');
+  zvuk.append(ovladaniZvuku());
+  el('pauza-volby').replaceChildren(pokracovat, volbyHry, zvuk);
+  pixelovyNadpis(el('pauza-nadpis'), 'Pauza', { min: 3, max: 4 });
   vyberTlacitko(pokracovat);
 }
 
