@@ -474,8 +474,8 @@ const OVLADANI = [
   ]],
 ];
 
-// Skupina v Ovládání a Nastavení: destička v tenkém rámu s nadpisem světlým pixelovým písmem.
-function skupina(nazev, trida = '') {
+// Skupina v Ovládání, Nastavení a pauze: destička v tenkém rámu s nadpisem světlým pixelovým písmem.
+export function skupina(nazev, trida = '') {
   const sekce = prvek('section', `skupina ${trida}`.trim());
   const nadpis = prvek('h3', 'skupina-nadpis');
   pixelovyNadpis(nadpis, nazev, { styl: STYL_PERGAMEN, min: 2, max: 2 });

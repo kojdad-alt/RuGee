@@ -214,17 +214,30 @@ html, body {
   100% { color: #f08a8d; transform: scale(1); }
 }
 
+/* Okno uprostřed hry (pauza, konec hry). V tématu má rám z trámů a kolem sebe teplý závoj přes hru (obří stín),
+   aby se dalo číst i přes hordu; vysoké okno se na nízké obrazovce posouvá samo. */
 .okno {
   position: fixed;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
   width: min(720px, calc(100% - 32px));
-  background: var(--panel);
-  border: 3px solid var(--okraj);
   padding: 20px;
   text-align: center;
 }
+
+.okno:not(.ram) {
+  background: var(--panel);
+  border: 3px solid var(--okraj);
+}
+
+.okno.ram {
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  box-shadow: 0 var(--px) 0 var(--px) rgba(0, 0, 0, 0.35), 0 0 0 100vmax rgba(20, 12, 8, 0.55);
+}
+
+.okno h2.nadpis-pixel { margin: 0 0 2px; }
 
 .okno h2 {
   margin: 0;
@@ -1541,9 +1554,20 @@ kbd {
 .zvuk-hlaseni[hidden] { display: none; }
 .ovladani-pata { margin: 14px 0 0; }
 
-/* Pauza: menší okno uprostřed, hra pod ním stojí. */
-.okno.pauza { width: min(420px, calc(100% - 32px)); }
-.pauza .radek-tlacitek { flex-direction: column; align-items: stretch; }
+/* Pauza: menší okno z trámů uprostřed, hra pod ním stojí. Nadpis pixelovým písmem, pod ním mosazné Pokračovat
+   a volby ve skupinách jako v Nastavení (Hra: čísla poškození, Zvuk: hlasitost a ztlumení). */
+.okno.pauza { width: min(480px, calc(100% - 24px)); padding: 12px 16px 16px; }
+.pauza .podtitul { margin: 8px 0 14px; }
+.pauza .podtitul kbd { font-size: 12px; }
+.pauza .radek-tlacitek { flex-direction: column; align-items: stretch; gap: 14px; }
+.pauza .skupina { margin: 0; }
+.pauza .skupina .prepinac { width: 100%; }
+
+@media (max-width: 600px) {
+  .okno.pauza { padding: 8px 10px 12px; }
+  .pauza .radek-tlacitek { gap: 10px; }
+  .pauza .skupina { padding: 6px 8px 10px; }
+}
 
 /* Sbírka výbavy bossů v menu: nahoře kolik je objeveno (číslo a pruh po kusech), pak sada po sadě. Sada je
    destička v tenkém rámu s truhlou bosse a počtem (celá sada má mosaznou cedulku), čtyři kusy 2×2 jako sloty výbavy
