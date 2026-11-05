@@ -176,16 +176,24 @@ function nastavPauzu(zapnout) {
   pokracovat.className = 'menu-tlacitko hlavni';
   pokracovat.type = 'button';
   pokracovat.addEventListener('click', () => { if (hra?.pauza) nastavPauzu(false); });
-  // Ukončit hru (Daliik 5. 11.): kdykoli, ale bez odměny – žádné duše ani rekord, rovnou do menu.
-  // Co se zapsalo už během hry (nálezy výbavy, odemčená mapa), zůstává.
+  // Ukončit hru (Daliik 5. 11.) jde kdykoli. Od ODEMKNUTI_MAPY s (kdy se odemyká další mapa) běh skončí jako po
+  // smrti: rekord, duše a obrazovka konce. Dřív bez odměny – žádné duše ani rekord, rovnou do menu. Co se zapsalo
+  // už během hry (nálezy výbavy), zůstává.
+  const sOdmenou = hra.cas >= ODEMKNUTI_MAPY;
   const ukoncit = textovyPrvek('button', t('pauza.ukoncit'));
-  ukoncit.append(' ', textovyPrvek('small', t('pauza.bezOdmeny')));
+  ukoncit.append(' ', textovyPrvek('small', sOdmenou ? t('pauza.sOdmenou') : t('pauza.bezOdmeny', { cas: formatCas(ODEMKNUTI_MAPY) })));
   ukoncit.className = 'menu-tlacitko pauza-ukoncit';
   ukoncit.type = 'button';
   ukoncit.addEventListener('click', () => {
     if (!hra?.pauza || hra.konec) return;
-    hra.pauza = false;
-    doMenu();
+    if (hra.cas >= ODEMKNUTI_MAPY) {
+      hra.ukonceno = true;
+      hra.konec = true;
+      nastavPauzu(false);
+    } else {
+      hra.pauza = false;
+      doMenu();
+    }
   });
   const volbyHry = skupina(t('menu.nastaveni.hra'));
   volbyHry.append(prepinacNastaveni('cislaPoskozeni', t('menu.nastaveni.cislaPoskozeni')), prepinacSvetel());
@@ -302,7 +310,7 @@ function zapisKonec() {
   const stitek = el('konec-stitek');
   stitek.textContent = novy ? t('konec.novyRekord') : t('konec.rekord', { cas: formatCas(rekord.cas), uroven: rekord.uroven, zabito: rekord.zabito });
   stitek.classList.toggle('novy', novy);
-  pixelovyNadpis(el('konec-nadpis'), t('konec.nadpis'), { styl: STYL_KREV, min: 2, max: 4 });
+  pixelovyNadpis(el('konec-nadpis'), t(hra.ukonceno ? 'konec.nadpisUkonceno' : 'konec.nadpis'), { styl: STYL_KREV, min: 2, max: 4 });
 
   const cas = textovyPrvek('div', '');
   cas.className = 'konec-cas';
