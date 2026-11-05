@@ -81,8 +81,10 @@
 // a Hřbitov za noci (tma, mlha, kostlivci a duchové). Překážky na všech mapách kromě Louky: nikdy u startu, na
 // zvláštní ploše ani vedle sebe, hrdina ani nepřátelé v nich nikdy neskončí, nepřítel za překážkou ji obejde
 // a dojde k hrdinovi, duch proletí, střela přeletí. Každá mapa má hlavního bosse, který přijde první (na Louce
-// pořád Strážce, pořadí beze změny) a jeho truhla dá kus sady bosse, ze kterého vychází. Bot se lávě
-// a bublinám vyhýbá.
+// pořád Strážce, pořadí beze změny) a jeho truhla dá kus sady bosse, ze kterého vychází. Bot se lávě,
+// bublinám a bahnu vyhýbá a z bahna jde k nejbližšímu kraji. Na ledu a v bahně s nepřítelem na zádech
+// utíká mezerou jedním směrem (necuká, z bahna vyjde, na ledu se rozjede) a hry, které v analýze balancu padly
+// do 1:30, teď 1:30 vydrží.
 // Zvuk: bez AudioContext (Node) nic nedělá a nic nespadne. S náhradním AudioContextem, který jen počítá uzly,
 // omezovač pustí stejný efekt nejvýš jednou za jeho mezeru a běžných efektů nejvýš MAX_EFEKTU_ZA_SEKUNDU za sekundu
 // (důležité projdou vždy), ani zbraně na 60. úrovni nevytvoří moc uzlů za sekundu, hudba po pauze nedohání,
@@ -251,20 +253,38 @@ function zkontrolujKarty(h) {
 // Jednoduchý hráč: utíká od nepřátel v blízkosti a jinak jde pro nejbližší krystal.
 // Bez zbraně na dálku (jen krumpáče nebo lucerna) pustí nepřátele blíž, jinak by je nikdy nezasáhl.
 // Jedovým oblakům se vyhýbá víc než nepřátelům (oblak je vidět, člověk z něj taky uteče).
+// Když už na něm na ledu nebo v bahně nepřítel sedí, neutíká od každého zvlášť (útěky se vyruší), ale mezerou
+// (smerUteku).
+// Z bahna jde k nejbližšímu kraji (krajPlochy), bahnu se jinak vyhne slaběji než lávě.
 // uhyba = false: útoky bossů nevidí (jen na porovnání v soubojích, kolik uhýbání ušetří).
 function rozhodni(hra, t, uhyba = true) {
   const { hrdina } = hra;
+  // Na ledu se hrdina rozjíždí i brzdí pomalu: bot utíká od nepřátel z místa, kam ho led za PREDSTIH_LEDU s donese
+  // (jako člověk, který ví, že hned nezastaví).
+  const led = hrdina.naLedu;
   const odstup = hra.zbrane.jiskra || hra.zbrane.blesk ? 160 : 50;
+  const px = hrdina.x + (led ? hrdina.vx * PREDSTIH_LEDU : 0);
+  const py = hrdina.y + (led ? hrdina.vy * PREDSTIH_LEDU : 0);
   let dx = 0;
   let dy = 0;
+  let naMne = false;
   for (const n of hra.nepratele) {
-    const vx = hrdina.x - n.x;
-    const vy = hrdina.y - n.y;
+    const vx = px - n.x;
+    const vy = py - n.y;
     const d = Math.hypot(vx, vy);
     if (d < odstup && d > 0) {
       dx += (vx / d) * (odstup - d);
       dy += (vy / d) * (odstup - d);
     }
+    if (!n.skryty && Math.hypot(hrdina.x - n.x, hrdina.y - n.y) < n.polomer + POLOMER_HRDINY + BLIZKO_UTEKU) naMne = true;
+  }
+  // Mezerou utíká jen na ledu a v bahně. Na pevné zemi se hrdina nepříteli na zádech vytancuje sám (je rychlejší)
+  // a krumpáče mezitím sekají, kdo stojí kolem.
+  const pamet = pametUteku.get(hra);
+  if ((naMne && (led || hrdina.plocha === 'bahno')) || (pamet && hra.cas < pamet.do)) {
+    const u = smerUteku(hra, naMne);
+    dx = u.ux * SILA_UTEKU;
+    dy = u.uy * SILA_UTEKU;
   }
   const utec = (o, polomer, vaha) => {
     const vx = hrdina.x - o.x;
@@ -278,14 +298,24 @@ function rozhodni(hra, t, uhyba = true) {
   for (const o of hra.oblaky) utec(o, o.polomer + 20, 4);
   // Jedové bubliny a lávu je vidět, bot se jim vyhne jako oblakům (lávě slaběji, přes kus se dá přeběhnout).
   for (const b of hra.bubliny ?? []) utec(b, b.polomer + 24, 4);
+  // Bahno je vidět taky: hrdina v něm jde pomaleji než žába i netopýr, bot se mu proto vyhne (slaběji než lávě).
   const plocha = plochaMapy(hra.mapa);
-  if (plocha?.druh === 'lava') {
+  if (plocha?.druh === 'lava' || plocha?.druh === 'bahno') {
+    const [dosah, vaha] = plocha.druh === 'lava' ? [1.3, 4] : [1, 2];
     const tx0 = Math.floor(hrdina.x / VELIKOST_DLAZDICE);
     const ty0 = Math.floor(hrdina.y / VELIKOST_DLAZDICE);
     for (let ty = ty0 - 2; ty <= ty0 + 2; ty++) {
       for (let tx = tx0 - 2; tx <= tx0 + 2; tx++) {
-        if (dlazdicePlochy(tx, ty, plocha.data)) utec({ x: (tx + 0.5) * VELIKOST_DLAZDICE, y: (ty + 0.5) * VELIKOST_DLAZDICE }, VELIKOST_DLAZDICE * 1.3, 4);
+        if (dlazdicePlochy(tx, ty, plocha.data)) utec({ x: (tx + 0.5) * VELIKOST_DLAZDICE, y: (ty + 0.5) * VELIKOST_DLAZDICE }, VELIKOST_DLAZDICE * dosah, vaha);
       }
+    }
+    // Uprostřed bahna se odpuzování od dlaždic kolem vyruší: kdo v něm stojí, jde k nejbližšímu kraji. Z lávy ne,
+    // tam stačí odpuzování (s tahem ke kraji bot na Sopce vydržel méně, láva bývá úzká a za krajem čekají nepřátelé).
+    const kraj = plocha.druh === 'bahno' && naPlose(hra.mapa, hrdina.x, hrdina.y) ? krajPlochy(hra) : null;
+    if (kraj) {
+      const d = Math.hypot(kraj.x - hrdina.x, kraj.y - hrdina.y) || 1;
+      dx += ((kraj.x - hrdina.x) / d) * SILA_KRAJE;
+      dy += ((kraj.y - hrdina.y) / d) * SILA_KRAJE;
     }
   }
   // Truhla bosse kousek od něj: skočí pro ni, i když kolem někdo je (jako člověk). Vzdálenou sebere, až bude klid.
@@ -335,6 +365,73 @@ function rozhodni(hra, t, uhyba = true) {
     dy += ky * (140 - d) * 3;
   }
   return smer(hra, t, dx, dy);
+}
+
+// Útěk mezerou. Když nepřítel na hrdinovi sedí (do BLIZKO_UTEKU px od dotyku), součet útěků od všech stran se
+// vyruší a bot přešlapuje na místě. Na pevné zemi to nevadí, ale v bahně (je tam pomalejší než žába i netopýr)
+// a na ledu (rozjíždí se pomalu, takže se při cukání sem a tam nehne vůbec) pak neutekl a nepřátelé ho uštípali
+// (Havíř v Bažině padl za 28 s na 1. úrovni). Člověk si najde mezeru a běží jedním směrem: bot zkusí SMERU_UTEKU
+// směrů, vezme ten, kde je po cestě nejmíň nepřátel a žádné bahno, láva, oblak, bublina ani překážka, a běží jím
+// DRZENI_UTEKU s (i chvíli po tom, co už nikdo nekouše). Pak vybírá znovu a stejný směr má přednost (necuká).
+const BLIZKO_UTEKU = 10;
+const SMERU_UTEKU = 16;
+const DRZENI_UTEKU = 0.3;
+const SILA_UTEKU = 300;
+const SILA_KRAJE = 160;
+const PREDSTIH_LEDU = 0.4;
+const KROKY_UTEKU = [35, 80, 130];
+const pametUteku = new WeakMap();
+function smerUteku(hra, naMne) {
+  const { hrdina } = hra;
+  const pamet = pametUteku.get(hra);
+  if (pamet && (hra.cas < pamet.do || !naMne)) return pamet;
+  const dohled = KROKY_UTEKU.at(-1) + 70;
+  const blizci = hra.nepratele.filter((n) => !n.skryty && Math.abs(n.x - hrdina.x) < dohled && Math.abs(n.y - hrdina.y) < dohled);
+  const plocha = plochaMapy(hra.mapa);
+  const spatnaPlocha = plocha && plocha.druh !== 'led';
+  const zakryto = [...hra.oblaky, ...(hra.bubliny ?? [])];
+  let nej = null;
+  for (let i = 0; i < SMERU_UTEKU; i++) {
+    const uhel = (i / SMERU_UTEKU) * Math.PI * 2;
+    const ux = Math.cos(uhel);
+    const uy = Math.sin(uhel);
+    let cena = pamet && ux * pamet.ux + uy * pamet.uy > 0.9 ? -0.5 : 0;
+    for (const krok of KROKY_UTEKU) {
+      const x = hrdina.x + ux * krok;
+      const y = hrdina.y + uy * krok;
+      for (const n of blizci) {
+        const d = Math.hypot(n.x - x, n.y - y);
+        if (d < 70) cena += 1 - d / 70;
+      }
+      if (spatnaPlocha && naPlose(hra.mapa, x, y)) cena += 2;
+      if (zakryto.some((o) => Math.hypot(o.x - x, o.y - y) < o.polomer + 10)) cena += 2;
+      if (hloubkaVPrekazce(hra.mapa, x, y, POLOMER_HRDINY) > 0) cena += 1;
+    }
+    if (!nej || cena < nej.cena) nej = { ux, uy, cena };
+  }
+  const vysledek = { ux: nej.ux, uy: nej.uy, do: hra.cas + DRZENI_UTEKU };
+  pametUteku.set(hra, vysledek);
+  return vysledek;
+}
+
+// Nejbližší dlaždice bez bahna do 6 dlaždic od hrdiny, null = žádná.
+function krajPlochy(hra) {
+  const { hrdina } = hra;
+  const { data } = plochaMapy(hra.mapa);
+  const tx0 = Math.floor(hrdina.x / VELIKOST_DLAZDICE);
+  const ty0 = Math.floor(hrdina.y / VELIKOST_DLAZDICE);
+  let nej = null;
+  let nejD = Infinity;
+  for (let ty = ty0 - 6; ty <= ty0 + 6; ty++) {
+    for (let tx = tx0 - 6; tx <= tx0 + 6; tx++) {
+      if (dlazdicePlochy(tx, ty, data)) continue;
+      const x = (tx + 0.5) * VELIKOST_DLAZDICE;
+      const y = (ty + 0.5) * VELIKOST_DLAZDICE;
+      const d = Math.hypot(x - hrdina.x, y - hrdina.y);
+      if (d < nejD) { nej = { x, y }; nejD = d; }
+    }
+  }
+  return nej;
 }
 
 function nejblizsiTruhla(hra, dosah) {
@@ -3963,12 +4060,56 @@ for (const id of PORADI_MAP) {
   truhlyMap[id] = { boss: boss.druh, kus: kus ? `${kus.nazev} (${kus.boss})` : null };
 }
 
+// Bot utíká mezerou (smerUteku): s nepřítelem na zádech neutíká od každého zvlášť, ale jedním směrem. Z bahna
+// s netopýrem na zádech vyjde do UTEK_Z_BAHNA s, na ledu s vlkem na zádech se do 1,5 s rozjede aspoň
+// o UTEK_NA_LEDU px a vstup se mu přitom mezi snímky neotáčí (dřív cukal sem a tam a nehnul se). Hry kratší
+// než 1:30 z analýzy balancu (Havíř v Bažině padl za 28 s, Havíř a Světlonoš na jezeře za 1:12, semínko 3)
+// teď 1:30 vydrží.
+const UTEK_Z_BAHNA = 2.5;
+const UTEK_NA_LEDU = 60;
+const botUtek = {};
+for (const [id, druh, sekund] of [['bazina', 'netopyr', UTEK_Z_BAHNA], ['jezero', 'vlk', 1.5]]) {
+  const start = ctverec(id, true);
+  if (!start) {
+    chybyMap.push(`na mapě ${id} chybí plocha 3×3 pro útěk bota`);
+    continue;
+  }
+  const h = tichaMapa(id);
+  Object.assign(h.hrdina, start);
+  pridejNepritele(h, druh, start.x + 1, start.y);
+  let obratu = 0;
+  let predVstup = null;
+  let venZBahna = null;
+  for (let t = 0; t < sekund - 1e-9 && venZBahna === null; t += DT) {
+    const vstup = rozhodni(h, t);
+    const d = Math.hypot(vstup.dx, vstup.dy) || 1;
+    if (predVstup && (vstup.dx * predVstup.dx + vstup.dy * predVstup.dy) / d < -0.5) obratu += 1;
+    predVstup = { dx: vstup.dx / d, dy: vstup.dy / d };
+    aktualizuj(h, DT, vstup, SIRKA, VYSKA);
+    if (id === 'bazina' && !naPlose(id, h.hrdina.x, h.hrdina.y)) venZBahna = h.cas;
+  }
+  const ujel = Math.round(Math.hypot(h.hrdina.x - start.x, h.hrdina.y - start.y));
+  if (obratu > 1) chybyMap.push(`bot na mapě ${id} s nepřítelem na zádech cuká (${obratu} obratů)`);
+  if (id === 'bazina' && venZBahna === null) chybyMap.push(`bot s netopýrem na zádech nevyšel z bahna do ${UTEK_Z_BAHNA} s (ušel ${ujel} px)`);
+  if (id === 'jezero' && ujel < UTEK_NA_LEDU) chybyMap.push(`bot na ledu s vlkem na zádech ujel za 1,5 s jen ${ujel} px`);
+  botUtek[id] = { obratu, ujel_px: ujel, ...(id === 'bazina' ? { z_bahna_s: venZBahna && Math.round(venZBahna * 100) / 100 } : {}) };
+}
+for (const [trida, id] of [['havir', 'bazina'], ['havir', 'jezero'], ['svetlonos', 'jezero']]) {
+  const h = novaHra(vytvorRng(3), trida, {}, id);
+  for (let t = 0; t < 90 && !h.konec; t += DT) {
+    aktualizuj(h, DT, rozhodni(h, t), SIRKA, VYSKA);
+    obsluz(h);
+  }
+  if (h.konec) chybyMap.push(`${trida} na mapě ${id} (semínko 3) padl už za ${Math.round(h.cas)} s`);
+  botUtek[`${trida}_${id}_90_s`] = { zivy: !h.konec, zivotu: h.hrdina.hp, uroven: h.hrdina.uroven };
+}
+
 const soucetHodnot = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 const zaokrouhli = (s) => Object.fromEntries(Object.entries(s).map(([id, p]) => [id, Math.round(p * 1000) / 10]));
 
 const vysledek = {
   seminko,
-  mapy: { ...vysledkyMap, prekazky: pokusyPrekazek, truhly_hlavnich_bossu: truhlyMap },
+  mapy: { ...vysledkyMap, prekazky: pokusyPrekazek, truhly_hlavnich_bossu: truhlyMap, utek_bota: botUtek },
   trida: hra.trida,
   preziti_s: Math.round(hra.cas),
   konec: hra.konec,
