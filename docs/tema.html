@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RuGee – vzhled</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  /* Jen pro tuhle ukázku: stránka se má posouvat a ukázky jdou pod sebe. */
+  html, body { height: auto; overflow: auto; }
+  body { padding: 16px; background: #24331d; }
+  .ukazka { max-width: 980px; margin: 0 auto; display: grid; gap: 24px; }
+  .ukazka > section { padding: 16px; }
+  .ukazka h3 { margin: 0 0 12px; color: var(--mosaz); font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .ukazka p { margin: 0 0 12px; color: var(--pergamen-tlumeny); }
+  .barvy { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .barva { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--pergamen); }
+  .barva i { flex: none; width: 28px; height: 28px; background: var(--b); border: 2px solid var(--noc); }
+  .rada { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+  .rada > * { flex: 0 1 auto; }
+  .okno-ukazka { width: min(300px, 100%); padding: 14px; }
+  .tlacitka { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .tlacitka small { display: block; margin-top: 4px; color: var(--pergamen-tlumeny); font-size: 12px; text-align: center; }
+  .tlacitka .menu-tlacitko { width: 100%; padding-left: 28px; padding-right: 28px; }
+  .nadpisy { display: grid; gap: 12px; }
+  .rarity { display: flex; flex-wrap: wrap; gap: 10px; }
+  .rarity span { padding: 4px 10px; color: var(--c-svetla); background: var(--c-pozadi); box-shadow: 0 0 0 2px var(--c), 0 0 0 4px var(--noc); }
+  .pole { width: 100%; padding: 10px 12px; font: inherit; color: var(--pergamen); }
+</style>
+</head>
+<body>
+<main class="ukazka">
+  <section class="ram">
+    <h1 id="nadpis"></h1>
+    <p>Kit vzhledu RuGee „Důlní dřevo a mosaz“. Okna jsou trámy důlní výdřevy s mosazným kováním, uvnitř tmavá prkna.
+      Všechno je pixel art z textu (nastroje/ramy.mjs, src/pismo.js), nic se nestahuje.</p>
+  </section>
+
+  <section class="ram">
+    <h3>Paleta</h3>
+    <div class="barvy" id="barvy"></div>
+  </section>
+
+  <section class="ram">
+    <h3>Rámy a deska</h3>
+    <div class="rada">
+      <div class="ram okno-ukazka"><b>.ram</b><p>Hlavní okno: menu, záložky, pauza, konec hry.</p></div>
+      <div class="ram ram-mosaz okno-ukazka"><b>.ram.ram-mosaz</b><p>Vzácné okno: truhla bosse, kupec.</p></div>
+      <div class="deska okno-ukazka"><b>.deska</b><p>Jen prkna bez rámu.</p>
+        <div class="ram-tenky deska" style="padding: 8px 10px"><b>.ram-tenky</b> uvnitř okna</div></div>
+    </div>
+  </section>
+
+  <section class="ram">
+    <h3>Tlačítka</h3>
+    <div class="tlacitka">
+      <div><button class="menu-tlacitko" type="button">Postavy</button><small>.menu-tlacitko</small></div>
+      <div><button class="menu-tlacitko vybrano" type="button">Mapy</button><small>vybrané (šipky, myš, dotyk)</small></div>
+      <div><button class="menu-tlacitko hlavni" type="button">Hrát</button><small>.hlavni</small></div>
+      <div><button class="menu-tlacitko hlavni vybrano" type="button">Pokračovat</button><small>.hlavni vybrané</small></div>
+      <div><button class="menu-tlacitko potvrdit" type="button">Opravdu smazat?</button><small>.potvrdit</small></div>
+      <div><button class="menu-tlacitko" type="button" disabled>Plno (5/5)</button><small>vypnuté</small></div>
+    </div>
+  </section>
+
+  <section class="ram">
+    <h3>Nadpisy pixelovým písmem</h3>
+    <div class="nadpisy" id="nadpisy"></div>
+  </section>
+
+  <section class="ram">
+    <h3>Drobnosti</h3>
+    <div class="rada">
+      <span class="stitek">Úroveň 2</span>
+      <span><kbd>Esc</kbd> <kbd>Enter</kbd> <kbd>P</kbd></span>
+      <input class="pole prohlubne" value="Prohlubeň: pole pro jméno" aria-label="Ukázka pole">
+    </div>
+    <h3 style="margin-top: 16px">Rarity (beze změny, jako ve hře)</h3>
+    <div class="rarity">
+      <span class="rarita-bezna">Běžná</span><span class="rarita-vzacna">Vzácná</span>
+      <span class="rarita-epicka">Epická</span><span class="rarita-legendarni">Legendární</span>
+    </div>
+  </section>
+</main>
+<script type="module">
+  import { pixelovyNadpis, STYL_PERGAMEN } from '../src/pismo.js';
+  pixelovyNadpis(document.getElementById('nadpis'), 'RuGee – vzhled', { max: 4 });
+  const nadpisy = document.getElementById('nadpisy');
+  for (const [text, volby] of [
+    ['Postavy', {}], ['Nová úroveň', {}], ['Horda tě pohltila', {}],
+    ['ÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ 0123456789', { min: 1 }], ['Pergamen: výbava bosse', { styl: STYL_PERGAMEN, max: 2 }],
+  ]) {
+    const h = document.createElement('h2');
+    nadpisy.append(h);
+    pixelovyNadpis(h, text, volby);
+  }
+  const promenne = ['--noc', '--drevo-0', '--drevo-1', '--drevo-2', '--drevo-3', '--drevo-4', '--drevo-5', '--drevo-6',
+    '--mosaz-tma', '--mosaz-stin', '--mosaz', '--mosaz-svetla', '--mosaz-lesk', '--pergamen', '--pergamen-tlumeny', '--ok', '--chyba',
+    '--xp', '--duse'];
+  const styl = getComputedStyle(document.documentElement);
+  document.getElementById('barvy').append(...promenne.map((p) => {
+    const b = document.createElement('span');
+    b.className = 'barva';
+    b.innerHTML = `<i style="--b: var(${p})"></i>${p}<br>${styl.getPropertyValue(p).trim()}`;
+    return b;
+  }));
+</script>
+</body>
+</html>

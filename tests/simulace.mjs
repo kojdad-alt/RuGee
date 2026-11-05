@@ -142,6 +142,8 @@ import {
   prepniProfil, smazProfil, dataProfilu, platnaDataProfilu, importujProfil, prehledProfilu,
 } from '../src/ulozeni.js';
 import { kodProfilu, prectiKod, souborProfilu, nazevSouboru, crc32, VERZE_KODU } from '../src/prenos.js';
+import { PISMO_NADPISU, PISMENA_LOGA } from '../src/pismo.js';
+import { svg as svgRamu } from '../nastroje/ramy.mjs';
 import {
   MAPY, PORADI_MAP, VYCHOZI_MAPA, ODEMKNUTI_MAPY, VELIKOST_DLAZDICE, PRICHODY_MAP, naLedu, ledovaDlazdice, odKdy, platnaMapa,
   plochaMapy, dlazdicePlochy, naPlose, prekazkaNaDlazdici, kruhPrekazky, hloubkaVPrekazce, VOLNO_U_STARTU,
@@ -4664,6 +4666,32 @@ for (const uloziste of [{ getItem() { throw new Error('zakázáno'); }, setItem(
   if (JSON.stringify(prectiKod(kodProfilu(dataProfilu())).data) !== JSON.stringify(dataProfilu()) || dataProfilu().duse.duse !== 0) chybyProfilu.push('zakázané úložiště: export prázdného profilu nejde přečíst');
 }
 chyby.push(...chybyProfilu);
+
+// Písmo nadpisů (src/pismo.js): každý znak má stejně řádků stejné délky, česká velká písmena mají diakritiku jen
+// ve 3 horních řádcích a dole jsou stejná jako základní písmeno. Nadpisy oken z index.html i logo jdou napsat celé.
+const chybyPisma = [];
+const vyskaPisma = PISMO_NADPISU.A.length;
+for (const [znak, glyf] of Object.entries(PISMO_NADPISU)) {
+  if (glyf.length !== vyskaPisma || glyf.some((r) => r.length !== glyf[0].length || /[^.X]/.test(r))) chybyPisma.push(`znak ${znak} má špatný tvar`);
+}
+const DIAKRITIKA = { Á: 'A', Č: 'C', Ď: 'D', É: 'E', Ě: 'E', Í: 'I', Ň: 'N', Ó: 'O', Ř: 'R', Š: 'S', Ť: 'T', Ú: 'U', Ů: 'U', Ý: 'Y', Ž: 'Z' };
+for (const [znak, zaklad] of Object.entries(DIAKRITIKA)) {
+  const g = PISMO_NADPISU[znak];
+  if (!g || g.slice(3).join() !== PISMO_NADPISU[zaklad].slice(3).join() || !g.slice(0, 3).join('').includes('X')) chybyPisma.push(`${znak} nemá diakritiku nad ${zaklad}`);
+}
+const nadpisyOken = [...readFileSync(new URL('../index.html', import.meta.url), 'utf8').matchAll(/<h2[^>]*>([^<]+)<\/h2>/g)].map((m) => m[1]);
+for (const text of [...nadpisyOken, 'Postavy', 'Mapy', 'Vylepšení', 'Sbírka', 'Rekordy', 'Ovládání', 'Nastavení', 'Profil']) {
+  for (const z of text.toLocaleUpperCase('cs')) if (!PISMO_NADPISU[z]) chybyPisma.push(`nadpis „${text}“: písmo nemá znak ${z}`);
+}
+if (nadpisyOken.length < 5) chybyPisma.push(`v index.html je jen ${nadpisyOken.length} nadpisů oken`);
+if ([...'RuGee'].some((z) => !PISMENA_LOGA[z] || PISMENA_LOGA[z].length !== 8)) chybyPisma.push('logu chybí písmeno');
+// Rámy (nastroje/ramy.mjs) jsou obdélníky a mají jen barvy z palety, jinak by svg() spadlo.
+for (const radky of [['KK', 'Kh'], ['Kh', 'K']]) {
+  let spadlo = false;
+  try { svgRamu(radky); } catch { spadlo = true; }
+  if (spadlo !== (radky[1].length !== 2)) chybyPisma.push(`kontrola tvaru rámu: ${radky}`);
+}
+chyby.push(...chybyPisma);
 if (chyby.length) {
   console.error('CHYBA:', chyby.join('; '));
   process.exit(1);

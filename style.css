@@ -13,6 +13,106 @@
   --stupen-3: #ff5d7a;
 }
 
+/* Téma „Důlní dřevo a mosaz“: okna jsou z trámů důlní výdřevy s mosazným kováním, uvnitř tmavá prkna, nadpisy
+   zlatým pixelovým písmem jako logo. Barvy jsou z palety spritů (dřevo krumpáče, zlato loga, obrys spritů).
+   Rámy, deska a šipka jsou pixel art z textu v nastroje/ramy.mjs (proměnné --ram-*, --deska, --sipka níž),
+   pixel jednoho rámu je --px (3 px, na telefonu 2 px). Popis kitu je v docs/PODROBNOSTI.md (Vzhled). */
+:root {
+  --noc: #140c08;           /* obrys všeho, jako obrys spritů, jen teplejší */
+  --drevo-0: #1f140d;       /* prohlubně (pole, pruhy) */
+  --drevo-1: #2b1c12;       /* deska okna */
+  --drevo-2: #3d2717;       /* stín dřeva */
+  --drevo-3: #5a3a22;       /* tlačítko */
+  --drevo-4: #7a5030;       /* hrana tlačítka, vybrané tlačítko */
+  --drevo-5: #9c6a3e;       /* světlá hrana vybraného */
+  --drevo-6: #b98250;       /* nejsvětlejší dřevo */
+  --mosaz-tma: #6b3f1d;     /* hloubka zlatého písma */
+  --mosaz-stin: #b07428;
+  --mosaz: #e9c46a;         /* zlatá z loga, nadpisy */
+  --mosaz-svetla: #ffe08a;
+  --mosaz-lesk: #fff1c4;
+  --pergamen: #f3e6c8;      /* text */
+  --pergamen-tlumeny: #c9b393;
+  --ok: #7cf08a;
+  --chyba: #f08a8d;
+  --px: 3px;
+}
+
+@media (max-width: 600px) {
+  :root { --px: 2px; }
+}
+
+/* ramy: začátek (generuje node nastroje/ramy.mjs, ručně neupravovat) */
+:root {
+  --ram-drevo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M0 0h20v1h-20zM0 1h1v1h-1zM5 1h1v1h-1zM14 1h1v1h-1zM19 1h1v1h-1zM0 2h1v1h-1zM5 2h1v1h-1zM14 2h1v1h-1zM19 2h1v1h-1zM0 3h1v1h-1zM5 3h1v1h-1zM14 3h1v1h-1zM19 3h1v1h-1zM0 4h1v1h-1zM5 4h1v1h-1zM14 4h1v1h-1zM19 4h1v1h-1zM0 5h20v1h-20zM0 6h1v1h-1zM5 6h1v1h-1zM14 6h1v1h-1zM19 6h1v1h-1zM0 7h1v1h-1zM5 7h1v1h-1zM14 7h1v1h-1zM19 7h1v1h-1zM0 8h1v1h-1zM5 8h1v1h-1zM14 8h1v1h-1zM19 8h1v1h-1zM0 9h1v1h-1zM5 9h1v1h-1zM14 9h1v1h-1zM19 9h1v1h-1zM0 10h1v1h-1zM5 10h1v1h-1zM14 10h1v1h-1zM19 10h1v1h-1zM0 11h1v1h-1zM5 11h1v1h-1zM14 11h1v1h-1zM19 11h1v1h-1zM0 12h1v1h-1zM5 12h1v1h-1zM14 12h1v1h-1zM19 12h1v1h-1zM0 13h1v1h-1zM5 13h1v1h-1zM14 13h1v1h-1zM19 13h1v1h-1zM0 14h20v1h-20zM0 15h1v1h-1zM5 15h1v1h-1zM14 15h1v1h-1zM19 15h1v1h-1zM0 16h1v1h-1zM5 16h1v1h-1zM14 16h1v1h-1zM19 16h1v1h-1zM0 17h1v1h-1zM5 17h1v1h-1zM14 17h1v1h-1zM19 17h1v1h-1zM0 18h1v1h-1zM5 18h1v1h-1zM14 18h1v1h-1zM19 18h1v1h-1zM0 19h20v1h-20z'/%3E%3Cpath fill='%23fff1c4' d='M1 1h3v1h-3zM15 1h3v1h-3zM1 2h1v1h-1zM15 2h1v1h-1zM1 3h1v1h-1zM15 3h1v1h-1zM1 15h3v1h-3zM15 15h3v1h-3zM1 16h1v1h-1zM15 16h1v1h-1zM1 17h1v1h-1zM15 17h1v1h-1z'/%3E%3Cpath fill='%23e9c46a' d='M4 1h1v1h-1zM18 1h1v1h-1zM2 2h2v1h-2zM16 2h2v1h-2zM2 3h1v1h-1zM16 3h1v1h-1zM1 4h1v1h-1zM15 4h1v1h-1zM4 15h1v1h-1zM18 15h1v1h-1zM2 16h2v1h-2zM16 16h2v1h-2zM2 17h1v1h-1zM16 17h1v1h-1zM1 18h1v1h-1zM15 18h1v1h-1z'/%3E%3Cpath fill='%23b98250' d='M6 1h8v1h-8zM1 6h1v1h-1zM15 6h1v1h-1zM1 7h1v1h-1zM15 7h1v1h-1zM1 8h1v1h-1zM15 8h1v1h-1zM1 9h1v1h-1zM15 9h1v1h-1zM1 10h1v1h-1zM15 10h1v1h-1zM1 11h1v1h-1zM15 11h1v1h-1zM1 12h1v1h-1zM15 12h1v1h-1zM1 13h1v1h-1zM15 13h1v1h-1zM6 15h8v1h-8z'/%3E%3Cpath fill='%23b07428' d='M4 2h1v1h-1zM18 2h1v1h-1zM4 3h1v1h-1zM18 3h1v1h-1zM2 4h3v1h-3zM16 4h3v1h-3zM4 16h1v1h-1zM18 16h1v1h-1zM4 17h1v1h-1zM18 17h1v1h-1zM2 18h3v1h-3zM16 18h3v1h-3z'/%3E%3Cpath fill='%238a5a35' d='M6 2h3v1h-3zM12 2h2v1h-2zM8 3h5v1h-5zM2 6h1v1h-1zM16 6h1v1h-1zM2 7h1v1h-1zM16 7h1v1h-1zM2 8h2v1h-2zM16 8h2v1h-2zM3 9h1v1h-1zM17 9h1v1h-1zM3 10h1v1h-1zM17 10h1v1h-1zM3 11h1v1h-1zM17 11h1v1h-1zM2 12h2v1h-2zM16 12h2v1h-2zM2 13h1v1h-1zM16 13h1v1h-1zM6 16h3v1h-3zM12 16h2v1h-2zM8 17h5v1h-5z'/%3E%3Cpath fill='%23704629' d='M9 2h3v1h-3zM6 3h2v1h-2zM13 3h1v1h-1zM3 6h1v1h-1zM17 6h1v1h-1zM3 7h1v1h-1zM17 7h1v1h-1zM2 9h1v1h-1zM16 9h1v1h-1zM2 10h1v1h-1zM16 10h1v1h-1zM2 11h1v1h-1zM16 11h1v1h-1zM3 13h1v1h-1zM17 13h1v1h-1zM9 16h3v1h-3zM6 17h2v1h-2zM13 17h1v1h-1z'/%3E%3Cpath fill='%232a170b' d='M3 3h1v1h-1zM17 3h1v1h-1zM3 17h1v1h-1zM17 17h1v1h-1z'/%3E%3Cpath fill='%234f3019' d='M6 4h8v1h-8zM4 6h1v1h-1zM18 6h1v1h-1zM4 7h1v1h-1zM18 7h1v1h-1zM4 8h1v1h-1zM18 8h1v1h-1zM4 9h1v1h-1zM18 9h1v1h-1zM4 10h1v1h-1zM18 10h1v1h-1zM4 11h1v1h-1zM18 11h1v1h-1zM4 12h1v1h-1zM18 12h1v1h-1zM4 13h1v1h-1zM18 13h1v1h-1zM6 18h8v1h-8z'/%3E%3C/svg%3E");
+  --ram-mosaz: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M0 0h20v1h-20zM0 1h1v1h-1zM5 1h1v1h-1zM14 1h1v1h-1zM19 1h1v1h-1zM0 2h1v1h-1zM5 2h1v1h-1zM14 2h1v1h-1zM19 2h1v1h-1zM0 3h1v1h-1zM5 3h1v1h-1zM14 3h1v1h-1zM19 3h1v1h-1zM0 4h1v1h-1zM5 4h1v1h-1zM14 4h1v1h-1zM19 4h1v1h-1zM0 5h20v1h-20zM0 6h1v1h-1zM5 6h1v1h-1zM14 6h1v1h-1zM19 6h1v1h-1zM0 7h1v1h-1zM5 7h1v1h-1zM14 7h1v1h-1zM19 7h1v1h-1zM0 8h1v1h-1zM5 8h1v1h-1zM14 8h1v1h-1zM19 8h1v1h-1zM0 9h1v1h-1zM5 9h1v1h-1zM14 9h1v1h-1zM19 9h1v1h-1zM0 10h1v1h-1zM5 10h1v1h-1zM14 10h1v1h-1zM19 10h1v1h-1zM0 11h1v1h-1zM5 11h1v1h-1zM14 11h1v1h-1zM19 11h1v1h-1zM0 12h1v1h-1zM5 12h1v1h-1zM14 12h1v1h-1zM19 12h1v1h-1zM0 13h1v1h-1zM5 13h1v1h-1zM14 13h1v1h-1zM19 13h1v1h-1zM0 14h20v1h-20zM0 15h1v1h-1zM5 15h1v1h-1zM14 15h1v1h-1zM19 15h1v1h-1zM0 16h1v1h-1zM5 16h1v1h-1zM14 16h1v1h-1zM19 16h1v1h-1zM0 17h1v1h-1zM5 17h1v1h-1zM14 17h1v1h-1zM19 17h1v1h-1zM0 18h1v1h-1zM5 18h1v1h-1zM14 18h1v1h-1zM19 18h1v1h-1zM0 19h20v1h-20z'/%3E%3Cpath fill='%23b98250' d='M1 1h1v1h-1zM15 1h1v1h-1zM1 15h1v1h-1zM15 15h1v1h-1z'/%3E%3Cpath fill='%238a5a35' d='M2 1h2v1h-2zM16 1h2v1h-2zM1 2h1v1h-1zM15 2h1v1h-1zM1 3h1v1h-1zM15 3h1v1h-1zM2 15h2v1h-2zM16 15h2v1h-2zM1 16h1v1h-1zM15 16h1v1h-1zM1 17h1v1h-1zM15 17h1v1h-1z'/%3E%3Cpath fill='%23704629' d='M4 1h1v1h-1zM18 1h1v1h-1zM1 4h1v1h-1zM15 4h1v1h-1zM4 15h1v1h-1zM18 15h1v1h-1zM1 18h1v1h-1zM15 18h1v1h-1z'/%3E%3Cpath fill='%23fff1c4' d='M6 1h8v1h-8zM2 2h1v1h-1zM16 2h1v1h-1zM1 6h1v1h-1zM15 6h1v1h-1zM1 7h1v1h-1zM15 7h1v1h-1zM1 8h1v1h-1zM15 8h1v1h-1zM1 9h1v1h-1zM15 9h1v1h-1zM1 10h1v1h-1zM15 10h1v1h-1zM1 11h1v1h-1zM15 11h1v1h-1zM1 12h1v1h-1zM15 12h1v1h-1zM1 13h1v1h-1zM15 13h1v1h-1zM6 15h8v1h-8zM2 16h1v1h-1zM16 16h1v1h-1z'/%3E%3Cpath fill='%23e9c46a' d='M3 2h1v1h-1zM6 2h8v1h-8zM17 2h1v1h-1zM2 3h1v1h-1zM6 3h3v1h-3zM10 3h3v1h-3zM16 3h1v1h-1zM2 6h2v1h-2zM16 6h2v1h-2zM2 7h2v1h-2zM16 7h2v1h-2zM2 8h2v1h-2zM16 8h2v1h-2zM2 9h1v1h-1zM16 9h1v1h-1zM2 10h2v1h-2zM16 10h2v1h-2zM2 11h2v1h-2zM16 11h2v1h-2zM2 12h2v1h-2zM16 12h2v1h-2zM2 13h1v1h-1zM16 13h1v1h-1zM3 16h1v1h-1zM6 16h8v1h-8zM17 16h1v1h-1zM2 17h1v1h-1zM6 17h3v1h-3zM10 17h3v1h-3zM16 17h1v1h-1z'/%3E%3Cpath fill='%234f3019' d='M4 2h1v1h-1zM18 2h1v1h-1zM4 3h1v1h-1zM18 3h1v1h-1zM2 4h2v1h-2zM16 4h2v1h-2zM4 16h1v1h-1zM18 16h1v1h-1zM4 17h1v1h-1zM18 17h1v1h-1zM2 18h2v1h-2zM16 18h2v1h-2z'/%3E%3Cpath fill='%236b3f1d' d='M3 3h1v1h-1zM9 3h1v1h-1zM17 3h1v1h-1zM3 9h1v1h-1zM17 9h1v1h-1zM3 17h1v1h-1zM9 17h1v1h-1zM17 17h1v1h-1z'/%3E%3Cpath fill='%23b07428' d='M13 3h1v1h-1zM6 4h8v1h-8zM4 6h1v1h-1zM18 6h1v1h-1zM4 7h1v1h-1zM18 7h1v1h-1zM4 8h1v1h-1zM18 8h1v1h-1zM4 9h1v1h-1zM18 9h1v1h-1zM4 10h1v1h-1zM18 10h1v1h-1zM4 11h1v1h-1zM18 11h1v1h-1zM4 12h1v1h-1zM18 12h1v1h-1zM3 13h2v1h-2zM17 13h2v1h-2zM13 17h1v1h-1zM6 18h8v1h-8z'/%3E%3Cpath fill='%232b1c12' d='M4 4h1v1h-1zM18 4h1v1h-1zM4 18h1v1h-1zM18 18h1v1h-1z'/%3E%3C/svg%3E");
+  --ram-tenky: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M1 0h3v1h-3zM0 1h1v1h-1zM4 1h1v1h-1zM0 2h1v1h-1zM4 2h1v1h-1zM0 3h1v1h-1zM4 3h1v1h-1zM1 4h3v1h-3z'/%3E%3Cpath fill='%23b98250' d='M1 1h3v1h-3zM1 2h1v1h-1zM1 3h1v1h-1z'/%3E%3Cpath fill='%234f3019' d='M3 2h1v1h-1zM2 3h2v1h-2z'/%3E%3C/svg%3E");
+  --deska: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='16' shape-rendering='crispEdges'%3E%3Cpath fill='%2333221a' d='M0 0h44v1h-44zM45 0h19v1h-19zM0 8h14v1h-14zM15 8h49v1h-49z'/%3E%3Cpath fill='%231f140c' d='M44 0h1v1h-1zM44 1h1v1h-1zM44 2h1v1h-1zM44 3h1v1h-1zM44 4h1v1h-1zM44 5h1v1h-1zM44 6h1v1h-1zM0 7h64v1h-64zM14 8h1v1h-1zM14 9h1v1h-1zM14 10h1v1h-1zM14 11h1v1h-1zM14 12h1v1h-1zM14 13h1v1h-1zM14 14h1v1h-1zM0 15h64v1h-64z'/%3E%3Cpath fill='%232b1c12' d='M0 1h44v1h-44zM45 1h19v1h-19zM0 2h3v1h-3zM10 2h34v1h-34zM45 2h5v1h-5zM57 2h7v1h-7zM0 3h30v1h-30zM34 3h10v1h-10zM45 3h19v1h-19zM0 4h18v1h-18zM27 4h17v1h-17zM45 4h19v1h-19zM0 5h44v1h-44zM45 5h13v1h-13zM0 6h44v1h-44zM45 6h19v1h-19zM0 9h14v1h-14zM15 9h49v1h-49zM0 10h6v1h-6zM9 10h5v1h-5zM15 10h7v1h-7zM30 10h34v1h-34zM0 11h14v1h-14zM15 11h39v1h-39zM61 11h3v1h-3zM5 12h9v1h-9zM15 12h49v1h-49zM0 13h14v1h-14zM15 13h21v1h-21zM45 13h19v1h-19zM0 14h14v1h-14zM15 14h49v1h-49z'/%3E%3Cpath fill='%2327190f' d='M3 2h7v1h-7zM50 2h7v1h-7zM30 3h4v1h-4zM18 4h9v1h-9zM58 5h6v1h-6zM6 10h3v1h-3zM22 10h8v1h-8zM54 11h7v1h-7zM0 12h5v1h-5zM36 13h9v1h-9z'/%3E%3C/svg%3E");
+  --sipka: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='9' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M0 0h2v1h-2zM0 1h1v1h-1zM2 1h1v1h-1zM0 2h1v1h-1zM3 2h1v1h-1zM0 3h1v1h-1zM4 3h1v1h-1zM0 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM4 5h1v1h-1zM0 6h1v1h-1zM3 6h1v1h-1zM0 7h1v1h-1zM2 7h1v1h-1zM0 8h2v1h-2z'/%3E%3Cpath fill='%23fff1c4' d='M1 1h1v1h-1zM1 2h1v1h-1zM1 3h1v1h-1zM1 4h1v1h-1z'/%3E%3Cpath fill='%23e9c46a' d='M2 2h1v1h-1zM2 3h2v1h-2zM2 4h3v1h-3zM1 5h2v1h-2zM1 6h1v1h-1z'/%3E%3Cpath fill='%23b07428' d='M3 5h1v1h-1zM2 6h1v1h-1zM1 7h1v1h-1z'/%3E%3C/svg%3E");
+}
+/* ramy: konec */
+
+/* Okno z trámů: .ram (dřevo), .ram.ram-mosaz (vzácné okno), .ram-tenky (rámeček uvnitř okna).
+   Deska (prkna) je pozadí okna, jde dát i samostatně třídou .deska. Rám je přes border-image, takže okno
+   s rámem nemá mít vlastní border, jen padding. */
+.ram, .deska {
+  background: var(--deska) 0 0 / calc(64 * var(--px)) calc(16 * var(--px)) repeat padding-box var(--drevo-1);
+  color: var(--pergamen);
+}
+
+.ram {
+  border: calc(6 * var(--px)) solid transparent;
+  border-image: var(--ram-drevo) 6 / calc(6 * var(--px)) repeat;
+  box-shadow: 0 var(--px) 0 var(--px) rgba(0, 0, 0, 0.35);
+}
+
+.ram.ram-mosaz { border-image-source: var(--ram-mosaz); }
+
+.ram-tenky {
+  border: calc(2 * var(--px)) solid transparent;
+  border-image: var(--ram-tenky) 2 / calc(2 * var(--px)) repeat;
+  background-clip: padding-box;
+}
+
+/* Prohlubeň: tmavé místo zapuštěné do desky (pole pro text, pruhy, počítadla). */
+.prohlubne {
+  background: var(--drevo-0);
+  border: 2px solid var(--noc);
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.45), 0 2px 0 rgba(255, 220, 160, 0.08);
+}
+
+/* Štítek: malá mosazná cedulka nad nadpisem nebo na kartě. */
+.stitek {
+  display: inline-block;
+  padding: 2px 10px 3px;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--noc);
+  background: var(--mosaz);
+  box-shadow: inset 0 2px 0 var(--mosaz-lesk), inset 0 -2px 0 var(--mosaz-stin), 0 0 0 2px var(--noc);
+}
+
+/* Nadpis pixelovým písmem (src/pismo.js, pixelovyNadpis): plátno uprostřed, text pro čtečky schovaný. */
+.nadpis-pixel {
+  display: flex;
+  justify-content: center;
+  margin: 0;
+  line-height: 0;
+}
+
+.nadpis-pixel canvas { display: block; max-width: 100%; image-rendering: pixelated; }
+
+.jen-ctecka {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -674,47 +774,88 @@ body.v-menu .hud, body.v-menu .napoveda, body.v-menu .vybava { display: none; }
   margin-top: 24px;
 }
 
+/* Tlačítko z kitu: dřevěná destička s obrysem, světlá hrana nahoře a vlevo, stín dole a vpravo, rohy zkosené
+   o pixel. Vybrané (klávesnicí, myší i dotykem) má mosazný obrys, světlejší dřevo, zlatý text a pixelovou šipku.
+   Stisk prohodí hrany a posune tlačítko o 3 px dolů. Barvy jdou z proměnných --tl-*,
+   varianty: .hlavni (mosazné, Hrát, Pokračovat), .potvrdit (rudé, druhý stisk smaže nebo přepíše), :disabled. */
 .menu-tlacitko {
+  --tl-lice: var(--drevo-3);
+  --tl-svetlo: var(--drevo-4);
+  --tl-stin: var(--drevo-2);
+  --tl-obrys: var(--noc);
+  --tl-text: var(--pergamen);
+  --tl-hloubka: var(--drevo-1);
   position: relative;
   font: inherit;
   font-weight: bold;
   font-size: 17px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text);
-  background: #221f2b;
-  border: 3px solid var(--okraj);
-  box-shadow: inset 0 -4px 0 #15131b, 0 4px 0 #000;
+  color: var(--tl-text);
+  text-shadow: 0 2px 0 var(--tl-hloubka);
+  background: var(--tl-lice);
+  border: 3px solid var(--tl-obrys);
+  box-shadow:
+    inset 0 3px 0 var(--tl-svetlo), inset 3px 0 0 var(--tl-svetlo),
+    inset 0 -3px 0 var(--tl-hloubka), inset 0 -6px 0 var(--tl-stin), inset -3px 0 0 var(--tl-stin);
+  clip-path: polygon(3px 0, calc(100% - 3px) 0, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0 calc(100% - 3px), 0 3px);
   padding: 10px 32px 12px;
   cursor: pointer;
 }
 
 .menu-tlacitko.hlavni {
-  background: #3a2c17;
-  color: var(--zlata);
+  --tl-lice: var(--mosaz);
+  --tl-svetlo: var(--mosaz-lesk);
+  --tl-stin: var(--mosaz-stin);
+  --tl-hloubka: var(--mosaz-tma);
+  --tl-text: #2a1708;
+  text-shadow: 0 2px 0 var(--mosaz-svetla);
 }
 
 .menu-tlacitko.vybrano, .menu-tlacitko:focus-visible {
   outline: none;
-  border-color: var(--zlata);
-  color: var(--zlata);
+  --tl-lice: var(--drevo-4);
+  --tl-svetlo: var(--drevo-5);
+  --tl-stin: var(--drevo-3);
+  --tl-obrys: var(--mosaz);
+  --tl-text: var(--mosaz-svetla);
 }
 
-/* šipka u vybraného tlačítka, kreslená okraji, ať je všude stejná */
+.menu-tlacitko.hlavni.vybrano, .menu-tlacitko.hlavni:focus-visible {
+  --tl-lice: var(--mosaz-svetla);
+  --tl-svetlo: #fffaf0;
+  --tl-stin: var(--mosaz);
+  --tl-obrys: var(--mosaz-lesk);
+  --tl-text: #2a1708;
+}
+
+@media (hover: hover) {
+  .menu-tlacitko:hover:not(:disabled) {
+    --tl-obrys: var(--mosaz);
+    --tl-text: var(--mosaz-svetla);
+  }
+
+  .menu-tlacitko.hlavni:hover:not(:disabled) { --tl-text: #2a1708; --tl-obrys: var(--mosaz-lesk); }
+}
+
+/* Šipka u vybraného tlačítka: pixelový mosazný trojúhelník (ramy.mjs), na všech oknech stejná. */
 .menu-tlacitko.vybrano::before {
   content: '';
   position: absolute;
-  left: 12px;
+  left: 10px;
   top: 50%;
-  margin-top: -7px;
-  border-left: 8px solid var(--zlata);
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
+  width: 12px;
+  height: 18px;
+  margin-top: -10px;
+  background: var(--sipka) 0 0 / 100% 100% no-repeat;
+  image-rendering: pixelated;
 }
 
-.menu-tlacitko:active {
-  transform: translateY(2px);
-  box-shadow: inset 0 -2px 0 #15131b, 0 2px 0 #000;
+.menu-tlacitko:active:not(:disabled) {
+  translate: 0 3px;
+  box-shadow:
+    inset 0 3px 0 var(--tl-hloubka), inset 3px 0 0 var(--tl-stin),
+    inset 0 -3px 0 var(--tl-svetlo), inset -3px 0 0 var(--tl-svetlo);
 }
 
 .menu-zalozka {
@@ -783,10 +924,11 @@ kbd {
   font: inherit;
   font-size: 13px;
   text-align: center;
-  color: var(--zlata);
-  background: #221f2b;
-  border: 2px solid var(--okraj);
+  color: var(--mosaz-svetla);
+  background: var(--drevo-3);
+  border: 2px solid var(--noc);
   border-bottom-width: 4px;
+  box-shadow: inset 0 2px 0 var(--drevo-4);
 }
 
 .radek-tlacitek {
@@ -959,7 +1101,6 @@ kbd {
 
 .vratit-radek { margin-bottom: 12px; }
 .menu-tlacitko.vratit { font-size: 14px; padding: 8px 28px 10px; }
-.menu-tlacitko.vratit.potvrdit { border-color: #b0707a; color: #f0b4bc; }
 
 /* Duše na obrazovce konce hry */
 .konec-duse {
@@ -1308,8 +1449,25 @@ kbd {
 }
 
 .profil-radek { margin: 0 0 12px; }
-.menu-tlacitko.potvrdit { border-color: #b0707a; color: #f0b4bc; }
-.menu-tlacitko:disabled { color: var(--text-tlumeny); background: #1a1820; box-shadow: none; cursor: default; }
+/* Kit: rudé tlačítko pro druhý stisk (Smazat, Přepsat, Vrátit duše) a vypnuté tlačítko bez hran. */
+.menu-tlacitko.potvrdit {
+  --tl-lice: #6a2620;
+  --tl-svetlo: #8f3a30;
+  --tl-stin: #4a1a14;
+  --tl-hloubka: #2e0f0b;
+  --tl-text: #ffd0d0;
+}
+
+.menu-tlacitko.potvrdit.vybrano, .menu-tlacitko.potvrdit:focus-visible { --tl-lice: #7d2e26; --tl-obrys: var(--chyba); --tl-text: #ffe3e3; }
+
+.menu-tlacitko:disabled {
+  --tl-lice: var(--drevo-1);
+  --tl-obrys: var(--noc);
+  --tl-text: #8c7760;
+  box-shadow: none;
+  text-shadow: none;
+  cursor: default;
+}
 .profil-pata { font-size: 12px; margin-bottom: 14px; }
 
 .profil-pole, .profil-kod {
