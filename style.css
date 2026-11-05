@@ -956,6 +956,26 @@ body.v-menu .hud, body.v-menu .napoveda, body.v-menu .vybava { display: none; }
     inset 0 -3px 0 var(--tl-svetlo), inset -3px 0 0 var(--tl-svetlo);
 }
 
+/* Kit: rudé tlačítko pro druhý stisk (Smazat, Přepsat, Vrátit duše) a vypnuté tlačítko bez hran. */
+.menu-tlacitko.potvrdit {
+  --tl-lice: #6a2620;
+  --tl-svetlo: #8f3a30;
+  --tl-stin: #4a1a14;
+  --tl-hloubka: #2e0f0b;
+  --tl-text: #ffd0d0;
+}
+
+.menu-tlacitko.potvrdit.vybrano, .menu-tlacitko.potvrdit:focus-visible { --tl-lice: #7d2e26; --tl-obrys: var(--chyba); --tl-text: #ffe3e3; }
+
+.menu-tlacitko:disabled {
+  --tl-lice: var(--drevo-1);
+  --tl-obrys: var(--noc);
+  --tl-text: #8c7760;
+  box-shadow: none;
+  text-shadow: none;
+  cursor: default;
+}
+
 .menu-zalozka {
   width: min(560px, 100%);
   margin-top: 18px;
@@ -1788,32 +1808,58 @@ kbd {
   .rekord-cas { flex-direction: row; justify-content: center; gap: 12px; padding: 2px 0; }
 }
 
-/* Profil: karty profilů jako karty postav (sprite postavy profilu, jméno, duše, mapy, sbírka, rekord), pod nimi
-   hlášení a tlačítka akcí v mřížce, na telefonu po dvou. Pole pro jméno a kód jako pruh hlasitosti: tmavá
-   prohlubeň s okrajem, zaměřené zlatě. Písmo polí 16 px, ať iPhone při psaní nepřibližuje stránku. */
+/* Profil: profily jsou pod sebou jako sloty uložení ve hrách, každý karta jako u postav (výklenek s postavou
+   profilu, jméno, duše s ikonou, mapy, sbírka, rekord), pod nimi hlášení s kontrolkou a tlačítka akcí: nahoře správa (Nový, Přejmenovat, Smazat), pod ní
+   přenos (Exportovat, Importovat). Podokna jsou ve skupině s pixelovým nadpisem. Pole pro jméno a kód jsou
+   zapuštěná do desky, zaměřené mají mosazný obrys. Písmo polí 16 px, ať iPhone při psaní nepřibližuje stránku. */
 
 .mrizka-profilu {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .trida.profil .profil-jmeno { overflow-wrap: anywhere; }
-.trida .profil-duse { color: var(--duse); }
-.trida .profil-rekord { color: var(--text); }
-.trida.profil.nahled { cursor: default; margin: 0 0 12px; text-align: left; }
-.trida.profil.nahled .trida-stitek { background: var(--xp); }
+.trida .profil-duse { display: flex; align-items: center; gap: 5px; color: var(--duse); }
+.trida .profil-duse canvas { margin: -3px 0; }
+.trida .profil-rekord em { font-style: normal; font-weight: bold; color: var(--pergamen); }
+.trida.profil.nahled { cursor: default; margin: 4px 0 12px; text-align: left; }
+.trida.profil.nahled:active { translate: none; }
 
+.trida.profil.nahled .trida-stitek {
+  color: #06201d;
+  background: var(--xp);
+  box-shadow: inset 0 2px 0 #b5f5ee, inset 0 -2px 0 #2a9b90, 0 0 0 2px var(--noc);
+}
+
+/* Hlášení: kontrolka vlevo (zelená hotovo, rudá chyba, mosazná varování) jako u přepínačů v Nastavení. */
 .profil-hlaseni {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
   min-height: 1.4em;
-  margin: 0 0 10px;
-  color: #7cf08a;
+  margin: 0 0 12px;
+  color: var(--ok);
   font-size: 13px;
+  text-shadow: 0 2px 0 var(--noc);
+}
+
+.profil-hlaseni::before {
+  content: '';
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--ok);
+  box-shadow: inset 2px 2px 0 #d8ffdc, inset -2px -2px 0 #2f9a45, 0 0 0 2px var(--noc);
 }
 
 .profil-hlaseni:empty { margin: 0; min-height: 0; }
-.profil-hlaseni.chyba { color: #f08a8d; }
+.profil-hlaseni:empty::before { display: none; }
+.profil-hlaseni.chyba { color: var(--chyba); }
+.profil-hlaseni.chyba::before { background: var(--chyba); box-shadow: inset 2px 2px 0 #ffd0d0, inset -2px -2px 0 #a8403f, 0 0 0 2px var(--noc); }
+.profil-hlaseni.varovani { color: var(--mosaz-svetla); }
+.profil-hlaseni.varovani::before { background: var(--mosaz); box-shadow: inset 2px 2px 0 var(--mosaz-lesk), inset -2px -2px 0 var(--mosaz-stin), 0 0 0 2px var(--noc); }
 
 .profil-akce {
   display: grid;
@@ -1822,34 +1868,24 @@ kbd {
   margin: 0 0 12px;
 }
 
+/* Seznam: správa profilu po třech, přenos po dvou (šest sloupců, tlačítka přes dva nebo tři). */
+.profil-akce-seznam { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.profil-akce-seznam > * { grid-column: span 2; }
+.profil-akce-seznam > [data-akce="exportovat"], .profil-akce-seznam > [data-akce="importovat"] { grid-column: span 3; }
+
 .profil-akce .menu-tlacitko, .profil-radek .menu-tlacitko {
   min-width: 0;
-  font-size: 14px;
-  padding: 8px 28px 10px;
-  overflow-wrap: anywhere;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  padding: 8px 26px 10px;
 }
+
+.profil-akce .menu-tlacitko.vybrano::before, .profil-radek .menu-tlacitko.vybrano::before { left: 7px; }
 
 .profil-radek { margin: 0 0 12px; }
-/* Kit: rudé tlačítko pro druhý stisk (Smazat, Přepsat, Vrátit duše) a vypnuté tlačítko bez hran. */
-.menu-tlacitko.potvrdit {
-  --tl-lice: #6a2620;
-  --tl-svetlo: #8f3a30;
-  --tl-stin: #4a1a14;
-  --tl-hloubka: #2e0f0b;
-  --tl-text: #ffd0d0;
-}
-
-.menu-tlacitko.potvrdit.vybrano, .menu-tlacitko.potvrdit:focus-visible { --tl-lice: #7d2e26; --tl-obrys: var(--chyba); --tl-text: #ffe3e3; }
-
-.menu-tlacitko:disabled {
-  --tl-lice: var(--drevo-1);
-  --tl-obrys: var(--noc);
-  --tl-text: #8c7760;
-  box-shadow: none;
-  text-shadow: none;
-  cursor: default;
-}
 .profil-pata { font-size: 12px; margin-bottom: 14px; }
+
+.profil-sekce { margin-top: 4px; }
 
 .profil-pole, .profil-kod {
   display: block;
@@ -1857,15 +1893,15 @@ kbd {
   margin: 0 0 10px;
   font: inherit;
   font-size: 16px;
-  color: var(--text);
-  background: #15131b;
-  border: 3px solid var(--okraj);
-  box-shadow: inset 0 3px 0 #000;
+  color: var(--pergamen);
+  background: var(--drevo-0);
+  border: 3px solid var(--noc);
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.5), 0 2px 0 rgba(255, 220, 160, 0.08);
   padding: 10px 12px;
 }
 
-.profil-pole::placeholder, .profil-kod::placeholder { color: #6f6880; }
-.profil-pole:focus, .profil-kod:focus { outline: none; border-color: var(--zlata); }
+.profil-pole::placeholder, .profil-kod::placeholder { color: var(--pergamen-tlumeny); opacity: 0.6; }
+.profil-pole:focus, .profil-kod:focus { outline: none; border-color: var(--mosaz); }
 .profil-pole.zatrast, .profil-kod.zatrast { animation: zatrast 0.25s steps(4); }
 
 .profil-kod {
@@ -1876,14 +1912,23 @@ kbd {
   word-break: break-all;
 }
 
-.profil-kod[readonly] { color: var(--zlata); }
+.profil-kod[readonly] { color: var(--mosaz); }
 
 @media (hover: none) and (pointer: coarse) {
   .profil-kod { font-size: 16px; }
 }
 
+/* Telefon: akce po dvou, Smazat přes celou šířku mezi správou a přenosem. */
 @media (max-width: 520px) {
   .profil-akce { grid-template-columns: 1fr 1fr; }
-  .profil-akce .menu-tlacitko, .profil-radek .menu-tlacitko { padding: 8px 18px 10px; letter-spacing: 0.04em; }
-  .profil-akce .menu-tlacitko.vybrano::before, .profil-radek .menu-tlacitko.vybrano::before { left: 5px; }
+  .profil-akce-seznam > *, .profil-akce-seznam > [data-akce="exportovat"], .profil-akce-seznam > [data-akce="importovat"] { grid-column: span 1; }
+  .profil-akce-seznam > [data-akce="smazat"] { grid-column: 1 / -1; }
+  .profil-akce .menu-tlacitko { padding: 8px 20px 10px; }
+  .profil-akce .menu-tlacitko.vybrano::before { left: 4px; }
+}
+
+/* Úzký telefon (320 px): akce pod sebou, ať se PŘEJMENOVAT nemusí lámat. */
+@media (max-width: 360px) {
+  .profil-akce, .profil-akce-seznam { grid-template-columns: minmax(0, 1fr); }
+  .profil-akce-seznam > *, .profil-akce-seznam > [data-akce] { grid-column: auto; }
 }

@@ -642,8 +642,9 @@ function vyplnNastaveni(panel) {
 
 // Profil: každý profil má svoje duše, vylepšení, rekordy, sbírku a mapy (ulozeni.js), nastavení je společné.
 // Karta profilu je tlačítko: klik (nebo Enter) na ni profil zvolí. Tlačítka pod kartami pracují se zvoleným
-// profilem. Nový profil, přejmenování, export a import se otevřou ve stejném panelu, Esc nebo Zpět vrátí seznam.
-// Smazat a přepsat chtějí dva stisky, první se jen zeptá. Nic se neposílá na server (prenos.js).
+// profilem. Nový profil, přejmenování, export a import se otevřou ve stejném panelu ve skupině s pixelovým
+// nadpisem, Esc nebo Zpět vrátí seznam. Smazat a přepsat chtějí dva stisky, první se jen zeptá (u smazání hlášení
+// napíše, co všechno zmizí). Nic se neposílá na server (prenos.js).
 const TEXTY_CHYB = {
   jmeno: 'Napiš jméno (aspoň jeden znak).',
   obsazene: 'Tohle jméno už má jiný profil.',
@@ -694,9 +695,11 @@ function hlaseniProfilu(text = '', chyba = false) {
   return p;
 }
 
+// Hlášení pod kartami a v podoknech: zelená kontrolka = hotovo, rudá = chyba, mosazná = varování (smazání).
 function ukazHlaseni(p, text, chyba = false) {
   p.textContent = text;
-  p.classList.toggle('chyba', chyba);
+  p.classList.toggle('chyba', chyba === true);
+  p.classList.toggle('varovani', chyba === 'varovani');
 }
 
 function radekTlacitek(...tlacitka) {
@@ -711,16 +714,21 @@ function zamerPole(pole) {
   pole.focus();
 }
 
-// Obsah karty profilu (i náhledu importu): sprite postavy, jméno, duše, mapy, sbírka a nejdelší přežití.
+// Obsah karty profilu (i náhledu importu): postava profilu ve výklenku jako v Postavách, jméno, duše (s ikonou)
+// a postava, mapy, sbírka a nejdelší přežití.
 function obsahKarty(karta, prehled, jmeno, stitek) {
   const text = prvek('span', 'trida-text');
+  const duse = prvek('small', 'profil-duse');
+  duse.append(obrazekSpritu('duse', 2), prvek('span', '', `${prehled.duse} ${pocetDusi(prehled.duse)} · ${TRIDY[prehled.trida].nazev}`));
+  const rekord = prvek('small', 'profil-rekord', prehled.rekord ? 'Nejdelší přežití ' : 'Zatím bez rekordu');
+  if (prehled.rekord) rekord.append(prvek('em', '', formatCas(prehled.rekord)));
   text.append(
     prvek('b', 'profil-jmeno', jmeno),
-    prvek('small', 'profil-duse', `${prehled.duse} ${pocetDusi(prehled.duse)} · ${TRIDY[prehled.trida].nazev}`),
+    duse,
     prvek('small', '', `Mapy ${prehled.mapy}/${PORADI_MAP.length} · sbírka ${prehled.sbirka}/${VSECHNY_KUSY.length}`),
-    prvek('small', 'profil-rekord', prehled.rekord ? `Nejdelší přežití ${formatCas(prehled.rekord)}` : 'Zatím bez rekordu'),
+    rekord,
   );
-  karta.append(obrazekSpritu(prehled.trida, 4), text, prvek('span', 'trida-stitek', stitek));
+  karta.append(portret(prehled.trida, 4), text, prvek('span', 'trida-stitek', stitek));
 }
 
 function nahledDat(data) {
@@ -757,6 +765,7 @@ function vyplnProfil(panel, zprava = '', chyba = false) {
     });
     mrizka.append(karta);
   }
+  const hlaseni = hlaseniProfilu(zprava, chyba);
   const plno = profily.length >= MAX_PROFILU;
   const novy = tlacitko(plno ? `Plno (${MAX_PROFILU}/${MAX_PROFILU})` : 'Nový profil');
   novy.disabled = plno;
@@ -770,6 +779,7 @@ function vyplnProfil(panel, zprava = '', chyba = false) {
     if (!smazat.classList.contains('potvrdit')) {
       smazat.classList.add('potvrdit');
       smazat.textContent = `Opravdu smazat ${zvoleny.jmeno}?`;
+      ukazHlaseni(hlaseni, `Smazáním zmizí duše, vylepšení, rekordy, sbírka i mapy profilu ${zvoleny.jmeno}. Stiskni znovu, nebo dej Zpět.`, 'varovani');
       return;
     }
     if (!smazProfil(zvoleny.slot)) {
@@ -784,7 +794,7 @@ function vyplnProfil(panel, zprava = '', chyba = false) {
   exportovat.addEventListener('click', () => podoknoExportu(panel));
   const importovat = tlacitko('Importovat');
   importovat.addEventListener('click', () => podoknoImportu(panel));
-  const akce = prvek('div', 'profil-akce');
+  const akce = prvek('div', 'profil-akce profil-akce-seznam');
   for (const [id, b] of Object.entries({ novy, prejmenovat, smazat, exportovat, importovat })) {
     b.dataset.akce = id;
     akce.append(b);
@@ -792,7 +802,7 @@ function vyplnProfil(panel, zprava = '', chyba = false) {
   panel.append(
     prvek('p', 'podtitul', 'Každý profil má vlastní duše, vylepšení, rekordy, sbírku a mapy. Nastavení zvuku je společné.'),
     mrizka,
-    hlaseniProfilu(zprava, chyba),
+    hlaseni,
     akce,
     prvek('p', 'podtitul profil-pata', `Exportovat dá kód uložení a soubor ${PRIPONA_SOUBORU}, Importovat je nahraje v jiném prohlížeči nebo zařízení. Nic se neposílá na server.`),
   );
@@ -860,11 +870,13 @@ function podoknoJmena(panel, profil) {
     }
   });
   formular.append(pole, hlaseni, radekTlacitek(potvrdit));
+  const sekce = skupina(profil ? 'Přejmenovat' : 'Nový profil', 'profil-sekce');
+  sekce.append(formular);
   panel.append(
     prvek('p', 'podtitul', profil
       ? `Nové jméno pro profil ${profil.jmeno}, nejvýš ${MAX_JMENA} znaků.`
       : `Nový profil začne od nuly: bez duší, vylepšení, rekordů a sbírky. Jméno má nejvýš ${MAX_JMENA} znaků.`),
-    formular,
+    sekce,
   );
   zamerPole(pole);
   pole.select();
@@ -929,12 +941,11 @@ function podoknoExportu(panel) {
     const povedlo = stahniSoubor(soubor, souborProfilu(data));
     ukazHlaseni(hlaseni, povedlo ? `Stahuje se soubor ${soubor}.` : 'Stáhnout nejde, zkopíruj kód.', !povedlo);
   });
+  const sekce = skupina('Export', 'profil-sekce');
+  sekce.append(nahledDat(data), pole, hlaseni, radekTlacitek(kopirovat, stahnout));
   panel.append(
     prvek('p', 'podtitul', 'Tenhle kód přenese profil do jiného prohlížeče nebo zařízení: tam dej Profil → Importovat a kód vlož, nebo vyber stažený soubor. Nic se neposílá na server.'),
-    nahledDat(data),
-    pole,
-    hlaseni,
-    radekTlacitek(kopirovat, stahnout),
+    sekce,
   );
   // Pole je vysoké přesně na celý kód (nejvýš 240 px, pak se v něm posouvá).
   pole.style.height = `${Math.min(240, pole.scrollHeight + 6)}px`;
@@ -993,13 +1004,11 @@ function podoknoImportu(panel) {
       precti(pole.value);
     }
   });
+  const sekce = skupina('Import', 'profil-sekce');
+  sekce.append(pole, hlaseni, radekTlacitek(nacist, vybrat), vstup, cile);
   panel.append(
     prvek('p', 'podtitul', `Vlož kód uložení z jiného zařízení, nebo vyber stažený soubor ${PRIPONA_SOUBORU}. Než se cokoli přepíše, uvidíš, co v kódu je.`),
-    pole,
-    hlaseni,
-    radekTlacitek(nacist, vybrat),
-    vstup,
-    cile,
+    sekce,
   );
   // S myší se rovnou dá vložit (Ctrl+V), na dotykovém displeji by vyskočila klávesnice přes tlačítko souboru.
   if (globalThis.matchMedia?.('(pointer: fine)').matches) zamerPole(pole);
