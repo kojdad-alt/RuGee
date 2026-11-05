@@ -17,6 +17,7 @@ import {
   popisEfektu, popisSady,
 } from './vystroj.js';
 import { odemkniZvuk, zvukNakupu, zvukOdmitnuti, zvukHry, nastavZvuk, ukazkaHudby } from './zvuk.js';
+import { nakresliText, STYL_LOGA } from './pismo.js';
 
 // Profily: při prvním spuštění se stará uložení převedou do prvního profilu (ulozeni.js), pak se načte zvolený.
 zajistiProfily();
@@ -886,64 +887,6 @@ export const ZALOZKY = {
   profil: { nazev: 'Profil', vypln: (panel) => vyplnProfil(panel), zpet: zpetZProfilu },
 };
 
-// Pixelové písmo loga: X je plný pixel, tahy široké 2 pixely.
-const PISMENA = {
-  H: ['XX...XX', 'XX...XX', 'XX...XX', 'XXXXXXX', 'XXXXXXX', 'XX...XX', 'XX...XX', 'XX...XX'],
-  L: ['XX....', 'XX....', 'XX....', 'XX....', 'XX....', 'XX....', 'XXXXXX', 'XXXXXX'],
-  U: ['XX...XX', 'XX...XX', 'XX...XX', 'XX...XX', 'XX...XX', 'XX...XX', 'XXXXXXX', '.XXXXX.'],
-  B: ['XXXXXX.', 'XX...XX', 'XX...XX', 'XXXXXX.', 'XXXXXX.', 'XX...XX', 'XX...XX', 'XXXXXX.'],
-  I: ['XX', 'XX', 'XX', 'XX', 'XX', 'XX', 'XX', 'XX'],
-  N: ['XX...XX', 'XXX..XX', 'XXXX.XX', 'XX.XXXX', 'XX..XXX', 'XX...XX', 'XX...XX', 'XX...XX'],
-  Y: ['XX..XX', 'XX..XX', 'XX..XX', '.XXXX.', '..XX..', '..XX..', '..XX..', '..XX..'],
-  R: ['XXXXXX.', 'XX...XX', 'XX...XX', 'XXXXXX.', 'XXXXX..', 'XX.XXX.', 'XX..XXX', 'XX...XX'],
-  G: ['.XXXXX.', 'XXXXXXX', 'XX.....', 'XX.....', 'XX..XXX', 'XX...XX', 'XXXXXXX', '.XXXXX.'],
-  // Malá písmena sedí na stejné spodní čáře, nahoře mají prázdné řádky.
-  u: ['......', '......', '......', 'XX..XX', 'XX..XX', 'XX..XX', 'XXXXXX', '.XXXXX'],
-  e: ['......', '......', '......', '.XXXX.', 'XX..XX', 'XXXXXX', 'XX....', '.XXXXX'],
-};
-// Zlato světlé nahoře a tmavší dolů, pod písmeny hnědá hloubka a kolem tmavý obrys jako u spritů.
-const BARVY_RADKU = ['#fff1c4', '#ffe08a', '#f4cf6e', '#e9c46a', '#e0b155', '#d39a3e', '#c4862f', '#b07428'];
-const BARVA_HLOUBKY = '#6b3f1d';
-const HLOUBKA = 2;
-
-function nakresliLogo(platno, text) {
-  const pismo = new Map();
-  let x = 0;
-  for (const znak of text) {
-    const glyf = PISMENA[znak];
-    glyf.forEach((radek, y) => {
-      [...radek].forEach((c, dx) => {
-        if (c === 'X') pismo.set(`${x + dx},${y}`, BARVY_RADKU[y]);
-      });
-    });
-    x += glyf[0].length + 1;
-  }
-  const hloubka = new Set();
-  for (const bod of pismo.keys()) {
-    const [px, py] = bod.split(',').map(Number);
-    for (let d = 1; d <= HLOUBKA; d++) {
-      if (!pismo.has(`${px},${py + d}`)) hloubka.add(`${px},${py + d}`);
-    }
-  }
-  const vse = new Set([...pismo.keys(), ...hloubka]);
-  platno.width = x - 1 + 2;
-  platno.height = BARVY_RADKU.length + HLOUBKA + 2;
-  const g = platno.getContext('2d');
-  const tecka = (bod, barva, posun = [0, 0]) => {
-    const [px, py] = bod.split(',').map(Number);
-    g.fillStyle = barva;
-    g.fillRect(px + posun[0] + 1, py + posun[1] + 1, 1, 1);
-  };
-  for (const bod of vse) {
-    const [px, py] = bod.split(',').map(Number);
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      if (!vse.has(`${px + dx},${py + dy}`)) tecka(bod, '#0b0a0f', [dx, dy]);
-    }
-  }
-  for (const bod of hloubka) tecka(bod, BARVA_HLOUBKY);
-  for (const [bod, barva] of pismo) tecka(bod, barva);
-}
-
 // Logo se zvětšuje jen celými násobky, aby pixely zůstaly ostré.
 function upravLogo(platno) {
   const meritko = Math.max(3, Math.min(9, Math.floor(Math.min(560, innerWidth - 32) / platno.width)));
@@ -998,7 +941,7 @@ export function vytvorMenu({ hrat }) {
   const logo = document.getElementById('logo');
   let otevrena = null;
 
-  nakresliLogo(logo, 'RuGee');
+  nakresliText(logo, 'RuGee', STYL_LOGA);
   upravLogo(logo);
   addEventListener('resize', () => upravLogo(logo));
 
