@@ -422,7 +422,7 @@ function hud() {
   ukazHrozbu(hra.hrozba);
   el('xp-pruh').style.width = `${Math.min(100, (hrdina.xp / hrdina.potreba) * 100)}%`;
   // Překreslí se jen když se výbava změnila (po výběru vylepšení nebo v nové hře).
-  ukazVybavu(vybava, hra);
+  ukazVybavu(vybava, hra, el('zivoty-sloty'));
 }
 
 // Zvuky ze hry (hra.zvuky, zapisuje je hra.js): každý druh jednou za snímek, omezovač v zvuk.js pohlídá, ať
