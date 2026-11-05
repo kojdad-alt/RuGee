@@ -37,10 +37,16 @@ let ukazaneZlato = 0;
 // a která se v ní opravdu odemkla (ukáže se na konci).
 let mapaKOdemceni = null;
 let odemcenaVHre = null;
+// Čas v horní liště se kreslí pixelovým písmem jen při změně (jednou za sekundu). Pruhy bossů začínají pod lištou:
+// horniOkraj = spodek lišty v px (měří se při změně času, dokud není změřený, platí výchozí z kresleni.js).
+let ukazanyCas = '';
+let horniOkraj;
 
 function zmenVelikost() {
   platno.width = innerWidth;
   platno.height = innerHeight;
+  // velikost času v liště a spodek lišty se po otočení telefonu přepočítají
+  ukazanyCas = '';
 }
 
 function start() {
@@ -52,6 +58,7 @@ function start() {
   odemcenaVHre = null;
   zapsanoNalezu = 0;
   ukazaneZlato = 0;
+  ukazanyCas = '';
   vMenu = false;
   menu.skryj();
   document.body.classList.remove('v-menu');
@@ -110,7 +117,7 @@ function kresliJoystick() {
   if (!dotyk.aktivni) return;
   ctx.save();
   ctx.globalAlpha = 0.35;
-  ctx.strokeStyle = '#ece6da';
+  ctx.strokeStyle = '#f3e6c8';
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.arc(dotyk.sx, dotyk.sy, POLOMER_JOYSTICKU, 0, Math.PI * 2);
@@ -360,7 +367,14 @@ function hud() {
   ukazaneZlato = hra.zlataky;
   el('hud-klice').hidden = !(hra.klice > 0);
   el('klice').textContent = hra.klice;
-  el('cas').textContent = formatCas(hra.cas);
+  const cas = formatCas(hra.cas);
+  if (cas !== ukazanyCas) {
+    // na telefonu a nízké obrazovce dvojnásobek pixelu, jinak trojnásobek (text zůstane v prvku pro čtečky)
+    const meritko = innerWidth <= 600 || innerHeight <= 500 ? 2 : 3;
+    pixelovyNadpis(el('cas'), cas, { min: meritko, max: meritko });
+    ukazanyCas = cas;
+    horniOkraj = Math.round(document.querySelector('.hud').getBoundingClientRect().bottom) + 10;
+  }
   ukazHrozbu(hra.hrozba);
   el('xp-pruh').style.width = `${Math.min(100, (hrdina.xp / hrdina.potreba) * 100)}%`;
   // Překreslí se jen když se výbava změnila (po výběru vylepšení nebo v nové hře).
@@ -419,7 +433,7 @@ function smycka(t) {
     prizpusobNadpisy(el('konec'));
     vyberTlacitko(el('znovu'));
   }
-  kresli(ctx, hra, { cislaPoskozeni: cislaPoskozeni() });
+  kresli(ctx, hra, { cislaPoskozeni: cislaPoskozeni(), horni: horniOkraj });
   kresliJoystick();
   vybavaUJoysticku();
   hud();
@@ -505,7 +519,8 @@ el('do-menu').addEventListener('click', () => { if (hra?.konec) doMenu(); });
 el('prehodit').addEventListener('click', prehodKarty);
 el('odejit').addEventListener('click', odejdi);
 
-// Ikonka zlaťáku a klíče v horní liště (sprity z sprity.js, stejné jako na louce).
+// Ikonka lebky, zlaťáku a klíče v horní liště (sprity z sprity.js, stejné jako ve hře).
+el('lebka-ikona').replaceWith(obrazekSpritu('lebka', 2));
 el('zlato-ikona').replaceWith(obrazekSpritu('zlatak', 2));
 el('klic-ikona').replaceWith(obrazekSpritu('klic', 2));
 zmenVelikost();
