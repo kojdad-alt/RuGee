@@ -1378,58 +1378,125 @@ kbd {
 .okno.pauza { width: min(420px, calc(100% - 32px)); }
 .pauza .radek-tlacitek { flex-direction: column; align-items: stretch; }
 
-/* Sbírka výbavy bossů v menu: sada po sadě, dlaždice s kusem (rámeček v barvě nejlepší nalezené rarity),
-   neobjevený kus je jen stín a ???. */
+/* Sbírka výbavy bossů v menu: nahoře kolik je objeveno (číslo a pruh po kusech), pak sada po sadě. Sada je
+   destička v tenkém rámu s truhlou bosse a počtem (celá sada má mosaznou cedulku), čtyři kusy 2×2 jako sloty výbavy
+   ve hře. Kus má sprite ve výklenku a pixelový rámeček v barvě nejlepší nalezené rarity (barvy rarit jsou herní
+   informace, zůstávají), neobjevený je zapuštěný do desky, jen stín a ???. Dole bonusy za 2 a 4 kusy se štítky. */
 .sbirka-stav {
-  margin: -6px 0 14px;
-  color: var(--zlata);
-  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: -4px 0 16px;
+  color: var(--pergamen-tlumeny);
+  text-shadow: 0 2px 0 var(--noc);
 }
+
+.sbirka-stav > span { white-space: nowrap; }
+.sbirka-stav b { color: var(--mosaz); font-size: 18px; }
+.sbirka-pruh { flex: 0 1 220px; min-width: 80px; }
 
 .sbirka-sada {
   margin: 0 0 16px;
-  padding: 10px 10px 12px;
+  padding: 8px 10px 10px;
   text-align: left;
-  background: #1c1a23;
-  border: 2px solid var(--okraj);
+  background: var(--drevo-2) padding-box;
+  border: calc(2 * var(--px)) solid transparent;
+  border-image: var(--ram-tenky) 2 / calc(2 * var(--px)) repeat;
 }
+
+.sbirka-sada.cela { border-image-source: var(--ram-karta-zvolena); }
 
 .sbirka-hlava {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
 }
 
-.sbirka-hlava b { color: var(--zlata); }
-.sbirka-hlava span { color: var(--text-tlumeny); font-size: 12px; }
-.sbirka-efekt, .sbirka-bonus { display: block; color: var(--text-tlumeny); font-size: 12px; line-height: 1.35; }
-.sbirka-efekt { margin: 2px 0 8px; color: var(--duse); }
-.sbirka-bonus { margin-top: 8px; }
+.sbirka-hlava canvas { flex: none; }
+.sbirka-hlava b { flex: 1; min-width: 0; color: var(--mosaz); font-size: 15px; text-shadow: 0 2px 0 var(--noc); }
+
+.sbirka-pocet {
+  flex: none;
+  padding: 1px 7px 2px;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--pergamen-tlumeny);
+  background: var(--drevo-0);
+  box-shadow: 0 0 0 2px var(--noc);
+}
+
+.sbirka-sada.cela .sbirka-pocet {
+  color: #2a1708;
+  background: var(--mosaz);
+  box-shadow: inset 0 2px 0 var(--mosaz-lesk), inset 0 -2px 0 var(--mosaz-stin), 0 0 0 2px var(--noc);
+}
+
+.sbirka-efekt { display: block; margin: 4px 0 10px; color: var(--pergamen-tlumeny); font-size: 12px; line-height: 1.35; }
+.sbirka-efekt b { color: var(--duse); }
 
 .sbirka-mrizka {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .sbirka-kus {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 8px 6px 10px;
-  text-align: center;
-  background: var(--c-pozadi, #15131b);
-  box-shadow: 0 -2px 0 var(--c, var(--okraj)), 0 2px 0 var(--c, var(--okraj)), -2px 0 0 var(--c, var(--okraj)), 2px 0 0 var(--c, var(--okraj));
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 8px 6px 6px;
+  text-align: left;
+  background: var(--c-pozadi);
+  box-shadow: 0 0 0 2px var(--c), 0 0 0 4px var(--noc), 0 0 calc(var(--zar, 0px) * 1.5) var(--c-zar);
+  margin: 4px;
 }
 
-.sbirka-kus.neznamy { --c: #2c2836; --c-pozadi: #131118; }
+.sbirka-vyklenek {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  background: rgba(20, 12, 8, 0.55);
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px var(--noc);
+}
+
+.sbirka-kus.neznamy {
+  --c: var(--drevo-2);
+  --c-pozadi: var(--drevo-0);
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px var(--noc);
+}
+
+.sbirka-kus.neznamy .sbirka-vyklenek { background: transparent; box-shadow: none; }
 .sbirka-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.sbirka-text b { color: var(--c-svetla, var(--text-tlumeny)); font-size: 13px; }
-.sbirka-kus.neznamy .sbirka-text b { color: var(--text-tlumeny); }
-.sbirka-text small { color: var(--text-tlumeny); font-size: 11px; line-height: 1.3; }
-.sbirka-text .sbirka-staty { color: var(--text); }
+.sbirka-text b { color: var(--c-svetla); font-size: 13px; text-shadow: 0 2px 0 var(--noc); }
+.sbirka-kus.neznamy .sbirka-text b { color: var(--pergamen-tlumeny); letter-spacing: 0.2em; }
+.sbirka-text small { color: var(--pergamen-tlumeny); font-size: 11px; line-height: 1.3; }
+.sbirka-text .sbirka-staty { color: var(--pergamen); }
+
+.sbirka-bonusy { display: grid; gap: 4px; margin-top: 10px; }
+.sbirka-bonus { display: flex; align-items: baseline; gap: 8px; color: var(--pergamen-tlumeny); font-size: 12px; line-height: 1.35; }
+
+.sbirka-bonus-stitek {
+  flex: none;
+  padding: 0 6px 1px;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mosaz-svetla);
+  background: var(--drevo-3);
+  box-shadow: inset 0 2px 0 var(--drevo-4), 0 0 0 2px var(--noc);
+}
+
+/* Telefon: kusy pořád 2×2, jen sprite nad textem. */
+@media (max-width: 520px) {
+  .sbirka-kus { flex-direction: column; text-align: center; padding: 8px 4px; }
+  .sbirka-text { align-items: center; }
+  .sbirka-bonus { flex-direction: column; gap: 3px; }
+}
 
 /* Přehodit karty: tlačítko pod kartami výběru s cenou (zlaťák) nebo „zdarma ×N“. Na co zlaťáky nestačí, je šedé. */
 .radek-prehodit { margin-top: 16px; }
@@ -1558,27 +1625,28 @@ kbd {
 .trida.mapa.zamcena .mapa-popis, .trida.mapa.zamcena .mapa-boss { color: #a8957a; }
 .trida .mapa-zamek { color: var(--chyba); font-weight: bold; }
 
-/* Postup k odemčení: zapuštěný pruh, dílek = minuta, výplň mosazná s leskem nahoře. */
+/* Postup k odemčení: zapuštěný pruh (.pruh-postupu níž), dílek = minuta. */
 .trida .mapa-postup { display: flex; align-items: center; gap: 8px; margin-top: 2px; color: var(--pergamen-tlumeny); white-space: nowrap; }
+.mapa-postup .pruh-postupu { flex: 1 1 60px; max-width: 150px; }
 
-.mapa-postup-pruh {
+/* Pruh postupu (kit): zapuštěný do desky, výplň mosazná s leskem nahoře, dílky oddělené obrysem (--dilku). */
+.pruh-postupu {
   position: relative;
-  flex: 1 1 60px;
-  max-width: 150px;
+  display: block;
   height: 12px;
   background: var(--drevo-0);
   border: 2px solid var(--noc);
   box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.5);
 }
 
-.mapa-postup-pruh i {
+.pruh-postupu i {
   position: absolute;
   inset: 0 auto 0 0;
   background: var(--mosaz);
   box-shadow: inset 0 2px 0 var(--mosaz-lesk), inset 0 -2px 0 var(--mosaz-stin);
 }
 
-.mapa-postup-pruh::after {
+.pruh-postupu::after {
   content: '';
   position: absolute;
   inset: 0;

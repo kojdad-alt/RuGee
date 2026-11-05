@@ -167,6 +167,16 @@ function vyplnPostavy(panel) {
   panel.append(prvek('p', 'podtitul', 'Vyber, za koho půjdeš do hlubin. Volba se zapamatuje.'), mrizka);
 }
 
+// Pruh postupu: zapuštěný, dílků je tolik, kolik je celkem (mapy po minutách, sbírka po kusech).
+function pruhPostupu(trida, hodnota, celkem, dilku = celkem) {
+  const pruh = prvek('span', `pruh-postupu ${trida}`.trim());
+  pruh.style.setProperty('--dilku', String(Math.max(1, dilku)));
+  const vypln = prvek('i');
+  vypln.style.width = `${celkem > 0 ? Math.min(100, (hodnota / celkem) * 100) : 0}%`;
+  pruh.append(vypln);
+  return pruh;
+}
+
 // Řádek karty s pixelovou ikonou vlevo (boss, lebka obtížnosti, zámek).
 function radekSIkonou(trida, ikona, ...obsah) {
   const r = prvek('small', `s-ikonou ${trida}`.trim());
@@ -220,11 +230,7 @@ function vyplnMapy(panel) {
       if (nejlepe > 0) {
         // Postup k odemčení: pruh rozdělený po minutách, vedle nejlepší čas na předchozí mapě.
         const postup = prvek('small', 'mapa-postup');
-        const pruh = prvek('span', 'mapa-postup-pruh');
-        pruh.style.setProperty('--dilku', String(Math.max(1, Math.round(ODEMKNUTI_MAPY / 60))));
-        const vypln = prvek('i');
-        vypln.style.width = `${Math.min(100, (nejlepe / ODEMKNUTI_MAPY) * 100)}%`;
-        pruh.append(vypln);
+        const pruh = pruhPostupu('', nejlepe, ODEMKNUTI_MAPY, Math.round(ODEMKNUTI_MAPY / 60));
         postup.append(pruh, prvek('span', '', `zatím ${formatCas(nejlepe)} z ${formatCas(ODEMKNUTI_MAPY)}`));
         text.append(postup);
       }
@@ -345,35 +351,56 @@ function vyplnVylepseni(panel) {
   );
 }
 
-// Sbírka výbavy bossů: co hráč kdy našel (v nejlepší raritě), sada po sadě. Neobjevený kus je jen stín a ???.
+// Sbírka výbavy bossů: co hráč kdy našel (v nejlepší raritě), sada po sadě. Nahoře pruh, kolik je objeveno.
+// Sada je destička v tenkém rámu s truhlou bosse, čtyři kusy jsou 2×2 jako sloty výbavy ve hře, rámeček kusu
+// má barvu nejlepší nalezené rarity. Neobjevený kus je jen stín a ???. Dole bonusy za 2 a 4 kusy se štítky.
 function vyplnSbirku(panel) {
   const sbirka = nactiSbirku();
+  // pevná mezera před %, ať se procenta neodtrhnou od čísla (+6,5 % zbroj)
+  const pevne = (text) => text.replace(/ %/g, ' %');
+  const objeveno = Object.keys(sbirka).length;
+  const stav = prvek('div', 'sbirka-stav');
+  const text = prvek('span', '', 'Objeveno ');
+  text.append(prvek('b', '', String(objeveno)), ` z ${VSECHNY_KUSY.length}`);
+  stav.append(text, pruhPostupu('sbirka-pruh', objeveno, VSECHNY_KUSY.length));
   panel.append(
     prvek('p', 'podtitul', 'Výbava z truhel bossů platí jen v jedné hře. Tady je všechno, co jsi kdy našel, v nejlepší raritě.'),
-    prvek('p', 'sbirka-stav', `Objeveno ${Object.keys(sbirka).length} z ${VSECHNY_KUSY.length}`),
+    stav,
   );
   for (const boss of PORADI_SAD) {
     const sada = VYBAVA[boss];
-    const blok = prvek('section', 'sbirka-sada');
-    const hlava = prvek('div', 'sbirka-hlava');
     const nalezeno = PORADI_SLOTU.filter((slot) => sbirka[idKusu(boss, slot)]).length;
-    hlava.append(prvek('b', '', sada.sada), prvek('span', '', `${nalezeno}/${PORADI_SLOTU.length}`));
-    blok.append(hlava, prvek('small', 'sbirka-efekt', `${EFEKTY_VYBAVY[sada.efekt].nazev}: ${popisEfektu(boss, 1)}`));
+    const blok = prvek('section', `sbirka-sada${nalezeno === PORADI_SLOTU.length ? ' cela' : ''}`);
+    const hlava = prvek('div', 'sbirka-hlava');
+    const truhla = obrazekSpritu(sprity[`truhla_${boss}`] ? `truhla_${boss}` : 'truhla', 2);
+    hlava.append(truhla, prvek('b', '', sada.sada), prvek('span', 'sbirka-pocet', `${nalezeno}/${PORADI_SLOTU.length}`));
+    const efekt = prvek('small', 'sbirka-efekt');
+    efekt.append(prvek('b', '', `${EFEKTY_VYBAVY[sada.efekt].nazev}: `), pevne(popisEfektu(boss, 1)));
+    blok.append(hlava, efekt);
     const mrizka = prvek('div', 'sbirka-mrizka');
     for (const slot of PORADI_SLOTU) {
       const id = idKusu(boss, slot);
       const rarita = sbirka[id];
       const kus = rarita ? vytvorKus(boss, slot, rarita) : null;
       const dlazdice = prvek('div', `sbirka-kus ${kus ? `rarita-${rarita}` : 'neznamy'}`);
+      const vyklenek = prvek('span', 'sbirka-vyklenek');
       const obr = obrazekSpritu(id, 4);
       if (!kus) obr.classList.add('stin');
-      const text = prvek('span', 'sbirka-text');
-      text.append(prvek('b', '', kus ? kus.nazev : '???'), prvek('small', '', kus ? `${SLOTY[slot].nazev} · ${RARITY_VYBAVY[rarita].nazev}` : SLOTY[slot].nazev));
-      if (kus) text.append(prvek('small', 'sbirka-staty', radkyStatu(kus.staty).join(', ')));
-      dlazdice.append(obr, text);
+      vyklenek.append(obr);
+      const popis = prvek('span', 'sbirka-text');
+      popis.append(prvek('b', '', kus ? kus.nazev : '???'), prvek('small', '', kus ? `${SLOTY[slot].nazev} · ${RARITY_VYBAVY[rarita].nazev}` : SLOTY[slot].nazev));
+      if (kus) popis.append(prvek('small', 'sbirka-staty', pevne(radkyStatu(kus.staty).join(', '))));
+      dlazdice.append(vyklenek, popis);
       mrizka.append(dlazdice);
     }
-    blok.append(mrizka, prvek('small', 'sbirka-bonus', popisSady(boss).join(' · ')));
+    const bonusy = prvek('div', 'sbirka-bonusy');
+    for (const radek of popisSady(boss)) {
+      const dvojtecka = radek.indexOf(':');
+      const b = prvek('small', 'sbirka-bonus');
+      b.append(prvek('span', 'sbirka-bonus-stitek', radek.slice(0, dvojtecka)), pevne(radek.slice(dvojtecka + 1).trim()));
+      bonusy.append(b);
+    }
+    blok.append(mrizka, bonusy);
     panel.append(blok);
   }
 }
