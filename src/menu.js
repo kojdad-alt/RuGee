@@ -17,7 +17,7 @@ import {
   popisEfektu, popisSady,
 } from './vystroj.js';
 import { odemkniZvuk, zvukNakupu, zvukOdmitnuti, zvukHry, nastavZvuk, ukazkaHudby } from './zvuk.js';
-import { nakresliText, STYL_LOGA, pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
+import { nakresliText, STYL_LOGA, STYL_PERGAMEN, pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
 
 // Profily: při prvním spuštění se stará uložení převedou do prvního profilu (ulozeni.js), pak se načte zvolený.
 zajistiProfily();
@@ -451,21 +451,37 @@ function teloRekordu(rekord) {
   return telo;
 }
 
+// Ovládání po skupinách: [nadpis, řádky [klávesy, co dělají]].
 const OVLADANI = [
-  [['W', 'A', 'S', 'D'], 'pohyb'],
-  [['šipky'], 'pohyb'],
-  [['tah prstem'], 'pohyb na mobilu'],
-  [['1', '2', '3'], 'výběr vylepšení (nebo klik, šipky a Enter)'],
-  [['1', '2'], 'výbava z truhly: vzít nový kus, nebo nechat nasazený'],
-  [['R'], 'přehodit karty za zlaťáky (nebo zdarma od kupce)'],
-  [['1–5'], 'u kupce koupit zboží (Esc nebo Q odejít)'],
-  [['P', 'Esc'], 'pauza'],
-  [['N'], 'ztlumit nebo zapnout zvuk (hlasitost je v Nastavení)'],
-  [['R'], 'znovu po prohře'],
-  [['M'], 'menu po prohře'],
-  [['↑', '↓', 'Enter'], 'výběr v menu'],
-  [['Esc'], 'zpět v menu'],
+  ['Pohyb', [
+    [['W', 'A', 'S', 'D'], 'pohyb'],
+    [['šipky'], 'pohyb'],
+    [['tah prstem'], 'pohyb na mobilu'],
+  ]],
+  ['Ve hře', [
+    [['1', '2', '3'], 'výběr vylepšení (nebo klik, šipky a Enter)'],
+    [['1', '2'], 'výbava z truhly: vzít nový kus, nebo nechat nasazený'],
+    [['R'], 'přehodit karty za zlaťáky (nebo zdarma od kupce)'],
+    [['1–5'], 'u kupce koupit zboží (Esc nebo Q odejít)'],
+    [['P', 'Esc'], 'pauza'],
+    [['N'], 'ztlumit nebo zapnout zvuk (hlasitost je v Nastavení)'],
+  ]],
+  ['Menu a konec hry', [
+    [['↑', '↓', 'Enter'], 'výběr v menu'],
+    [['Esc'], 'zpět v menu'],
+    [['R'], 'znovu po prohře'],
+    [['M'], 'menu po prohře'],
+  ]],
 ];
+
+// Skupina v Ovládání a Nastavení: destička v tenkém rámu s nadpisem světlým pixelovým písmem.
+function skupina(nazev, trida = '') {
+  const sekce = prvek('section', `skupina ${trida}`.trim());
+  const nadpis = prvek('h3', 'skupina-nadpis');
+  pixelovyNadpis(nadpis, nazev, { styl: STYL_PERGAMEN, min: 2, max: 2 });
+  sekce.append(nadpis);
+  return sekce;
+}
 
 // Přepínač je tlačítko: klik (nebo Enter) volbu otočí a hned uloží. Stejný je v Nastavení i v pauze.
 export function prepinacNastaveni(klic, nazev) {
@@ -589,29 +605,38 @@ export function ovladaniZvuku() {
   return box;
 }
 
+// Ovládání: skupiny Pohyb, Ve hře a Menu pod sebou. Řádek = dřevěné klávesy vpravo zarovnané, vedle co dělají.
 function vyplnOvladani(panel) {
-  const seznam = prvek('div', 'ovladani');
-  for (const [klavesy, co] of OVLADANI) {
-    const radek = prvek('div', 'ovladani-radek');
-    const kde = prvek('span', 'klavesy');
-    kde.append(...klavesy.map((k) => prvek('kbd', '', k)));
-    radek.append(kde, prvek('span', '', co));
-    seznam.append(radek);
+  const mrizka = prvek('div', 'ovladani');
+  for (const [nazev, radky] of OVLADANI) {
+    const sekce = skupina(nazev);
+    for (const [klavesy, co] of radky) {
+      const radek = prvek('div', 'ovladani-radek');
+      const kde = prvek('span', 'klavesy');
+      kde.append(...klavesy.map((k) => prvek('kbd', '', k)));
+      radek.append(kde, prvek('span', '', co));
+      sekce.append(radek);
+    }
+    mrizka.append(sekce);
   }
   panel.append(
-    prvek('p', 'podtitul', 'Zbraně střílí samy, ty jen uhýbáš a sbíráš krystaly.'), seznam,
+    prvek('p', 'podtitul', 'Zbraně střílí samy, ty jen uhýbáš a sbíráš krystaly.'), mrizka,
     prvek('p', 'podtitul ovladani-pata', 'Hlasitost a čísla poškození najdeš v Nastavení.'),
   );
 }
 
-// Nastavení: zvuk (hlasitost efektů a hudby, ztlumení N) a čísla poškození. Všechno se hned uloží.
+// Nastavení: zvuk (hlasitost efektů a hudby, ztlumení N) a čísla poškození, každé ve své skupině.
+// Všechno se hned uloží.
 function vyplnNastaveni(panel) {
+  const zvuk = skupina('Zvuk');
+  zvuk.append(ovladaniZvuku());
+  const hra = skupina('Hra');
   const radek = prvek('div', 'radek-tlacitek nastaveni-radek');
   radek.append(prepinacNastaveni('cislaPoskozeni', 'Čísla poškození'));
+  hra.append(radek);
   panel.append(
     prvek('p', 'podtitul', 'Volby se hned uloží v tomhle prohlížeči a platí pro všechny profily. Stejné najdeš i v pauze.'),
-    prvek('h3', 'nastaveni-nadpis', 'Zvuk'), ovladaniZvuku(),
-    prvek('h3', 'nastaveni-nadpis', 'Hra'), radek,
+    zvuk, hra,
   );
 }
 
