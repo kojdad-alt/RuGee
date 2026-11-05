@@ -383,6 +383,9 @@ function smycka(t) {
 }
 
 addEventListener('keydown', (e) => {
+  // Psaní do pole v menu (jméno profilu, kód uložení): klávesy patří poli. N by jinak ztlumil zvuk, WASD posouvaly
+  // výběr a Backspace zavřel záložku. Enter a Esc si pole obslouží samo.
+  if (e.target instanceof Element && e.target.matches('input, textarea')) return;
   const k = e.key.toLowerCase();
   if (k === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (!e.repeat) prepniZvuk();

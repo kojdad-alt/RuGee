@@ -16,6 +16,7 @@ Nic se neinstaluje, jde to i na mobilu.
 - **4 postavy**: Lovec, Havíř, Světlonoš a Bouřlivák.
 - **Zlaťáky** na kupce, přehazování karet a zamčené truhly. Z **duší** si koupíš trvalá vylepšení.
 - **Zvuky a hudba** ze syntezátoru, každá mapa má svou náladu. Hlasitost je v Nastavení, N ztlumí.
+- **Až 5 profilů** na jednom zařízení. Uložení přeneseš jinam kódem nebo souborem, bez serveru.
 
 ## Ovládání
 

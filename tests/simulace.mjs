@@ -88,6 +88,12 @@
 // (důležité projdou vždy), ani zbraně na 60. úrovni nevytvoří moc uzlů za sekundu, hudba po pauze nedohání,
 // ztlumení a 0 % nic nevytvoří, každá mapa má hudbu a hlasitosti se uloží do nastavení. Hra hlásí zvuky jen
 // známými jmény a hlavní události (zásah, smrt, krystal, hrozba, boss, konec) se opravdu ozvou.
+// Profily: stará uložení (klíče hlubiny.*) jsou po prvním spuštění profil Hráč a nic se v nich nezmění, každý
+// profil má svoje duše, vylepšení, rekordy, sbírku a mapy (přepínání nic nemíchá), nastavení je společné, jméno
+// se zkrátí a nesmí být prázdné ani obsazené, nejvýš MAX_PROFILU profilů, smazání odstraní všechna data profilu
+// (poslední smazat nejde) a rozbitý záznam profilu nic neshodí. Kód uložení: export → import dá stejná data (i ze
+// souboru .rugee, s mezerami a textem okolo), poškozený, useknutý nebo cizí kód se odmítne a import nové profily
+// pojmenuje bez kolize a přepsání smaže rekordy, které kód nemá.
 // Pasivy II: Upíří zub vrací život za zabití (s šancí, nejvýš SANI_ZA_SEKUNDU za sekundu, náhodu vln neposune),
 // Trnová zbroj vrací útočníkovi podíl rány, Štít zastaví jednu ránu a dobíjí se, Moudrost dá víc zkušeností
 // a Chamtivost víc duší. Všechny mají ikonu, popis a úrovně bez stropu (kde je strop, dají pak poškození).
@@ -132,7 +138,10 @@ import {
 import {
   nactiRekord, zapisVysledek, nactiTridu, ulozTridu, nactiDuse, ulozDuse, pripisDuse, nactiNastaveni, ulozNastaveni,
   nactiSbirku, zapisNalez, nactiMapu, ulozMapu, odemceneMapy, odemkniMapu,
+  MAX_PROFILU, MAX_JMENA, VYCHOZI_JMENO, zajistiProfily, seznamProfilu, aktivniProfil, vytvorProfil, prejmenujProfil,
+  prepniProfil, smazProfil, dataProfilu, platnaDataProfilu, importujProfil, prehledProfilu,
 } from '../src/ulozeni.js';
+import { kodProfilu, prectiKod, souborProfilu, nazevSouboru, crc32, VERZE_KODU } from '../src/prenos.js';
 import {
   MAPY, PORADI_MAP, VYCHOZI_MAPA, ODEMKNUTI_MAPY, VELIKOST_DLAZDICE, PRICHODY_MAP, naLedu, ledovaDlazdice, odKdy, platnaMapa,
   plochaMapy, dlazdicePlochy, naPlose, prekazkaNaDlazdici, kruhPrekazky, hloubkaVPrekazce, VOLNO_U_STARTU,
@@ -4471,6 +4480,188 @@ ulozDuse({ duse: 5, vylepseni: { sila: 1 } });
 if (nactiRekord() !== null || !zapisVysledek(vysledekHry).novy) chyby.push('zakázané úložiště se nechová jako prázdné');
 ulozTridu('lovec');
 if (nactiTridu() !== VYCHOZI_TRIDA) chyby.push('zakázané úložiště nevrátilo výchozí třídu');
+// Profily. Úložiště s removeItem jako v prohlížeči. Stará uložení z doby před profily se při prvním spuštění stanou
+// profilem Hráč (slot 1 má původní klíče) a nic se v nich nezmění ani nesmaže.
+const chybyProfilu = [];
+const ulozisteProfilu = new Map();
+nahradUloziste({
+  getItem: (k) => ulozisteProfilu.get(k) ?? null,
+  setItem: (k, v) => ulozisteProfilu.set(k, String(v)),
+  removeItem: (k) => ulozisteProfilu.delete(k),
+});
+const STARE_ULOZENI = {
+  'hlubiny.rekord': JSON.stringify({ cas: 400, uroven: 14, zabito: 950, hrozba: 7, trida: 'havir', mapa: 'louka', datum: '2026-10-01T18:30:00.000Z' }),
+  'hlubiny.rekord.jeskyne': JSON.stringify({ cas: 210, uroven: 9, zabito: 400, hrozba: 4, trida: 'lovec', mapa: 'jeskyne', datum: '2026-10-02T09:00:00.000Z' }),
+  'hlubiny.trida': JSON.stringify('havir'),
+  'hlubiny.duse': JSON.stringify({ duse: 123, vylepseni: { sila: 2, oziveni: 1 } }),
+  'hlubiny.sbirka': JSON.stringify({ strazce_hlava: 'vzacna', obr_prsten: 'legendarni' }),
+  'hlubiny.mapa': JSON.stringify('jezero'),
+  'hlubiny.mapy': JSON.stringify(['jezero']),
+  'hlubiny.nastaveni': JSON.stringify({ cislaPoskozeni: false, efekty: 30, hudba: 20, ztlumeno: false }),
+};
+for (const [k, v] of Object.entries(STARE_ULOZENI)) ulozisteProfilu.set(k, v);
+const stareBezeZmeny = () => Object.entries(STARE_ULOZENI).every(([k, v]) => ulozisteProfilu.get(k) === v);
+const popisProfilu = (slot) => JSON.stringify({
+  duse: nactiDuse(slot), trida: nactiTridu(slot), rekord: nactiRekord(undefined, slot)?.cas ?? null, sbirka: nactiSbirku(slot),
+  mapy: odemceneMapy(slot), mapa: nactiMapu(slot),
+});
+let profily = zajistiProfily();
+if (JSON.stringify(profily) !== JSON.stringify([{ slot: 1, jmeno: VYCHOZI_JMENO, aktivni: true }])) chybyProfilu.push(`po převodu starých uložení jsou profily ${JSON.stringify(profily)}`);
+if (!stareBezeZmeny()) chybyProfilu.push('převod do profilu změnil stará uložení');
+const puvodni = popisProfilu(1);
+const cekamPuvodni = JSON.stringify({
+  duse: { duse: 123, vylepseni: { sila: 2, oziveni: 1 } }, trida: 'havir', rekord: 400, sbirka: { strazce_hlava: 'vzacna', obr_prsten: 'legendarni' },
+  mapy: ['louka', 'jeskyne', 'jezero'], mapa: 'jezero',
+});
+if (puvodni !== cekamPuvodni || popisProfilu() !== puvodni) chybyProfilu.push(`profil Hráč nemá stará data: ${puvodni}`);
+profily = zajistiProfily();
+if (profily.length !== 1 || !stareBezeZmeny() || popisProfilu(1) !== puvodni) chybyProfilu.push('druhé spuštění změnilo profily');
+// Nový profil je prázdný a hra za něj nesáhne na data jiného profilu (ani obráceně). Nastavení je společné.
+const bratr = vytvorProfil('  Bratr  ');
+if (bratr.slot !== 2 || bratr.jmeno !== 'Bratr' || aktivniProfil().slot !== 1) chybyProfilu.push(`nový profil: ${JSON.stringify(bratr)}, zvolený ${aktivniProfil().slot}`);
+if (!prepniProfil(bratr.slot) || prepniProfil(4) || aktivniProfil().jmeno !== 'Bratr') chybyProfilu.push('přepnutí profilu nesedí');
+const prazdnyProfil = JSON.stringify({ duse: { duse: 0, vylepseni: {} }, trida: VYCHOZI_TRIDA, rekord: null, sbirka: {}, mapy: [VYCHOZI_MAPA], mapa: VYCHOZI_MAPA });
+if (popisProfilu(bratr.slot) !== prazdnyProfil || popisProfilu() !== prazdnyProfil) chybyProfilu.push(`nový profil není prázdný: ${popisProfilu()}`);
+pripisDuse(50);
+ulozDuse(kupVylepseni(nactiDuse(), 'zivoty'));
+ulozTridu('bourlivak');
+zapisVysledek({ cas: 90, uroven: 5, zabito: 120, hrozba: 2, trida: 'bourlivak' });
+zapisVysledek({ cas: 333 }, 'sopka');
+zapisNalez(vytvorKus('matka', 'telo', 'epicka'));
+odemkniMapu('jeskyne');
+ulozMapu('jeskyne');
+const bratrovo = popisProfilu();
+if (!stareBezeZmeny() || popisProfilu(1) !== puvodni) chybyProfilu.push('hra za druhý profil změnila první');
+if (nactiNastaveni().efekty !== 30) chybyProfilu.push('druhý profil nemá společné nastavení');
+ulozNastaveni({ ...nactiNastaveni(), hudba: 70 });
+prepniProfil(1);
+if (popisProfilu() !== puvodni || nactiDuse().duse !== 123) chybyProfilu.push(`po přepnutí zpět má Hráč ${popisProfilu()}`);
+if (nactiNastaveni().hudba !== 70) chybyProfilu.push('nastavení není společné všem profilům');
+ulozNastaveni(JSON.parse(STARE_ULOZENI['hlubiny.nastaveni']));
+prepniProfil(bratr.slot);
+if (popisProfilu() !== bratrovo || nactiDuse().duse !== 50 - cenaVylepseni('zivoty', 0) || nactiTridu() !== 'bourlivak') chybyProfilu.push(`druhý profil po přepnutí: ${popisProfilu()}`);
+// Zvolený profil se pamatuje (po novém spuštění je zvolený pořád on).
+zajistiProfily();
+if (aktivniProfil().slot !== bratr.slot) chybyProfilu.push('zvolený profil se po spuštění nepamatuje');
+// Jméno: prázdné, jen mezery, jiný druh nebo obsazené (bez ohledu na velikost písmen) neprojde, dlouhé se zkrátí
+// a řídicí znaky zmizí. Přejmenování na vlastní jméno jde.
+for (const [jmeno, chyba] of [['', 'jmeno'], ['   ', 'jmeno'], [42, 'jmeno'], [null, 'jmeno'], ['bratr', 'obsazene'], [' HRÁČ ', 'obsazene']]) {
+  const v = vytvorProfil(jmeno);
+  if (v.chyba !== chyba) chybyProfilu.push(`jméno ${JSON.stringify(jmeno)} dalo ${JSON.stringify(v)}, čekal jsem chybu ${chyba}`);
+}
+const sestra = vytvorProfil(`Velmi${String.fromCharCode(7)} dlouhé   jméno profilu`);
+if (sestra.slot !== 3 || sestra.jmeno !== 'Velmi dlouhé jmé' || [...sestra.jmeno].length > MAX_JMENA) chybyProfilu.push(`dlouhé jméno: ${JSON.stringify(sestra)}`);
+if (prejmenujProfil(sestra.slot, 'Sestra').jmeno !== 'Sestra' || seznamProfilu().find((p) => p.slot === sestra.slot)?.jmeno !== 'Sestra') chybyProfilu.push('přejmenování se neuložilo');
+if (prejmenujProfil(sestra.slot, 'BRATR').chyba !== 'obsazene' || prejmenujProfil(sestra.slot, ' ').chyba !== 'jmeno' || prejmenujProfil(sestra.slot, 'sestra').chyba
+  || prejmenujProfil(9, 'Nikdo').chyba !== 'neni') chybyProfilu.push('přejmenování pouští špatná jména');
+// Nejvýš MAX_PROFILU profilů, ani import nepřidá další.
+const dalsiProfily = [vytvorProfil('Čtvrtý'), vytvorProfil('Pátý')];
+if (dalsiProfily.some((v) => !v.slot) || seznamProfilu().length !== MAX_PROFILU) chybyProfilu.push(`profilů je ${seznamProfilu().length}, čekal jsem ${MAX_PROFILU}`);
+if (vytvorProfil('Šestý').chyba !== 'plno' || importujProfil(dataProfilu(1)).chyba !== 'plno' || seznamProfilu().length !== MAX_PROFILU) chybyProfilu.push('šestý profil prošel');
+// Smazání: profil zmizí i se všemi daty, zvolený se přepne na jiný a smazaný už smazat nejde.
+const pate = dalsiProfily[1].slot;
+prepniProfil(pate);
+zapisVysledek({ cas: 50 });
+pripisDuse(7);
+zapisNalez(vytvorKus('obr', 'hlava'));
+if (!smazProfil(pate)) chybyProfilu.push('profil nejde smazat');
+if ([...ulozisteProfilu.keys()].some((k) => k.startsWith(`hlubiny.p${pate}.`))) chybyProfilu.push('po smazání profilu zůstala jeho data');
+if (aktivniProfil().slot === pate || seznamProfilu().some((p) => p.slot === pate) || seznamProfilu().length !== MAX_PROFILU - 1) chybyProfilu.push('smazaný profil je pořád v seznamu nebo zvolený');
+if (smazProfil(pate) || prepniProfil(pate)) chybyProfilu.push('smazaný profil jde smazat nebo zvolit znovu');
+if (!stareBezeZmeny() || popisProfilu(1) !== puvodni || popisProfilu(bratr.slot) !== bratrovo) chybyProfilu.push('smazání profilu sáhlo na jiný profil');
+// Kód uložení: export → import dá stejná data, i ze souboru .rugee nebo s mezerami, zalomením a textem okolo.
+const dataHrace = dataProfilu(1);
+if (dataHrace.jmeno !== VYCHOZI_JMENO || dataHrace.duse.duse !== 123 || dataHrace.rekordy.louka?.datum !== '2026-10-01T18:30:00.000Z'
+  || dataHrace.rekordy.jeskyne?.cas !== 210 || JSON.stringify(dataHrace.mapy) !== '["louka","jeskyne","jezero"]') chybyProfilu.push(`data profilu na export: ${JSON.stringify(dataHrace)}`);
+const kodHrace = kodProfilu(dataHrace);
+if (!/^RUGEE1\.[A-Za-z0-9_-]+\.[0-9a-f]{8}$/.test(kodHrace)) chybyProfilu.push(`kód má špatný tvar: ${kodHrace}`);
+const precteny = prectiKod(kodHrace);
+if (JSON.stringify(precteny.data) !== JSON.stringify(dataHrace)) chybyProfilu.push(`export → import nedal stejná data: ${JSON.stringify(precteny)}`);
+const rozsekany = `Ahoj, tady je můj kód:\n${kodHrace.match(/.{1,40}/g).join('\n  ')}\nDíky!`;
+for (const text of [souborProfilu(dataHrace), rozsekany, `  ${kodHrace}\n`]) {
+  if (JSON.stringify(prectiKod(text).data) !== JSON.stringify(dataHrace)) chybyProfilu.push(`kód v textu se nepřečetl: ${JSON.stringify(text.slice(0, 60))}`);
+}
+if (nazevSouboru('Hráč Žluťoučký') !== 'RuGee-Hrac-Zlutoucky.rugee' || nazevSouboru('!!!') !== 'RuGee-profil.rugee') chybyProfilu.push(`jméno souboru: ${nazevSouboru('Hráč Žluťoučký')}`);
+// Plný profil (všechno vylepšené, celá sbírka, rekord na každé mapě) má pořád krátký kód a projde celý.
+const plny = platnaDataProfilu({
+  jmeno: 'Žluťoučký kůň 16', trida: 'svetlonos', mapa: 'hrbitov', mapy: PORADI_MAP,
+  duse: { duse: 987654, vylepseni: Object.fromEntries(Object.entries(VYLEPSENI).map(([id, v]) => [id, v.max])) },
+  sbirka: Object.fromEntries(VSECHNY_KUSY.map((k, i) => [k.id, PORADI_RARIT_VYBAVY[i % PORADI_RARIT_VYBAVY.length]])),
+  rekordy: Object.fromEntries(PORADI_MAP.map((id, i) => [id, { cas: 1800 + i, uroven: 90, zabito: 23456, hrozba: 31, trida: 'havir', datum: '2026-11-04T21:15:30.123Z' }])),
+});
+const kodPlny = kodProfilu(plny);
+if (kodPlny.length > 1000) chybyProfilu.push(`kód plného profilu má ${kodPlny.length} znaků`);
+if (JSON.stringify(prectiKod(kodPlny).data) !== JSON.stringify(plny) || Object.keys(plny.sbirka).length !== VSECHNY_KUSY.length) chybyProfilu.push('plný profil neprošel exportem a importem');
+// Poškozený, useknutý nebo cizí kód se odmítne (a nic nevrátí).
+const vyrobKod = (telo, verze = VERZE_KODU) => {
+  const zaklad = `RUGEE${verze}.${telo}`;
+  return `${zaklad}.${crc32(zaklad)}`;
+};
+const doBase64Url = (text) => Buffer.from(text, 'utf8').toString('base64url');
+const zmenZnak = (text, i) => text.slice(0, i) + (text[i] === 'A' ? 'B' : 'A') + text.slice(i + 1);
+const teloHrace = kodHrace.split('.')[1];
+const spatneKody = [
+  ['', 'prazdny'], ['   ', 'prazdny'], [null, 'prazdny'], [42, 'prazdny'],
+  ['ahoj', 'format'], ['RUGEE1.', 'format'], [kodHrace.slice(0, -9), 'format'], ['x'.repeat(30000), 'format'],
+  [zmenZnak(kodHrace, 20), 'soucet'], [zmenZnak(kodHrace, kodHrace.length - 12), 'soucet'], [kodHrace.slice(0, 50) + kodHrace.slice(60), 'soucet'],
+  [kodHrace.slice(0, -1) + (kodHrace.endsWith('0') ? '1' : '0'), 'soucet'],
+  [vyrobKod(teloHrace, VERZE_KODU + 1), 'verze'],
+  [vyrobKod(doBase64Url('nejson')), 'obsah'], [vyrobKod(doBase64Url('[1,2]')), 'obsah'], [vyrobKod(doBase64Url('{"v":99}')), 'obsah'],
+  [vyrobKod('abcde'), 'obsah'], [vyrobKod(Buffer.from([255, 254, 253]).toString('base64url')), 'obsah'],
+];
+for (const [kod, chyba] of spatneKody) {
+  const v = prectiKod(kod);
+  if (v.chyba !== chyba || v.data) chybyProfilu.push(`kód ${JSON.stringify(String(kod).slice(0, 40))} dal ${JSON.stringify(v).slice(0, 80)}, čekal jsem chybu ${chyba}`);
+}
+// Kód se správným součtem, ale s nesmysly uvnitř: projde jen to, co dává smysl (stejné kontroly jako úložiště).
+const nesmysly = prectiKod(vyrobKod(doBase64Url(JSON.stringify({
+  v: VERZE_KODU, j: 42, t: 'drak', m: 'toString', o: 'vse', d: 'hodně', u: { sila: 99, drak: 3 },
+  s: { strazce: 'hxtlzz', drak: 'hl', toString: 5 }, s2: { obr_prsten: 'zlatá', matka_hlava: 'epicka' },
+  r: { louka: [-5, 'x', null, 3.7, 'drak', 'včera'], sopka: 'rychle', drak: [100] },
+}))));
+const cekamNesmysly = {
+  jmeno: VYCHOZI_JMENO, trida: VYCHOZI_TRIDA, mapa: VYCHOZI_MAPA, mapy: [VYCHOZI_MAPA], duse: { duse: 0, vylepseni: { sila: VYLEPSENI.sila.max } },
+  sbirka: { strazce_telo: 'legendarni', matka_hlava: 'epicka' }, rekordy: { louka: { cas: 0, hrozba: 3, mapa: 'louka' } },
+};
+if (JSON.stringify(nesmysly.data) !== JSON.stringify(cekamNesmysly)) chybyProfilu.push(`kód s nesmysly dal ${JSON.stringify(nesmysly)}`);
+// Import do nového profilu (jméno dostane číslo, ať se neplete) a přes existující (rekordy, které kód nemá, zmizí).
+const bezJmena = (d) => JSON.stringify({ ...d, jmeno: null });
+const novyZKodu = importujProfil(precteny.data);
+if (novyZKodu.slot !== pate || novyZKodu.jmeno !== `${VYCHOZI_JMENO} 2` || aktivniProfil().slot === pate) chybyProfilu.push(`import do nového profilu: ${JSON.stringify(novyZKodu)}`);
+if (bezJmena(dataProfilu(pate)) !== bezJmena(dataHrace)) chybyProfilu.push(`import do nového profilu nedal stejná data: ${JSON.stringify(dataProfilu(pate))}`);
+const prepsany = importujProfil(precteny.data, bratr.slot);
+if (prepsany.slot !== bratr.slot || prepsany.jmeno !== `${VYCHOZI_JMENO} 3`) chybyProfilu.push(`import přes profil: ${JSON.stringify(prepsany)}`);
+if (bezJmena(dataProfilu(bratr.slot)) !== bezJmena(dataHrace) || nactiRekord('sopka', bratr.slot) !== null) chybyProfilu.push(`import přes profil nedal stejná data: ${JSON.stringify(dataProfilu(bratr.slot))}`);
+if (importujProfil(precteny.data, 9).chyba !== 'neni') chybyProfilu.push('import do neexistujícího profilu prošel');
+if (!stareBezeZmeny() || popisProfilu(1) !== puvodni) chybyProfilu.push('import změnil profil Hráč');
+const prehledHrace = prehledProfilu(1);
+if (JSON.stringify(prehledHrace) !== JSON.stringify({ jmeno: VYCHOZI_JMENO, trida: 'havir', duse: 123, mapy: 3, sbirka: 2, rekord: 400 })) chybyProfilu.push(`přehled profilu: ${JSON.stringify(prehledHrace)}`);
+// Rozbitý záznam profilu nic neshodí: rozbité jméno = Profil N (data zůstanou), rozbitá data = prázdná, rozbitý
+// nebo cizí zvolený profil = první existující.
+ulozisteProfilu.set(`hlubiny.p${sestra.slot}.jmeno`, '{rozbité');
+ulozisteProfilu.set(`hlubiny.p${sestra.slot}.duse`, '{rozbité');
+ulozisteProfilu.set(`hlubiny.p${sestra.slot}.rekord`, '"drak"');
+ulozisteProfilu.set(`hlubiny.p${sestra.slot}.mapy`, '42');
+if (zajistiProfily().find((p) => p.slot === sestra.slot)?.jmeno !== `Profil ${sestra.slot}`) chybyProfilu.push('profil s rozbitým jménem zmizel');
+if (!prepniProfil(sestra.slot) || nactiDuse().duse !== 0 || nactiRekord() !== null || odemceneMapy().length !== 1) chybyProfilu.push('rozbitá data profilu se nenačetla jako prázdná');
+for (const spatny of ['{rozbité', '"drak"', '9', '0', '2.5', 'null', '[1]', '"2"']) {
+  ulozisteProfilu.set('hlubiny.profil', spatny);
+  zajistiProfily();
+  if (aktivniProfil().slot !== 1) chybyProfilu.push(`rozbitý zvolený profil ${spatny} dal slot ${aktivniProfil().slot}`);
+}
+// Poslední profil smazat nejde. Bez záznamu (nový hráč) je jeden prázdný profil Hráč.
+ulozisteProfilu.clear();
+if (JSON.stringify(zajistiProfily()) !== JSON.stringify([{ slot: 1, jmeno: VYCHOZI_JMENO, aktivni: true }]) || popisProfilu() !== prazdnyProfil) chybyProfilu.push('nový hráč nemá jeden prázdný profil');
+if (smazProfil(1) || seznamProfilu().length !== 1) chybyProfilu.push('poslední profil šel smazat');
+// Zakázané nebo chybějící úložiště: jeden profil Hráč, nic se nevytvoří ani nesmaže, export a čtení kódu jdou.
+for (const uloziste of [{ getItem() { throw new Error('zakázáno'); }, setItem() { throw new Error('zakázáno'); }, removeItem() { throw new Error('zakázáno'); } }, undefined]) {
+  nahradUloziste(uloziste);
+  const zakazane = zajistiProfily();
+  if (zakazane.length !== 1 || zakazane[0].jmeno !== VYCHOZI_JMENO || aktivniProfil().jmeno !== VYCHOZI_JMENO) chybyProfilu.push(`zakázané úložiště dalo profily ${JSON.stringify(zakazane)}`);
+  if (vytvorProfil('Nový').chyba !== 'uloziste' || importujProfil(dataHrace).chyba !== 'uloziste' || smazProfil(1) || prepniProfil(2)) chybyProfilu.push('zakázané úložiště něco vytvořilo, smazalo nebo přepnulo');
+  if (JSON.stringify(prectiKod(kodProfilu(dataProfilu())).data) !== JSON.stringify(dataProfilu()) || dataProfilu().duse.duse !== 0) chybyProfilu.push('zakázané úložiště: export prázdného profilu nejde přečíst');
+}
+chyby.push(...chybyProfilu);
 if (chyby.length) {
   console.error('CHYBA:', chyby.join('; '));
   process.exit(1);
