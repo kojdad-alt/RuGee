@@ -310,9 +310,12 @@ html, body {
 }
 
 /* Okno uprostřed hry (pauza, konec hry). V tématu má rám z trámů a kolem sebe teplý závoj přes hru (obří stín),
-   aby se dalo číst i přes hordu; vysoké okno se na nízké obrazovce posouvá samo. */
+   aby se dalo číst i přes hordu; vysoké okno se na nízké obrazovce posouvá samo. Leží nad nápovědou dole jako okna
+   karet (z-index 5), jinak by na telefonu naležato a nízkém notebooku její text ležel přes spodek okna a tlačítka;
+   hlášení zvuku (N) je dál nad ním. */
 .okno {
   position: fixed;
+  z-index: 5;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
