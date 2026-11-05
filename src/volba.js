@@ -138,8 +138,9 @@ function kusuSady(hra, kus) {
 }
 
 // Karta kusu výbavy: rarita, sprite, jméno, slot a sada, staty, efekt sady (s tím, kolik kusů sady by hrdina
-// měl) a co tlačítko udělá. rozdil = řádky, čím je nový kus lepší (zeleně) nebo horší (červeně) než nasazený.
-export function vytvorKartuKusu(kus, { stitek, akce, klavesa, rozdil = [], sada = 1 }) {
+// měl) a dole destička s tím, co volba udělá (akce velká, detail pod ní). rozdil = řádky, čím je nový kus lepší
+// (zeleně) nebo horší (červeně) než nasazený.
+export function vytvorKartuKusu(kus, { stitek, akce, detail = '', klavesa, rozdil = [], sada = 1 }) {
   const rarita = RARITY_VYBAVY[kus.rarita] ?? RARITY_VYBAVY.bezna;
   const karta = prvek('button', `karta kus rarita-${kus.rarita}`);
   karta.type = 'button';
@@ -159,13 +160,18 @@ export function vytvorKartuKusu(kus, { stitek, akce, klavesa, rozdil = [], sada 
   const efekt = EFEKTY_VYBAVY[VYBAVA[kus.boss].efekt];
   const bonus = prvek('span', 'karta-bonus');
   bonus.append(prvek('small', '', `${efekt.nazev} (${sada}/${PORADI_SLOTU.length}): ${popisEfektu(kus.boss, sada)}`));
-  text.append(bonus, prvek('span', 'kus-akce', akce));
+  const deska = prvek('span', 'kus-akce');
+  deska.append(prvek('b', '', akce));
+  if (detail) deska.append(prvek('small', '', detail));
+  text.append(bonus, deska);
   karta.append(prvek('span', 'karta-rarita', `${stitek} · ${rarita.nazev}`), ikona, text, prvek('kbd', 'karta-klavesa', String(klavesa)));
-  karta.setAttribute('aria-label', `${klavesa}. ${akce}: ${kus.nazev}, ${rarita.nazev}. ${radkyStatu(kus.staty).join('. ')}`);
+  const coUdela = detail ? `${akce} · ${detail}` : akce;
+  karta.setAttribute('aria-label', `${klavesa}. ${coUdela}: ${kus.nazev}, ${rarita.nazev}. ${radkyStatu(kus.staty).join('. ')}`);
   return karta;
 }
 
-// Okno porovnání: vlevo nový kus (Vzít), vpravo nasazený (Nechat). rozhodni(vzit) se zavolá po kliku.
+// Okno porovnání: vlevo nový kus (Vzít), vpravo nasazený (Nechat), mezi nimi šipky výměny se jménem slotu
+// (jen ozdoba, šipky a Enter chodí jen po kartách). rozhodni(vzit) se zavolá po kliku.
 // Vrací stupeň rarity nového kusu (0 běžná … 3 legendární) pro znělku.
 export function ukazPorovnani(okno, hra, rozhodni) {
   const { novy, nasazeny } = hra.porovnani;
@@ -176,18 +182,23 @@ export function ukazPorovnani(okno, hra, rozhodni) {
   okno.querySelector('#porovnani-podtitul').textContent = `Slot ${SLOTY[novy.slot].nazev} už je obsazený. Kus, který si nenecháš, se rozloží na zlaťáky.`;
   const karty = [
     vytvorKartuKusu(novy, {
-      stitek: 'Nový', akce: `Vzít · starý dá ${zlataky(zlatakyZaKus(nasazeny))}`, klavesa: 1,
+      stitek: 'Nový', akce: 'Vzít', detail: `starý dá ${zlataky(zlatakyZaKus(nasazeny))}`, klavesa: 1,
       rozdil: rozdilStatu(novy, nasazeny), sada: kusuSady(hra, novy),
     }),
     vytvorKartuKusu(nasazeny, {
-      stitek: 'Nasazený', akce: `Nechat · nový dá ${zlataky(zlatakyZaKus(novy))}`, klavesa: 2, sada: kusuSady(hra, nasazeny),
+      stitek: 'Nasazený', akce: 'Nechat', detail: `nový dá ${zlataky(zlatakyZaKus(novy))}`, klavesa: 2, sada: kusuSady(hra, nasazeny),
     }),
   ];
   karty.forEach((karta, i) => {
     karta.addEventListener('click', () => rozhodni(i === 0));
     karta.addEventListener('pointerover', () => { if (!karta.classList.contains('vybrano')) vyberTlacitko(karta); });
   });
-  okno.querySelector('#porovnani-kusy').replaceChildren(...karty);
+  const vymena = prvek('div', 'porovnani-vymena');
+  vymena.setAttribute('aria-hidden', 'true');
+  vymena.append(prvek('i'), prvek('span', '', SLOTY[novy.slot].nazev));
+  okno.querySelector('#porovnani-kusy').replaceChildren(karty[0], vymena, karty[1]);
+  pixelovyNadpis(okno.querySelector('#porovnani-nadpis'), 'Výbava bosse', { min: 2, max: 4 });
   okno.hidden = false;
+  prizpusobNadpisy(okno);
   return Math.max(0, PORADI_RARIT_VYBAVY.indexOf(novy.rarita));
 }

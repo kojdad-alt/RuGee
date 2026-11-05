@@ -10,6 +10,7 @@ import {
 } from './hra.js';
 import { kresliPodlahu } from './louka.js';
 import { MAPY, VYCHOZI_MAPA, hash } from './mapy.js';
+import { nakresliText, STYL_PERGAMEN } from './pismo.js';
 
 const MERITKO = 3;
 // Elita se kreslí po 4 px na pixel spritu (o třetinu větší, ale pořád ostrá) s rudým obrysem.
@@ -1738,15 +1739,44 @@ function sipkaKOkraji(ctx, p, sirka, vyska, obr, barva, odsazeni, velikost = 24)
   return { x, y };
 }
 
-// Otevírání truhly (svět stojí): okolí ztmavne, truhla se zatřese a otevře, z ní vyrazí paprsky v barvě rarity
-// kusu, kus vystoupá nad ni a nad ním se objeví jeho jméno.
+// Jméno kusu z truhly: pixelové písmo oken (pismo.js) v barvách rarity na tmavé dřevěné cedulce se zkosenými
+// rohy, světlou horní hranou a spodní lištou v barvě rarity. Nápis se kreslí jen jednou (podle jména a rarity).
+const CEDULKY = new Map();
+const PIXEL_CEDULKY = 2;
+function cedulkaKusu(nazev, barvy) {
+  const klic = `${nazev}|${barvy.c}`;
+  if (CEDULKY.has(klic)) return CEDULKY.get(klic);
+  const styl = { ...STYL_PERGAMEN, barvy: ['#fffaf0', barvy.svetla, barvy.svetla, barvy.svetla, barvy.svetla, barvy.svetla, barvy.c], barvaHloubky: '#2a170b' };
+  const text = nakresliText(document.createElement('canvas'), nazev.toLocaleUpperCase('cs'), styl);
+  const k = PIXEL_CEDULKY;
+  const w = text.width * k + 16 * k;
+  const h = text.height * k + 8 * k;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  const obdelnik = (barva, x, y, sw, sh) => { g.fillStyle = barva; g.fillRect(x, y, sw, sh); };
+  // obrys bez rohů, deska, světlá hrana nahoře, lišta rarity dole
+  obdelnik('#140c08', k, 0, w - 2 * k, h);
+  obdelnik('#140c08', 0, k, w, h - 2 * k);
+  obdelnik('#2b1c12', k, k, w - 2 * k, h - 2 * k);
+  obdelnik('#5a3a22', k, k, w - 2 * k, k);
+  obdelnik(barvy.c, k, h - 3 * k, w - 2 * k, 2 * k);
+  g.drawImage(text, 8 * k, 3 * k, text.width * k, text.height * k);
+  CEDULKY.set(klic, c);
+  return c;
+}
+
+// Otevírání truhly (svět stojí): okolí ztmavne do teplé hnědé, truhla se zatřese a otevře, z ní vyrazí paprsky
+// v barvě rarity kusu, kus vystoupá nad ni a nad ním se objeví cedulka s jeho jménem.
 function otevirani(ctx, hra, naObrazovce, sirka, vyska) {
   const o = hra.otevira;
   const t = Math.min(1, o.cas / TRVANI_OTEVRENI);
   const p = naObrazovce(o);
   const barvy = BARVY_RARIT[o.kus.rarita] ?? BARVY_RARIT.bezna;
   ctx.save();
-  ctx.fillStyle = `rgba(11,10,15,${(0.45 * Math.min(1, t * 4)).toFixed(3)})`;
+  ctx.fillStyle = `rgba(20,12,8,${(0.5 * Math.min(1, t * 4)).toFixed(3)})`;
   ctx.fillRect(0, 0, sirka, vyska);
   const otevrena = t >= TRESENI_TRUHLY;
   const x = Math.round(p.x + (otevrena ? 0 : (Math.floor(o.cas * 40) % 2 ? 2 : -2)));
@@ -1788,9 +1818,10 @@ function otevirani(ctx, hra, naObrazovce, sirka, vyska) {
     }
     if (obr) sprite(ctx, obr, x, y - vystup, 1, null, velikost);
     if (u >= 1) {
-      ctx.font = 'bold 15px ui-monospace, Menlo, monospace';
-      ctx.textAlign = 'center';
-      napis(ctx, o.kus.nazev, x, y - vystup - velikost / 2 - 8, barvy.svetla);
+      // cedulka nad kusem, na úzké obrazovce posunutá tak, aby nepřečnívala
+      const cedulka = cedulkaKusu(o.kus.nazev, barvy);
+      const cx = Math.max(4, Math.min(sirka - cedulka.width - 4, Math.round(x - cedulka.width / 2)));
+      ctx.drawImage(cedulka, cx, Math.round(y - vystup - velikost / 2 - 10 - cedulka.height));
     }
   }
   ctx.restore();
