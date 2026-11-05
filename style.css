@@ -1013,6 +1013,11 @@ body.v-menu .hud, body.v-menu .napoveda, body.v-menu .vybava { display: none; }
 
 .menu-mrizka .menu-tlacitko.vybrano::before { left: 7px; }
 
+/* Přidat na plochu pod záložkami (aplikace.js): jen kde to jde, menší než Hrát, stejně velké písmo jako záložky. */
+.menu-volby .menu-tlacitko.menu-plocha { font-size: 15px; padding: 9px 14px 11px 22px; }
+.menu-volby .menu-tlacitko.menu-plocha[hidden], .plocha-radek[hidden] { display: none; }
+.plocha-text { margin: 0 0 4px; font-size: 13px; color: var(--pergamen-tlumeny); }
+
 /* Cedulka pod Hrát: zapuštěná do desky, nahoře profil, pod ním postava, mapa a duše s ikonami. */
 .menu-postava {
   display: flex;

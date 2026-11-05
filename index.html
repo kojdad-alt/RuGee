@@ -4,7 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RuGee</title>
-<link rel="stylesheet" href="style.css?v=31370987">
+<meta name="description" content="Přežij v hlubinách co nejdéle. Pixelová hra v prohlížeči, jde hrát i bez internetu.">
+<meta name="theme-color" content="#140c08">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="ikony/ikona-32.png">
+<link rel="apple-touch-icon" href="ikony/ikona-apple-180.png">
+<meta name="apple-mobile-web-app-title" content="RuGee">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="stylesheet" href="style.css?v=8f510ef3">
 </head>
 <body class="v-menu">
 <canvas id="platno" aria-label="RuGee"></canvas>
@@ -89,13 +98,14 @@
 <script type="importmap">
 {
   "imports": {
+    "./src/aplikace.js": "./src/aplikace.js?v=b374be02",
     "./src/duse.js": "./src/duse.js?v=dece0508",
     "./src/hra.js": "./src/hra.js?v=c6d39541",
     "./src/kresleni.js": "./src/kresleni.js?v=33b31b9a",
     "./src/louka.js": "./src/louka.js?v=aff52225",
-    "./src/main.js": "./src/main.js?v=3b00c3c3",
+    "./src/main.js": "./src/main.js?v=e0de6820",
     "./src/mapy.js": "./src/mapy.js?v=8be105f4",
-    "./src/menu.js": "./src/menu.js?v=fb2a1d65",
+    "./src/menu.js": "./src/menu.js?v=cbb54c54",
     "./src/obchod.js": "./src/obchod.js?v=9208c128",
     "./src/pismo.js": "./src/pismo.js?v=910d689d",
     "./src/prenos.js": "./src/prenos.js?v=96f989e1",
@@ -109,6 +119,6 @@
   }
 }
 </script>
-<script type="module" src="src/main.js?v=3b00c3c3"></script>
+<script type="module" src="src/main.js?v=e0de6820"></script>
 </body>
 </html>

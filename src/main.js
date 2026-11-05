@@ -15,6 +15,7 @@ import {
 import { ukazVolby, ukazPorovnani } from './volba.js';
 import { ukazObchod, zatresZbozim, textZlataku } from './obchod.js';
 import { ukazVybavu } from './vybava.js';
+import { registruj as registrujAplikaci, novaVerze, priZmene as priZmeneAplikace } from './aplikace.js';
 
 const platno = document.getElementById('platno');
 const ctx = platno.getContext('2d');
@@ -71,6 +72,12 @@ function start() {
   document.activeElement?.blur?.();
 }
 
+// Nová verze hry (aplikace.js) převzala stránku, která běží se starou: načte se znovu, ale jen v hlavním menu
+// (ne uprostřed hry, v záložce ani při psaní jména), ať hráč o nic nepřijde. Jinak počká na návrat do menu.
+function nactiNovouVerzi() {
+  if (novaVerze() && vMenu && el('menu-zalozka').hidden && !document.activeElement?.matches?.('input, textarea')) location.reload();
+}
+
 function doMenu() {
   vMenu = true;
   el('konec').hidden = true;
@@ -82,6 +89,7 @@ function doMenu() {
   stisknute.clear();
   dotyk.aktivni = false;
   menu.ukaz();
+  nactiNovouVerzi();
 }
 
 // Hra začne až po Hrát. Stisk tlačítka zároveň odemkne zvuk (prohlížeč ho jinak nepustí).
@@ -538,4 +546,6 @@ el('zlato-ikona').replaceWith(obrazekSpritu('zlatak', 2));
 el('klic-ikona').replaceWith(obrazekSpritu('klic', 2));
 zmenVelikost();
 doMenu();
+registrujAplikaci();
+priZmeneAplikace(nactiNovouVerzi);
 requestAnimationFrame(smycka);

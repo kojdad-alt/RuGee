@@ -17,6 +17,7 @@ import {
   popisEfektu, popisSady,
 } from './vystroj.js';
 import { odemkniZvuk, zvukNakupu, zvukOdmitnuti, zvukHry, nastavZvuk, ukazkaHudby } from './zvuk.js';
+import { stav as stavAplikace, pridejNaPlochu, priZmene as priZmeneAplikace } from './aplikace.js';
 import { nakresliText, STYL_LOGA, STYL_PERGAMEN, pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
 
 // Profily: při prvním spuštění se stará uložení převedou do prvního profilu (ulozeni.js), pak se načte zvolený.
@@ -626,7 +627,35 @@ function vyplnOvladani(panel) {
   );
 }
 
-// Nastavení: zvuk (hlasitost efektů a hudby, ztlumení N) a čísla poškození, každé ve své skupině.
+// Na plochu (aplikace.js): kde prohlížeč instalaci nabízí, tlačítko ji otevře, jinde text, kde ji hledat (Safari
+// na iPhonu: Sdílet → Přidat na plochu). Když je hra uložená pro hraní bez internetu, napíše to.
+const TEXTY_PLOCHY = {
+  plocha: 'Hraješ z plochy jako aplikace.',
+  nabidka: 'Hra dostane ikonu na ploše a otevře se přes celou obrazovku.',
+  ios: 'V Safari klepni na Sdílet (čtvereček se šipkou nahoru) a vyber Přidat na plochu.',
+  prohlizec: 'V nabídce prohlížeče najdeš Přidat na plochu nebo Nainstalovat.',
+};
+
+function skupinaNaPlochu() {
+  const sekce = skupina('Na plochu', 'plocha');
+  const text = prvek('p', 'plocha-text');
+  const radek = prvek('div', 'radek-tlacitek nastaveni-radek plocha-radek');
+  const tlacitko = prvek('button', 'menu-tlacitko', 'Přidat na plochu');
+  tlacitko.type = 'button';
+  tlacitko.addEventListener('click', () => pridejNaPlochu());
+  radek.append(tlacitko);
+  const ukaz = () => {
+    const { kde, offline } = stavAplikace();
+    text.textContent = TEXTY_PLOCHY[kde] + (offline ? ' Hra je uložená v zařízení a jde hrát i bez internetu.' : '');
+    radek.hidden = kde !== 'nabidka';
+  };
+  const odhlas = priZmeneAplikace(() => (sekce.isConnected ? ukaz() : odhlas()));
+  ukaz();
+  sekce.append(text, radek);
+  return sekce;
+}
+
+// Nastavení: zvuk (hlasitost efektů a hudby, ztlumení N), čísla poškození a Na plochu, každé ve své skupině.
 // Všechno se hned uloží.
 function vyplnNastaveni(panel) {
   const zvuk = skupina('Zvuk');
@@ -637,7 +666,7 @@ function vyplnNastaveni(panel) {
   hra.append(radek);
   panel.append(
     prvek('p', 'podtitul', 'Volby se hned uloží v tomhle prohlížeči a platí pro všechny profily. Stejné najdeš i v pauze.'),
-    zvuk, hra,
+    zvuk, hra, skupinaNaPlochu(),
   );
 }
 
@@ -1165,7 +1194,25 @@ export function vytvorMenu({ hrat }) {
   const mrizka = prvek('div', 'menu-mrizka');
   mrizka.style.setProperty('--radku', String(Math.ceil((polozky.length - 1) / 2)));
   mrizka.append(...polozky.slice(1).map(tlacitkoMenu));
-  volby.replaceChildren(tlacitkoMenu(polozky[0]), radekPostavy, mrizka);
+  // Přidat na plochu pod záložkami: jen když to jde. Kde prohlížeč nabízí instalaci, otevře ji, na iPhonu otevře
+  // Nastavení s návodem pro Safari. Z plochy a v prohlížeči bez instalace se neukáže.
+  const naPlochu = tlacitkoMenu({
+    id: 'plocha',
+    nazev: 'Přidat na plochu',
+    akce() {
+      if (stavAplikace().kde === 'nabidka') return pridejNaPlochu();
+      otevri('nastaveni');
+      zalozka.querySelector('.skupina.plocha')?.scrollIntoView({ block: 'center' });
+    },
+  });
+  naPlochu.classList.add('menu-plocha');
+  const ukazNaPlochu = () => {
+    naPlochu.hidden = !['nabidka', 'ios'].includes(stavAplikace().kde);
+    if (naPlochu.hidden && naPlochu.classList.contains('vybrano')) vyberTlacitko(volby.querySelector('button'));
+  };
+  priZmeneAplikace(ukazNaPlochu);
+  ukazNaPlochu();
+  volby.replaceChildren(tlacitkoMenu(polozky[0]), radekPostavy, mrizka, naPlochu);
   document.getElementById('menu-zpet').addEventListener('click', () => zpet());
   // Najetí myší vybere tlačítko, jen ne když se píše do pole (jméno profilu, kód), to by mu vzalo klávesnici.
   koren.addEventListener('pointerover', (e) => {
