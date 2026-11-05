@@ -879,7 +879,7 @@ body[data-barvy] .sance i {
   bottom: 8px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(420px, 62vw);
+  width: min(560px, 82vw);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -909,6 +909,17 @@ body[data-barvy] .sance i {
   text-align: right;
 }
 @media (prefers-reduced-motion: reduce) { .zivoty-hrdiny.malo .zivoty-vypln { animation: none; } }
+/* Sloty výbavy bossů (Hlava, Tělo, Amulet, Prsten) v jedné řadě vpravo od životů; stejné políčko jako přehled vlevo. */
+.zivoty-sloty {
+  --ikona: 24px;
+  --cislo: 10px;
+  --mezera: 3px;
+  display: flex;
+}
+.zivoty-sloty .vybava-vystroj { grid-template-columns: repeat(4, auto); }
+@media (max-width: 600px), (max-height: 500px) {
+  .zivoty-sloty { --ikona: 18px; --cislo: 8px; }
+}
 
 /* Přehled výbavy vlevo dole nad nápovědou: řada zbraní, pod ní řada pasiv. Políčko = zapuštěná dřevěná jamka se
    spritem a v pravém dolním rohu číslo úrovně, prázdná jamka je jen tmavý obrys. Rámeček mění barvu od 5. (zlatý), 10. (tyrkysový) a 15. úrovně (rubínový, pulzuje).

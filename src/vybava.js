@@ -49,7 +49,8 @@ function radek(polozky, mist, predtim) {
   return r;
 }
 
-export function ukazVybavu(kontejner, hra) {
+// kontejnerVystroje: kam dát sloty výbavy bossů (ve hře vpravo od pruhu životů dole); bez něj jdou vedle zbraní.
+export function ukazVybavu(kontejner, hra, kontejnerVystroje = null) {
   const { zbrane, pasivy } = seznamVybavy(hra);
   const sloty = seznamVystroje(hra);
   const vse = [...zbrane, ...pasivy];
@@ -62,7 +63,12 @@ export function ukazVybavu(kontejner, hra) {
   levy.append(radek(zbrane, Object.keys(ZBRANE).length, predtim), radek(pasivy, Object.keys(PASIVY).length, predtim));
   const vystroj = prvek('div', 'vybava-vystroj');
   vystroj.append(...sloty.map((p) => slotVystroje(p, predtim && p.kus && predtim.get(`vystroj:${p.slot}`) !== otiskKusu(p))));
-  kontejner.replaceChildren(levy, vystroj);
+  if (kontejnerVystroje) {
+    kontejner.replaceChildren(levy);
+    kontejnerVystroje.replaceChildren(vystroj);
+  } else {
+    kontejner.replaceChildren(levy, vystroj);
+  }
   const urovne = new Map(vse.map((p) => [klic(p), p.uroven]));
   for (const p of sloty) urovne.set(`vystroj:${p.slot}`, otiskKusu(p));
   minule.set(kontejner, { hra, podpis, urovne });
