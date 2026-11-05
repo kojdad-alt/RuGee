@@ -326,12 +326,15 @@ export default {
   pauza: {
     nadpis: 'Pauza',
     pokracovat: 'Pokračovat',
+    ukoncit: 'Ukončit hru',
+    ukoncitOd: 'Ukončit od {cas}',
     napovedaKlavesnice: 'Hra stojí. <kbd>P</kbd>, <kbd>Esc</kbd> nebo Pokračovat ji pustí dál.',
     napovedaDotyk: 'Hra stojí, Pokračovat ji pustí dál.',
     napovedaOvladac: 'Hra stojí. {start}, {b} nebo Pokračovat ji pustí dál.',
   },
   konec: {
     nadpis: 'Horda tě pohltila',
+    nadpisUkonceno: 'Výprava končí',
     znovu: 'Znovu',
     menu: 'Menu',
     novyRekord: 'Nový rekord!',

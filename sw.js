@@ -9,7 +9,7 @@
 // - Skripty a styl mají v adrese otisk (?v=…), takže jsou neměnné a berou se z keše. Co v keši není (nová verze
 //   stránky, ke které se nový worker ještě instaluje), jde ze sítě.
 // verze: začátek (generuje node nastroje/verze.mjs, ručně neupravovat)
-const VERZE = '8dd83d2d';
+const VERZE = 'ed57d502';
 const SOUBORY = [
   './',
   './style.css?v=b9b9ee4e',
@@ -19,7 +19,7 @@ const SOUBORY = [
   './src/hra.js?v=9f117527',
   './src/kresleni.js?v=7a1d8898',
   './src/louka.js?v=fd24061d',
-  './src/main.js?v=d73a19a9',
+  './src/main.js?v=944b41c1',
   './src/mapy.js?v=1a20c8fc',
   './src/menu.js?v=d9715774',
   './src/obchod.js?v=c39b438d',
@@ -37,8 +37,8 @@ const SOUBORY = [
   './src/vystroj.js?v=c932169c',
   './src/vzory.js?v=a74be1f5',
   './src/zvuk.js?v=ac9e1080',
-  './src/texty/cs.js?v=9571003f',
-  './src/texty/en.js?v=1fa38e3c',
+  './src/texty/cs.js?v=97bc792b',
+  './src/texty/en.js?v=e493ee16',
   './src/shadery/obraz-pixel.glsl?v=ccac4bd3',
   './src/shadery/obraz-vrchol.glsl?v=e885302b',
   './src/shadery/svetla-pixel.glsl?v=64aeaa2c',
