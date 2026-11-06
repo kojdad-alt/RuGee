@@ -941,7 +941,7 @@ export default {
     },
     hrbitov: {
       nazev: 'Hřbitov za noci',
-      popis: 'Náhrobky, kříže a mlha. V noci tu vstávají kostlivci a mezi hroby bloudí duchové.',
+      popis: 'Náhrobky, kříže a mlha. V noci tu vstávají kostlivci, mezi hroby bloudí duchové a krákají havrani.',
       smecky: { text: 'Za zdí hřbitova vyje smečka' },
     },
   },
@@ -979,7 +979,8 @@ export default {
     hrbitov: {
       kostlivec: 'Z hrobů vstávají kostlivci',
       duch: 'Mezi hroby bloudí duchové',
-      pavouk: 'Z krypt lezou pavouci',
+      ghul: 'Z rozkopaných hrobů lezou ghúlové',
+      hrobnik: 'Hrobníci se chopili lopat',
     },
   },
   // Výbava bossů (vystroj.js): sloty, staty (tvary podle čísla), rarity, efekty a sady s kusy.

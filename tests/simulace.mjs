@@ -4499,8 +4499,9 @@ for (const id of PORADI_MAP.filter((m) => MAPY[m].prekazky)) {
 // z jiných map. Tvor se schopností ji na stojícího hrdinu opravdu použije (skok dopadne a trefí, hod trefí) a dopad
 // i střela jsou vidět jako to, co slibují data (permoník jiskří krumpáčem, krystalník hází střep, lední medvěd
 // dopadne do sněhu, sněhulák hází kouli, salamandr dopadne v magmatu, golem hází magma, kajman dopadne do bahna,
-// vodník hází hrneček). Jedový tvor po smrti nechá oblak a tvorové Sopky (kromě schovaných duchů) kousnutím pálí.
-const MAPY_S_VLASTNIMI = ['louka', 'jeskyne', 'jezero', 'sopka', 'bazina'];
+// vodník hází hrneček, ghúl dopadne do hlíny, hrobník hází hlínu). Jedový tvor po smrti nechá oblak a tvorové
+// Sopky (kromě schovaných duchů) kousnutím pálí. Vlastní tvory mají všechny mapy (i každá nová).
+const MAPY_S_VLASTNIMI = [...PORADI_MAP];
 {
   // Kde druh chodí (i ve smečkách: vlk ze smeček Louky a Hřbitova není vlastní tvor jezera).
   const kdeChodi = {};

@@ -60,6 +60,8 @@ const SVITI = {
   // Sopka: křídla ohnivé můry a plamenný hřbet salamandra.
   ohniva_mura: { barva: [1, 0.6, 0.25], r: 36, sila: 0.45 },
   salamandr: { barva: [1, 0.5, 0.2], r: 40, sila: 0.45 },
+  // Hřbitov: lucerna hrobníka.
+  hrobnik: { barva: [1, 0.7, 0.28], r: 40, sila: 0.45 },
 };
 // Kruhy vyvolání svítí barvou bosse (pruh bosse v kresleni.js).
 const BARVY_BOSSU = {

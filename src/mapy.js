@@ -726,16 +726,17 @@ export const MAPY = {
   },
 
   // Hřbitov za noci: tma jako v jeskyni, jen slabší (svítí měsíc), přes hroby se plazí mlha (mlha.pocet chuchvalců,
-  // mlha.sila = jak hustá). Náhrobky a kříže překážejí, chodí kostlivci a duchové. Hlavní boss je Kostěný král.
+  // mlha.sila = jak hustá). Náhrobky a kříže překážejí. Vlastní tvorové: havrani, kostlivci, duchové, ghúlové
+  // (skáčou z hrobů) a hrobníci (hází hlínu, nosí lucernu), za zdí vyjí vlci. Hlavní boss je Kostěný král.
   hrbitov: {
     barva: '#c9ccd2',
     boss: 'kosteny_kral',
     nepratele: [
-      { druh: 'netopyr', od: 0, vaha: 2 },
+      { druh: 'havran', od: 0, vaha: 2 },
       { druh: 'kostlivec', od: 25, vaha: 3 },
       { druh: 'duch', od: 50, vaha: 2 },
-      { druh: 'slizak', od: 110, vaha: 1 },
-      { druh: 'pavouk', od: 200, vaha: 1 },
+      { druh: 'ghul', od: 110, vaha: 1 },
+      { druh: 'hrobnik', od: 200, vaha: 1 },
     ],
     smecky: { druh: 'vlk', od: 230, kazdych: 30 },
     obtiznost: { zivoty: 1.6, poskozeni: 1.45 },
