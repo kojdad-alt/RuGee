@@ -934,8 +934,9 @@ body[data-barvy] .sance i {
 /* Přehled výbavy vlevo dole nad pruhem životů: řada zbraní, pod ní řada pasiv, jen co hrdina má. Políčko =
    zapuštěná dřevěná jamka se spritem a v pravém dolním rohu číslo úrovně. Rámeček mění barvu od 5. (zlatý), 10.
    (tyrkysový) a 15. úrovně (rubínový, pulzuje). Na dotyk nereaguje (joystick jde chytit i přes něj), jen malé
-   tlačítko v rohu ho sbalí na lištu zbraní (.sbalena: menší jamky v zapuštěném pruhu, bez pasiv) a zase rozbalí.
-   U joysticku zprůhlední. Na mobilu menší. */
+   tlačítko v levém dolním rohu ho sbalí na lištu zbraní (.sbalena: menší jamky v zapuštěném pruhu, bez pasiv) a
+   zase rozbalí. Tlačítko stojí pořád na stejném místě (první v řadě, zarovnané dolů), takže druhé klepnutí na totéž
+   místo přehled zase rozbalí, ať je zbraní kolik chce. U joysticku zprůhlední. Na mobilu menší. */
 .vybava {
   --ikona: 24px;
   --cislo: 10px;
@@ -945,7 +946,7 @@ body[data-barvy] .sance i {
   left: 16px;
   bottom: 34px;
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 4px;
   pointer-events: none;
   transition: opacity 0.15s;
@@ -963,7 +964,8 @@ body[data-barvy] .sance i {
 
 .vybava.sbalena .vybava-radek { max-width: calc(10 * (var(--ikona) + var(--okraj-policka)) + 9 * var(--mezera)); }
 
-/* Tlačítko v rohu přehledu: dřevěný čtvereček z kitu, mosazné minus (sbalit) nebo plus (rozbalit). Na dotyku větší. */
+/* Tlačítko v levém dolním rohu přehledu: dřevěný čtvereček z kitu, mosazné minus (sbalit) nebo plus (rozbalit). Na
+   dotyku větší. */
 .vybava-prepinac {
   position: relative;
   flex: none;

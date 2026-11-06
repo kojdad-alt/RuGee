@@ -6040,7 +6040,12 @@ const chybyPanelu = [];
   const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
   if (!/\.vybava\.sbalena \.vybava-radek-pasivy \{ display: none; \}/.test(css) || !/pointer-events: auto;/.test(css.slice(css.indexOf('.vybava-prepinac {')))) chybyPanelu.push('sbalený přehled neskrývá pasivy nebo tlačítko nejde stisknout');
   if (/vybava-policko prazdne/.test(zdroj('vybava.js')) || !zdroj('vybava.js').includes('vybava-radek-pasivy')) chybyPanelu.push('přehled výbavy má zase prázdné jamky nebo nemá řadu pasiv');
-  if (!readFileSync(new URL('../index.html', import.meta.url), 'utf8').includes('id="vybava-prepinac"')) chybyPanelu.push('index.html nemá tlačítko přehledu výbavy');
+  const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  if (!indexHtml.includes('id="vybava-prepinac"')) chybyPanelu.push('index.html nemá tlačítko přehledu výbavy');
+  // Tlačítko se po klepnutí nesmí odsunout: je první v řadě a přehled je zarovnaný dolů, takže sbalený i rozbalený
+  // přehled (a jakýkoli počet zbraní) má tlačítko v levém dolním rohu na stejném místě.
+  const pravidloVybavy = css.slice(css.indexOf('\n.vybava {'), css.indexOf('}', css.indexOf('\n.vybava {')));
+  if (indexHtml.indexOf('id="vybava-prepinac"') > indexHtml.indexOf('id="vybava-obsah"') || !/align-items: flex-end;/.test(pravidloVybavy)) chybyPanelu.push('tlačítko přehledu výbavy se po sbalení posune (má být první a zarovnané dolů)');
 }
 chyby.push(...chybyPanelu);
 
