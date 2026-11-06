@@ -10,7 +10,7 @@ import {
   RARITY_VYBAVY, PORADI_RARIT_VYBAVY, SLOTY, VYBAVA, EFEKTY_VYBAVY, PORADI_SLOTU, radkyStatu, rozdilStatu, popisEfektu,
   zlatakyZaKus,
 } from './vystroj.js';
-import { obrazekSpritu, vyberTlacitko } from './menu.js';
+import { obrazekSpritu, najedi, najetiMysi } from './menu.js';
 import { jenOvladac, mysVybira } from './ovladac.js';
 import { cenaSMinci } from './obchod.js';
 import { pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
@@ -111,7 +111,7 @@ export function ukazVolby(okno, hra, zvol) {
   const karty = hra.volby.map((v, i) => {
     const karta = vytvorKartu(v, i);
     karta.addEventListener('click', () => zvol(i));
-    karta.addEventListener('pointerover', () => { if (mysVybira() && !karta.classList.contains('vybrano')) vyberTlacitko(karta); });
+    karta.addEventListener('pointerover', (e) => { if (mysVybira()) najedi(karta, false, najetiMysi(e)); });
     return karta;
   });
   okno.querySelector('#karty').replaceChildren(...karty);
@@ -193,7 +193,7 @@ export function ukazPorovnani(okno, hra, rozhodni) {
   ];
   karty.forEach((karta, i) => {
     karta.addEventListener('click', () => rozhodni(i === 0));
-    karta.addEventListener('pointerover', () => { if (mysVybira() && !karta.classList.contains('vybrano')) vyberTlacitko(karta); });
+    karta.addEventListener('pointerover', (e) => { if (mysVybira()) najedi(karta, false, najetiMysi(e)); });
   });
   const vymena = prvek('div', 'porovnani-vymena');
   vymena.setAttribute('aria-hidden', 'true');

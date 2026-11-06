@@ -1,11 +1,14 @@
 // Zvuk ze syntezátoru prohlížeče, bez jediného souboru: efekty i hudba se skládají z oscilátorů a šumu.
-// Prohlížeč pustí zvuk až po kliknutí nebo klávese, proto ho odemyká tlačítko Hrát (a kliky v menu).
+// Prohlížeč pustí zvuk až po kliknutí nebo klávese, proto ho odemyká klik na tlačítko a stisk klávesy (menu.js, main.js).
 // Bez AudioContext (Node a simulace, starý prohlížeč) nebo když cokoli selže, se nestane nic a hra běží potichu.
 //
 // Cesta zvuku: hlas (oscilátor nebo šum → filtr → obálka) → sběrnice Efekty, nebo Hudba (přes plynulé ztišení
 // nálady) → hlavní hlasitost (N ztlumí vše) → omezovač (DynamicsCompressor, ať nic neřve) → reproduktory.
 // Ve hře padají stovky zásahů za sekundu, proto má každý efekt svou nejmenší mezeru (mezera v EFEKTY) a běžných
 // efektů dohromady zazní nejvýš MAX_EFEKTU_ZA_SEKUNDU. Důležité (boss, varování, smrt, truhla) projdou vždy.
+// Zvuky oken a menu (okno: true v EFEKTY) jsou krátké a tiché: najetí na tlačítko jen ťukne, klik, zpět, záložka,
+// přepínač, výběr, nákup a odmítnutí. Pozastavený kontext (založený stiskem na ovladači, bez kliku) nehraje nic,
+// ať se zvuky nenahromadí a nezazní všechny naráz, až ho prohlížeč pustí.
 
 let kontext = null;
 let vystup = null;
@@ -23,11 +26,14 @@ export const MAX_EFEKTU_ZA_SEKUNDU = 30;
 const okno = [];
 const naposledy = new Map();
 // Počítadla pro kontrolu (test v Node i v prohlížeči): efektu = kolik zaznělo, zahozeno = kolik omezovač
-// nepustil, uzlu = kolik uzlů WebAudio vzniklo (efekty i hudba), not = kolik not zahrála hudba.
-const statistika = { efektu: 0, zahozeno: 0, uzlu: 0, not: 0 };
+// nepustil, uzlu = kolik uzlů WebAudio vzniklo (efekty i hudba), not = kolik not zahrála hudba, oken = kolikrát
+// se okno nebo menu o zvuk řeklo (i potichu: ztlumeno, 0 %), zaznelo = jména posledních efektů, které zazněly.
+const statistika = { efektu: 0, zahozeno: 0, uzlu: 0, not: 0, oken: 0 };
+const zaznelo = [];
+const MAX_ZAZNELO = 32;
 
 export function statistikaZvuku() {
-  return { ...statistika, odemceno: Boolean(vystup), stav: kontext?.state ?? null };
+  return { ...statistika, zaznelo: [...zaznelo], odemceno: Boolean(vystup), stav: kontext?.state ?? null };
 }
 
 const omez = (x, od, do_) => Math.min(do_, Math.max(od, x));
@@ -173,8 +179,15 @@ function sumik(cil, t, { delka = 0.1, h = 0.02, utok = 0.002, drzeni = 0, fl = {
 
 // Smí efekt id zaznít? Od posledního stejného musí uplynout jeho mezera a běžných efektů za poslední sekundu
 // smí být nejvýš MAX_EFEKTU_ZA_SEKUNDU (důležité se nepočítají a projdou vždy). Vrací čas začátku, nebo null.
+// Pozastavený kontext hraje, jen když právě běží klik nebo klávesa (prohlížeč ho v ní pouští, stav se přepne až
+// za chvíli). Prohlížeč bez navigator.userActivation hraje jako dřív.
+function smiHrat() {
+  if (kontext.state === 'running') return true;
+  return globalThis.navigator?.userActivation?.isActive ?? true;
+}
+
 function muze(id, mezera, dulezity) {
-  if (!vystup || hlasitost.ztlumeno || hlasitost.efekty <= 0) return null;
+  if (!vystup || hlasitost.ztlumeno || hlasitost.efekty <= 0 || !smiHrat()) return null;
   const t = kontext.currentTime;
   const pred = naposledy.get(id);
   if (pred !== undefined && t - pred < mezera) {
@@ -620,56 +633,123 @@ const EFEKTY = {
     },
   },
 
-  // Okna a menu.
+  // Okna a menu (okno: true). Hlasitost h je vrchol obálky před sběrnicí Efekty: najetí 0,005 (sotva slyšet),
+  // klik a přepínač kolem 0,02, okna a nákup kolem 0,03.
   start: {
     mezera: 0.2,
     dulezity: true,
+    okno: true,
     hraj(t, e) {
       hlas(e, t, { f: 523, delka: 0.08, h: 0.035 });
       hlas(e, t + 0.08, { f: 659, delka: 0.08, h: 0.035 });
       hlas(e, t + 0.16, { f: 784, delka: 0.14, h: 0.035 });
     },
   },
+  // Najetí myší nebo přesun výběru šipkami a páčkou: jen tiché ťuknutí. Nejvýš jednou za mezeru a jako běžný
+  // efekt (při plném limitu za sekundu se zahodí), držený směr na ovladači tak ťuká nejvýš 11× za sekundu.
+  najeti: {
+    mezera: 0.09,
+    okno: true,
+    hraj(t, e) {
+      hlas(e, t, { f: 1760 * kolisani(0.02), delka: 0.028, h: 0.005, vlna: 'triangle', utok: 0.002 });
+    },
+  },
+  // Klik nebo Enter na tlačítko bez vlastního zvuku: dřevěné ťuk s mosazným cinknutím.
+  klik: {
+    mezera: 0.05,
+    dulezity: true,
+    okno: true,
+    hraj(t, e) {
+      hlas(e, t, { f: 1047 * kolisani(0.02), f2: 784, delka: 0.045, h: 0.02, vlna: 'triangle' });
+      sumik(e, t, { delka: 0.018, h: 0.007, fl: { typ: 'bandpass', f: 2600, q: 1.5 } });
+    },
+  },
+  // Zpět, zavření okna, pokračování z pauzy, odchod od kupce: dva tóny dolů.
+  zpet: {
+    mezera: 0.08,
+    dulezity: true,
+    okno: true,
+    hraj(t, e) {
+      hlas(e, t, { f: 784, delka: 0.05, h: 0.018, vlna: 'triangle' });
+      hlas(e, t + 0.05, { f: 587, delka: 0.09, h: 0.016, vlna: 'triangle' });
+    },
+  },
+  // Otevřená záložka menu nebo pauza: šustnutí a dva tóny nahoru. Strom vylepšení (stupen 1): dřevěné ťuknutí
+  // a čtyři tóny nahoru, jako když větve vyrostou.
+  zalozka: {
+    mezera: 0.12,
+    dulezity: true,
+    okno: true,
+    hraj(t, e, stupen) {
+      sumik(e, t, { delka: 0.07, h: 0.008, fl: { typ: 'bandpass', f: 1400, f2: 3200, q: 0.9 } });
+      if (stupen === 1) {
+        hlas(e, t, { f: 196, f2: 160, delka: 0.09, h: 0.022, vlna: 'sine' });
+        [392, 494, 587, 784].forEach((f, i) => hlas(e, t + 0.05 + i * 0.06, { f, delka: i === 3 ? 0.18 : 0.07, h: 0.014, vlna: 'triangle' }));
+        return;
+      }
+      hlas(e, t, { f: 523, delka: 0.05, h: 0.018, vlna: 'triangle' });
+      hlas(e, t + 0.045, { f: 784, delka: 0.09, h: 0.018, vlna: 'triangle' });
+    },
+  },
+  // Přepínač v Nastavení a pauze, sbalení výbavy, jazyk a barvy: cvak a tón nahoru (zapnuto, stupen 1) nebo dolů.
+  prepinac: {
+    mezera: 0.06,
+    dulezity: true,
+    okno: true,
+    hraj(t, e, zapnuto) {
+      sumik(e, t, { delka: 0.015, h: 0.006, fl: { typ: 'highpass', f: 2500 } });
+      hlas(e, t, { f: 880, delka: 0.035, h: 0.016, vlna: 'triangle' });
+      hlas(e, t + 0.035, { f: zapnuto ? 1319 : 659, delka: 0.06, h: 0.016, vlna: 'triangle' });
+    },
+  },
   // Okno nové úrovně: stoupající znělka, čím vzácnější nejlepší karta (0 běžná … 3 legendární), tím delší.
   volba: {
     mezera: 0.15,
     dulezity: true,
+    okno: true,
     hraj(t, e, stupen) {
       const tony = [523, 659, 784, 1047, 1319];
       const kolik = 2 + omez(Math.round(stupen) || 0, 0, 3);
       for (let i = 0; i < kolik; i++) hlas(e, t + i * 0.07, { f: tony[i], delka: i === kolik - 1 ? 0.18 : 0.08, h: 0.03 });
     },
   },
-  // Karta vybrána: krátké cinknutí.
+  // Karta, postava, mapa, profil nebo pet vybrán: krátké cinknutí.
   vyber: {
     mezera: 0.08,
     dulezity: true,
+    okno: true,
     hraj(t, e) {
       hlas(e, t, { f: 988, delka: 0.06, h: 0.03 });
       hlas(e, t + 0.05, { f: 1319, delka: 0.1, h: 0.03 });
     },
   },
-  // Nákup: dva rychlé jasné tóny.
+  // Nákup (strom, vejce, kupec): tři měkké tóny nahoru jako cinknutí mincí a třpyt navrch.
   nakup: {
     mezera: 0.08,
     dulezity: true,
+    okno: true,
     hraj(t, e) {
-      hlas(e, t, { f: 784, delka: 0.08, h: 0.035 });
-      hlas(e, t + 0.06, { f: 1047, delka: 0.12, h: 0.035 });
+      hlas(e, t, { f: 784, delka: 0.07, h: 0.03, vlna: 'triangle' });
+      hlas(e, t + 0.06, { f: 1047, delka: 0.08, h: 0.03, vlna: 'triangle' });
+      hlas(e, t + 0.12, { f: 1568, delka: 0.2, h: 0.024, vlna: 'triangle' });
+      hlas(e, t + 0.12, { f: 3136, delka: 0.12, h: 0.004, vlna: 'sine' });
     },
   },
-  // Na nákup chybí peníze nebo duše: krátké hluboké zabzučení.
+  // Chybí duše nebo zlaťáky, zamčená mapa nebo uzel, špatné jméno: tlumené „ne-ne“ (dva hluboké tóny přes filtr).
   odmitnuti: {
-    mezera: 0.08,
+    mezera: 0.1,
     dulezity: true,
+    okno: true,
     hraj(t, e) {
-      hlas(e, t, { f: 147, delka: 0.12, h: 0.03 });
+      hlas(e, t, { f: 156, f2: 139, delka: 0.09, h: 0.03, fl: { f: 650 } });
+      hlas(e, t + 0.1, { f: 131, f2: 117, delka: 0.13, h: 0.028, fl: { f: 520 } });
     },
   },
   // Přehozené karty: rychlé zamíchání (tři tóny nahoru a dolů).
   prehozeni: {
     mezera: 0.08,
     dulezity: true,
+    okno: true,
     hraj(t, e) {
       hlas(e, t, { f: 659, delka: 0.05, h: 0.03 });
       hlas(e, t + 0.05, { f: 880, delka: 0.05, h: 0.03 });
@@ -681,6 +761,7 @@ const EFEKTY = {
   tukVejce: {
     mezera: 0.1,
     dulezity: true,
+    okno: true,
     hraj(t, e, stupen) {
       const f = 392 * 2 ** ((omez(Math.round(stupen) || 0, 0, 2) * 2) / 12);
       hlas(e, t, { f, f2: f * 0.8, delka: 0.07, h: 0.03, vlna: 'triangle' });
@@ -690,6 +771,7 @@ const EFEKTY = {
   praskVejce: {
     mezera: 0.2,
     dulezity: true,
+    okno: true,
     hraj(t, e) {
       sumik(e, t, { delka: 0.12, h: 0.03, fl: { typ: 'highpass', f: 1800 } });
       hlas(e, t, { f: 880, f2: 330, delka: 0.12, h: 0.02, vlna: 'square', fl: { f: 2200 } });
@@ -698,6 +780,7 @@ const EFEKTY = {
   vylihnuti: {
     mezera: 0.3,
     dulezity: true,
+    okno: true,
     hraj(t, e, stupen) {
       const s = omez(Math.round(stupen) || 0, 0, 3);
       const tony = [523, 659, 784, 1047, 1319, 1568];
@@ -710,6 +793,7 @@ const EFEKTY = {
   ukazka: {
     mezera: 0.05,
     dulezity: true,
+    okno: true,
     hraj(t, e) {
       hlas(e, t, { f: 784, delka: 0.08, h: 0.03, vlna: 'triangle' });
       hlas(e, t + 0.07, { f: 1175, delka: 0.12, h: 0.03, vlna: 'triangle' });
@@ -718,22 +802,29 @@ const EFEKTY = {
 };
 
 export const ID_EFEKTU = Object.keys(EFEKTY);
-// Mezera a důležitost každého efektu (pro test omezovače).
-export const POPIS_EFEKTU = Object.fromEntries(Object.entries(EFEKTY).map(([id, e]) => [id, { mezera: e.mezera, dulezity: Boolean(e.dulezity) }]));
+// Mezera, důležitost a jestli je to zvuk okna (pro test omezovače a zvuků menu).
+export const POPIS_EFEKTU = Object.fromEntries(Object.entries(EFEKTY).map(([id, e]) => [id, { mezera: e.mezera, dulezity: Boolean(e.dulezity), okno: Boolean(e.okno) }]));
+export const ZVUKY_OKEN = ID_EFEKTU.filter((id) => EFEKTY[id].okno);
 
 // Zahraje efekt podle jména (zvuky ze hry i z oken). Neznámé jméno, vypnutý zvuk nebo plný limit = ticho.
 export function zvukHry(id, sila = 0) {
   const efekt = EFEKTY[id];
   if (!efekt) return false;
+  if (efekt.okno) statistika.oken += 1;
   const t = muze(id, efekt.mezera ?? 0.05, efekt.dulezity);
   if (t === null) return false;
   try {
     efekt.hraj(t, vystup.efekty, sila);
+    zaznelo.push(id);
+    if (zaznelo.length > MAX_ZAZNELO) zaznelo.shift();
     return true;
   } catch {
     return false;
   }
 }
+
+// Kolikrát se okno nebo menu o zvuk řeklo (menu.js podle toho pozná, že tlačítko už svůj zvuk má).
+export const zadostiOken = () => statistika.oken;
 
 // Zkratky pro okna a menu (dřívější jména).
 export const zvukStartu = () => zvukHry('start');
@@ -867,7 +958,8 @@ export function hudba(mapa, { boss = false, tlumit = false } = {}) {
 
 // Ukázka hudby při změně její hlasitosti v nastavení: jeden měkký akord Louky (i v menu, kde hudba nehraje).
 export function ukazkaHudby() {
-  if (!vystup || hlasitost.ztlumeno || hlasitost.hudba <= 0) return;
+  statistika.oken += 1;
+  if (!vystup || hlasitost.ztlumeno || hlasitost.hudba <= 0 || !smiHrat()) return;
   try {
     const t = kontext.currentTime + 0.01;
     const n = NALADY.louka;

@@ -100,6 +100,10 @@
 // (důležité projdou vždy), ani zbraně na 60. úrovni nevytvoří moc uzlů za sekundu, hudba po pauze nedohání,
 // ztlumení a 0 % nic nevytvoří, každá mapa má hudbu a hlasitosti se uloží do nastavení. Hra hlásí zvuky jen
 // známými jmény a hlavní události (zásah, smrt, krystal, hrozba, boss, konec) se opravdu ozvou.
+// Zvuky oken a menu (najetí, klik, zpět, záložka, strom, přepínač, výběr, nákup, odmítnutí, vejce): každý jde
+// přes sběrnici Efekty, změřená hlasitost sedí s posuvníkem (30 % = čtvrtina proti 60 %), ztlumení a 0 % nic
+// nevytvoří, najetí je nejtišší a aspoň o 10 dB tišší než klik, odmítnutí je tlumené filtrem, držený směr ťuká
+// nejvýš jednou za mezeru najetí a pozastavený kontext bez kliku nic nenaplánuje.
 // Profily: stará uložení (klíče hlubiny.*) jsou po prvním spuštění profil Hráč a nic se v nich nezmění, každý
 // profil má svoje duše, vylepšení, rekordy, sbírku a mapy (přepínání nic nemíchá), nastavení je společné, jméno
 // se zkrátí a nesmí být prázdné ani obsazené, nejvýš MAX_PROFILU profilů, smazání odstraní všechna data profilu
@@ -4803,15 +4807,21 @@ let spatnychHodnot = 0;
 const hlidej = (v, t) => {
   if (!Number.isFinite(v) || !Number.isFinite(t) || t < 0) spatnychHodnot += 1;
 };
+// Parametr si pamatuje poslední nastavenou (nebo cílovou) hodnotu a nejvyšší vrchol obálky, ať jde změřit, jak
+// nahlas zvuk zazní (vrchol obálky × zesílení sběrnice Efekty × hlavní hlasitost).
 class FalesnyParam {
-  constructor(v) { this.value = v; }
-  setValueAtTime(v, t) { hlidej(v, t); }
+  constructor(v) {
+    this.value = v;
+    this.vrchol = 0;
+  }
+  setValueAtTime(v, t) { hlidej(v, t); this.value = v; }
   linearRampToValueAtTime(v, t) { hlidej(v, t); }
   exponentialRampToValueAtTime(v, t) {
     hlidej(v, t);
     if (!(v > 0)) spatnychHodnot += 1;
+    this.vrchol = Math.max(this.vrchol, v);
   }
-  setTargetAtTime(v, t, k) { hlidej(v, t); if (!(k > 0)) spatnychHodnot += 1; }
+  setTargetAtTime(v, t, k) { hlidej(v, t); this.value = v; if (!(k > 0)) spatnychHodnot += 1; }
   cancelScheduledValues(t) { hlidej(0, t); }
 }
 class FalesnyUzel {
@@ -4819,10 +4829,14 @@ class FalesnyUzel {
     c.uzlu += 1;
     c.druhy[druh] = (c.druhy[druh] ?? 0) + 1;
     this.kontext = c;
+    this.druh = druh;
+    this.cile = [];
+    c.zaznam?.push(this);
     for (const p of ['gain', 'frequency', 'Q', 'threshold', 'knee', 'ratio', 'attack', 'release']) this[p] = new FalesnyParam(1);
   }
   connect(cil) {
     if (!(cil instanceof FalesnyUzel)) spatnychHodnot += 1;
+    this.cile.push(cil);
     return cil;
   }
   disconnect() {}
@@ -4834,7 +4848,7 @@ class FalesnyUzel {
 }
 class FalesnyKontext {
   constructor() {
-    Object.assign(this, { currentTime: 0, sampleRate: 8000, state: 'running', uzlu: 0, druhy: {}, zacatky: [] });
+    Object.assign(this, { currentTime: 0, sampleRate: 8000, state: 'running', uzlu: 0, druhy: {}, zacatky: [], zaznam: null });
     this.destination = new FalesnyUzel(this, 'reproduktor');
     FalesnyKontext.posledni = this;
   }
@@ -4939,11 +4953,112 @@ if (kontextZvuku) {
   }
   const nejvicUzlu = Math.max(...uzlyPodleSekund);
   if (nejvicUzlu > 400 || !(pocetUdalosti > 1000)) chybyZvuku.push(`zbraně na 60. úrovni: ${nejvicUzlu} uzlů za sekundu z ${pocetUdalosti} událostí`);
+  // Zvuky oken a menu. Změřená hlasitost = vrchol obálky × zesílení sběrnice, do které se obálka připojila
+  // (Efekty) × hlavní hlasitost, v dB proti plnému rozsahu.
+  const OKNA = ['najeti', 'klik', 'zpet', 'zalozka', 'prepinac', 'vyber', 'nakup', 'odmitnuti', 'tukVejce', 'praskVejce', 'vylihnuti'];
+  const chybiOkna = OKNA.filter((id) => !zvuk.ZVUKY_OKEN.includes(id));
+  if (chybiOkna.length) chybyZvuku.push(`chybí zvuky oken: ${chybiOkna.join(', ')}`);
+  let casOkna = Math.ceil(kontextZvuku.currentTime) + 10;
+  const zmer = (id, sila = 0) => {
+    casOkna += 1;
+    kontextZvuku.currentTime = casOkna;
+    kontextZvuku.zaznam = [];
+    const zaznelo = zvuk.zvukHry(id, sila);
+    const uzly = kontextZvuku.zaznam;
+    kontextZvuku.zaznam = null;
+    const obalky = uzly.filter((u) => u.druh === 'gain');
+    const sbernice = new Set(obalky.flatMap((u) => u.cile));
+    const [bus] = sbernice;
+    const hlavni = bus?.cile[0];
+    const vrchol = Math.max(0, ...obalky.map((u) => u.gain.vrchol));
+    const hlasitost = vrchol * (bus?.gain.value ?? 0) * (hlavni?.gain.value ?? 0);
+    const db = hlasitost > 0 ? Math.round(200 * Math.log10(hlasitost)) / 10 : -Infinity;
+    return { zaznelo, uzlu: uzly.length, sbernice, bus, hlasitost, db, filtry: uzly.filter((u) => u.druh === 'filtr') };
+  };
+  zvuk.nastavZvuk({ ...zvuk.VYCHOZI_HLASITOST });
+  const sberniceEfektu = zmer('zasah').bus;
+  const hlasitostiOken = {};
+  for (const id of zvuk.ZVUKY_OKEN) {
+    const m = zmer(id);
+    if (!m.zaznelo || !m.uzlu) {
+      chybyZvuku.push(`zvuk okna ${id} nezazněl`);
+      continue;
+    }
+    if (m.sbernice.size !== 1 || m.bus !== sberniceEfektu) chybyZvuku.push(`zvuk okna ${id} nejde přes sběrnici Efekty`);
+    if (m.db > -20) chybyZvuku.push(`zvuk okna ${id} je moc hlasitý (${m.db} dB)`);
+    hlasitostiOken[id] = m.db;
+  }
+  const ostatniOkna = Object.entries(hlasitostiOken).filter(([id]) => id !== 'najeti').map(([, db]) => db);
+  if (!(hlasitostiOken.najeti < Math.min(...ostatniOkna)) || !(hlasitostiOken.klik - hlasitostiOken.najeti >= 10)) {
+    chybyZvuku.push(`najetí není nejtišší nebo je moc blízko kliku (${hlasitostiOken.najeti} dB, klik ${hlasitostiOken.klik} dB)`);
+  }
+  const odmitnuti = zmer('odmitnuti');
+  if (!odmitnuti.filtry.length || odmitnuti.filtry.some((f) => f.type !== 'lowpass' || !(f.frequency.value <= 1000))) chybyZvuku.push('odmítnutí není tlumené filtrem do 1000 Hz');
+  if (!(zmer('zalozka', 1).uzlu > zmer('zalozka', 0).uzlu)) chybyZvuku.push('otevření stromu nezní jinak než obyčejná záložka');
+  // Posuvník Efekty: hlasitost jde s procenty na druhou (30 % = čtvrtina proti 60 %, 100 % = (100/60)² ×).
+  const klikPri = (efekty) => {
+    zvuk.nastavZvuk({ efekty });
+    return zmer('klik').hlasitost;
+  };
+  const klik60 = klikPri(60);
+  const pomer30 = klikPri(30) / klik60;
+  const pomer100 = klikPri(100) / klik60;
+  if (Math.abs(pomer30 - 0.25) > 0.005 || Math.abs(pomer100 - (100 / 60) ** 2) > 0.01) chybyZvuku.push(`klik nesedí s hlasitostí Efektů: 30 % = ${pomer30.toFixed(3)}×, 100 % = ${pomer100.toFixed(3)}× proti 60 %`);
+  // Ztlumení (N) a Efekty na 0 %: žádný zvuk okna nic nevytvoří, žádosti o zvuk se ale počítají (menu podle nich
+  // pozná, že tlačítko svůj zvuk má, a nepřidá klik).
+  for (const vypnuto of [{ ztlumeno: true, efekty: 60 }, { ztlumeno: false, efekty: 0 }]) {
+    zvuk.nastavZvuk(vypnuto);
+    const zadostiPred = zvuk.zadostiOken();
+    const hraly = zvuk.ZVUKY_OKEN.filter((id) => zmer(id).uzlu > 0);
+    if (hraly.length) chybyZvuku.push(`zvuky oken hrají ${vypnuto.ztlumeno ? 'ztlumené' : 'na 0 %'}: ${hraly.join(', ')}`);
+    if (zvuk.zadostiOken() - zadostiPred !== zvuk.ZVUKY_OKEN.length) chybyZvuku.push('žádosti oken o zvuk se při vypnutém zvuku nepočítají');
+  }
+  zvuk.nastavZvuk({ ...zvuk.VYCHOZI_HLASITOST });
+  // Držený směr: ovladač opakuje po 0,12 s, klávesnice po 33 ms, myš přejede 40 tlačítek za sekundu. Najetí
+  // ťukne nejvýš jednou za svou mezeru, 50 kliků v jednom okamžiku zazní jednou.
+  const najetiZa2s = {};
+  const nejvicNajeti = Math.ceil(2 / zvuk.POPIS_EFEKTU.najeti.mezera) + 1;
+  for (const [nazev, krok] of [['ovladac', 0.12], ['klavesnice', 1 / 30], ['mys', 0.025]]) {
+    casOkna += 5;
+    let kolik = 0;
+    for (let i = 0; i * krok < 2; i++) {
+      kontextZvuku.currentTime = casOkna + i * krok;
+      if (zvuk.zvukHry('najeti')) kolik += 1;
+    }
+    najetiZa2s[nazev] = kolik;
+    if (kolik > nejvicNajeti || kolik < 5) chybyZvuku.push(`držený směr (${nazev}) ťukl ${kolik}× za 2 s, čekám 5–${nejvicNajeti}`);
+  }
+  casOkna += 5;
+  kontextZvuku.currentTime = casOkna;
+  let kliku = 0;
+  for (let i = 0; i < 50; i++) kliku += zvuk.zvukHry('klik') ? 1 : 0;
+  if (kliku !== 1) chybyZvuku.push(`50 kliků naráz zaznělo ${kliku}×`);
+  // Pozastavený kontext (založil ho stisk na ovladači) bez kliku nebo klávesy nic nenaplánuje, ať zvuky nezazní
+  // všechny naráz, až ho prohlížeč pustí. Během kliku (userActivation.isActive) hraje, prohlížeč ho právě pouští.
+  if (globalThis.navigator) {
+    const puvodni = Object.getOwnPropertyDescriptor(globalThis.navigator, 'userActivation');
+    const aktivace = (isActive) => Object.defineProperty(globalThis.navigator, 'userActivation', { value: { isActive }, configurable: true });
+    kontextZvuku.state = 'suspended';
+    aktivace(false);
+    const uzluPred = kontextZvuku.uzlu;
+    for (const id of zvuk.ZVUKY_OKEN) zmer(id);
+    zvuk.ukazkaHudby();
+    if (kontextZvuku.uzlu !== uzluPred) chybyZvuku.push(`pozastavený kontext bez kliku naplánoval ${kontextZvuku.uzlu - uzluPred} uzlů`);
+    aktivace(true);
+    if (!zmer('klik').zaznelo) chybyZvuku.push('klik během interakce na pozastaveném kontextu nezazněl');
+    if (puvodni) Object.defineProperty(globalThis.navigator, 'userActivation', puvodni);
+    else delete globalThis.navigator.userActivation;
+    kontextZvuku.state = 'running';
+  }
   if (spatnychHodnot) chybyZvuku.push(`zvuk dal AudioContextu ${spatnychHodnot}× špatné číslo`);
   vysledekZvuku = {
     max_efektu_za_sekundu: zvuk.MAX_EFEKTU_ZA_SEKUNDU, omezovac_nejvic_za_sekundu: nejvicZaSekundu, hudba_not_za_10_s: hudbaMap,
     zbrane_na_60: { udalosti_za_20_s: pocetUdalosti, nejvic_uzlu_za_sekundu: nejvicUzlu, nejvic_efektu_za_sekundu: Math.max(...efektyPodleSekund) },
     zahozeno: zvuk.statistikaZvuku().zahozeno,
+    okna: {
+      hlasitost_db_pri_60: hlasitostiOken, klik_30_a_100_proti_60: [Math.round(pomer30 * 1000) / 1000, Math.round(pomer100 * 1000) / 1000],
+      najeti_za_2_s: najetiZa2s, najeti_nejvic_za_2_s: nejvicNajeti,
+    },
   };
 }
 delete globalThis.AudioContext;

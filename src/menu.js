@@ -18,7 +18,7 @@ import {
   VYBAVA, PORADI_SAD, PORADI_SLOTU, SLOTY, VSECHNY_KUSY, RARITY_VYBAVY, EFEKTY_VYBAVY, idKusu, vytvorKus, radkyStatu,
   popisEfektu, popisSady,
 } from './vystroj.js';
-import { odemkniZvuk, zvukOdmitnuti, zvukHry, nastavZvuk, ukazkaHudby } from './zvuk.js';
+import { odemkniZvuk, zvukOdmitnuti, zvukHry, nastavZvuk, ukazkaHudby, zadostiOken } from './zvuk.js';
 import { stav as stavAplikace, pridejNaPlochu, priZmene as priZmeneAplikace } from './aplikace.js';
 import { nastavRezimSvetel, stavSvetel, priZmeneSvetel } from './osvetleni.js';
 import { nakresliText, STYL_LOGA, STYL_PERGAMEN, pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
@@ -184,6 +184,7 @@ function vyplnPostavy(panel) {
     karta.addEventListener('click', () => {
       trida = platnaTrida(id);
       ulozTridu(trida);
+      zvukHry('vyber');
       oznacZvolenou();
     });
     return karta;
@@ -281,6 +282,7 @@ function vyplnMapy(panel) {
       }
       mapa = id;
       ulozMapu(id);
+      zvukHry('vyber');
       oznacZvolenou();
     });
     return karta;
@@ -465,6 +467,7 @@ export function prepinacNastaveni(klic, nazev) {
   b.addEventListener('click', () => {
     nastaveni = { ...nastaveni, [klic]: !nastaveni[klic] };
     ulozNastaveni(nastaveni);
+    zvukHry('prepinac', nastaveni[klic] ? 1 : 0);
     ukaz();
   });
   ukaz();
@@ -499,6 +502,7 @@ export function prepinacSvetel() {
     nastaveni = { ...nastaveni, svetla: DALSI_REZIM[nastaveni.svetla] ?? 'auto' };
     ulozNastaveni(nastaveni);
     nastavRezimSvetel(nastaveni.svetla, { znovu: true });
+    zvukHry('prepinac', nastaveni.svetla === 'vyp' ? 0 : 1);
     ukaz();
   });
   const odhlas = priZmeneSvetel(() => (box.isConnected ? ukaz() : odhlas()));
@@ -678,7 +682,10 @@ function skupinaJazyka() {
     b.dataset.jazyk = j;
     b.setAttribute('aria-pressed', String(zvoleny));
     b.append(prvek('span', 'prepinac-stav', hodnota('jazyk.nazev', j)));
-    b.addEventListener('click', () => zvolJazyk(j));
+    b.addEventListener('click', () => {
+      zvukHry('prepinac', 1);
+      zvolJazyk(j);
+    });
     radek.append(b);
   }
   sekce.append(radek);
@@ -725,6 +732,7 @@ function skupinaBarev() {
     b.addEventListener('click', () => {
       nastaveni = { ...nastaveni, barvy: r };
       ulozNastaveni(nastaveni);
+      zvukHry('prepinac', r === 'vyp' ? 0 : 1);
       nastavBarvy(r);
     });
     radek.append(b);
@@ -870,6 +878,7 @@ function vyplnProfil(panel, zprava = '', chyba = false) {
         return;
       }
       obnovProfil();
+      zvukHry('vyber');
       vyplnProfil(panel, t('menu.profil.prepnuto', { jmeno: p.jmeno }));
       vyberTlacitko(panel.querySelector(`[data-profil="${p.slot}"]`));
     });
@@ -937,6 +946,7 @@ function escZpet(pole) {
   pole.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       e.preventDefault();
+      zvukHry('zpet');
       zpetZProfilu();
     }
   });
@@ -1172,8 +1182,9 @@ function dokonciImport(panel, data, slot) {
 export const ZALOZKY = {
   postavy: { vypln: vyplnPostavy },
   mapy: { vypln: vyplnMapy },
-  // Strom vylepšení (src/strom.js): širší okno a vlastní šipky (skáčou mezi uzly, klavesa vrací true, když ji vzal).
-  vylepseni: { vypln: vyplnStrom, klavesa: klavesaStromu, siroka: true },
+  // Strom vylepšení (src/strom.js): širší okno a vlastní šipky (skáčou mezi uzly, klavesa vrací true, když ji vzal),
+  // při otevření zazní zvuk stromu (zalozka se stupněm 1).
+  vylepseni: { vypln: vyplnStrom, klavesa: klavesaStromu, siroka: true, zvuk: 1 },
   // Pety z vajec (src/lihen.js): líheň s vejci a sbírka petů, klik vybere peta do hry.
   pety: { vypln: vyplnPety },
   sbirka: { vypln: vyplnSbirku },
@@ -1202,6 +1213,48 @@ export function vyberTlacitko(tlacitko, posunout = false) {
   tlacitko.focus({ preventScroll: !posunout });
 }
 
+// Výběr přesunutý hráčem (najetí myší, šipky, páčka): vybere tlačítko a tiše ťukne, jen když se výběr opravdu
+// pohnul. Výběr, který udělá samo okno (otevření, překreslení), zůstává potichu (vyberTlacitko). Prst výběr taky
+// přesune, ale bez ťuknutí (zvuk = false), hned po něm přijde klik.
+// Najetí myší ťukne, jen když se myš právě pohnula (najetiMysi): Chrome po změně stránky (otevřená záložka, zavřené
+// okno) pošle najetí i stojící myši, pod kterou se objevilo jiné tlačítko, a to by ťuklo hned po zvuku záložky.
+let pohybMysi = -Infinity;
+export const najetiMysi = (e) => e.pointerType === 'mouse' && performance.now() - pohybMysi < 150;
+
+export function najedi(tlacitko, posunout = false, zvuk = true) {
+  if (!tlacitko) return;
+  const jine = !tlacitko.classList.contains('vybrano');
+  vyberTlacitko(tlacitko, posunout);
+  if (zvuk && jine) zvukHry('najeti');
+}
+
+// Zvuk kliku pro všechna tlačítka (menu i okna ve hře): klik nebo Enter na tlačítko nejdřív odemkne zvuk (klik je
+// pro prohlížeč interakce) a když si tlačítko během kliku neřeklo o vlastní zvuk (nákup, zpět, přepínač, výběr…),
+// zazní obyčejný klik. Kolik žádostí o zvuk bylo, se zapíše před klikem (capture), zkontroluje se až po všech
+// obsluhách (bubble) a ještě o kolo později (setTimeout), ať se počítá i odeslaný formulář (Založit profil)
+// a první ťuknutí vejce. Zakázané tlačítko klik nedostane a obsluha, která klik nechce (puštěný tah stromu), zavolá
+// e.preventDefault(). Volá se jednou z main.js.
+export function nastavZvukyTlacitek() {
+  addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'mouse' && (e.movementX || e.movementY)) pohybMysi = performance.now();
+  }, { capture: true, passive: true });
+  let klik = null;
+  addEventListener('click', (e) => {
+    const b = e.target instanceof Element ? e.target.closest('button') : null;
+    if (!b || b.disabled) return;
+    klik = { udalost: e, pred: zadostiOken() };
+    odemkniZvuk();
+  }, true);
+  addEventListener('click', (e) => {
+    if (klik?.udalost !== e || e.defaultPrevented) return;
+    const { pred } = klik;
+    klik = null;
+    setTimeout(() => {
+      if (zadostiOken() === pred) zvukHry('klik');
+    }, 0);
+  });
+}
+
 const DALSI = ['arrowdown', 'arrowright', 's', 'd'];
 const PREDCHOZI = ['arrowup', 'arrowleft', 'w', 'a'];
 
@@ -1222,7 +1275,7 @@ export function ovladejTlacitka(kontejner, e) {
     e.preventDefault();
     if (e.repeat) return true;
     const dalsi = i < 0 ? (smer > 0 ? 0 : tlacitka.length - 1) : (i + smer + tlacitka.length) % tlacitka.length;
-    vyberTlacitko(tlacitka[dalsi], true);
+    najedi(tlacitka[dalsi], true);
     return true;
   }
   if (k === 'enter' || k === ' ') {
@@ -1255,7 +1308,7 @@ export function vytvorMenu({ hrat }) {
   // nazev je getter, ať po přepnutí jazyka stačí tlačítkům přepsat text (prelozVolby)
   const polozky = [
     { id: 'hrat', get nazev() { return t('menu.hrat'); }, hlavni: true, akce: hrat },
-    ...Object.keys(ZALOZKY).map((id) => ({ id, get nazev() { return ZALOZKY[id].nazev; }, akce: () => otevri(id) })),
+    ...Object.keys(ZALOZKY).map((id) => ({ id, get nazev() { return ZALOZKY[id].nazev; }, akce: () => otevriSeZvukem(id) })),
   ];
   // Cedulka pod Hrát: zvolený profil a s čím se půjde hrát (postava, mapa, duše), každé s pixelovou ikonou.
   const radekPostavy = prvek('div', 'menu-postava ram-tenky');
@@ -1301,7 +1354,7 @@ export function vytvorMenu({ hrat }) {
     get nazev() { return t('menu.plocha.pridat'); },
     akce() {
       if (stavAplikace().kde === 'nabidka') return pridejNaPlochu();
-      otevri('nastaveni');
+      otevriSeZvukem('nastaveni');
       zalozka.querySelector('.skupina.plocha')?.scrollIntoView({ block: 'center' });
     },
   };
@@ -1334,7 +1387,7 @@ export function vytvorMenu({ hrat }) {
   // a ne když se hraje na ovladači (mysVybira).
   koren.addEventListener('pointerover', (e) => {
     const b = e.target.closest('button');
-    if (b && mysVybira() && !b.disabled && !b.classList.contains('vybrano') && !document.activeElement?.matches?.('input, textarea')) vyberTlacitko(b);
+    if (b && mysVybira() && !b.disabled && !document.activeElement?.matches?.('input, textarea')) najedi(b, false, najetiMysi(e));
   });
 
   function otevri(id) {
@@ -1351,7 +1404,16 @@ export function vytvorMenu({ hrat }) {
     vyberTlacitko(zalozka.querySelector('.zvolena') ?? zalozka.querySelector('button'));
   }
 
+  // Záložku otevřel hráč (tlačítko menu): zvuk záložky (strom svůj). Překreslení po změně jazyka je potichu.
+  function otevriSeZvukem(id) {
+    zvukHry('zalozka', ZALOZKY[id].zvuk ?? 0);
+    otevri(id);
+  }
+
+  // Zpět (tlačítko, Esc, Backspace, B na ovladači): z podokna Profilu i ze záložky se zvukem zpět.
   function zpet() {
+    if (!otevrena) return;
+    zvukHry('zpet');
     if (!ZALOZKY[otevrena]?.zpet?.()) zavri();
   }
 
