@@ -25,6 +25,8 @@ export default {
     hrozba: 'Threat',
     hrozbaNavic: 'Threat +{n} for the hero\'s strength',
     zabito: 'Kills',
+    vybavaSbalit: 'Collapse the gear panel',
+    vybavaRozbalit: 'Expand the gear panel',
   },
 
   menu: {
@@ -116,7 +118,7 @@ export default {
       podtitul: 'Weapons fire on their own, you just dodge and collect crystals.',
       pata: 'Volume, damage numbers and lights are in Settings.',
       skupiny: { pohyb: 'Movement', veHre: 'In game', menu: 'Menu and game over', ovladac: 'Controller' },
-      klavesy: { sipky: 'arrows', tah: 'swipe' },
+      klavesy: { sipky: 'arrows', tah: 'swipe', tab: 'Tab' },
       radky: {
         pohyb: 'move',
         pohybMobil: 'move on mobile',
@@ -125,6 +127,7 @@ export default {
         prehodit: 'reroll cards for gold (or free from the merchant)',
         kupec: 'buy goods at the merchant (Esc or Q to leave)',
         pauza: 'pause (on mobile, the button at top left)',
+        panel: 'collapse or expand the gear panel at bottom left (on mobile, the button in its corner)',
         zvuk: 'mute or unmute sound (volume is in Settings)',
         vyberMenu: 'choose in the menu',
         zpetMenu: 'back in the menu',
@@ -137,6 +140,7 @@ export default {
         zpet: 'back (resume when paused, leave the merchant, menu after losing)',
         prehodit: 'reroll cards',
         pauza: 'pause (Play in the main menu)',
+        panel: 'collapse or expand the gear panel',
         zvuk: 'mute or unmute sound',
         zadny: 'Connect a controller and press any button on it. The browser only shows it after the first press, then you will see what each button does here.',
       },
@@ -147,6 +151,7 @@ export default {
       zvuk: 'Sound',
       hra: 'Game',
       cislaPoskozeni: 'Damage numbers',
+      sbalenaVybava: 'Collapsed gear',
       zapnuto: 'on',
       vypnuto: 'off',
     },

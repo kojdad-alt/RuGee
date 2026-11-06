@@ -1,10 +1,12 @@
 // Přehled výbavy vlevo dole: nahoře políčka se zbraněmi, pod nimi pasivy, v pořadí, jak je hrdina dostal.
 // Úroveň je číslo v rohu ikony (strop nemá), rámeček mění barvu od 5., 10. a 15. úrovně (stupen ze
-// seznamVybavy). Prázdná políčka ukazují, co ještě jde získat. Vedle jsou 2×2 sloty výbavy bossů (Hlava, Tělo,
-// Amulet, Prsten) s rámečkem v barvě rarity kusu, prázdný slot ukazuje stín kusu, který do něj patří.
+// seznamVybavy). Jen co hrdina má (prázdná políčka za všechno, co jde získat, byla moc velká a překážela, celý
+// build je v pauze). Sbalený přehled (main.js, třída sbalena) ukáže jen řadu zbraní, menší. Vedle jsou 2×2 sloty
+// výbavy bossů (Hlava, Tělo, Amulet, Prsten) s rámečkem v barvě rarity kusu, prázdný slot ukazuje stín kusu,
+// který do něj patří (ve hře jsou vpravo od pruhu životů).
 // Jen DOM: co hrdina má, říká seznamVybavy a seznamVystroje v hra.js. Překreslí se jen při změně, takže se dá
 // volat každý snímek. Políčko, které právě přibylo nebo stouplo, krátce blikne (vzhled je v style.css).
-import { seznamVybavy, seznamVystroje, ZBRANE, PASIVY } from './hra.js';
+import { seznamVybavy, seznamVystroje } from './hra.js';
 import { idKusu, PORADI_SAD } from './vystroj.js';
 import { obrazekSpritu } from './menu.js';
 
@@ -43,10 +45,9 @@ export function slotVystroje(p, novy = false) {
 
 const otiskKusu = (p) => (p.kus ? `${p.kus.id}:${p.kus.rarita}` : '');
 
-function radek(polozky, mist, predtim) {
-  const r = prvek('div', 'vybava-radek');
+function radek(polozky, trida, predtim) {
+  const r = prvek('div', `vybava-radek ${trida}`);
   for (const p of polozky) r.append(policko(p, predtim && (predtim.get(klic(p)) ?? 0) < p.uroven));
-  for (let i = polozky.length; i < mist; i++) r.append(prvek('div', 'vybava-policko prazdne'));
   return r;
 }
 
@@ -61,7 +62,8 @@ export function ukazVybavu(kontejner, hra, kontejnerVystroje = null) {
   // Na začátku nové hry nic nebliká, jen při vylepšení během ní.
   const predtim = stare?.hra === hra ? stare.urovne : null;
   const levy = prvek('div', 'vybava-zbrane');
-  levy.append(radek(zbrane, Object.keys(ZBRANE).length, predtim), radek(pasivy, Object.keys(PASIVY).length, predtim));
+  levy.append(radek(zbrane, 'vybava-radek-zbrane', predtim));
+  if (pasivy.length) levy.append(radek(pasivy, 'vybava-radek-pasivy', predtim));
   const vystroj = prvek('div', 'vybava-vystroj');
   vystroj.append(...sloty.map((p) => slotVystroje(p, predtim && p.kus && predtim.get(`vystroj:${p.slot}`) !== otiskKusu(p))));
   if (kontejnerVystroje) {

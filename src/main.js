@@ -4,7 +4,7 @@ import { kresli, kresliMenu } from './kresleni.js';
 import { dusZaHru, DUSE_ZA } from './duse.js';
 import {
   vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, zvolenaMapa, obrazekSpritu, cislaPoskozeni,
-  prepinacNastaveni, prepinacSvetel, ovladaniZvuku, prepniZtlumeni, skupina, ikonaMapy,
+  prepinacNastaveni, prepinacSvetel, ovladaniZvuku, prepniZtlumeni, skupina, ikonaMapy, sbalenaVybava, prepniSbalenouVybavu,
 } from './menu.js';
 import { pixelovyNadpis, prizpusobNadpisy, STYL_KREV } from './pismo.js';
 import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu, nactiPety, pripisVejce } from './ulozeni.js';
@@ -27,6 +27,8 @@ const platno = document.getElementById('platno');
 const ctx = platno.getContext('2d');
 const el = (id) => document.getElementById(id);
 const vybava = el('vybava');
+const vybavaObsah = el('vybava-obsah');
+const prepinacVybavy = el('vybava-prepinac');
 
 const stisknute = new Set();
 let hra = null;
@@ -155,6 +157,26 @@ function kresliJoystick() {
   ctx.restore();
 }
 
+// Přehled výbavy vlevo dole jde sbalit na malou lištu zbraní a zase rozbalit: klávesa V nebo Tab, Y na ovladači,
+// tlačítko v rohu přehledu (i na dotyk) a přepínač Sbalená výbava v Nastavení a v pauze. Stav je v nastavení
+// (menu.js), tady se jen promítne do třídy a popisku tlačítka, když se změnil (volá se každý snímek z hud()).
+let ukazanaSbalena = null;
+function ukazPanelVybavy(vynutit = false) {
+  const sbalena = sbalenaVybava();
+  if (sbalena === ukazanaSbalena && !vynutit) return;
+  ukazanaSbalena = sbalena;
+  vybava.classList.toggle('sbalena', sbalena);
+  const popis = t(sbalena ? 'hud.vybavaRozbalit' : 'hud.vybavaSbalit');
+  prepinacVybavy.setAttribute('aria-expanded', String(!sbalena));
+  prepinacVybavy.setAttribute('aria-label', popis);
+  prepinacVybavy.title = `${popis} (V)`;
+}
+
+function prepniPanelVybavy() {
+  prepniSbalenouVybavu();
+  ukazPanelVybavy();
+}
+
 // Přehled výbavy leží nad plátnem. Když prst s joystickem dosedne k němu, přehled zprůhlední, ať je joystick vidět.
 function vybavaUJoysticku() {
   let blizko = false;
@@ -167,9 +189,9 @@ function vybavaUJoysticku() {
 }
 
 // Pauza (P nebo Esc): hra stojí a okno z trámů nabídne Pokračovat a Ukončit hru, přehled buildu (DPS zbraní, pasivy,
-// výbava) a skupiny jako v Nastavení: Hra (čísla poškození, světla) a Zvuk (hlasitost, ztlumení). Pořadí šipek je
-// stejné jako dřív (přehled nemá tlačítka). Volby se staví pokaždé znovu, ať ukazují, co je zrovna uložené (mohlo se
-// změnit v menu).
+// výbava) a skupiny jako v Nastavení: Hra (čísla poškození, sbalená výbava, světla) a Zvuk (hlasitost, ztlumení).
+// Pořadí šipek je stejné jako dřív (přehled nemá tlačítka). Volby se staví pokaždé znovu, ať ukazují, co je zrovna
+// uložené (mohlo se změnit v menu).
 function nastavPauzu(zapnout) {
   hra.pauza = zapnout;
   el('pauza').hidden = !zapnout;
@@ -202,7 +224,11 @@ function nastavPauzu(zapnout) {
     }
   });
   const volbyHry = skupina(t('menu.nastaveni.hra'));
-  volbyHry.append(prepinacNastaveni('cislaPoskozeni', t('menu.nastaveni.cislaPoskozeni')), prepinacSvetel());
+  volbyHry.append(
+    prepinacNastaveni('cislaPoskozeni', t('menu.nastaveni.cislaPoskozeni')),
+    prepinacNastaveni('sbalenaVybava', t('menu.nastaveni.sbalenaVybava')),
+    prepinacSvetel(),
+  );
   const zvuk = skupina(t('menu.nastaveni.zvuk'));
   zvuk.append(ovladaniZvuku());
   el('pauza-volby').replaceChildren(pokracovat, ukoncit);
@@ -469,7 +495,8 @@ function hud() {
   ukazHrozbu(hra.hrozba, hrozbaNavic(hra));
   el('xp-pruh').style.width = `${Math.min(100, (hrdina.xp / hrdina.potreba) * 100)}%`;
   // Překreslí se jen když se výbava změnila (po výběru vylepšení nebo v nové hře).
-  ukazVybavu(vybava, hra, el('zivoty-sloty'));
+  ukazVybavu(vybavaObsah, hra, el('zivoty-sloty'));
+  ukazPanelVybavy();
 }
 
 // Zvuky ze hry (hra.zvuky, zapisuje je hra.js): každý druh jednou za snímek, omezovač v zvuk.js pohlídá, ať
@@ -525,7 +552,8 @@ const SMER_KLAVESY = { nahoru: 'ArrowUp', dolu: 'ArrowDown', vlevo: 'ArrowLeft',
 const umelaKlavesa = (key) => ({ key, repeat: false, zOvladace: true, preventDefault() {} });
 
 // Co stisk na ovladači udělá: v menu jako šipky a Enter (menu.js), ve hře podle okna. A potvrdí, B zpět
-// (pauza pokračuje, kupec odejde, po prohře menu), X přehodí karty, Start pauza, Back zvuk. Odpojený ovladač
+// (pauza pokračuje, kupec odejde, po prohře menu), X přehodí karty, Start pauza, Y sbalí přehled výbavy, Back zvuk.
+// Odpojený ovladač
 // uprostřed hry ji zastaví (hráč by jinak nemohl řídit).
 function akceOvladace(u, bylAktivni) {
   if (u === 'zpet') return prepniZvuk();
@@ -555,6 +583,7 @@ function akceOvladace(u, bylAktivni) {
     if (u === 'b' || u === 'start') nastavPauzu(false);
     else if (vyber) tlacitka(el('pauza'));
   } else if (u === 'start') nastavPauzu(true);
+  else if (u === 'y') prepniPanelVybavy();
 }
 
 const omezenyPohyb = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -647,6 +676,12 @@ addEventListener('keydown', (e) => {
     ovladejTlacitka(el('pauza'), e);
     return;
   }
+  // V nebo Tab sbalí a rozbalí přehled výbavy (Tab by jinak přeskočil na tlačítko pauzy).
+  if ((k === 'v' || k === 'tab') && !hra.volby && !hra.porovnani) {
+    e.preventDefault();
+    if (!e.repeat) prepniPanelVybavy();
+    return;
+  }
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
   // Porovnání výbavy: 1 vezme nový kus, 2 nechá nasazený, šipky a Enter jako u karet.
   if (hra.porovnani) {
@@ -692,6 +727,11 @@ el('hud-pauza').addEventListener('click', () => {
   if (!vMenu && hra && !hra.konec && !hra.volby && !hra.porovnani && !hra.obchod) nastavPauzu(!hra.pauza);
 });
 el('odejit').addEventListener('click', odejdi);
+// Tlačítko v rohu přehledu výbavy (myš i dotyk, joystick pod ním nezačne). V okně nic nedělá.
+prepinacVybavy.addEventListener('click', () => {
+  if (!vMenu && hra && !oknoHry()) prepniPanelVybavy();
+  prepinacVybavy.blur();
+});
 
 // Ikonka lebky, zlaťáku a klíče v horní liště (sprity z sprity.js, stejné jako ve hře).
 el('lebka-ikona').replaceWith(obrazekSpritu('lebka', 2));
@@ -700,7 +740,11 @@ el('klic-ikona').replaceWith(obrazekSpritu('klic', 2));
 // Statické texty stránky (data-t v index.html) ve zvoleném jazyce, nápovědy pro ovladač se značkami tlačítek.
 prelozStranku();
 vyplnNapovedy();
-priZmeneJazyka(() => vyplnNapovedy());
+ukazPanelVybavy(true);
+priZmeneJazyka(() => {
+  vyplnNapovedy();
+  ukazPanelVybavy(true);
+});
 // Režim pro barvoslepé (Nastavení → Barvy): stránka dostane data-barvy, CSS podle něj přidá značky a palety.
 const ukazBarvy = (rezim) => {
   if (rezim === 'vyp') delete document.body.dataset.barvy;

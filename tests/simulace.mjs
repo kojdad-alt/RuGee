@@ -142,6 +142,8 @@
 // a pak klesne k nule, průměr se počítá od chvíle, kdy zbraň přibyla, zabití má jen rána, po které nepřítel padl,
 // řádky jsou seřazené podle DPS a pet, Trnová zbroj a rázová vlna mají řádek, až když někoho zasáhnou. Každá zbraň
 // sama připíše všechna zabití sobě. Každá pasiva má v obou jazycích řádek s hodnotou a konečné číslo.
+// Přehled výbavy vlevo dole: jen co hrdina má, jde sbalit na lištu zbraní (V, Tab, Y, tlačítko v rohu, přepínač
+// v Nastavení a pauze) a stav se uloží do nastavení (rozbitý = rozbalený).
 import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 import { crc32 as crc32Zlib, inflateSync } from 'node:zlib';
@@ -5828,6 +5830,36 @@ chyby.push(...chybyPetu);
   if (!/ukazPrehled\(el\('pauza-prehled'\), hra\)/.test(mainJs) || !readFileSync(new URL('../index.html', import.meta.url), 'utf8').includes('id="pauza-prehled"')) chybyPrehledu.push('pauza nestaví přehled');
 }
 chyby.push(...chybyPrehledu);
+
+// ---------- Přehled výbavy vlevo dole: menší a sbalitelný ----------
+// Nastavení sbalenaVybava (výchozí ne, uloží se, rozbité = ne), V a Tab ve hře, Y na ovladači a tlačítko v rohu
+// přehled přepnou, sbalený skryje pasivy a přehled ukazuje jen co hrdina má (žádné prázdné jamky).
+const chybyPanelu = [];
+{
+  const predtim = globalThis.localStorage;
+  const mapaPanelu = new Map();
+  nahradUloziste({ getItem: (k) => mapaPanelu.get(k) ?? null, setItem: (k, v) => mapaPanelu.set(k, String(v)), removeItem: (k) => mapaPanelu.delete(k) });
+  if (VYCHOZI_NASTAVENI.sbalenaVybava !== false || nactiNastaveni().sbalenaVybava !== false) chybyPanelu.push('přehled výbavy nemá být ze začátku sbalený');
+  ulozNastaveni({ ...nactiNastaveni(), sbalenaVybava: true });
+  if (nactiNastaveni().sbalenaVybava !== true) chybyPanelu.push('sbalený přehled výbavy se neuložil');
+  for (const spatne of ['ano', 1, null, 'true']) {
+    mapaPanelu.set('hlubiny.nastaveni', JSON.stringify({ sbalenaVybava: spatne }));
+    if (nactiNastaveni().sbalenaVybava !== false) chybyPanelu.push(`rozbité sbalenaVybava ${JSON.stringify(spatne)} není ne`);
+  }
+  nahradUloziste(predtim);
+  const zdroj = (soubor) => readFileSync(new URL(`../src/${soubor}`, import.meta.url), 'utf8');
+  const mainJs = zdroj('main.js');
+  const menuJs = zdroj('menu.js');
+  if (!/\(k === 'v' \|\| k === 'tab'\)[^\n]*\{\n\s*e\.preventDefault\(\);\n\s*if \(!e\.repeat\) prepniPanelVybavy\(\);/.test(mainJs)) chybyPanelu.push('V a Tab nepřepínají přehled výbavy');
+  if (!/u === 'y'\) prepniPanelVybavy\(\)/.test(mainJs) || !/prepinacVybavy\.addEventListener\('click'/.test(mainJs)) chybyPanelu.push('Y na ovladači nebo tlačítko v rohu nepřepíná přehled');
+  if (!/\[\['V', '@tab'\], 'panel'\]/.test(menuJs) || !/\[\['y'\], 'panel'\]/.test(menuJs)) chybyPanelu.push('Ovládání neukazuje klávesu ani tlačítko přehledu výbavy');
+  if (!/prepinacNastaveni\('sbalenaVybava'/.test(menuJs) || !/prepinacNastaveni\('sbalenaVybava'/.test(mainJs)) chybyPanelu.push('Nastavení nebo pauza nemá přepínač sbalené výbavy');
+  const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  if (!/\.vybava\.sbalena \.vybava-radek-pasivy \{ display: none; \}/.test(css) || !/pointer-events: auto;/.test(css.slice(css.indexOf('.vybava-prepinac {')))) chybyPanelu.push('sbalený přehled neskrývá pasivy nebo tlačítko nejde stisknout');
+  if (/vybava-policko prazdne/.test(zdroj('vybava.js')) || !zdroj('vybava.js').includes('vybava-radek-pasivy')) chybyPanelu.push('přehled výbavy má zase prázdné jamky nebo nemá řadu pasiv');
+  if (!readFileSync(new URL('../index.html', import.meta.url), 'utf8').includes('id="vybava-prepinac"')) chybyPanelu.push('index.html nemá tlačítko přehledu výbavy');
+}
+chyby.push(...chybyPanelu);
 
 // Písmo nadpisů (src/pismo.js): každý znak má stejně řádků stejné délky, česká velká písmena mají diakritiku jen
 // ve 3 horních řádcích a dole jsou stejná jako základní písmeno. Logo jde napsat celé (nadpisy oken a nápisy ve hře
