@@ -1,18 +1,20 @@
 // Překlady: všechny texty hry jsou ve slovníku src/texty/<jazyk>.js, kód je bere přes t('klíč', {parametry}).
 // Klíč je cesta ve slovníku ('menu.zpet', 'bossove.strazce.prichod'). V textu {jmeno} dosadí parametr a {n|a|b|c}
-// vybere tvar slova podle čísla n (čeština: 1 | 2–4 | jinak, třeba „{n} {n|duše|duše|duší}“).
+// vybere tvar slova podle čísla n (čeština: 1 | 2–4 | jinak, třeba „{n} {n|duše|duše|duší}“; ruština: 1, 21, 31… |
+// 2–4, 22–24… | jinak a desetinná čísla ve druhém tvaru, „{n} {n|душа|души|душ}“).
 // Texty dat (zbraně, pasivy, bossové, mapy, výbava…) data sama nemají: pripojTexty jim podle větve slovníku přidá
 // gettery, takže kód čte dál ZBRANE.jiskra.nazev a po přepnutí jazyka hned dostane nový text.
 // Statické texty v index.html mají atribut data-t (první text v prvku), data-t-html (celý obsah se značkami
 // <kbd>) nebo data-t-aria-label / data-t-title / data-t-content a přeloží je prelozStranku().
-// Jazyky: čeština (výchozí, podle ní se kontrolují ostatní) a angličtina. Volba je v Nastavení (hlubiny.nastaveni,
-// jazyk), při prvním spuštění podle jazyka prohlížeče (jazykProhlizece). Nový jazyk = nový slovník se stejnými
+// Jazyky: čeština (výchozí, podle ní se kontrolují ostatní), angličtina a ruština. Volba je v Nastavení
+// (hlubiny.nastaveni, jazyk), při prvním spuštění podle jazyka prohlížeče (jazykProhlizece). Nový jazyk = nový slovník se stejnými
 // klíči v src/texty/ a řádek v SLOVNIKY a TVARY.
 // Jen data a funkce bez DOM (kromě prelozStranku), test je načte i v Node.
 import cs from './texty/cs.js';
 import en from './texty/en.js';
+import ru from './texty/ru.js';
 
-export const SLOVNIKY = { cs, en };
+export const SLOVNIKY = { cs, en, ru };
 export const JAZYKY = Object.keys(SLOVNIKY);
 export const VYCHOZI_JAZYK = 'cs';
 
@@ -48,18 +50,31 @@ export function hodnota(klic, j = jazyk) {
   return v;
 }
 
-// Tvar slova podle čísla: tvary jsou za svislítky v {n|…}.
+// Tvar slova podle čísla: tvary jsou za svislítky v {n|…}. Ruština a ukrajinština: 1 duše | 2–4 duše | 5–20 duší,
+// podle posledních dvou číslic (21 = jako 1, 12–14 = jako 5), desetinné číslo bere druhý tvar (1,5 секунды).
+const vychodniTvar = (n) => {
+  if (!Number.isInteger(n)) return 1;
+  const des = n % 10;
+  const sto = n % 100;
+  if (des === 1 && sto !== 11) return 0;
+  return des >= 2 && des <= 4 && (sto < 12 || sto > 14) ? 1 : 2;
+};
 const TVARY = {
   cs: (n) => (n === 1 ? 0 : n >= 2 && n <= 4 ? 1 : 2),
   en: (n) => (n === 1 ? 0 : 1),
+  ru: vychodniTvar,
+  uk: vychodniTvar,
 };
 
-// Jazyk podle prohlížeče (navigator.languages): čeština pro češtinu a slovenštinu, jinak angličtina.
+// Jazyk prohlížeče, kterému rozumí i jiný jazyk hry: slovenština → čeština, běloruština a kazaština → ruština.
+const PODOBNE_JAZYKY = { sk: 'cs', be: 'ru', kk: 'ru' };
+
+// Jazyk podle prohlížeče (navigator.languages): první, který hra umí (i podobný), jinak angličtina.
 export function jazykProhlizece(seznam = globalThis.navigator?.languages ?? [globalThis.navigator?.language]) {
   for (const kod of seznam ?? []) {
     const j = String(kod ?? '').toLowerCase().split('-')[0];
-    if (j === 'cs' || j === 'sk') return 'cs';
-    if (JAZYKY.includes(j)) return j;
+    const podobny = PODOBNE_JAZYKY[j] ?? j;
+    if (JAZYKY.includes(podobny)) return podobny;
   }
   return 'en';
 }

@@ -138,7 +138,7 @@ html, body {
   overflow: hidden;
   background: var(--noc);
   color: var(--pergamen);
-  font: 15px/1.4 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font: 15px/1.4 ui-monospace, "SFMono-Regular", Menlo, Consolas, "DejaVu Sans Mono", "Noto Sans Mono", "Liberation Mono", monospace;
 }
 
 #platno {

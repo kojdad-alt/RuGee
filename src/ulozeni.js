@@ -38,7 +38,7 @@ const PETY = 'pety';
 
 // Nastavení z menu a pauzy: přepínače ano/ne (sbalenaVybava = přehled výbavy vlevo dole jen jako lišta zbraní,
 // klávesa V nebo Tab), hlasitosti zvuku v procentech (efekty 60 %, hudba 40 %,
-// ztlumeno = klávesa N) a volby z výčtu (MOZNOSTI_NASTAVENI: světla auto / zap / vyp, jazyk cs / en, barvy vyp /
+// ztlumeno = klávesa N) a volby z výčtu (MOZNOSTI_NASTAVENI: světla auto / zap / vyp, jazyk ze JAZYKY v texty.js, barvy vyp /
 // deuteranopie / protanopie / tritanopie). Co v záznamu
 // chybí nebo má špatný druh, platí výchozí, procenta se zaokrouhlí do 0–100. Jazyk '' = ještě nezvolený, menu ho při
 // prvním spuštění vezme z prohlížeče a uloží.

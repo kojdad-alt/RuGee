@@ -1,5 +1,5 @@
-// Pixelové písmo RuGee: logo (tlusté tahy 2 px, 8 řádků) a nadpisy oken (5×7, velká písmena s českou
-// diakritikou, číslice a běžná interpunkce). Text se kreslí do <canvas> po pixelech: řádky mají barvy od světlé
+// Pixelové písmo RuGee: logo (tlusté tahy 2 px, 8 řádků) a nadpisy oken (5×7, velká písmena latinky s českou
+// diakritikou a azbuky pro ruštinu a ukrajinštinu, číslice a běžná interpunkce). Text se kreslí do <canvas> po pixelech: řádky mají barvy od světlé
 // nahoře po tmavší dole, pod písmenem je hnědá hloubka a kolem tmavý obrys jako u spritů. Zvětšuje se jen celými
 // násobky, aby pixely zůstaly ostré. Nic se nestahuje, písmo je celé tady.
 
@@ -73,17 +73,54 @@ const ZAKLAD = {
   "'": ['X', 'X', '.', '.', '.', '.', '.'],
 };
 ZAKLAD['–'] = ZAKLAD['-'];
+ZAKLAD['’'] = ZAKLAD["'"];
+ZAKLAD['ʼ'] = ZAKLAD["'"]; // ukrajinský apostrof (пʼять)
 
-// Diakritika nad písmenem (čárka je posunutá doprava, kroužek má 3 řádky).
+// Azbuka (ruština a ukrajinština): písmena stejná jako v latince vezmou její tvar, ostatní jsou nakreslená ve
+// stejné mřížce 5×7. Malá písmena se kreslí velkými jako u latinky (toLocaleUpperCase), Д, Ц a Щ mají ocásek
+// v posledním řádku, protože pod písmem je jen hloubka.
+const STEJNE_JAKO_LATINKA = { А: 'A', В: 'B', Е: 'E', К: 'K', М: 'M', Н: 'H', О: 'O', Р: 'P', С: 'C', Т: 'T', Х: 'X', І: 'I' };
+for (const [znak, latinka] of Object.entries(STEJNE_JAKO_LATINKA)) ZAKLAD[znak] = ZAKLAD[latinka];
+Object.assign(ZAKLAD, {
+  Б: ['XXXXX', 'X....', 'X....', 'XXXX.', 'X...X', 'X...X', 'XXXX.'],
+  Г: ['XXXXX', 'X....', 'X....', 'X....', 'X....', 'X....', 'X....'],
+  Д: ['..XX.', '.X.X.', '.X.X.', '.X.X.', '.X.X.', 'XXXXX', 'X...X'],
+  Ж: ['X.X.X', 'X.X.X', '.XXX.', '..X..', '.XXX.', 'X.X.X', 'X.X.X'],
+  З: ['.XXX.', 'X...X', '....X', '..XX.', '....X', 'X...X', '.XXX.'],
+  И: ['X...X', 'X...X', 'X..XX', 'X.X.X', 'XX..X', 'X...X', 'X...X'],
+  Л: ['.XXXX', '.X..X', '.X..X', '.X..X', '.X..X', '.X..X', 'X...X'],
+  П: ['XXXXX', 'X...X', 'X...X', 'X...X', 'X...X', 'X...X', 'X...X'],
+  У: ['X...X', 'X...X', 'X...X', '.XXXX', '....X', 'X...X', '.XXX.'],
+  Ф: ['..X..', '.XXX.', 'X.X.X', 'X.X.X', 'X.X.X', '.XXX.', '..X..'],
+  Ц: ['X..X.', 'X..X.', 'X..X.', 'X..X.', 'X..X.', 'XXXXX', '....X'],
+  Ч: ['X...X', 'X...X', 'X...X', '.XXXX', '....X', '....X', '....X'],
+  Ш: ['X.X.X', 'X.X.X', 'X.X.X', 'X.X.X', 'X.X.X', 'X.X.X', 'XXXXX'],
+  Щ: ['X.X.X.', 'X.X.X.', 'X.X.X.', 'X.X.X.', 'X.X.X.', 'XXXXXX', '.....X'],
+  Ъ: ['XX...', '.X...', '.X...', '.XXX.', '.X..X', '.X..X', '.XXX.'],
+  Ы: ['X...X', 'X...X', 'X...X', 'XXX.X', 'X.X.X', 'X.X.X', 'XXX.X'],
+  Ь: ['X....', 'X....', 'X....', 'XXXX.', 'X...X', 'X...X', 'XXXX.'],
+  Э: ['.XXX.', 'X...X', '....X', '..XXX', '....X', 'X...X', '.XXX.'],
+  Ю: ['X..X.', 'X.X.X', 'X.X.X', 'XXX.X', 'X.X.X', 'X.X.X', 'X..X.'],
+  Я: ['.XXXX', 'X...X', 'X...X', '.XXXX', '..X.X', '.X..X', 'X...X'],
+  Є: ['.XXX.', 'X...X', 'X....', 'XXXX.', 'X....', 'X...X', '.XXX.'],
+});
+
+// Diakritika nad písmenem (čárka je posunutá doprava, kroužek má 3 řádky). y = první řádek znaménka (0 až 2),
+// vpravo = znaménko sedí nad pravým koncem písmena (ocásek Ґ přímo na vodorovné čáře).
 const ZNAMENKA = {
   carka: { radky: ['.X', 'X.'], posun: 1 },
   hacek: { radky: ['X.X', '.X.'], posun: 0 },
   krouzek: { radky: ['.X.', 'X.X', '.X.'], posun: 0 },
+  prehlaska: { radky: ['X.X'], posun: 0, y: 1 },
+  oblouk: { radky: ['X...X', '.XXX.'], posun: 0 },
+  ocasek: { radky: ['X'], y: 2, vpravo: true },
 };
 const SLOZENE = {
   Á: ['A', 'carka'], Č: ['C', 'hacek'], Ď: ['D', 'hacek'], É: ['E', 'carka'], Ě: ['E', 'hacek'],
   Í: ['I', 'carka'], Ň: ['N', 'hacek'], Ó: ['O', 'carka'], Ř: ['R', 'hacek'], Š: ['S', 'hacek'],
   Ť: ['T', 'hacek'], Ú: ['U', 'carka'], Ů: ['U', 'krouzek'], Ý: ['Y', 'carka'], Ž: ['Z', 'hacek'],
+  // azbuka: Ё, Й, Ї (ukrajinské I s dvěma tečkami) a Ґ
+  Ё: ['Е', 'prehlaska'], Й: ['И', 'oblouk'], Ї: ['І', 'prehlaska'], Ґ: ['Г', 'ocasek'],
 };
 const NAD = 3;
 
@@ -95,9 +132,9 @@ function sestavPismo() {
   }
   for (const [znak, [zaklad, jmeno]] of Object.entries(SLOZENE)) {
     const glyf = pismo[zaklad].map((r) => [...r]);
-    const { radky, posun } = ZNAMENKA[jmeno];
-    const x0 = Math.floor((glyf[0].length - radky[0].length) / 2) + posun;
-    radky.forEach((r, y) => [...r].forEach((c, dx) => { if (c === 'X') glyf[y][x0 + dx] = 'X'; }));
+    const { radky, posun = 0, y: y0 = 0, vpravo = false } = ZNAMENKA[jmeno];
+    const x0 = vpravo ? glyf[0].length - radky[0].length : Math.floor((glyf[0].length - radky[0].length) / 2) + posun;
+    radky.forEach((r, y) => [...r].forEach((c, dx) => { if (c === 'X') glyf[y0 + y][x0 + dx] = 'X'; }));
     pismo[znak] = glyf.map((r) => r.join(''));
   }
   return pismo;
