@@ -6347,7 +6347,7 @@ function srovnejSlovnik(vzor, jiny, cesta, jazyk) {
     else if (znackyTextu(a) !== znackyTextu(b)) chybyPrekladu.push(`${kde}: značky ${znackyTextu(b)} místo ${znackyTextu(a)}`);
   }
 }
-if (!JAZYKY.includes('en') || !JAZYKY.includes('ru') || JAZYKY[0] !== VYCHOZI_JAZYK || pocetTvaru('cs') !== 3 || pocetTvaru('en') !== 2 || pocetTvaru('ru') !== 3) chybyPrekladu.push(`jazyky ${JAZYKY}`);
+if (!['en', 'ru', 'uk'].every((j) => JAZYKY.includes(j)) || JAZYKY[0] !== VYCHOZI_JAZYK || pocetTvaru('cs') !== 3 || pocetTvaru('en') !== 2 || pocetTvaru('ru') !== 3 || pocetTvaru('uk') !== 3) chybyPrekladu.push(`jazyky ${JAZYKY}`);
 for (const jazyk of JAZYKY.filter((j) => j !== VYCHOZI_JAZYK)) srovnejSlovnik(SLOVNIKY[VYCHOZI_JAZYK], SLOVNIKY[jazyk], '', jazyk);
 const textySlovniku = (v) => (typeof v === 'string' ? [v] : Array.isArray(v) ? v.flatMap(textySlovniku) : v && typeof v === 'object' ? Object.values(v).flatMap(textySlovniku) : []);
 const ceskeVAnglictine = textySlovniku(SLOVNIKY.en).filter((x) => DIAKRITIKA_TEXT.test(x) && /[áčďéěíňóřšťúůýž]/i.test(x));
@@ -6407,17 +6407,24 @@ const odehraj = (jazyk) => {
 const hraCesky = odehraj('cs');
 if (odehraj('en') !== hraCesky) chybyPrekladu.push('hra v angličtině dopadla jinak než česky');
 nastavJazyk(VYCHOZI_JAZYK);
-// Jazyky v azbuce (ruština): stejně jako angličtina vrací data po přepnutí texty jazyka a nikde v datech, kopiích
+// Jazyky v azbuce (ruština a ukrajinština): stejně jako angličtina vrací data po přepnutí texty jazyka a nikde v datech, kopiích
 // ani textech z funkcí nezůstane čeština, tvary slov jsou tři podle posledních číslic (1, 21, 101 | 2–4, 22–24 |
 // 0, 5–20, 25…, 11–14 a desetinné číslo druhý tvar), čísla s desetinnou čárkou, procenta bez mezery, datum
 // 05.11.2026 a hra hraje stejně jako česky. Texty slovníku jsou v azbuce: latinkou smí být jen jména (RuGee, WebGL,
-// DPS, Safari), klávesy a tlačítka ovladače. Ruština nemá ukrajinská písmena (і ї є ґ).
+// DPS, Safari), klávesy a tlačítka ovladače. Ruština nemá ukrajinská písmena (і ї є ґ) a ukrajinština ruská
+// (ы э ъ ё), ukrajinský apostrof je ʼ, ne '. Desetinné číslo se v ukrajinštině netestuje (správný by byl 2. pád
+// jednotného čísla, „1,5 предмета“, který mezi třemi tvary není; hra desetinná čísla do tvarů nedává).
 const LATINKA_V_AZBUCE = new Set(['RuGee', 'RUGEE', 'WebGL', 'DPS', 'Safari', 'Enter', 'Esc', 'Tab', 'Start', 'Back', 'Options', 'Share']);
 const AZBUCE = {
   ru: {
     zbran: 'Искра', hrac: 'Игрок', ciziPismena: /[іїєґ]/i,
     kusy: '0 предметов|1 предмет|2 предмета|4 предмета|5 предметов|11 предметов|12 предметов|14 предметов|21 предмет|22 предмета|25 предметов|101 предмет|111 предметов|1.5 предмета',
     duse: ['1 душа', '3 души', '7 душ', '21 душа'], zlataky: ['1 золотой', '3 золотых', '12 золотых'], stat: ['+5,6% брони', '+21 здоровья'], datum: '05.11.2026',
+  },
+  uk: {
+    zbran: 'Іскра', hrac: 'Гравець', ciziPismena: /[ыэъё]|[а-яіїєґ]'[а-яіїєґ]/i,
+    kusy: '0 предметів|1 предмет|2 предмети|4 предмети|5 предметів|11 предметів|12 предметів|14 предметів|21 предмет|22 предмети|25 предметів|101 предмет|111 предметів',
+    duse: ['1 душа', '3 душі', '7 душ', '21 душа'], zlataky: ['1 золотий', '3 золоті', '12 золотих'], stat: ['+5,6% броні', '+21 здоровʼя'], datum: '05.11.2026',
   },
 };
 for (const [jazyk, cekam] of Object.entries(AZBUCE)) {
@@ -6440,7 +6447,7 @@ for (const [jazyk, cekam] of Object.entries(AZBUCE)) {
   projdi(textyZFunkci(), 'funkce');
   if (ceskeVDatech.length) chybyPrekladu.push(`v jazyce ${jazyk} zůstala čeština: ${ceskeVDatech.slice(0, 4).join(' | ')}`);
   if (ZBRANE.jiskra.nazev !== cekam.zbran || vychoziJmeno() !== cekam.hrac || BOSSOVE.strazce.prichod !== t('bossove.strazce.prichod')) chybyPrekladu.push(`${jazyk}: zbraň ${ZBRANE.jiskra.nazev}, hráč ${vychoziJmeno()}`);
-  const kusy = [0, 1, 2, 4, 5, 11, 12, 14, 21, 22, 25, 101, 111, 1.5].map((n) => t('tvary.kusy', { n })).join('|');
+  const kusy = [0, 1, 2, 4, 5, 11, 12, 14, 21, 22, 25, 101, 111, 1.5].slice(0, cekam.kusy.split('|').length).map((n) => t('tvary.kusy', { n })).join('|');
   if (kusy !== cekam.kusy) chybyPrekladu.push(`${jazyk} tvary kusů: ${kusy}`);
   const duse = [1, 3, 7, 21].map((n) => t('menu.duse', { n }));
   const zlataky = [1, 3, 12].map((n) => t('tvary.zlataky', { n }));
@@ -6453,7 +6460,7 @@ for (const [jazyk, cekam] of Object.entries(AZBUCE)) {
 nastavJazyk(VYCHOZI_JAZYK);
 // jazyk prohlížeče a uložení v nastavení
 const prohlizece = [[['cs-CZ', 'en'], 'cs'], [['sk'], 'cs'], [['en-US'], 'en'], [['de-DE', 'en-GB'], 'en'], [['de-DE', 'cs'], 'cs'], [[], 'en'], [[undefined], 'en'],
-  [['ru-RU'], 'ru'], [['be-BY', 'en'], 'ru'], [['kk'], 'ru'], [['de-DE', 'ru'], 'ru']];
+  [['ru-RU'], 'ru'], [['be-BY', 'en'], 'ru'], [['kk'], 'ru'], [['de-DE', 'ru'], 'ru'], [['uk-UA'], 'uk'], [['uk', 'ru'], 'uk'], [['ru', 'uk'], 'ru']];
 for (const [seznam, cekam] of prohlizece) if (jazykProhlizece(seznam) !== cekam) chybyPrekladu.push(`prohlížeč ${seznam} dal ${jazykProhlizece(seznam)}`);
 {
   const ulozene = new Map();

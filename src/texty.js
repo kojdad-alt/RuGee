@@ -1,20 +1,21 @@
 // Překlady: všechny texty hry jsou ve slovníku src/texty/<jazyk>.js, kód je bere přes t('klíč', {parametry}).
 // Klíč je cesta ve slovníku ('menu.zpet', 'bossove.strazce.prichod'). V textu {jmeno} dosadí parametr a {n|a|b|c}
 // vybere tvar slova podle čísla n (čeština: 1 | 2–4 | jinak, třeba „{n} {n|duše|duše|duší}“; ruština: 1, 21, 31… |
-// 2–4, 22–24… | jinak a desetinná čísla ve druhém tvaru, „{n} {n|душа|души|душ}“).
+// 2–4, 22–24… | jinak a desetinná čísla ve druhém tvaru, „{n} {n|душа|души|душ}“, ukrajinština stejně).
 // Texty dat (zbraně, pasivy, bossové, mapy, výbava…) data sama nemají: pripojTexty jim podle větve slovníku přidá
 // gettery, takže kód čte dál ZBRANE.jiskra.nazev a po přepnutí jazyka hned dostane nový text.
 // Statické texty v index.html mají atribut data-t (první text v prvku), data-t-html (celý obsah se značkami
 // <kbd>) nebo data-t-aria-label / data-t-title / data-t-content a přeloží je prelozStranku().
-// Jazyky: čeština (výchozí, podle ní se kontrolují ostatní), angličtina a ruština. Volba je v Nastavení
+// Jazyky: čeština (výchozí, podle ní se kontrolují ostatní), angličtina, ruština a ukrajinština. Volba je v Nastavení
 // (hlubiny.nastaveni, jazyk), při prvním spuštění podle jazyka prohlížeče (jazykProhlizece). Nový jazyk = nový slovník se stejnými
 // klíči v src/texty/ a řádek v SLOVNIKY a TVARY.
 // Jen data a funkce bez DOM (kromě prelozStranku), test je načte i v Node.
 import cs from './texty/cs.js';
 import en from './texty/en.js';
 import ru from './texty/ru.js';
+import uk from './texty/uk.js';
 
-export const SLOVNIKY = { cs, en, ru };
+export const SLOVNIKY = { cs, en, ru, uk };
 export const JAZYKY = Object.keys(SLOVNIKY);
 export const VYCHOZI_JAZYK = 'cs';
 
