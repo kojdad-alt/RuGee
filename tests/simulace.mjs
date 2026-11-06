@@ -4498,8 +4498,9 @@ for (const id of PORADI_MAP.filter((m) => MAPY[m].prekazky)) {
 // Vlastní tvorové map (MAPY_S_VLASTNIMI): taková mapa má aspoň 3 druhy, které nikde jinde nechodí, a nejvýš 2 druhy
 // z jiných map. Tvor se schopností ji na stojícího hrdinu opravdu použije (skok dopadne a trefí, hod trefí) a dopad
 // i střela jsou vidět jako to, co slibují data (permoník jiskří krumpáčem, krystalník hází střep, lední medvěd
-// dopadne do sněhu, sněhulák hází kouli). Jedový tvor po smrti nechá oblak.
-const MAPY_S_VLASTNIMI = ['louka', 'jeskyne', 'jezero'];
+// dopadne do sněhu, sněhulák hází kouli, salamandr dopadne v magmatu, golem hází magma). Jedový tvor po smrti
+// nechá oblak a tvorové Sopky (kromě schovaných duchů) kousnutím pálí.
+const MAPY_S_VLASTNIMI = ['louka', 'jeskyne', 'jezero', 'sopka'];
 {
   // Kde druh chodí (i ve smečkách: vlk ze smeček Louky a Hřbitova není vlastní tvor jezera).
   const kdeChodi = {};
@@ -4550,6 +4551,9 @@ const MAPY_S_VLASTNIMI = ['louka', 'jeskyne', 'jezero'];
       aktualizuj(h, DT, stoj, SIRKA, VYSKA);
       if (h.oblaky.length !== 1) chybyMap.push(`jedový ${druh} (${id}) po smrti nechal ${h.oblaky.length} oblaků`);
     }
+  }
+  for (const d of MAPY.sopka.nepratele) {
+    if (!pridejNepritele(holaHra(0), d.druh, 300, 0).ohen) chybyMap.push(`${d.druh} na Sopce nepálí`);
   }
   // Místo ducha nad MAX_DUCHU přiletí jen druh, který na mapě chodí (na jezeře bez netopýrů vločka).
   for (const id of PORADI_MAP) {

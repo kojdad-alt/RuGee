@@ -829,7 +829,11 @@ export default {
       snehulak: 'The snowmen have come alive and throw snowballs',
       mroz: 'Walruses haul themselves onto the ice',
     },
-    sopka: { kostlivec: 'Skeletons rise from the ashes', pavouk: 'Spiders crawl out of the cracks' },
+    sopka: {
+      salamandr: 'Salamanders crawl out of the lava',
+      golem: 'The basalt golems are on the move',
+      certik: 'Imps swarm up from the underworld',
+    },
     bazina: { houbak: 'Shroomers grow out of the mud', duch: 'Ghosts wander over the swamp' },
     hrbitov: {
       kostlivec: 'Skeletons rise from their graves',
