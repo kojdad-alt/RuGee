@@ -1,8 +1,14 @@
 // Natočí hru v prohlížeči pro nastroje/ukazky.py: Playwright (Chromium bez okna) otevře hru a jednoduchý bot ji hraje
 // (utíká od nepřátel, sbírá krystaly, bere karty, od kupce hned odejde, po prohře dá Znovu).
 //   node nastroje/natoc.mjs --url http://127.0.0.1:8000/?seed=1 --vystup slozka [--sekund 230] [--ffmpeg cesta]
+//   [--mapa louka] [--profil ukazka|prazdny]
 // Do složky dá video.mkv (celá obrazovka), stred.mkv (střed obrazovky bez ztráty kvality, z něj je GIF),
-// menu.png, uroven.png, boj-NN.png a osa.json (časy v sekundách od začátku videa).
+// menu.png, strom.png, pety.png, uroven.png, boj-NN.png a osa.json (časy v sekundách od začátku videa).
+//
+// Profil „ukazka“ (výchozí) je rozehraný hráč, ať jsou na obrázcích vidět i trvalé věci: koupená třetina stromu
+// vylepšení (nejlevnější uzly napřed), 7 petů s dráčkem ve hře, 2 vejce a odemčené všechny mapy. Zapíše se přes
+// funkce hry (src/ulozeni.js, src/duse.js) do čistého profilu prohlížeče, takže je vždycky stejný. Z menu se pak
+// vyfotí okno stromu a líheň s pety. „prazdny“ = nový hráč bez ničeho (jako dřív, bez fotek stromu a petů).
 //
 // Video se nebere z vestavěného nahrávání Playwrightu (to ho stlačí na 1 Mbit/s a pixely se rozmažou), ale ze
 // snímků obrazovky Chromia v PNG (CDP screencast), které jdou rovnou do ffmpeg. Celá obrazovka se uloží v H.264
@@ -29,6 +35,7 @@ const SEKUND = Number(volba('sekund', 230));
 const FFMPEG = volba('ffmpeg', process.env.FFMPEG || 'ffmpeg');
 // Hra kreslí 60 snímků za sekundu, natáčí se každý druhý.
 const FPS_VIDEA = 30;
+const MEZERA = 2;
 const SIRKA = Number(volba('sirka', 1280));
 const VYSKA = Number(volba('vyska', 720));
 // Bezeztrátový střed obrazovky (šířka × výška), ze kterého ukazky.py vyřízne GIF.
@@ -38,6 +45,8 @@ const UROVEN_OD = Number(volba('uroven-od', 40));
 // Jak často se vyfotí boj (ukazky.py pak vezme snímek z nejakčnější chvíle).
 const BOJ_KAZDYCH = Number(volba('boj-kazdych', 5));
 const HACEK = '\n;globalThis.__natoc = { hra: () => hra };\n';
+const MAPA = volba('mapa', 'louka');
+const PROFIL = volba('profil', 'ukazka');
 
 function nactiPlaywright() {
   const pozadavek = createRequire(import.meta.url);
@@ -142,6 +151,45 @@ function botVeStrance(t) {
   return stav;
 }
 
+// Běží ve stránce: zapíše ukázkový profil funkcemi hry (stejné moduly jako hra díky import mapě) a zvolí mapu.
+async function pripravProfil({ profil, mapa }) {
+  const u = await import('./src/ulozeni.js');
+  const { PORADI_MAP } = await import('./src/mapy.js');
+  if (profil === 'ukazka') {
+    const { VYLEPSENI, kupVylepseni } = await import('./src/duse.js');
+    // Třetina ceny stromu, vždycky ta nejlevnější další úroveň: strom je rozkoupaný od středu do všech větví.
+    let stav = { duse: 9000, vylepseni: {} };
+    for (;;) {
+      let nej = null;
+      for (const id of Object.keys(VYLEPSENI)) {
+        const novy = kupVylepseni(stav, id);
+        if (novy && (!nej || novy.duse > nej.duse)) nej = novy;
+      }
+      if (!nej) break;
+      stav = nej;
+    }
+    u.ulozDuse({ ...stav, duse: stav.duse + 240 });
+    u.ulozPety({
+      vejce: 2,
+      aktivni: 'dracek',
+      otevreno: 12,
+      odEpicke: 2,
+      sbirka: {
+        dracek: { rarita: 'epicka', uroven: 3 },
+        sovicka: { rarita: 'bezna', uroven: 2 },
+        beruska: { rarita: 'vzacna', uroven: 1 },
+        krecek: { rarita: 'bezna', uroven: 1 },
+        liska: { rarita: 'vzacna', uroven: 2 },
+        tucnak: { rarita: 'legendarni', uroven: 1 },
+        jezek: { rarita: 'bezna', uroven: 1 },
+      },
+    });
+    for (const id of PORADI_MAP) u.odemkniMapu(id);
+  }
+  u.ulozMapu(mapa);
+  return { mapa: u.nactiMapu(), vylepseni: Object.keys(u.nactiDuse().vylepseni).length, pet: u.nactiPety().aktivni };
+}
+
 // Kde leží věci nad plátnem (horní lišta, přehled výbavy, nápověda), ať je ukazky.py z GIFu vyřízne.
 function oblastiStranky() {
   const oblasti = {};
@@ -198,6 +246,9 @@ async function nahravej(stranka, kontext, stred) {
     cdp.send('Page.screencastFrameAck', { sessionId }).catch(() => {});
     const t = metadata.timestamp ?? Date.now() / 1000;
     od ??= t;
+    // Uspaný počítač nebo zaseknutý prohlížeč: díra přes MEZERA s se nedoplňuje opakovaným snímkem (po hodinách
+    // spánku by ffmpeg kódoval statisíce stejných snímků), začátek videa se jen posune o délku díry.
+    if (posledniCas !== null && t - posledniCas > MEZERA) od += t - posledniCas - 1 / FPS_VIDEA;
     dopis(Math.floor((t - od) * FPS_VIDEA));
     posledni = Buffer.from(data, 'base64');
     posledniCas = t;
@@ -240,6 +291,11 @@ async function main() {
   stranka.on('pageerror', (e) => chyby.push(String(e)));
   await stranka.goto(URL_HRY, { waitUntil: 'load' });
   await stranka.waitForSelector('#menu-volby button');
+  // Profil a mapa se zapíšou a stránka se načte znovu, ať menu i hra začnou s nimi.
+  const profil = await stranka.evaluate(pripravProfil, { profil: PROFIL, mapa: MAPA });
+  if (profil.mapa !== MAPA) throw new Error(`mapa ${MAPA} není odemčená (s profilem ${PROFIL} je zvolená ${profil.mapa})`);
+  await stranka.reload({ waitUntil: 'load' });
+  await stranka.waitForSelector('#menu-volby button');
   const stred = { x: ((SIRKA - STRED_W) / 2) & ~1, y: ((VYSKA - STRED_H) / 2) & ~1, w: STRED_W, h: STRED_H };
   const video = await nahravej(stranka, kontext, stred);
   for (let i = 0; video.zacatek() === null; i++) {
@@ -254,6 +310,20 @@ async function main() {
   await cekej(1500);
   await stranka.screenshot({ path: join(VYSTUP, 'menu.png') });
   osa.snimky.push({ soubor: 'menu.png', druh: 'menu', t: ted() });
+  osa.profil = { druh: PROFIL, ...profil };
+  // Okna z menu (jen s rozehraným profilem, u nového hráče jsou prázdná): strom vylepšení a líheň s pety.
+  if (PROFIL === 'ukazka') {
+    for (const [id, druh] of [['vylepseni', 'strom'], ['pety', 'pety']]) {
+      await stranka.locator(`#menu-volby button[data-id="${id}"]`).click();
+      await stranka.waitForSelector('#menu-zalozka:not([hidden])');
+      await cekej(900);
+      await stranka.screenshot({ path: join(VYSTUP, `${druh}.png`) });
+      osa.snimky.push({ soubor: `${druh}.png`, druh, t: ted() });
+      await stranka.locator('#menu-zpet').click();
+      await stranka.waitForSelector('#menu-zalozka', { state: 'hidden' });
+      await cekej(300);
+    }
+  }
 
   // Hrát: tlačítko z menu (když by se jmenovalo jinak, Enter vezme první volbu).
   const hrat = stranka.locator('#menu-volby button[data-id="hrat"]');

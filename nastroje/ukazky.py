@@ -3,11 +3,12 @@
 
 Spustí hru na lokálním serveru a nechá ji natočit nastroje/natoc.mjs (Node + Playwright, jednoduchý bot hraje).
 Z videa vybere nejakčnější úsek podle změn mezi snímky (mimo okna úrovní, obchodu a konce hry) a udělá z něj
-GIF kolem hrdiny bez horní lišty a přehledu výbavy, nanejvýš 4 MB. K tomu uloží 3 screenshoty: menu, boj
-(ten z nejakčnější chvíle) a okno nové úrovně.
+GIF kolem hrdiny bez horní lišty a přehledu výbavy, nanejvýš 4 MB. K tomu uloží screenshoty: menu, strom
+vylepšení a líheň s pety (z ukázkového profilu, viz natoc.mjs), boj (z nejakčnější chvíle) a okno nové úrovně.
 
   python3 nastroje/ukazky.py                              # natočí 230 s, výstup do docs/ukazky
   python3 nastroje/ukazky.py --sekund 120 --delka 5
+  python3 nastroje/ukazky.py --mapa sopka --sekund 150 --vystup /tmp/sopka   # jiná mapa (fotka boje pro README)
   python3 nastroje/ukazky.py --prace /tmp/natoceni        # natočení (video, osa.json, fotky) si nechá
   python3 nastroje/ukazky.py --z-natoceni /tmp/natoceni   # nenatáčí, jen znovu vybere úsek a udělá výstup
 
@@ -86,9 +87,9 @@ def natoc(args, prace: Path, ffmpeg: str):
     with lokalni_server(KOREN) as adresa:
         prikaz = [
             args.node, str(NATOC), "--url", f"{adresa}?seed={args.seed}", "--vystup", str(prace),
-            "--sekund", str(args.sekund), "--ffmpeg", ffmpeg,
+            "--sekund", str(args.sekund), "--ffmpeg", ffmpeg, "--mapa", args.mapa, "--profil", args.profil,
         ]
-        print(f"Natáčím {args.sekund} s hry (semínko {args.seed}) …", flush=True)
+        print(f"Natáčím {args.sekund} s hry (semínko {args.seed}, mapa {args.mapa}, profil {args.profil}) …", flush=True)
         beh = subprocess.run(prikaz, cwd=KOREN)
         if beh.returncode != 0:
             sys.exit(f"natoc.mjs skončil s kódem {beh.returncode}")
@@ -267,6 +268,10 @@ def zpracuj(args, natoceni: Path, ffmpeg: str):
     menu = natoceni / "menu.png"
     if menu.exists():
         fotky["menu"] = uloz_png(menu, vystup / "menu.png")
+    # Okna z menu jsou jen s ukázkovým profilem (u nového hráče by byla prázdná).
+    for okno in ("strom", "pety"):
+        if (natoceni / f"{okno}.png").exists():
+            fotky[okno] = uloz_png(natoceni / f"{okno}.png", vystup / f"{okno}.png")
     boje = [s for s in osa["snimky"] if s["druh"] == "boj" and not any(od <= s["t"] <= do for od, do in spatne)]
     if boje:
         nej = max(boje, key=lambda s: akce_kolem(skore, s["t"]))
@@ -276,13 +281,15 @@ def zpracuj(args, natoceni: Path, ffmpeg: str):
     if uroven:
         fotky["uroven"] = uloz_png(natoceni / uroven["soubor"], vystup / "uroven.png")
         fotky["uroven"]["uroven"] = uroven.get("uroven")
-    for chybi in {"menu", "boj", "uroven"} - fotky.keys():
+    cekane = {"menu", "boj", "uroven"} | ({"strom", "pety"} if osa.get("profil", {}).get("druh") == "ukazka" else set())
+    for chybi in cekane - fotky.keys():
         print(f"Pozor: fotka {chybi} nevznikla, ve {vystup} zůstává stará.", file=sys.stderr)
 
     cas_hry = [v[2] for v in osa["vzorky"] if zacatek <= v[0] <= zacatek + args.delka]
     info = {
         "otisk_kodu": otisk_kodu(),
         "seminko": args.seed,
+        "profil": osa.get("profil"),
         "natoceno_s": round(osa.get("delkaVidea", osa.get("konec", 0)), 1),
         "her": osa.get("her", 1),
         "usek_videa_s": [round(zacatek, 1), round(zacatek + gif["sekund"], 1)],
@@ -301,6 +308,9 @@ def main():
     parser = argparse.ArgumentParser(description="Ukázky RuGee: natočí hru botem a udělá GIF a screenshoty do docs/ukazky.")
     parser.add_argument("--sekund", type=int, default=230, help="jak dlouho bot hraje (230 s stihne prvního bosse)")
     parser.add_argument("--seed", type=int, default=1, help="semínko vln (?seed= v adrese hry, 1)")
+    parser.add_argument("--mapa", default="louka", help="na které mapě bot hraje (louka)")
+    parser.add_argument("--profil", default="ukazka", choices=("ukazka", "prazdny"),
+                        help="ukazka = rozehraný hráč se stromem a pety, prazdny = nový hráč (ukazka)")
     parser.add_argument("--delka", type=float, default=6.0, help="délka GIFu v sekundách (6)")
     parser.add_argument("--max-mb", type=float, default=4.0, dest="max_mb", help="nejvyšší velikost GIFu v MB (4)")
     parser.add_argument("--max-sirka", type=int, default=560, dest="max_sirka", help="nejširší výřez GIFu v px (560)")
