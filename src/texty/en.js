@@ -822,7 +822,13 @@ export default {
       macarat: 'Olms crawl out of the underground pools',
       stonozka: 'Venomous centipedes pour out of the cracks',
     },
-    jezero: { vlk: 'Wolves creep across the snow', ledovy_duch: 'Ice ghosts circle above the ice' },
+    jezero: {
+      vlk: 'Wolves creep across the snow',
+      ledovy_duch: 'Ice ghosts circle above the ice',
+      ledni_medved: 'Polar bears climb out of the ice floes',
+      snehulak: 'The snowmen have come alive and throw snowballs',
+      mroz: 'Walruses haul themselves onto the ice',
+    },
     sopka: { kostlivec: 'Skeletons rise from the ashes', pavouk: 'Spiders crawl out of the cracks' },
     bazina: { houbak: 'Shroomers grow out of the mud', duch: 'Ghosts wander over the swamp' },
     hrbitov: {

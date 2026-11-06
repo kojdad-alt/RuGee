@@ -154,6 +154,48 @@ const SPRITY = {
     '.n.ee.n.',
     '...EE...',
   ],
+  // Zamrzlé jezero: vločka (ledové hroty kolem kulatého tělíčka s očima), lední medvěd (z boku), sněhulák
+  // (klobouk, mrkev, šála) a mrož (zepředu, kly a vousy).
+  vlocka: [
+    'C..C..C.',
+    '.CUUUC..',
+    '.UKUKU..',
+    'CUUUUUC.',
+    '.UuuuU..',
+    '.CUUUC..',
+    'C..C..C.',
+    '........',
+  ],
+  ledni_medved: [
+    '........',
+    '.....U.U',
+    '.....UUU',
+    '.UUUUUKU',
+    'UUUUUUUK',
+    'UUUUUUU.',
+    'pUU.pUU.',
+    'pp..pp..',
+  ],
+  snehulak: [
+    '..KKKK..',
+    '.KKKKKK.',
+    '..UKUK..',
+    '..UUUoo.',
+    'heeeeeeh',
+    '.hUUKUh.',
+    '.UUUKUU.',
+    '..UUUU..',
+  ],
+  mroz: [
+    '..nnnn..',
+    '.nnnnnn.',
+    'nKnnnnKn',
+    'nnffffnn',
+    'nffKKffn',
+    '.nWnnWn.',
+    '..W..W..',
+    '..W..W..',
+  ],
   slizak: [
     '........',
     '..mmmm..',
@@ -458,6 +500,14 @@ const SPRITY = {
     '.cCc.',
     '.ccA.',
     '..c..',
+  ],
+  // Sněhová koule, kterou hází sněhulák (Zamrzlé jezero).
+  snezka: [
+    '.UUU.',
+    'UaUUu',
+    'UUUUu',
+    'UUuuu',
+    '.uuu.',
   ],
   // Magma, které hází Lávový obr.
   magma: [
