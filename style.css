@@ -1422,6 +1422,20 @@ body.v-menu .hud, body.v-menu .zivoty-hrdiny, body.v-menu .vybava { display: non
 
 .menu-zalozka h2 { margin: 2px 0 4px; }
 
+/* Panel záložky vyšší než obrazovka se posouvá v rámečku (výšku dopočítá menu.js), posuvník v barvách dřeva. */
+#menu-panel.posuvny {
+  position: relative; /* skryté texty pro čtečky (absolutní) se jinak počítají do výšky celého menu */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-right: -6px;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mosaz) var(--drevo-0);
+}
+#menu-panel.posuvny::-webkit-scrollbar { width: 8px; }
+#menu-panel.posuvny::-webkit-scrollbar-track { background: var(--drevo-0); }
+#menu-panel.posuvny::-webkit-scrollbar-thumb { background: var(--mosaz); border: 2px solid var(--drevo-0); }
+
 @media (max-width: 600px) {
   .menu-zalozka { padding: 10px 10px 12px; margin-top: 14px; }
 }
