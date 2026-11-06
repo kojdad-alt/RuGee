@@ -29,6 +29,8 @@ let pohled = null;
 // Otevřený strom (klávesy z menu jdou do něj), null = zavřený.
 let otevreny = null;
 
+const MIN_VYSKA_OKNA = 180;
+
 function prvek(znacka, trida = '', text = null) {
   const e = document.createElement(znacka);
   if (trida) e.className = trida;
@@ -457,6 +459,23 @@ export function vyplnStrom(panel) {
   const pozorovatel = new ResizeObserver(() => prekresli());
   pozorovatel.observe(okno);
   setTimeout(() => prekresli(), 0);
+
+  // Celá záložka se vejde na obrazovku bez posouvání stránky (Daliik 6. 11.): okno stromu dostane jen tolik výšky,
+  // kolik v menu zbude, nejméně MIN_VYSKA_OKNA px. Logo a pata se ve stromu schovají (style.css). Po zavření
+  // záložky se posluchač sám odhlásí.
+  const vejdiSe = () => {
+    if (!okno.isConnected) {
+      removeEventListener('resize', vejdiSe);
+      return;
+    }
+    const menu = okno.closest('.menu');
+    if (!menu || !okno.getClientRects().length) return;
+    okno.style.height = '';
+    const prebytek = menu.scrollHeight - menu.clientHeight;
+    if (prebytek > 0) okno.style.height = `${Math.max(MIN_VYSKA_OKNA, Math.floor(okno.getBoundingClientRect().height - prebytek))}px`;
+  };
+  addEventListener('resize', vejdiSe);
+  setTimeout(vejdiSe, 0);
 
   // ---------- Klávesnice a ovladač ----------
   const tlacitkaListy = () => [...lista.querySelectorAll('button'), document.getElementById('menu-zpet')].filter((b) => b && !b.disabled && b.getClientRects().length);

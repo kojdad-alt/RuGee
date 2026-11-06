@@ -1689,6 +1689,9 @@ body.ovladac .jen-ovladac { display: inline; }
 }
 
 .strom-okno.tahne { cursor: grabbing; }
+/* Ve stromu se logo, podtitul a pata schovají, ať se záložka vejde na obrazovku (výšku okna dopočítá strom.js). */
+.menu:has(.menu-zalozka:not([hidden]) .strom-okno) :is(.logo, .menu-podtitul, .menu-pata) { display: none; }
+.menu-zalozka:not([hidden]):has(.strom-okno) { margin-top: 0; }
 .strom-platno { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
 .strom-platno.plynule { transition: transform 0.18s steps(6); }
 .strom-cary { position: absolute; overflow: visible; shape-rendering: crispEdges; pointer-events: none; }
