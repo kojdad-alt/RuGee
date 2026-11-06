@@ -6,6 +6,7 @@
 import { platnaDataProfilu } from './ulozeni.js';
 import { VSECHNY_KUSY } from './vystroj.js';
 import { VYLEPSENI } from './duse.js';
+import { PORADI_PETU } from './pety.js';
 import { t } from './texty.js';
 
 export const VERZE_KODU = 1;
@@ -32,6 +33,27 @@ export const PORADI_V_KODU = [
   'lehkost', 'brodeni', 'ostruhy', 'otuzilost', 'cistyDech', 'poutnik', 'unik', 'zvedavost', 'vitr', 'klickovani', 'bludnyKrok',
   'odolnost', 'hojeni', 'houzevnatost', 'obnova', 'posledniVzdor', 'pancir', 'trny', 'upir', 'dobiti', 'bublina',
 ];
+
+// Pety: { n: vejce, a: aktivní pet, s: 'písmena', o: otevřeno, e: od epického }. Ve s má každý pet z PORADI_PETU
+// (pořadí je napevno, nový pet jen na konec) dva znaky: písmeno rarity (PISMENO_RARITY) a úroveň, nemá ho = '--'.
+// Profil bez petů a vajec kód nemá vůbec (je stejný jako dřív).
+function zkratPety(p) {
+  if (!p.vejce && !p.otevreno && !Object.keys(p.sbirka).length) return null;
+  const s = PORADI_PETU.map((id) => (p.sbirka[id] ? `${PISMENO_RARITY[p.sbirka[id].rarita]}${p.sbirka[id].uroven}` : '--')).join('').replace(/(--)+$/, '');
+  return { n: p.vejce, a: p.aktivni, s, o: p.otevreno, e: p.odEpicke };
+}
+
+function rozbalPety(z) {
+  if (!z || typeof z !== 'object' || Array.isArray(z)) return undefined;
+  const sbirka = {};
+  if (typeof z.s === 'string') {
+    for (let i = 0; i < PORADI_PETU.length && 2 * i + 1 < z.s.length; i++) {
+      const rarita = RARITA_PISMENA[z.s[2 * i]];
+      if (rarita) sbirka[PORADI_PETU[i]] = { rarita, uroven: Number(z.s[2 * i + 1]) };
+    }
+  }
+  return { vejce: z.n, aktivni: z.a, sbirka, otevreno: z.o, odEpicke: z.e };
+}
 
 function zkratVylepseni(vylepseni) {
   return PORADI_V_KODU.map((id) => (vylepseni[id] ?? 0).toString(36)).join('').replace(/0+$/, '');
@@ -81,9 +103,10 @@ function zkrat(d) {
   for (const [mapa, z] of Object.entries(d.rekordy)) {
     r[mapa] = [z.cas, z.uroven ?? null, z.zabito ?? null, z.hrozba ?? null, z.trida ?? null, z.datum ? Date.parse(z.datum) : null];
   }
+  const p = zkratPety(d.pety);
   return {
     v: VERZE_KODU, j: d.jmeno, t: d.trida, m: d.mapa, o: d.mapy, d: d.duse.duse, u: zkratVylepseni(d.duse.vylepseni), s,
-    ...(Object.keys(s2).length ? { s2 } : {}), r,
+    ...(Object.keys(s2).length ? { s2 } : {}), r, ...(p ? { p } : {}),
   };
 }
 
@@ -104,7 +127,9 @@ function rozbal(z) {
     if (!Array.isArray(p)) continue;
     rekordy[mapa] = { cas: p[0], uroven: p[1], zabito: p[2], hrozba: p[3], trida: p[4], datum: p[5] };
   }
-  return { jmeno: z.j, trida: z.t, mapa: z.m, mapy: z.o, duse: { duse: z.d, vylepseni: rozbalVylepseni(z.u) }, sbirka, rekordy };
+  return {
+    jmeno: z.j, trida: z.t, mapa: z.m, mapy: z.o, duse: { duse: z.d, vylepseni: rozbalVylepseni(z.u) }, sbirka, pety: rozbalPety(z.p), rekordy,
+  };
 }
 
 // Kód uložení z dat profilu (ulozeni.dataProfilu).

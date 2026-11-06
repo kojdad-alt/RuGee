@@ -366,6 +366,7 @@ export default {
     zlataky: ' {zlataky} nevyužito → {n} {n|duše|duše|duší} ({za} zl = 1 duše)',
     utraceno: ' · utraceno {n}',
     duse: '+{n} {n|duše|duše|duší}',
+    vejce: 'Z bossů máš {n} {n|vejce|vejce|vajec} peta, otevřeš je v menu Pety.',
   },
 
   // Nápisy a hlášky ve hře (hra.js, kresleni.js).
@@ -378,6 +379,7 @@ export default {
     zvukVypnuty: 'Zvuk vypnutý (N)',
     zvukZapnuty: 'Zvuk zapnutý (N)',
     obkliceni: 'Obklíčení! Nestůj na místě',
+    vejce: 'Vejce peta!',
     hrozba: {
       sili: 'Hrozba {n}: nepřátelé sílí',
       elity: 'Hrozba {n}: přicházejí elity',
@@ -406,6 +408,22 @@ export default {
     zamceno: 'Zamčeno: klíč nebo {n} zl',
     zuri: 'Zuří',
     sekundy: '{n} s',
+  },
+  // Pety z vajec (pety.js): jméno a co dělají. {n} = bonus, {s} = sekundy mezi akcemi, {d} = poškození.
+  pety: {
+    sovicka: { nazev: 'Sovička', popis: '+{n} % zkušeností z krystalů' },
+    straka: { nazev: 'Straka', popis: '+{n} % dosah magnetu, každých {s} s ti donese vzdálený krystal' },
+    beruska: { nazev: 'Beruška', popis: '+{n} % šance na srdce a magnet z nepřátel' },
+    dracek: { nazev: 'Dráček', popis: 'Každých {s} s plivne oheň do nejbližšího nepřítele ({d} poškození)' },
+    zelvicka: { nazev: 'Želvička', popis: 'Každých {s} s tě krunýřem ochrání před jednou ranou' },
+    krecek: { nazev: 'Křeček', popis: 'Každých {s} s najde zlaťák' },
+    houbicka: { nazev: 'Houbička', popis: '+{n} životů za sekundu' },
+    liska: { nazev: 'Liška', popis: '+{n} % rychlost pohybu' },
+    kocour: { nazev: 'Kocour', popis: '+{n} % šance na kritický zásah' },
+    medvidek: { nazev: 'Medvídek', popis: '+{n} % poškození' },
+    jezek: { nazev: 'Ježek', popis: '{n} % rány se vrátí útočníkovi' },
+    havran: { nazev: 'Havran', popis: '+{n} % duší za hru' },
+    tucnak: { nazev: 'Tučňák', popis: 'Každých {s} s zchladí nepřátele kolem tebe a zpomalí je' },
   },
   // Řádky na kartě vylepšení (hra.js, popisUrovni a karta).
   karta: {

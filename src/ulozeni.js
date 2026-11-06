@@ -1,5 +1,5 @@
 // Co si hra pamatuje v tomhle prohlížeči. Skoro všechno patří profilu: rekordy (každá mapa svůj), zvolená třída
-// a mapa, odemčené mapy, duše s trvalými vylepšeními a sbírka nalezené výbavy bossů. Nastavení (zvuk, čísla
+// a mapa, odemčené mapy, duše s trvalými vylepšeními, sbírka nalezené výbavy bossů a pety z vajec. Nastavení (zvuk, čísla
 // poškození) je společné pro všechny profily. V anonymním okně nebo se zablokovaným úložištěm se nic neuloží
 // a hra kvůli tomu nespadne.
 //
@@ -12,6 +12,7 @@ import { platnaTrida, TRIDY } from './hra.js';
 import { PORADI_MAP, VYCHOZI_MAPA, ODEMKNUTI_MAPY, platnaMapa, predchoziMapa } from './mapy.js';
 import { platnyStav } from './duse.js';
 import { platnaSbirka, pridejDoSbirky } from './vystroj.js';
+import { platnePety, pridejVejce } from './pety.js';
 import { t, JAZYKY } from './texty.js';
 import { REZIMY_BAREV } from './barvy.js';
 
@@ -33,6 +34,7 @@ const DUSE = 'duse';
 const SBIRKA = 'sbirka';
 const MAPA = 'mapa';
 const MAPY = 'mapy';
+const PETY = 'pety';
 
 // Nastavení z menu a pauzy: přepínače ano/ne, hlasitosti zvuku v procentech (efekty 60 %, hudba 40 %,
 // ztlumeno = klávesa N) a volby z výčtu (MOZNOSTI_NASTAVENI: světla auto / zap / vyp, jazyk cs / en, barvy vyp /
@@ -92,7 +94,7 @@ function klicRekordu(mapa) {
 }
 
 function kliceProfilu() {
-  return [JMENO, TRIDA, DUSE, SBIRKA, MAPA, MAPY, ...PORADI_MAP.map((id) => klicRekordu(id))];
+  return [JMENO, TRIDA, DUSE, SBIRKA, MAPA, MAPY, PETY, ...PORADI_MAP.map((id) => klicRekordu(id))];
 }
 
 // ---------- Profily ----------
@@ -299,6 +301,23 @@ export function zapisNalez(kus) {
   return sbirka;
 }
 
+// Pety z vajec (pety.js, platnePety): { vejce, aktivni, sbirka: { id: { rarita, uroven } }, otevreno, odEpicke }.
+// Rozbitý záznam = žádné pety ani vejce.
+export function nactiPety(slot = aktivniSlot()) {
+  return platnePety(nacti(klic(slot, PETY)));
+}
+
+export function ulozPety(stav) {
+  return uloz(klic(aktivniSlot(), PETY), platnePety(stav));
+}
+
+// Připíše vejce sebraná ve hře a vrátí nový stav.
+export function pripisVejce(kolik) {
+  const stav = pridejVejce(nactiPety(), kolik);
+  ulozPety(stav);
+  return stav;
+}
+
 // ---------- Nastavení (společné všem profilům) ----------
 
 function platnaNastaveni(zaznam) {
@@ -352,7 +371,7 @@ export function platnyRekord(zaznam, mapa = VYCHOZI_MAPA) {
   return rekord;
 }
 
-// Celý profil jako jeden objekt s pevným pořadím klíčů: { jmeno, trida, mapa, mapy, duse, sbirka, rekordy }.
+// Celý profil jako jeden objekt s pevným pořadím klíčů: { jmeno, trida, mapa, mapy, duse, sbirka, pety, rekordy }.
 // Cokoli chybí nebo je rozbité, dostane výchozí hodnotu, neznámé věci se zahodí. mapy = odemčené mapy (stejně
 // jako odemceneMapy), mapa = zvolená, jen když je odemčená.
 export function platnaDataProfilu(data) {
@@ -377,6 +396,7 @@ export function platnaDataProfilu(data) {
     mapy,
     duse: { duse: Math.min(MAX_CISLA, duse.duse), vylepseni: duse.vylepseni },
     sbirka: platnaSbirka(d.sbirka),
+    pety: platnePety(d.pety),
     rekordy,
   };
 }
@@ -392,6 +412,7 @@ export function dataProfilu(slot = aktivniSlot()) {
     mapy: odemceneMapy(slot),
     duse: nactiDuse(slot),
     sbirka: nactiSbirku(slot),
+    pety: nactiPety(slot),
     rekordy,
   });
 }
@@ -400,7 +421,7 @@ export function dataProfilu(slot = aktivniSlot()) {
 // které data nemají, smaže.
 function zapisDataProfilu(slot, data) {
   const d = platnaDataProfilu(data);
-  let povedlo = [[JMENO, d.jmeno], [TRIDA, d.trida], [MAPA, d.mapa], [MAPY, d.mapy], [DUSE, d.duse], [SBIRKA, d.sbirka]]
+  let povedlo = [[JMENO, d.jmeno], [TRIDA, d.trida], [MAPA, d.mapa], [MAPY, d.mapy], [DUSE, d.duse], [SBIRKA, d.sbirka], [PETY, d.pety]]
     .every(([nazev, hodnota]) => uloz(klic(slot, nazev), hodnota));
   for (const id of PORADI_MAP) {
     if (d.rekordy[id]) povedlo = uloz(klic(slot, klicRekordu(id)), d.rekordy[id]) && povedlo;
@@ -425,7 +446,7 @@ export function importujProfil(data, slot = null) {
   return { slot: cil, jmeno };
 }
 
-// Krátký přehled pro kartu profilu a náhled importu: postava, duše, odemčené mapy, nalezené kusy, nejdelší rekord.
+// Krátký přehled pro kartu profilu a náhled importu: postava, duše, odemčené mapy, nalezené kusy, pety, nejdelší rekord.
 export function prehledDat(data) {
   const d = platnaDataProfilu(data);
   return {
@@ -434,6 +455,7 @@ export function prehledDat(data) {
     duse: d.duse.duse,
     mapy: d.mapy.length,
     sbirka: Object.keys(d.sbirka).length,
+    pety: Object.keys(d.pety.sbirka).length,
     rekord: Math.max(0, ...Object.values(d.rekordy).map((r) => r.cas)),
   };
 }

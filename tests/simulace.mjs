@@ -133,6 +133,11 @@
 // dvojice rarit (rámeček i nápis) a stavy ok/chyba rozeznat a bez režimu by nešly, každá rarita má jinou značku,
 // každé místo s raritou v DOM ji ukazuje, varování, jed i každá zvláštní plocha mají vzor, CSS palet je
 // vygenerované z barvy.js a nastavení barev se ukládá. Hra je ve všech režimech stejná.
+// Pety z vajec: 10–16 druhů, každý s vlastním spritem 8×8, ikonou bonusu a texty v obou jazycích. Los rarit sedí se
+// šancemi a pojistka dá nejpozději každé POJISTKA_PETU. vejce aspoň epické, duplikát zvedne raritu nebo úroveň a na maximu
+// dá duše, vejce stojí duše, rozbitý záznam nic neshodí, pety patří profilu a kód uložení je přenese (bez petů je kód
+// stejný jako dřív). Ve hře: bez peta se nic nemění, pet jde za hrdinou, každý bonus dá přesně, co slibuje, každý
+// akční pet svou akci udělá (Dráček, Straka, Želvička, Křeček, Tučňák), boss občas nechá vejce a sebrané se počítá.
 import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 import { crc32 as crc32Zlib, inflateSync } from 'node:zlib';
@@ -167,8 +172,13 @@ import {
   OBKLICENI, silaObkliceni, NEZRANITELNY_PO_RANE, PRIZPUSOBENI, cilNaskoku, casHrozby, silaHry, hrozbaNavic, podilTrvalych,
   ocekavanaUroven, prisunZivotu, SCHOPNOSTI_NEPRATEL, schopnostiNepritele, NAPOR_ELITY, ELITNI, OBYCEJNE,
   PRVNI_SCHOPNOST_NEPRATEL, NADBIHANI, VUDCE, TLAK_BOSSU, pauzaBosse,
-  BLUDNY_KROK, POUTNIK, BUBLINA, POSLEDNI_VZDOR, zbranArzenalu, maStit,
+  BLUDNY_KROK, POUTNIK, BUBLINA, POSLEDNI_VZDOR, zbranArzenalu, maStit, PET,
 } from '../src/hra.js';
+import {
+  PETY, PORADI_PETU, RARITY_PETU, PORADI_RARIT_PETU, MAX_UROVEN as MAX_UROVEN_PETU, POJISTKA_PETU, CENA_VEJCE, DUSE_ZA_DUPLIKAT, SANCE_VEJCE,
+  silaPetu, intervalPetu, poskozeniPetu, mrazPetu, platnePety, petDoHry, zvolPeta, pridejVejce, kupVejce, sanceRaritPetu, rarituZLosu,
+  otevriVejce, doPojistky, losZCisel, popisPetu, MAX_SILA as MAX_SILA_PETU,
+} from '../src/pety.js';
 import {
   VYBAVA, PORADI_SLOTU, VSECHNY_KUSY, RARITY_VYBAVY, PORADI_RARIT_VYBAVY, EFEKTY_VYBAVY, STATY_VYBAVY, STROPY_VYBAVY,
   sanceRaritVybavy, rarituKusuZLosu, vytvorKus, zlatakyZaKus, hodnotaKusu, ucinekVystroje, popisEfektu, popisSady,
@@ -183,7 +193,7 @@ import {
   nactiSbirku, zapisNalez, nactiMapu, ulozMapu, odemceneMapy, odemkniMapu,
   MAX_PROFILU, MAX_JMENA, vychoziJmeno, zajistiProfily, seznamProfilu, aktivniProfil, vytvorProfil, prejmenujProfil,
   prepniProfil, smazProfil, dataProfilu, platnaDataProfilu, importujProfil, prehledProfilu,
-  VYCHOZI_NASTAVENI, MOZNOSTI_NASTAVENI, pomalaSvetla, zapisPomalaSvetla, POMALA_SVETLA_PLATI,
+  VYCHOZI_NASTAVENI, MOZNOSTI_NASTAVENI, pomalaSvetla, zapisPomalaSvetla, POMALA_SVETLA_PLATI, nactiPety, ulozPety, pripisVejce,
 } from '../src/ulozeni.js';
 import { kodProfilu, prectiKod, souborProfilu, nazevSouboru, crc32, VERZE_KODU } from '../src/prenos.js';
 import { PISMO_NADPISU, PISMENA_LOGA } from '../src/pismo.js';
@@ -610,6 +620,7 @@ const BOTI = { hraje: rozhodni, stoji: stojiciBot };
 
 // Strojový výstup pro nastroje/balanc.py. Jen s --json, bez něj test běží úplně stejně jako dřív.
 //   node tests/simulace.mjs <seminko> <sekund> --json [--trida id] [--mapa id] [--vylepseni max [--bez id,id]] [--bot hraje|stoji]
+//     [--pet druh:rarita:uroven]   (pet z vajec, třeba --pet dracek:epicka:3)
 // Odehraje jednu hru botem (hraje = stejný bot jako hry na mapách, rozhodni + obsluz; stoji = stojí na místě),
 // nic nekontroluje a vypíše jeden řádek JSON: výsledek, průběh po minutách (zabití, úroveň, nepřátelé naráz,
 // elity, rány) a příchod a pád každého bosse.
@@ -645,11 +656,17 @@ if (process.argv.includes('--json')) {
     const bez = new Set(volba('--bez', '').split(',').filter(Boolean));
     const vylepseni = volba('--vylepseni', '') === 'max' ? Object.fromEntries(Object.entries(VYLEPSENI).filter(([id]) => !bez.has(id)).map(([id, v]) => [id, v.max])) : {};
     const idBota = volba('--bot', 'hraje');
+    const [druhPeta, raritaPeta, urovenPeta] = volba('--pet', '').split(':');
+    const pet = druhPeta ? { druh: druhPeta, rarita: raritaPeta || 'bezna', uroven: Number(urovenPeta) || 1 } : null;
+    if (pet && (!Object.hasOwn(PETY, pet.druh) || !Object.hasOwn(RARITY_PETU, pet.rarita))) {
+      console.error(`CHYBA: neznámý pet ${volba('--pet', '')}`);
+      process.exit(2);
+    }
     if (!Object.hasOwn(TRIDY, idTridy) || !PORADI_MAP.includes(idMapy) || !Number.isFinite(seminko) || !(delka > 0) || !Object.hasOwn(BOTI, idBota)) {
       console.error(`CHYBA: neznámá třída, mapa, bot, semínko nebo délka (${idTridy}, ${idMapy}, ${idBota}, ${seminko}, ${delka})`);
       process.exit(2);
     }
-    const h = novaHra(vytvorRng(seminko), idTridy, vylepseni, idMapy);
+    const h = novaHra(vytvorRng(seminko), idTridy, vylepseni, idMapy, pet);
     const minuty = [];
     const bossove = [];
     const sledovani = new Map(); // elita nebo boss → záznam bosse (u elity null), dokud nepadne
@@ -695,6 +712,7 @@ if (process.argv.includes('--json')) {
     }
     vystup = {
       seminko, sekund: delka, trida: idTridy, mapa: idMapy, vylepseni: Object.keys(vylepseni).length ? 'max' : 'zadna', bot: idBota,
+      ...(pet ? { pet: volba('--pet', '') } : {}),
       prezil: !h.konec, preziti_s: zaokr(h.cas, 1), uroven: h.hrdina.uroven, zabito: h.zabito, zabito_bossu: h.zabitoBossu,
       oziveno: h.oziveno, prvni_elita_s: prvniElita,
       zbrane: Object.fromEntries(Object.entries(h.zbrane).map(([id, z]) => [id, z.uroven])),
@@ -5437,7 +5455,8 @@ const nesmysly = prectiKod(vyrobKod(doBase64Url(JSON.stringify({
 }))));
 const cekamNesmysly = {
   jmeno: vychoziJmeno(), trida: VYCHOZI_TRIDA, mapa: VYCHOZI_MAPA, mapy: [VYCHOZI_MAPA], duse: { duse: 0, vylepseni: { sila: VYLEPSENI.sila.max } },
-  sbirka: { strazce_telo: 'legendarni', matka_hlava: 'epicka' }, rekordy: { louka: { cas: 0, hrozba: 3, mapa: 'louka' } },
+  sbirka: { strazce_telo: 'legendarni', matka_hlava: 'epicka' }, pety: { vejce: 0, aktivni: null, sbirka: {}, otevreno: 0, odEpicke: 0 },
+  rekordy: { louka: { cas: 0, hrozba: 3, mapa: 'louka' } },
 };
 if (JSON.stringify(nesmysly.data) !== JSON.stringify(cekamNesmysly)) chybyProfilu.push(`kód s nesmysly dal ${JSON.stringify(nesmysly)}`);
 // Import do nového profilu (jméno dostane číslo, ať se neplete) a přes existující (rekordy, které kód nemá, zmizí).
@@ -5451,7 +5470,7 @@ if (bezJmena(dataProfilu(bratr.slot)) !== bezJmena(dataHrace) || nactiRekord('so
 if (importujProfil(precteny.data, 9).chyba !== 'neni') chybyProfilu.push('import do neexistujícího profilu prošel');
 if (!stareBezeZmeny() || popisProfilu(1) !== puvodni) chybyProfilu.push('import změnil profil Hráč');
 const prehledHrace = prehledProfilu(1);
-if (JSON.stringify(prehledHrace) !== JSON.stringify({ jmeno: vychoziJmeno(), trida: 'havir', duse: 123, mapy: 3, sbirka: 2, rekord: 400 })) chybyProfilu.push(`přehled profilu: ${JSON.stringify(prehledHrace)}`);
+if (JSON.stringify(prehledHrace) !== JSON.stringify({ jmeno: vychoziJmeno(), trida: 'havir', duse: 123, mapy: 3, sbirka: 2, pety: 0, rekord: 400 })) chybyProfilu.push(`přehled profilu: ${JSON.stringify(prehledHrace)}`);
 // Rozbitý záznam profilu nic neshodí: rozbité jméno = Profil N (data zůstanou), rozbitá data = prázdná, rozbitý
 // nebo cizí zvolený profil = první existující.
 ulozisteProfilu.set(`hlubiny.p${sestra.slot}.jmeno`, '{rozbité');
@@ -5478,6 +5497,256 @@ for (const uloziste of [{ getItem() { throw new Error('zakázáno'); }, setItem(
   if (JSON.stringify(prectiKod(kodProfilu(dataProfilu())).data) !== JSON.stringify(dataProfilu()) || dataProfilu().duse.duse !== 0) chybyProfilu.push('zakázané úložiště: export prázdného profilu nejde přečíst');
 }
 chyby.push(...chybyProfilu);
+
+// Pety z vajec (hlavička): data, los rarit s pojistkou, otevírání a duplikáty, nákup, úložiště a kód, pet ve hře.
+const chybyPetu = [];
+const vysledekPetu = {};
+{
+  const textSpritu = readFileSync(new URL('../src/sprity.js', import.meta.url), 'utf8');
+  const otisky = new Map();
+  for (const [, jmeno, telo] of textSpritu.matchAll(/^ {2}(\w+): \[\n((?: {4}'.*',\n)+)/gm)) otisky.set(jmeno, telo);
+  const radkySpritu = (jmeno) => [...(otisky.get(jmeno) ?? '').matchAll(/'([^']*)'/g)].map((m) => m[1]);
+  if (PORADI_PETU.length < 10 || PORADI_PETU.length > 16) chybyPetu.push(`petů je ${PORADI_PETU.length}, čekám 10–16`);
+  for (const id of PORADI_PETU) {
+    const d = PETY[id];
+    const radky = radkySpritu(`pet_${id}`);
+    if (radky.length !== 8 || radky.some((r) => r.length !== 8)) chybyPetu.push(`${id}: sprite není 8×8`);
+    if ([...otisky].some(([jmeno, telo]) => jmeno !== `pet_${id}` && telo === otisky.get(`pet_${id}`))) chybyPetu.push(`${id}: sprite je kopie jiného`);
+    if (!jmenaSpritu.has(d.ikona)) chybyPetu.push(`${id}: ikona ${d.ikona} neexistuje`);
+    if (!d.bonus && !d.akce) chybyPetu.push(`${id}: nemá bonus ani akci`);
+    for (const j of JAZYKY) for (const pole of ['nazev', 'popis']) if (typeof SLOVNIKY[j].pety?.[id]?.[pole] !== 'string') chybyPetu.push(`${id}: chybí ${j} ${pole}`);
+    for (const r of PORADI_RARIT_PETU) {
+      for (let u = 1; u <= MAX_UROVEN_PETU; u++) if (/[{}]|undefined|NaN/.test(popisPetu(id, r, u))) chybyPetu.push(`${id}: popis ${popisPetu(id, r, u)}`);
+    }
+  }
+  if (!jmenaSpritu.has('vejce') || !jmenaSpritu.has('vejce_praskle')) chybyPetu.push('chybí sprite vejce');
+  // Síla: vzácnější rarita a vyšší úroveň vždy víc, legendární na maximu nejvýš ~5× běžná první úroveň.
+  let predSila = 0;
+  for (const r of PORADI_RARIT_PETU) {
+    for (let u = 1; u <= MAX_UROVEN_PETU; u++) {
+      const sila = silaPetu(r, u);
+      if (u > 1 && !(sila > silaPetu(r, u - 1))) chybyPetu.push(`síla ${r} ${u} neroste s úrovní`);
+    }
+    if (!(silaPetu(r, 1) > predSila)) chybyPetu.push(`rarita ${r} není silnější než předchozí`);
+    predSila = silaPetu(r, 1);
+  }
+  if (silaPetu('bezna', 1) !== 1 || MAX_SILA_PETU > 5) chybyPetu.push(`síla petů: běžný ${silaPetu('bezna', 1)}, nejsilnější ${MAX_SILA_PETU}`);
+  // Los rarit sedí se šancemi (součet 1, běžná nejčastější, legendární vzácná ale možná).
+  const soucet = PORADI_RARIT_PETU.reduce((a, r) => a + RARITY_PETU[r].sance, 0);
+  if (Math.abs(soucet - 1) > 1e-9) chybyPetu.push(`šance rarit petů dávají ${soucet}`);
+  const rngLos = vytvorRng(seminko + 77);
+  const losu = 200000;
+  const padlo = Object.fromEntries(PORADI_RARIT_PETU.map((r) => [r, 0]));
+  for (let i = 0; i < losu; i++) padlo[rarituZLosu(rngLos.dalsi())] += 1;
+  for (const r of PORADI_RARIT_PETU) {
+    const podil = padlo[r] / losu;
+    if (Math.abs(podil - RARITY_PETU[r].sance) > Math.max(0.004, RARITY_PETU[r].sance * 0.1)) chybyPetu.push(`rarita ${r} padla v ${(podil * 100).toFixed(2)} %, čekám ${RARITY_PETU[r].sance * 100} %`);
+  }
+  vysledekPetu.los_rarit_procenta = Object.fromEntries(PORADI_RARIT_PETU.map((r) => [r, Math.round((padlo[r] / losu) * 10000) / 100]));
+  if (rarituZLosu(0) !== 'bezna' || rarituZLosu(0.999999) !== 'legendarni' || rarituZLosu(NaN) !== 'bezna' || rarituZLosu(5) !== 'legendarni') chybyPetu.push('los rarit na krajích');
+  const sPojistkou = sanceRaritPetu(POJISTKA_PETU - 1);
+  if (sPojistkou.bezna !== 0 || sPojistkou.vzacna !== 0 || Math.abs(sPojistkou.epicka + sPojistkou.legendarni - 1) > 1e-9) chybyPetu.push(`šance s pojistkou ${JSON.stringify(sPojistkou)}`);
+  // Otevírání hodně vajec za sebou: pojistka drží (nejvýš POJISTKA_PETU − 1 za sebou bez epického), druhy padají rovnoměrně,
+  // každý pet má platnou raritu a úroveň, vejce ubývají a duše za duplikáty jen na maximu.
+  let stav = pridejVejce({}, 999);
+  let zaSebou = 0;
+  let nejdelsi = 0;
+  const druhy = Object.fromEntries(PORADI_PETU.map((id) => [id, 0]));
+  const zmeny = { novy: 0, rarita: 0, uroven: 0, duse: 0 };
+  const rngVajec = vytvorRng(seminko + 78);
+  let epickychAVys = 0;
+  for (let i = 0; i < 999; i++) {
+    const { pety, vysledek: v } = otevriVejce(stav, rngVajec.dalsi(), rngVajec.dalsi());
+    druhy[v.druh] += 1;
+    zmeny[v.zmena] += 1;
+    if (['epicka', 'legendarni'].includes(v.rarita)) {
+      epickychAVys += 1;
+      zaSebou = 0;
+    } else nejdelsi = Math.max(nejdelsi, ++zaSebou);
+    if (pety.vejce !== stav.vejce - 1 || pety.otevreno !== stav.otevreno + 1) chybyPetu.push('otevření nevzalo právě jedno vejce');
+    if (v.zmena === 'duse' && (v.predtim?.uroven !== MAX_UROVEN_PETU || v.duse !== DUSE_ZA_DUPLIKAT)) chybyPetu.push(`duše za duplikát mimo maximum ${JSON.stringify(v)}`);
+    if (v.zmena !== 'duse' && v.duse) chybyPetu.push('duše za nový pet');
+    stav = pety;
+  }
+  if (nejdelsi > POJISTKA_PETU - 1) chybyPetu.push(`${nejdelsi} vajec za sebou bez epického (pojistka ${POJISTKA_PETU})`);
+  if (Math.min(...Object.values(druhy)) < 999 / PORADI_PETU.length / 2) chybyPetu.push(`druhy petů nepadají rovnoměrně: ${JSON.stringify(druhy)}`);
+  if (Object.keys(stav.sbirka).length !== PORADI_PETU.length || stav.vejce !== 0 || otevriVejce(stav, 0.5, 0.5) !== null) chybyPetu.push('po 999 vejcích nesedí sbírka nebo jde otevřít prázdné');
+  vysledekPetu.vajec_999 = { zmeny, epickych_a_lepsich: epickychAVys, nejdelsi_bez_epickeho: nejdelsi, legendarnich: Object.values(stav.sbirka).filter((p) => p.rarita === 'legendarni').length };
+  // Jednotlivé případy: nový pet (rovnou aktivní), stejná rarita = úroveň, vzácnější = rarita (úroveň zůstane),
+  // na maximu duše, pojistka a nákup.
+  const los = (druh) => (PORADI_PETU.indexOf(druh) + 0.5) / PORADI_PETU.length;
+  const losRarity = { bezna: 0.1, vzacna: 0.7, epicka: 0.95, legendarni: 0.995 };
+  let s1 = otevriVejce(pridejVejce({}, 5), los('liska'), losRarity.vzacna);
+  if (s1.vysledek.zmena !== 'novy' || s1.pety.aktivni !== 'liska' || JSON.stringify(s1.pety.sbirka) !== '{"liska":{"rarita":"vzacna","uroven":1}}') chybyPetu.push(`nový pet: ${JSON.stringify(s1)}`);
+  s1 = otevriVejce(s1.pety, los('liska'), losRarity.bezna);
+  if (s1.vysledek.zmena !== 'uroven' || s1.pety.sbirka.liska.uroven !== 2 || s1.pety.sbirka.liska.rarita !== 'vzacna') chybyPetu.push(`duplikát horší rarity: ${JSON.stringify(s1.vysledek)}`);
+  s1 = otevriVejce(s1.pety, los('liska'), losRarity.legendarni);
+  if (s1.vysledek.zmena !== 'rarita' || JSON.stringify(s1.pety.sbirka.liska) !== '{"rarita":"legendarni","uroven":2}' || s1.pety.odEpicke !== 0) chybyPetu.push(`vzácnější duplikát: ${JSON.stringify(s1.vysledek)}`);
+  s1 = otevriVejce(s1.pety, los('kocour'), losRarity.bezna);
+  if (s1.pety.aktivni !== 'liska' || !s1.pety.sbirka.kocour) chybyPetu.push('druhý pet přepnul aktivního');
+  const naMaximu = otevriVejce({ vejce: 1, sbirka: { kocour: { rarita: 'epicka', uroven: MAX_UROVEN_PETU } } }, los('kocour'), losRarity.vzacna);
+  if (naMaximu.vysledek.zmena !== 'duse' || naMaximu.vysledek.duse !== DUSE_ZA_DUPLIKAT || naMaximu.pety.sbirka.kocour.uroven !== MAX_UROVEN_PETU) chybyPetu.push(`duplikát na maximu: ${JSON.stringify(naMaximu.vysledek)}`);
+  const pojistka = otevriVejce({ vejce: 1, odEpicke: POJISTKA_PETU - 1 }, los('sovicka'), 0);
+  if (pojistka.vysledek.rarita !== 'epicka' || pojistka.pety.odEpicke !== 0 || doPojistky({ odEpicke: 3 }) !== POJISTKA_PETU - 3) chybyPetu.push(`pojistka: ${JSON.stringify(pojistka.vysledek)}`);
+  if (kupVejce({}, CENA_VEJCE - 1) !== null || JSON.stringify(kupVejce({ vejce: 2 }, CENA_VEJCE + 50)) !== JSON.stringify({ pety: { ...platnePety({ vejce: 3 }) }, duse: 50 })) chybyPetu.push('nákup vejce nesedí');
+  // Rozbitý záznam: jen platné pety, úroveň do maxima, aktivní jen ze sbírky, vejce celá a nezáporná.
+  const rozbite = platnePety({ vejce: -3.5, aktivni: 'drak', sbirka: { liska: { rarita: 'zlatá', uroven: 2 }, kocour: { rarita: 'epicka', uroven: 99 }, drak: { rarita: 'bezna' }, toString: 1 }, otevreno: 'hodně', odEpicke: 50 });
+  if (JSON.stringify(rozbite) !== JSON.stringify({ vejce: 0, aktivni: null, sbirka: { kocour: { rarita: 'epicka', uroven: MAX_UROVEN_PETU } }, otevreno: 0, odEpicke: POJISTKA_PETU - 1 })) chybyPetu.push(`rozbité pety: ${JSON.stringify(rozbite)}`);
+  for (const nic of [null, 42, 'pety', [1, 2], { sbirka: [] }]) if (JSON.stringify(platnePety(nic)) !== JSON.stringify(platnePety({}))) chybyPetu.push(`rozbité pety ${JSON.stringify(nic)}`);
+  if (petDoHry({}) !== null || JSON.stringify(petDoHry(s1.pety)) !== '{"druh":"liska","rarita":"legendarni","uroven":2}' || zvolPeta(s1.pety, 'drak').aktivni !== null || zvolPeta(s1.pety, 'kocour').aktivni !== 'kocour') chybyPetu.push('výběr aktivního peta');
+  // Úložiště: každý profil má svoje pety, vejce ze hry se připíšou, kód uložení pety přenese a starý kód bez nich dá žádné.
+  const ulozistePetu = new Map();
+  nahradUloziste({ getItem: (k) => ulozistePetu.get(k) ?? null, setItem: (k, v) => ulozistePetu.set(k, String(v)), removeItem: (k) => ulozistePetu.delete(k) });
+  zajistiProfily();
+  if (JSON.stringify(nactiPety()) !== JSON.stringify(platnePety({}))) chybyPetu.push('nový profil má pety');
+  ulozPety(s1.pety);
+  pripisVejce(2);
+  if (nactiPety().vejce !== s1.pety.vejce + 2 || nactiPety().aktivni !== 'liska') chybyPetu.push(`pety v profilu: ${JSON.stringify(nactiPety())}`);
+  const druhy2 = vytvorProfil('Druhý');
+  prepniProfil(druhy2.slot);
+  if (nactiPety().vejce !== 0 || Object.keys(nactiPety().sbirka).length) chybyPetu.push('druhý profil vidí pety prvního');
+  prepniProfil(1);
+  const dataSPety = dataProfilu(1);
+  const kodSPety = kodProfilu(dataSPety);
+  if (JSON.stringify(prectiKod(kodSPety).data?.pety) !== JSON.stringify(nactiPety()) || JSON.stringify(prectiKod(kodSPety).data) !== JSON.stringify(dataSPety)) chybyPetu.push(`kód nepřenesl pety: ${JSON.stringify(prectiKod(kodSPety).data?.pety)}`);
+  const importovany = importujProfil(prectiKod(kodSPety).data);
+  if (JSON.stringify(nactiPety(importovany.slot)) !== JSON.stringify(nactiPety(1))) chybyPetu.push('import nepřenesl pety do nového profilu');
+  const vsechny = platnePety({ vejce: 999, aktivni: 'tucnak', sbirka: Object.fromEntries(PORADI_PETU.map((id) => [id, { rarita: 'legendarni', uroven: MAX_UROVEN_PETU }])), otevreno: 123456, odEpicke: 4 });
+  const plnyKod = kodProfilu({ ...dataSPety, pety: vsechny });
+  if (JSON.stringify(prectiKod(plnyKod).data.pety) !== JSON.stringify(vsechny) || plnyKod.length - kodProfilu({ ...dataSPety, pety: {} }).length > 160) chybyPetu.push(`plná sbírka petů v kódu: ${plnyKod.length} znaků`);
+  if (kodProfilu({ ...dataSPety, pety: {} }) !== kodProfilu({ ...dataSPety, pety: null })) chybyPetu.push('profil bez petů má jiný kód');
+  if (JSON.stringify(prectiKod(kodProfilu({ ...dataSPety, pety: {} })).data.pety) !== JSON.stringify(platnePety({}))) chybyPetu.push('kód bez petů nedal prázdné pety');
+  // Ve hře: bez peta (null, neznámý) je hra stejná. Pet jde za hrdinou a drží se u něj.
+  const hrajSPetem = (pet, sekund, vylepseni = {}, ridic = rozhodni) => {
+    const h = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, vylepseni, VYCHOZI_MAPA, pet);
+    let nejdal = 0;
+    for (let t = 0; t < sekund && !h.konec; t += DT) {
+      aktualizuj(h, DT, ridic(h, t), SIRKA, VYSKA);
+      obsluz(h);
+      if (h.pet && t > 1) nejdal = Math.max(nejdal, Math.hypot(h.pet.x - h.hrdina.x, h.pet.y - h.hrdina.y));
+      if (![h.hrdina.x, h.hrdina.y, h.hrdina.hp, h.pet?.x ?? 0, h.pet?.y ?? 0].every(Number.isFinite)) throw new Error('NaN ve hře s petem');
+    }
+    h.nejdalOdPeta = nejdal;
+    return h;
+  };
+  const bezPeta = otiskHry(hrajKratce({}, 60));
+  for (const nic of [null, { druh: 'drak' }, 'liska']) if (otiskHry(hrajSPetem(nic, 60)) !== bezPeta) chybyPetu.push(`pet ${JSON.stringify(nic)} změnil hru`);
+  const sLiskou = hrajSPetem({ druh: 'liska', rarita: 'bezna', uroven: 1 }, 60);
+  if (!sLiskou.pet || sLiskou.nejdalOdPeta > PET.skok || sLiskou.nejdalOdPeta === 0) chybyPetu.push(`pet za hrdinou: nejdál ${sLiskou.nejdalOdPeta}`);
+  vysledekPetu.nejdal_od_hrdiny_px = Math.round(sLiskou.nejdalOdPeta);
+  // Bonusy: vlastnost hrdiny se změní přesně podle síly peta, legendární na maximu víc než běžný.
+  for (const id of PORADI_PETU) {
+    const b = PETY[id].bonus;
+    if (!b) continue;
+    const zaklad = novaHra(vytvorRng(seminko)).hrdina[b.vlastnost];
+    for (const [r, u] of [['bezna', 1], ['legendarni', MAX_UROVEN_PETU]]) {
+      const ma = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, {}, VYCHOZI_MAPA, { druh: id, rarita: r, uroven: u }).hrdina[b.vlastnost];
+      const cekam = b.nasobek ? zaklad * (1 + b.nasobek * silaPetu(r, u)) : zaklad + b.pricti * silaPetu(r, u);
+      if (Math.abs(ma - cekam) > 1e-9) chybyPetu.push(`${id} ${r} ${u}: ${b.vlastnost} ${ma}, čekám ${cekam}`);
+    }
+  }
+  // Akce: hra bez vln a bez zbraní, hrdina stojí.
+  const hraSPetem = (druh, rarita = 'legendarni', uroven = MAX_UROVEN_PETU) => {
+    const h = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, {}, VYCHOZI_MAPA, { druh, rarita, uroven });
+    Object.assign(h, { zbrane: {}, doSpawnu: Infinity, doBedny: Infinity, dalsiBoss: Infinity, dalsiSmecka: null, doZamcene: Infinity, dalsiKupec: Infinity });
+    return h;
+  };
+  const strasak = (h, x, y, hp = 1000) => {
+    const n = pridejNepritele(h, 'netopyr', x, y);
+    Object.assign(n, { rychlost: 0, hp, maxHp: hp });
+    delete n.doSchopnosti;
+    return n;
+  };
+  const bez = (h, sekund) => { for (let t = 0; t < sekund; t += DT) aktualizuj(h, DT, stoj, SIRKA, VYSKA); };
+  {
+    // Dráček: oheň doletí do nejbližšího nepřítele v dosahu a ubere poškozeniPetu × Síla, za dosah neplivne.
+    const h = hraSPetem('dracek');
+    const blizko = strasak(h, 150, 0);
+    const daleko = strasak(h, -PETY.dracek.akce.dosah - 60, 0);
+    bez(h, intervalPetu('dracek', h.pet.sila) + 1);
+    const rana = Math.round(poskozeniPetu('dracek', h.pet.sila) * h.hrdina.sila);
+    if (h.pet.zasahu !== 1 || blizko.hp !== 1000 - rana || daleko.hp !== 1000) chybyPetu.push(`Dráček: zásahů ${h.pet.zasahu}, blízký ${blizko.hp}, daleký ${daleko.hp} (rána ${rana})`);
+    const nikdo = hraSPetem('dracek');
+    strasak(nikdo, PETY.dracek.akce.dosah + 60, 0);
+    bez(nikdo, 4);
+    if (nikdo.pet.akci !== 0 || nikdo.pet.doAkce !== 0) chybyPetu.push('Dráček plivl bez nepřítele v dosahu');
+  }
+  {
+    // Straka: doletí pro krystal za magnetem (v dosahu akce) a ten pak doletí k hrdinovi.
+    const h = hraSPetem('straka');
+    h.krystaly.push({ x: 220, y: 40, xp: 2 }, { x: PETY.straka.akce.dosah + 80, y: 0, xp: 2 });
+    bez(h, intervalPetu('straka', h.pet.sila) + 2);
+    if (h.pet.doneseno !== 1 || h.krystaly.length !== 1 || !(h.hrdina.xp > 0)) chybyPetu.push(`Straka: doneseno ${h.pet.doneseno}, krystalů ${h.krystaly.length}, xp ${h.hrdina.xp}`);
+  }
+  {
+    // Želvička: krunýř je hotový hned, zastaví první ránu (životy beze změny) a pak se nabíjí interval s.
+    const h = hraSPetem('zelvicka');
+    strasak(h, 6, 0);
+    bez(h, 0.1);
+    if (!h.pet.stitHotov && h.pet.zablokovano === 0) chybyPetu.push('Želvička nezačíná s krunýřem');
+    bez(h, 1.5);
+    const interval = intervalPetu('zelvicka', h.pet.sila);
+    if (h.pet.zablokovano !== 1 || !(h.hrdina.hp < h.hrdina.maxHp) || h.pet.stitHotov || !(h.pet.doAkce < interval && h.pet.doAkce > interval - 1.6)) {
+      chybyPetu.push(`Želvička: zablokováno ${h.pet.zablokovano}, životy ${h.hrdina.hp}, krunýř ${h.pet.stitHotov}, nabíjí ${h.pet.doAkce}`);
+    }
+  }
+  {
+    // Křeček: každých interval s jeden zlaťák, ten doletí k hrdinovi.
+    const h = hraSPetem('krecek', 'bezna', 1);
+    bez(h, 2 * intervalPetu('krecek', 1) + 1);
+    if (h.zlataky !== 2 || h.zlatakyZ.pet !== 2 || h.pet.zlataku !== 2) chybyPetu.push(`Křeček: zlaťáků ${h.zlataky}, od peta ${h.zlatakyZ.pet}`);
+  }
+  {
+    // Tučňák: zchladí (zpomalí) nepřátele v dosahu kolem hrdiny, dál ne. Bez nikoho v dosahu čeká.
+    const h = hraSPetem('tucnak');
+    const blizko = [strasak(h, 60, 0), strasak(h, -40, 50)];
+    const daleko = strasak(h, PETY.tucnak.akce.dosah + 50, 0);
+    bez(h, intervalPetu('tucnak', h.pet.sila) + 0.1);
+    if (h.pet.zchlazeno !== 2 || blizko.some((n) => !(n.otres > 0)) || daleko.otres > 0 || Math.abs(Math.max(...blizko.map((n) => n.otres)) - (mrazPetu('tucnak', h.pet.sila) - 0.1)) > 0.2) {
+      chybyPetu.push(`Tučňák: zchlazeno ${h.pet.zchlazeno}, otřes ${blizko.map((n) => n.otres)} / ${daleko.otres}`);
+    }
+  }
+  {
+    // Pety bez akce bliknou ikonou, když bonus zabere (Sovička na nové úrovni).
+    const h = hraSPetem('sovicka');
+    bez(h, 0.2);
+    h.hrdina.xp = h.hrdina.potreba;
+    h.krystaly.push({ x: 0, y: 0, xp: 1 });
+    bez(h, 0.1);
+    if (h.volby) vyber(h, h.volby[0]);
+    bez(h, DT);
+    if (h.hrdina.uroven !== 2 || !(h.pet.zablesk > 0)) chybyPetu.push('Sovička neblikla na nové úrovni');
+  }
+  // Vejce z bosse: padá zhruba v SANCE_VEJCE bossů (los z čísel, ne z rng), leží u truhly a sebrané se počítá.
+  let vajec = 0;
+  for (let i = 0; i < 2000; i++) if (losZCisel(100 + i * 37, 1 + (i % 9), 320) < SANCE_VEJCE) vajec += 1;
+  if (Math.abs(vajec / 2000 - SANCE_VEJCE) > 0.04) chybyPetu.push(`vejce z ${(vajec / 20).toFixed(1)} % bossů, čekám ${SANCE_VEJCE * 100} %`);
+  let sVejcem = null;
+  for (let zabito = 0; zabito < 60 && !sVejcem; zabito++) {
+    const h = hraSPetem('liska');
+    h.zabito = zabito;
+    const boss = pridejNepritele(h, 'strazce', 300, 0);
+    boss.hp = 0;
+    bez(h, DT);
+    if (h.vajecPadlo) sVejcem = h;
+  }
+  const vejceNaZemi = sVejcem?.predmety.find((p) => p.druh === 'vejce');
+  if (!vejceNaZemi || !sVejcem.predmety.some((p) => p.druh === 'truhla')) chybyPetu.push('boss nenechal vejce ani v jedné z 60 her');
+  else {
+    sVejcem.hrdina.x = vejceNaZemi.x;
+    sVejcem.hrdina.y = vejceNaZemi.y;
+    bez(sVejcem, DT);
+    if (sVejcem.vajec !== 1 || sVejcem.predmety.some((p) => p.druh === 'vejce') || sVejcem.oznameni?.text !== t('hra.vejce')) chybyPetu.push(`sebrané vejce: ${sVejcem.vajec}`);
+  }
+  // Vyvážení: bonusy jsou malé. Plně vylepšený bot s nejsilnějším petem (legendární Dráček na maximu) padne do 20 minut.
+  const sDrackem = hrajSPetem({ druh: 'dracek', rarita: 'legendarni', uroven: MAX_UROVEN_PETU }, 1800, plna);
+  if (!sDrackem.konec || sDrackem.cas > 20 * 60) chybyPetu.push(`plně vylepšený bot s legendárním Dráčkem vydržel ${Math.round(sDrackem.cas)} s`);
+  vysledekPetu.vse_vylepsene_s_drackem_min = Math.round(sDrackem.cas / 6) / 10;
+  vysledekPetu.dracek_zasahu = sDrackem.pet.zasahu;
+  vysledekPetu.dracek_poskozeni = sDrackem.pet.poskozeni;
+}
+console.log(JSON.stringify({ pety: vysledekPetu }));
+chyby.push(...chybyPetu);
 
 // Písmo nadpisů (src/pismo.js): každý znak má stejně řádků stejné délky, česká velká písmena mají diakritiku jen
 // ve 3 horních řádcích a dole jsou stejná jako základní písmeno. Logo jde napsat celé (nadpisy oken a nápisy ve hře

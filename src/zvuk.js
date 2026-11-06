@@ -337,6 +337,13 @@ const EFEKTY = {
       hlas(e, t, { f: 180 * kolisani(), f2: 90, delka: 0.05, h: 0.008, fl: { f: 800 } });
     },
   },
+  // Dráček (pet) plivne oheň: krátké tiché zasyčení.
+  petOhen: {
+    mezera: 0.25,
+    hraj(t, e) {
+      sumik(e, t, { delka: 0.1, h: 0.01, fl: { typ: 'lowpass', f: 2400, f2: 600 } });
+    },
+  },
   bomba: {
     mezera: 0.3,
     dulezity: true,
@@ -369,6 +376,14 @@ const EFEKTY = {
     dulezity: true,
     hraj(t, e) {
       [523, 659, 784].forEach((f, i) => hlas(e, t + i * 0.06, { f, delka: 0.16, h: 0.022, vlna: 'triangle' }));
+    },
+  },
+  // Vejce peta z bosse: dva měkké tóny a stoupající třetí, jako když se v něm něco pohne.
+  vejce: {
+    mezera: 0.3,
+    dulezity: true,
+    hraj(t, e) {
+      [587, 494, 880].forEach((f, i) => hlas(e, t + i * 0.09, { f, delka: i === 2 ? 0.22 : 0.09, h: 0.022, vlna: 'triangle' }));
     },
   },
   magnet: {

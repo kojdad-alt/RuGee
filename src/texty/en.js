@@ -352,6 +352,7 @@ export default {
     zlataky: ' {zlataky} unspent → {n} {n|soul|souls} ({za} gold = 1 soul)',
     utraceno: ' · spent {n}',
     duse: '+{n} {n|soul|souls}',
+    vejce: 'The bosses left you {n} pet {n|egg|eggs}, open {n|it|them} in the Pets menu.',
   },
 
   hra: {
@@ -363,6 +364,7 @@ export default {
     zvukVypnuty: 'Sound off (N)',
     zvukZapnuty: 'Sound on (N)',
     obkliceni: 'Surrounded! Keep moving',
+    vejce: 'Pet egg!',
     hrozba: {
       sili: 'Threat {n}: enemies grow stronger',
       elity: 'Threat {n}: elites are coming',
@@ -390,6 +392,21 @@ export default {
     zamceno: 'Locked: key or {n} gold',
     zuri: 'Enraged',
     sekundy: '{n}s',
+  },
+  pety: {
+    sovicka: { nazev: 'Owlet', popis: '+{n}% experience from crystals' },
+    straka: { nazev: 'Magpie', popis: '+{n}% magnet range, every {s}s brings you a far crystal' },
+    beruska: { nazev: 'Ladybird', popis: '+{n}% chance of hearts and magnets from enemies' },
+    dracek: { nazev: 'Drakelet', popis: 'Every {s}s spits fire at the nearest enemy ({d} damage)' },
+    zelvicka: { nazev: 'Turtle', popis: 'Every {s}s its shell blocks one hit for you' },
+    krecek: { nazev: 'Hamster', popis: 'Finds a gold coin every {s}s' },
+    houbicka: { nazev: 'Mushling', popis: '+{n} health per second' },
+    liska: { nazev: 'Fox', popis: '+{n}% movement speed' },
+    kocour: { nazev: 'Tomcat', popis: '+{n}% critical hit chance' },
+    medvidek: { nazev: 'Bear cub', popis: '+{n}% damage' },
+    jezek: { nazev: 'Hedgehog', popis: '{n}% of each hit goes back to the attacker' },
+    havran: { nazev: 'Raven', popis: '+{n}% souls per run' },
+    tucnak: { nazev: 'Penguin', popis: 'Every {s}s chills the enemies around you and slows them' },
   },
   karta: {
     vickrat: '{n}× {radek}',

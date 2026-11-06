@@ -7,7 +7,8 @@ import {
   prepinacNastaveni, prepinacSvetel, ovladaniZvuku, prepniZtlumeni, skupina, ikonaMapy,
 } from './menu.js';
 import { pixelovyNadpis, prizpusobNadpisy, STYL_KREV } from './pismo.js';
-import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu } from './ulozeni.js';
+import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu, nactiPety, pripisVejce } from './ulozeni.js';
+import { petDoHry } from './pety.js';
 import { MAPY, ODEMKNUTI_MAPY, dalsiMapa } from './mapy.js';
 import {
   odemkniZvuk, zvukHry, hudba, zvukStartu, zvukVolby, zvukVyberu, zvukNakupu, zvukOdmitnuti, zvukPrehozeni, zvukBezi, probudZvuk,
@@ -36,6 +37,8 @@ let porovnaniOd = 0;
 const POJISTKA_VOLBY = 300;
 // Kolik kusů výbavy z téhle hry už je zapsaných ve Sbírce (zapisuje se hned po nálezu).
 let zapsanoNalezu = 0;
+// Kolik vajec peta z téhle hry už je připsaných do profilu (taky hned po sebrání).
+let zapsanoVajec = 0;
 // Kolik zlaťáků ukazovala horní lišta minule (přibyly = počet poskočí, cinknutí je ve zvucích hry).
 let ukazaneZlato = 0;
 // Mapa, která se v téhle hře odemkne po ODEMKNUTI_MAPY s (null = další není nebo už je odemčená),
@@ -57,11 +60,12 @@ function zmenVelikost() {
 function start() {
   // ?seed=123 v adrese dá pořád stejné vlny (hodí se na hledání chyb).
   const seminko = Number(new URLSearchParams(location.search).get('seed')) || (Date.now() >>> 0);
-  hra = novaHra(vytvorRng(seminko), zvolenaTrida(), nactiDuse().vylepseni, zvolenaMapa());
+  hra = novaHra(vytvorRng(seminko), zvolenaTrida(), nactiDuse().vylepseni, zvolenaMapa(), petDoHry(nactiPety()));
   const dalsi = dalsiMapa(hra.mapa);
   mapaKOdemceni = dalsi && !odemceneMapy().includes(dalsi) ? dalsi : null;
   odemcenaVHre = null;
   zapsanoNalezu = 0;
+  zapsanoVajec = 0;
   ukazaneZlato = 0;
   ukazanyCas = '';
   vMenu = false;
@@ -284,6 +288,11 @@ function rozhodniVybavu(vzit) {
 // Každý nový kus výbavy se hned zapíše do Sbírky v menu.
 function zapisNalezy() {
   while (zapsanoNalezu < hra.nalezy.length) zapisNalez(hra.nalezy[zapsanoNalezu++]);
+  // Sebraná vejce peta se připíšou do profilu hned (otevírají se v menu Pety).
+  if (hra.vajec > zapsanoVajec) {
+    pripisVejce(hra.vajec - zapsanoVajec);
+    zapsanoVajec = hra.vajec;
+  }
 }
 
 // Přežil na mapě ODEMKNUTI_MAPY s: další mapa se hned zapíše jako odemčená (i kdyby hra skončila zavřením okna)
@@ -337,6 +346,11 @@ function zapisKonec() {
   pridej(t('udaje.vybava'), t('tvary.kusy', { n: kusu }));
   const poznamky = [];
   if (hra.oziveno) poznamky.push(textovyPrvek('p', t('konec.oziven')));
+  if (hra.vajec > 0) {
+    const p = textovyPrvek('p', t('konec.vejce', { n: hra.vajec }));
+    p.className = 'ok';
+    poznamky.push(p);
+  }
   if (odemcenaVHre) {
     const p = textovyPrvek('p', t('konec.odemcena', { mapa: MAPY[odemcenaVHre].nazev }));
     p.className = 'ok';
