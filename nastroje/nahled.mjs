@@ -4,7 +4,8 @@
 // zbraně), vykreslí jeden snímek přes kresli() ze src/kresleni.js a přes něj dá logo a podtitul pixelovým písmem
 // hry (src/pismo.js). Nakonec se obrázek převede na paletu 256 barev (Pillow, pokud je), ať je malý: WhatsApp
 // a další chaty velké obrázky u odkazu neukážou. Stejné semínko a stejný kód dají stejný obrázek.
-//   node nastroje/nahled.mjs                       # docs/ukazky/nahled.png (1200×630) a socialni-nahled.png (1280×640)
+//   node nastroje/nahled.mjs                       # docs/ukazky/nahled.png (1200×630), socialni-nahled.png (1280×640)
+//                                                  # a logo.png (logo do hlavičky README, průhledné pozadí)
 //   node nastroje/nahled.mjs --seminko 3 --mapa louka --sekund 230 --trida lovec --pet dracek:epicka:3 --zvetseni 3
 //   node nastroje/nahled.mjs --jen nahled --slozka /tmp/zkouska   # jen jeden z obrázků, jinam (na zkoušení scén)
 // Potřebuje Node 18+ a Playwright s Chromiem, Python 3 s Pillow je jen na zmenšení. Playwright se v repu
@@ -13,7 +14,7 @@
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
-import { readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { basename, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -42,6 +43,9 @@ const OBRAZKY = {
   'socialni-nahled': { soubor: 'docs/ukazky/socialni-nahled.png', sirka: 1280, vyska: 640, logo: 10, podtitul: 4, horni: 64, hrdina: 0.62 },
 };
 const PODTITUL = volba('podtitul', 'SURVIVORS HRA V PROHLÍŽEČI');
+// Logo do hlavičky README: stejné písmo a stín jako v menu, pixel loga = 20 px. README ho ukáže poloviční
+// (380 px), takže zůstane ostré i na displeji s dvojnásobnou hustotou pixelů.
+const LOGO = { soubor: 'docs/ukazky/logo.png', meritko: 20 };
 
 const TYPY = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -93,6 +97,29 @@ function nactiPlaywright() {
     console.error('nebo nastav PLAYWRIGHT_MODUL na složku balíčku playwright.');
     throw chyba;
   }
+}
+
+// Běží ve stránce: logo RuGee pixelovým písmem hry se stínem jako .logo v menu, průhledné pozadí, PNG v base64.
+async function logoVeStrance({ meritko }) {
+  const { nakresliText, STYL_LOGA } = await import('/src/pismo.js');
+  const maly = nakresliText(document.createElement('canvas'), 'RuGee', STYL_LOGA);
+  const posun = 2;
+  const platno = document.createElement('canvas');
+  platno.width = maly.width * meritko;
+  platno.height = (maly.height + posun) * meritko;
+  const g = platno.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  const stin = document.createElement('canvas');
+  stin.width = maly.width;
+  stin.height = maly.height;
+  const gs = stin.getContext('2d');
+  gs.drawImage(maly, 0, 0);
+  gs.globalCompositeOperation = 'source-in';
+  gs.fillStyle = 'rgba(20,12,8,0.4)';
+  gs.fillRect(0, 0, stin.width, stin.height);
+  g.drawImage(stin, 0, posun * meritko, platno.width, maly.height * meritko);
+  g.drawImage(maly, 0, 0, platno.width, maly.height * meritko);
+  return { png: platno.toDataURL('image/png').split(',')[1], sirka: platno.width, vyska: platno.height };
 }
 
 // Běží ve stránce: odehraje scénu, nakreslí obrázek a vrátí ho jako PNG v base64.
@@ -209,8 +236,10 @@ async function nakresliVeStrance({ scena, obrazek, podtitul }) {
 async function main() {
   const jen = volba('jen', null);
   const slozka = volba('slozka', null);
+  if (slozka) await mkdir(slozka, { recursive: true });
   const vybrane = Object.entries(OBRAZKY).filter(([id]) => !jen || id === jen);
-  if (!vybrane.length) throw new Error(`neznámý obrázek --jen ${jen} (je ${Object.keys(OBRAZKY).join(', ')})`);
+  const sLogem = !jen || jen === 'logo';
+  if (!vybrane.length && !sLogem) throw new Error(`neznámý obrázek --jen ${jen} (je ${Object.keys(OBRAZKY).join(', ')}, logo)`);
   const s = await server();
   const adresa = `http://127.0.0.1:${s.address().port}/`;
   const { chromium } = nactiPlaywright();
@@ -236,6 +265,12 @@ async function main() {
       const paleta = barev ? `paleta z ${barev} barev` : 'bez palety (chybí python3 s Pillow)';
       console.log(`${cil}: ${obrazek.sirka}×${obrazek.vyska}, ${Math.round(velikost / 1024)} kB (${paleta}), hra ${m}:${sec}, `
         + `úroveň ${vysledek.uroven}, nepřátel ${vysledek.nepratel} (${vysledek.druhy.join(', ')}), zbraně ${vysledek.zbrane.join(', ')} [${id}]`);
+    }
+    if (sLogem) {
+      const logo = await stranka.evaluate(logoVeStrance, { meritko: LOGO.meritko });
+      const cil = slozka ? join(slozka, basename(LOGO.soubor)) : join(KOREN, LOGO.soubor);
+      await writeFile(cil, Buffer.from(logo.png, 'base64'));
+      console.log(`${cil}: ${logo.sirka}×${logo.vyska}, ${Math.round((await stat(cil)).size / 1024)} kB [logo]`);
     }
     if (chyby.length) throw new Error(`chyby ve stránce: ${chyby.join('; ')}`);
   } finally {

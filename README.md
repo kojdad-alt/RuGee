@@ -1,32 +1,32 @@
-<!-- README drž krátké. Podrobnosti o nových věcech patří do docs/PODROBNOSTI.md. -->
-# RuGee
+<!-- README drž krátké (do 40 řádků). Podrobnosti o nových věcech patří do docs/PODROBNOSTI.md. -->
+<h1 align="center"><a href="https://kojdad-alt.github.io/RuGee/"><img src="docs/ukazky/logo.png" alt="RuGee" width="380"></a></h1>
 
-Survivors hra v prohlížeči, jde i na mobilu nebo s ovladačem. Přidáš si ji na plochu a hraje se i bez internetu. Ty se jen hýbeš, zbraně střílí samy a hordy nepřátel nekončí. Vydržíš co nejdéle?
+<p align="center"><b>Survivors hra v prohlížeči.</b> Ty se jen hýbeš, zbraně střílí samy a hordy nepřátel nekončí. Vydržíš co nejdéle?<br>Jde i na mobilu nebo s ovladačem, přidáš si ji na plochu a hraje se i bez internetu.</p>
 
-### ▶ [Hrát](https://kojdad-alt.github.io/RuGee/)
+<h3 align="center"><a href="https://kojdad-alt.github.io/RuGee/">▶ Hrát zdarma v prohlížeči</a></h3>
 
-[![Ukázka ze hry: hrdina uprostřed hordy, zbraně střílí samy](docs/ukazky/hra.gif)](https://kojdad-alt.github.io/RuGee/)
+<p align="center"><a href="https://kojdad-alt.github.io/RuGee/"><img src="docs/ukazky/hra.gif" alt="Ukázka ze hry: hrdina s dráčkem uprostřed hordy na Louce, zbraně střílí samy"></a></p>
+<p align="center"><img src="docs/ukazky/strom.png" alt="Strom vylepšení" width="32%"> <img src="docs/ukazky/pety.png" alt="Líheň s pety" width="32%"> <img src="docs/ukazky/sopka.png" alt="Boj na Sopce s jejími tvory" width="32%"></p>
 
 ## Co tě čeká
 
 - **14 zbraní**, od Jiskry a Lucerny po Cep na řetězu a Odrazný kámen. Úrovně nemají strop.
+- **6 map a každá má vlastní tvory**: na Louce včely a strašáci, v Jeskyni permoníci, na jezeře sněhuláci, na Sopce salamandři a čertíci, v Bažině vodníci, na Hřbitově ghúlové a hrobníci.
 - **Bossové každé 3 minuty.** Dupou, hází kameny, dělají výpady a vyvolávají pomocníky. Po nich zůstane truhla s výbavou.
 - **Hrozba** roste každou minutu, od 5. minuty chodí elity a kdo stojí na místě, toho nepřátelé obklíčí.
-- **6 map**: Louka, Jeskyně hlubin, Zamrzlé jezero, Sopka, Bažina a Hřbitov za noci. Každá má svého bosse a svoje nástrahy, ve tmě svítí lucerna, krystaly i oheň.
-- **4 postavy**: Lovec, Havíř, Světlonoš a Bouřlivák.
-- **Zlaťáky** na kupce, přehazování karet a zamčené truhly. Z **duší** si koupíš trvalá vylepšení ve stromu se 72 uzly a vejce, ze kterých se líhnou **pety**.
-- **Zvuky a hudba** ze syntezátoru, každá mapa má svou náladu. Hlasitost je v Nastavení, N ztlumí.
-- **Až 5 profilů** na jednom zařízení. Uložení přeneseš jinam kódem nebo souborem, bez serveru.
-- **Česky i anglicky** (English) a s **režimem pro barvoslepé**: jazyk se poprvé vezme z prohlížeče, obojí přepneš v Nastavení.
+- **Strom vylepšení** se 72 uzly: za duše z každé výpravy si koupíš trvalou sílu a odemkneš klíčové uzly.
+- **Pety z vajec**: 13 mazlíčků od sovičky po dráčka, který plive oheň. Jeden jde s tebou do hry.
+- **4 postavy** (Lovec, Havíř, Světlonoš, Bouřlivák), **zlaťáky** na kupce a zamčené truhly.
+- **Zvuky a hudba** ze syntezátoru, **až 5 profilů** s přenosem kódem nebo souborem.
+- **Česky i anglicky** (English) a s **režimem pro barvoslepé**, obojí přepneš v Nastavení.
 
 ## Ovládání
 
 | | |
 |---|---|
 | Pohyb | WASD, šipky nebo páčka ovladače, na mobilu tah prstem |
-| Výběr karty | 1–3 nebo klik |
-| Přehodit karty | R |
-| Pauza | P |
+| Výběr karty | 1–3 nebo klik, R přehodí nabídku |
+| Pauza | P nebo Esc |
 
 ## Pro vývojáře
 
