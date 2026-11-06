@@ -817,9 +817,10 @@ export default {
     },
     jeskyne: {
       pavouk: 'Spiders drop from the ceiling',
-      kostlivec: 'Bones stir in the ossuary',
-      duch: 'Ghosts wander in the dark',
-      houbak: 'Shroomers have sprouted in the damp',
+      permonik: 'Kobold miners climb out of the shafts',
+      krystalnik: 'The crystals in the rock come alive',
+      macarat: 'Olms crawl out of the underground pools',
+      stonozka: 'Venomous centipedes pour out of the cracks',
     },
     jezero: { vlk: 'Wolves creep across the snow', ledovy_duch: 'Ice ghosts circle above the ice' },
     sopka: { kostlivec: 'Skeletons rise from the ashes', pavouk: 'Spiders crawl out of the cracks' },

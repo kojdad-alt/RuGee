@@ -954,9 +954,10 @@ export default {
     },
     jeskyne: {
       pavouk: 'Ze stropu se spouštějí pavouci',
-      kostlivec: 'V kostnici se pohnuly kosti',
-      duch: 'Ve tmě bloudí duchové',
-      houbak: 'Ve vlhku vyrašili houbáci',
+      permonik: 'Ze štol vylézají permoníci',
+      krystalnik: 'Krystaly ve skále ožívají',
+      macarat: 'Z podzemních tůní lezou macaráti',
+      stonozka: 'Ze škvír se sypou jedové stonožky',
     },
     jezero: { vlk: 'Po sněhu se plíží vlci', ledovy_duch: 'Nad ledem krouží ledoví duchové' },
     sopka: { kostlivec: 'Z popela vstávají kostlivci', pavouk: 'Z puklin lezou pavouci' },

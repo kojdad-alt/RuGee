@@ -131,17 +131,18 @@ export const MAPY = {
 
   // Jeskyně: tmavá kamenná podlaha, krápníky a krystaly ve skále (obojí překáží). Kolem hrdiny je tma
   // (tma.svetlo = poloměr světla v px, s lucernou o tma.lucerna + dosah lucerny víc) a lucerna má o dosahLucerny
-  // větší dosah. Víc netopýrů a pavouci už od začátku, vlci sem nechodí. Hlavní boss je Matka pavouků.
+  // větší dosah. Vlastní tvorové: netopýři, pavouci, permoníci (skáčou s krumpáčem), krystalníci (hází střepy),
+  // macaráti a jedové stonožky, vlci sem nechodí. Hlavní boss je Matka pavouků.
   jeskyne: {
     barva: '#6fc3ff',
     boss: 'matka',
     nepratele: [
       { druh: 'netopyr', od: 0, vaha: 3 },
       { druh: 'pavouk', od: 45, vaha: 2 },
-      { druh: 'slizak', od: 70, vaha: 1 },
-      { druh: 'kostlivec', od: 100, vaha: 2 },
-      { druh: 'duch', od: 160, vaha: 1 },
-      { druh: 'houbak', od: 220, vaha: 1 },
+      { druh: 'permonik', od: 70, vaha: 1 },
+      { druh: 'krystalnik', od: 100, vaha: 2 },
+      { druh: 'macarat', od: 160, vaha: 1 },
+      { druh: 'stonozka', od: 220, vaha: 1 },
     ],
     smecky: null,
     obtiznost: { zivoty: 1.35, poskozeni: 1.3 },
