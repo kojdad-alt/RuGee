@@ -404,7 +404,7 @@ export default {
         prival: '+{n} {n|střela nebo kus|střely nebo kusy|střel nebo kusů} všem zbraním',
         zbroj: '-{n} z každé rány nepřátel',
         regenerace: '+{n} životů za sekundu',
-        stesti: '+{n} % šance na srdce a magnet',
+        stesti: '+{n} % šance na srdce a magnet, +{r} % na lepší raritu',
         upiriZub: '{n} % šance, že zabití vrátí život',
         trnovaZbroj: '{n} % rány se vrátí útočníkovi',
         stit: 'Bublina každých {n} s',
@@ -728,8 +728,8 @@ export default {
     regenerace: { nazev: 'Regenerace', popis: '+0,4 životů za sekundu', popisDal: '+0,4 životů za sekundu' },
     stesti: {
       nazev: 'Štěstí',
-      popis: '+20 % šance na srdce a magnet',
-      popisDal: '+20 % šance na srdce a magnet',
+      popis: '+{r} % šance na lepší raritu karet a výbavy, +{n} % srdcí a magnetů',
+      popisDal: '+{r} % šance na lepší raritu karet a výbavy, +{n} % srdcí a magnetů',
     },
     upiriZub: {
       nazev: 'Upíří zub',
@@ -756,9 +756,12 @@ export default {
   },
   rarity: {
     bezna: { nazev: 'Běžná' },
+    neobvykla: { nazev: 'Neobvyklá' },
     vzacna: { nazev: 'Vzácná' },
     epicka: { nazev: 'Epická' },
     legendarni: { nazev: 'Legendární' },
+    myticka: { nazev: 'Mýtická' },
+    bozska: { nazev: 'Božská' },
   },
   tridy: {
     lovec: {
@@ -852,13 +855,13 @@ export default {
     kovar: { nazev: 'Kovář', popis: 'Startovní zbraň začíná o {n} {n|úroveň|úrovně|úrovní} výš' },
     mistrovstvi: { nazev: 'Mistrovství', popis: '−{n} % nabíjení všech zbraní' },
     prival: { nazev: 'Příval', popis: '+1 kus všem zbraním (jiskra, krumpáč, blesk, kámen…)' },
-    vybiravost: { nazev: 'Vybíravost', popis: '+{n} % šance na vzácnější karty' },
+    vybiravost: { nazev: 'Vybíravost', popis: '+{n} % šance na lepší raritu karet' },
     druhyPohled: { nazev: 'Druhý pohled', popis: '{n}× přehodit karty zdarma navíc' },
-    vzacnost: { nazev: 'Vzácnost', popis: '+{n} % šance na vzácnější karty' },
+    vzacnost: { nazev: 'Vzácnost', popis: '+{n} % šance na lepší raritu karet' },
     dozvuk: { nazev: 'Dozvuk', popis: '+{n} % šance, že zbraň vystřelí ještě jednou' },
     arzenal: { nazev: 'Arzenál', popis: 'Začneš i se zbraní další postavy: Lovec s krumpáči, Havíř s lucernou, Světlonoš s bleskem, Bouřlivák s jiskrou' },
     magnet: { nazev: 'Magnet', popis: '+{n} % dosah sběru krystalů' },
-    stesti: { nazev: 'Štěstí', popis: '+{n} % šance na srdce, magnet a vzácnější karty' },
+    stesti: { nazev: 'Štěstí', popis: '+{n} % šance na lepší raritu karet a výbavy, víc srdcí a magnetů' },
     mesec: { nazev: 'Měšec', popis: 'Na začátku hry máš {n} {n|zlaťák|zlaťáky|zlaťáků}' },
     smlouvani: { nazev: 'Smlouvání', popis: 'Kupec prodává o {n} % levněji' },
     klicnik: { nazev: 'Klíčník', popis: 'Na začátku hry máš {n} {n|klíč|klíče|klíčů}' },
@@ -1004,9 +1007,12 @@ export default {
     },
     rarity: {
       bezna: { nazev: 'Běžná' },
+      neobvykla: { nazev: 'Neobvyklá' },
       vzacna: { nazev: 'Vzácná' },
       epicka: { nazev: 'Epická' },
       legendarni: { nazev: 'Legendární' },
+      myticka: { nazev: 'Mýtická' },
+      bozska: { nazev: 'Božská' },
     },
     efekty: {
       vlna: { nazev: 'Rázová vlna' },

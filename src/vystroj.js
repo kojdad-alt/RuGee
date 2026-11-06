@@ -32,14 +32,19 @@ pripojTexty(STATY_VYBAVY, 'vystroj.staty');
 // Víc už výbava nedá: zbroj nejvýš polovinu každé rány, nabíjení nejvýš o polovinu kratší.
 export const STROPY_VYBAVY = { zbroj: 0.5, nabijeni: 0.5 };
 
-// Rarity kusů mají stejná jména a barvy jako karty. nasobek = kolikrát silnější staty než u běžného kusu,
-// zlataky = na kolik zlaťáků se kus rozloží, když si ho hráč nenechá. Vzácnější kusy přibývají s hrozbou:
-// vaha se násobí (1 + rust · (hrozba − 1)) a Štěstím z trvalých vylepšení.
+// Rarity kusů mají stejné klíče, jména a barvy jako karty (RARITY v hra.js). nasobek = kolikrát silnější staty než
+// u běžného kusu, zlataky = na kolik zlaťáků se kus rozloží, když si ho hráč nenechá. Vzácnější kusy přibývají
+// s hrozbou: vaha se násobí (1 + rust · (hrozba − 1)), u všech nad Běžnou i Štěstím (trvalé a pasiva, stestiRarit
+// v hra.js). Váhy jsou takové, aby průměrný kus byl stejně silný jako dřív se čtyřmi raritami (při hrozbě 1 asi
+// 1,15× běžný); Mýtická a Božská padnou zřídka.
 export const RARITY_VYBAVY = {
-  bezna: { nasobek: 1, zlataky: 3, vaha: 60, rust: 0 },
-  vzacna: { nasobek: 1.3, zlataky: 6, vaha: 30, rust: 0.1 },
-  epicka: { nasobek: 1.6, zlataky: 10, vaha: 8, rust: 0.2 },
-  legendarni: { nasobek: 2, zlataky: 16, vaha: 2, rust: 0.3 },
+  bezna: { nasobek: 1, zlataky: 3, vaha: 50, rust: 0 },
+  neobvykla: { nasobek: 1.15, zlataky: 4, vaha: 22, rust: 0.05 },
+  vzacna: { nasobek: 1.3, zlataky: 6, vaha: 20, rust: 0.1 },
+  epicka: { nasobek: 1.6, zlataky: 10, vaha: 6, rust: 0.2 },
+  legendarni: { nasobek: 2, zlataky: 16, vaha: 1.6, rust: 0.3 },
+  myticka: { nasobek: 2.5, zlataky: 24, vaha: 0.35, rust: 0.4 },
+  bozska: { nasobek: 3, zlataky: 36, vaha: 0.07, rust: 0.5 },
 };
 pripojTexty(RARITY_VYBAVY, 'vystroj.rarity');
 export const PORADI_RARIT_VYBAVY = Object.keys(RARITY_VYBAVY);
@@ -164,7 +169,7 @@ function zaokrouhliStat(id, hodnota) {
   return STATY_VYBAVY[id]?.pricti ? Math.round(hodnota) : Math.round(hodnota * 1000) / 1000;
 }
 
-// Šance na každou raritu kusu (součet 1) při dané hrozbě a Štěstí.
+// Šance na každou raritu kusu (součet 1) při dané hrozbě a Štěstí (násobek ze stestiRarit, aspoň 1).
 export function sanceRaritVybavy(hrozba = 1, stesti = 1) {
   const h = Math.max(1, Number(hrozba) || 1);
   const stestiNasobek = Math.max(1, Number(stesti) || 1);
