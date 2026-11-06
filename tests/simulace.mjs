@@ -4498,9 +4498,9 @@ for (const id of PORADI_MAP.filter((m) => MAPY[m].prekazky)) {
 // Vlastní tvorové map (MAPY_S_VLASTNIMI): taková mapa má aspoň 3 druhy, které nikde jinde nechodí, a nejvýš 2 druhy
 // z jiných map. Tvor se schopností ji na stojícího hrdinu opravdu použije (skok dopadne a trefí, hod trefí) a dopad
 // i střela jsou vidět jako to, co slibují data (permoník jiskří krumpáčem, krystalník hází střep, lední medvěd
-// dopadne do sněhu, sněhulák hází kouli, salamandr dopadne v magmatu, golem hází magma). Jedový tvor po smrti
-// nechá oblak a tvorové Sopky (kromě schovaných duchů) kousnutím pálí.
-const MAPY_S_VLASTNIMI = ['louka', 'jeskyne', 'jezero', 'sopka'];
+// dopadne do sněhu, sněhulák hází kouli, salamandr dopadne v magmatu, golem hází magma, kajman dopadne do bahna,
+// vodník hází hrneček). Jedový tvor po smrti nechá oblak a tvorové Sopky (kromě schovaných duchů) kousnutím pálí.
+const MAPY_S_VLASTNIMI = ['louka', 'jeskyne', 'jezero', 'sopka', 'bazina'];
 {
   // Kde druh chodí (i ve smečkách: vlk ze smeček Louky a Hřbitova není vlastní tvor jezera).
   const kdeChodi = {};
@@ -4615,14 +4615,14 @@ for (const id of PORADI_MAP) {
 }
 
 // Bot utíká mezerou (smerUteku): s nepřítelem na zádech neutíká od každého zvlášť, ale jedním směrem. Z bahna
-// s netopýrem na zádech vyjde do UTEK_Z_BAHNA s, na ledu s vlkem na zádech se do 1,5 s rozjede aspoň
+// s komárem na zádech vyjde do UTEK_Z_BAHNA s, na ledu s vlkem na zádech se do 1,5 s rozjede aspoň
 // o UTEK_NA_LEDU px a vstup se mu přitom mezi snímky neotáčí (dřív cukal sem a tam a nehnul se). Hry kratší
 // než 1:30 z analýzy balancu (Havíř v Bažině padl za 28 s, Havíř a Světlonoš na jezeře za 1:12, semínko 3)
 // teď 1:30 vydrží.
 const UTEK_Z_BAHNA = 2.5;
 const UTEK_NA_LEDU = 60;
 const botUtek = {};
-for (const [id, druh, sekund] of [['bazina', 'netopyr', UTEK_Z_BAHNA], ['jezero', 'vlk', 1.5]]) {
+for (const [id, druh, sekund] of [['bazina', 'komar', UTEK_Z_BAHNA], ['jezero', 'vlk', 1.5]]) {
   const start = ctverec(id, true);
   if (!start) {
     chybyMap.push(`na mapě ${id} chybí plocha 3×3 pro útěk bota`);
@@ -4644,7 +4644,7 @@ for (const [id, druh, sekund] of [['bazina', 'netopyr', UTEK_Z_BAHNA], ['jezero'
   }
   const ujel = Math.round(Math.hypot(h.hrdina.x - start.x, h.hrdina.y - start.y));
   if (obratu > 1) chybyMap.push(`bot na mapě ${id} s nepřítelem na zádech cuká (${obratu} obratů)`);
-  if (id === 'bazina' && venZBahna === null) chybyMap.push(`bot s netopýrem na zádech nevyšel z bahna do ${UTEK_Z_BAHNA} s (ušel ${ujel} px)`);
+  if (id === 'bazina' && venZBahna === null) chybyMap.push(`bot s komárem na zádech nevyšel z bahna do ${UTEK_Z_BAHNA} s (ušel ${ujel} px)`);
   if (id === 'jezero' && ujel < UTEK_NA_LEDU) chybyMap.push(`bot na ledu s vlkem na zádech ujel za 1,5 s jen ${ujel} px`);
   botUtek[id] = { obratu, ujel_px: ujel, ...(id === 'bazina' ? { z_bahna_s: venZBahna && Math.round(venZBahna * 100) / 100 } : {}) };
 }

@@ -571,17 +571,17 @@ export const MAPY = {
 
   // Bažina: tráva a bahno (bahno.zpomaleni = jak rychle v něm hrdina jde). Z bahna stoupají jedové bubliny:
   // každých bubliny.kazdych s jedna vyroste někde v bahně do bubliny.dosah px od hrdiny, bubliny.varovani s je
-  // vidět (kruh na zemi), pak praskne v jedový oblak jako po houbákovi. Houbáci a skákající žáby.
-  // Hlavní boss je Bahenní bludička.
+  // vidět (kruh na zemi), pak praskne v jedový oblak jako po houbákovi. Vlastní tvorové: nejčastěji skákající
+  // žáby, komáři, houbáci, kajmani (skáčou z bahna) a vodníci (hází hrnečky). Hlavní boss je Bahenní bludička.
   bazina: {
     barva: '#9be08a',
     boss: 'bahenni_bludicka',
     nepratele: [
       { druh: 'zaba', od: 0, vaha: 3 },
-      { druh: 'netopyr', od: 0, vaha: 1 },
+      { druh: 'komar', od: 0, vaha: 1 },
       { druh: 'houbak', od: 35, vaha: 2 },
-      { druh: 'slizak', od: 70, vaha: 2 },
-      { druh: 'duch', od: 150, vaha: 1 },
+      { druh: 'kajman', od: 70, vaha: 2 },
+      { druh: 'vodnik', od: 150, vaha: 1 },
     ],
     smecky: null,
     obtiznost: { zivoty: 1.5, poskozeni: 1.4 },
