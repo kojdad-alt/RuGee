@@ -966,7 +966,11 @@ export default {
       snehulak: 'Sněhuláci ožili a koulují',
       mroz: 'Na led se vyvalili mroži',
     },
-    sopka: { kostlivec: 'Z popela vstávají kostlivci', pavouk: 'Z puklin lezou pavouci' },
+    sopka: {
+      salamandr: 'Z lávy vylézají salamandři',
+      golem: 'Čedičoví golemové se dali do pohybu',
+      certik: 'Z pekla se vyrojili čertíci',
+    },
     bazina: { houbak: 'Z bahna rostou houbáci', duch: 'Nad bažinou bloudí duchové' },
     hrbitov: {
       kostlivec: 'Z hrobů vstávají kostlivci',

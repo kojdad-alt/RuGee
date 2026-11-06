@@ -907,6 +907,12 @@ const NEPRATELE = {
   ledni_medved: { hp: 32, rychlost: 44, poskozeni: 10, xp: 2, polomer: 12 },
   snehulak: { hp: 60, rychlost: 56, poskozeni: 14, xp: 3, polomer: 12 },
   mroz: { hp: 44, rychlost: 40, poskozeni: 12, xp: 3, polomer: 13 },
+  // Sopka: ohnivá můra je drobná a rychlá, salamandr skáče, čedičový golem hází magma, čertík je rychlý a křehký.
+  // Všichni pálí (oranžové číslo).
+  ohniva_mura: { hp: 10, rychlost: 72, poskozeni: 5, xp: 1, polomer: 10, ohen: true },
+  salamandr: { hp: 32, rychlost: 42, poskozeni: 10, xp: 2, polomer: 12, ohen: true },
+  golem: { hp: 60, rychlost: 56, poskozeni: 14, xp: 3, polomer: 11, ohen: true },
+  certik: { hp: 10, rychlost: 100, poskozeni: 5, xp: 2, polomer: 9, ohen: true },
   pavoucek: { hp: 8, rychlost: 92, poskozeni: 3, xp: 1, polomer: 7, sit: true },
   strazce: { hp: 320, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
   matka: { hp: 280, rychlost: 54, poskozeni: 16, xp: 25, polomer: 22, boss: true },
@@ -963,6 +969,15 @@ export const SCHOPNOSTI_NEPRATEL = {
   snehulak: {
     pauza: 3.4,
     schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.45, dosah: 330, strela: 'snezka', pocet: [1, 1], let: 0.8, polomer: 22, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
+  },
+  // Sopka: salamandr skočí jako slizák a dopadne v gejzíru magmatu, golem hází hroudy magmatu jako kostlivec kosti.
+  salamandr: {
+    pauza: 3.6,
+    schopnosti: [{ id: 'skok', varovani: 0.55, dosah: 240, dopad: 'magma' }],
+  },
+  golem: {
+    pauza: 3.4,
+    schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.45, dosah: 330, strela: 'magma', pocet: [1, 1], let: 0.8, polomer: 22, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
   },
 };
 export const NAPOR_ELITY = { id: 'vypad', zvuk: 'napor', varovani: 0.7, zamek: 0.25, dosah: 340, rychlost: 430, delka: 320, poskozeni: 12, odhozeni: 50 };

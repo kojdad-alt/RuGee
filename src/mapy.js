@@ -395,17 +395,17 @@ export const MAPY = {
   },
 
   // Sopka: černá čedičová skála a lávové tůně (lava), které hrdinu pálí, dokud v nich stojí (lava.poskozeni
-  // za ránu, mezi ranami chvíle klidu jako u jedu). Vzduchem letí žhavé jiskry, nejčastěji chodí ohniví brouci.
-  // Hlavní boss je Lávový obr.
+  // za ránu, mezi ranami chvíle klidu jako u jedu). Vzduchem letí žhavé jiskry. Vlastní tvorové: nejčastěji ohniví
+  // brouci, ohnivé můry, salamandři (skáčou), čedičoví golemové (hází magma) a čertíci. Hlavní boss je Lávový obr.
   sopka: {
     barva: '#ff7a2f',
     boss: 'lavovy_obr',
     nepratele: [
       { druh: 'ohnivy_brouk', od: 0, vaha: 4 },
-      { druh: 'netopyr', od: 0, vaha: 1 },
-      { druh: 'slizak', od: 80, vaha: 1 },
-      { druh: 'kostlivec', od: 120, vaha: 1 },
-      { druh: 'pavouk', od: 200, vaha: 1 },
+      { druh: 'ohniva_mura', od: 0, vaha: 1 },
+      { druh: 'salamandr', od: 80, vaha: 1 },
+      { druh: 'golem', od: 120, vaha: 1 },
+      { druh: 'certik', od: 200, vaha: 1 },
     ],
     smecky: null,
     obtiznost: { zivoty: 1.4, poskozeni: 1.3 },
