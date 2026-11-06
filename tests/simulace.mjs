@@ -5520,6 +5520,9 @@ const vysledekPetu = {};
     }
   }
   if (!jmenaSpritu.has('vejce') || !jmenaSpritu.has('vejce_praskle')) chybyPetu.push('chybí sprite vejce');
+  // Zvuky petů a okna Pety (líheň) existují.
+  for (const id of ['vejce', 'petOhen', 'tukVejce', 'praskVejce', 'vylihnuti']) if (!zvuk.ID_EFEKTU.includes(id)) chybyPetu.push(`chybí zvuk ${id}`);
+  if (!readFileSync(new URL('../src/menu.js', import.meta.url), 'utf8').includes('pety: { vypln: vyplnPety }')) chybyPetu.push('menu nemá záložku Pety');
   // Síla: vzácnější rarita a vyšší úroveň vždy víc, legendární na maximu nejvýš ~5× běžná první úroveň.
   let predSila = 0;
   for (const r of PORADI_RARIT_PETU) {
@@ -6613,6 +6616,9 @@ const chybyBarev = [];
     sance: 'body[data-barvy] .sance i',
     'sbirka-kus': 'body[data-barvy] .sbirka-kus[class*="rarita-"]::after',
     'vybava-policko': 'body[data-barvy] .vystroj-policko[class*="rarita-"]::after',
+    'pet-kus': 'body[data-barvy] .pet-kus[class*="rarita-"]::after',
+    'lihen-vyklenek': 'body[data-barvy] .lihen-vyklenek[class*="rarita-"]::after',
+    'lihen-vysledek': 'body[data-barvy] .lihen-vysledek[class*="rarita-"]::after',
     'ukazka-rarity': 'body[data-barvy] .znak-rarity',
   };
   let mistRarit = 0;

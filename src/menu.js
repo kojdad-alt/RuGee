@@ -6,12 +6,14 @@ import { TRIDY, ZBRANE, BOSSOVE, platnaTrida, silaHrozby, obtiznostMapy, poradiB
 import {
   nactiRekord, nactiTridu, ulozTridu, nactiDuse, ulozDuse, nactiNastaveni, ulozNastaveni, nactiSbirku, nactiMapu, ulozMapu,
   odemceneMapy, zajistiProfily, seznamProfilu, aktivniProfil, vytvorProfil, prejmenujProfil, prepniProfil, smazProfil,
-  dataProfilu, importujProfil, prehledProfilu, prehledDat, volneJmeno, MAX_PROFILU, MAX_JMENA,
+  dataProfilu, importujProfil, prehledProfilu, prehledDat, volneJmeno, MAX_PROFILU, MAX_JMENA, nactiPety,
 } from './ulozeni.js';
 import { kodProfilu, souborProfilu, nazevSouboru, prectiKod, PRIPONA_SOUBORU, MAX_DELKA_KODU } from './prenos.js';
 import { MAPY, PORADI_MAP, ODEMKNUTI_MAPY, predchoziMapa } from './mapy.js';
 import { nahledMapy, kresliPodlahu } from './louka.js';
 import { vyplnStrom, klavesaStromu } from './strom.js';
+import { vyplnPety } from './lihen.js';
+import { PETY, petDoHry } from './pety.js';
 import {
   VYBAVA, PORADI_SAD, PORADI_SLOTU, SLOTY, VSECHNY_KUSY, RARITY_VYBAVY, EFEKTY_VYBAVY, idKusu, vytvorKus, radkyStatu,
   popisEfektu, popisSady,
@@ -1158,6 +1160,8 @@ export const ZALOZKY = {
   mapy: { vypln: vyplnMapy },
   // Strom vylepšení (src/strom.js): širší okno a vlastní šipky (skáčou mezi uzly, klavesa vrací true, když ji vzal).
   vylepseni: { vypln: vyplnStrom, klavesa: klavesaStromu, siroka: true },
+  // Pety z vajec (src/lihen.js): líheň s vejci a sbírka petů, klik vybere peta do hry.
+  pety: { vypln: vyplnPety },
   sbirka: { vypln: vyplnSbirku },
   rekordy: { vypln: vyplnRekordy },
   ovladani: { vypln: vyplnOvladani },
@@ -1258,6 +1262,9 @@ export function vytvorMenu({ hrat }) {
       naMape,
       udaj(obrazekSpritu('duse', 3), t('menu.duse', { n: duse }), 'menu-duse'),
     );
+    // Pet, který jde do hry (jen když nějaký je).
+    const pet = petDoHry(nactiPety());
+    if (pet) udaje.append(udaj(obrazekSpritu(`pet_${pet.druh}`, 3), PETY[pet.druh].nazev, 'menu-pet'));
     radekPostavy.replaceChildren(profil, udaje);
   };
   ukazPostavu();

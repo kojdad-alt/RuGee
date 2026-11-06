@@ -676,6 +676,36 @@ const EFEKTY = {
       hlas(e, t + 0.1, { f: 740, delka: 0.08, h: 0.03 });
     },
   },
+  // Okno Pety: vejce se zatřese (ťuknutí, každé o kus výš), praskne a vylíhne se pet. Znělka líhnutí je tím delší
+  // a jasnější, čím vzácnější rarita padla (stupen 0 běžná … 3 legendární).
+  tukVejce: {
+    mezera: 0.1,
+    dulezity: true,
+    hraj(t, e, stupen) {
+      const f = 392 * 2 ** ((omez(Math.round(stupen) || 0, 0, 2) * 2) / 12);
+      hlas(e, t, { f, f2: f * 0.8, delka: 0.07, h: 0.03, vlna: 'triangle' });
+      sumik(e, t, { delka: 0.04, h: 0.012, fl: { typ: 'lowpass', f: 1200 } });
+    },
+  },
+  praskVejce: {
+    mezera: 0.2,
+    dulezity: true,
+    hraj(t, e) {
+      sumik(e, t, { delka: 0.12, h: 0.03, fl: { typ: 'highpass', f: 1800 } });
+      hlas(e, t, { f: 880, f2: 330, delka: 0.12, h: 0.02, vlna: 'square', fl: { f: 2200 } });
+    },
+  },
+  vylihnuti: {
+    mezera: 0.3,
+    dulezity: true,
+    hraj(t, e, stupen) {
+      const s = omez(Math.round(stupen) || 0, 0, 3);
+      const tony = [523, 659, 784, 1047, 1319, 1568];
+      const kolik = 3 + s;
+      for (let i = 0; i < kolik; i++) hlas(e, t + i * 0.08, { f: tony[i], delka: i === kolik - 1 ? 0.3 + 0.1 * s : 0.09, h: 0.03, vlna: 'triangle' });
+      if (s >= 2) for (let i = 0; i < 4; i++) hlas(e, t + 0.1 + i * 0.06, { f: 2093 + 300 * i, delka: 0.05, h: 0.008, vlna: 'sine' });
+    },
+  },
   // Ukázka při změně hlasitosti efektů v nastavení.
   ukazka: {
     mezera: 0.05,
