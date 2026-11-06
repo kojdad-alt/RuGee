@@ -1925,6 +1925,135 @@ body[data-barvy] .barvy-vzory { display: flex; }
   .pauza .skupina { padding: 6px 8px 10px; }
 }
 
+/* Pauza s přehledem buildu: nahoře Pokračovat a Ukončit hru, pod nimi přehled (zbraně podle DPS, pasivy, výbava
+   bossů) a nastavení. Na širokém displeji je okno širší: vlevo tlačítka a pod nimi nastavení, vpravo přehled, v něm
+   pasivy a výbava vedle sebe. */
+.pauza-telo { display: grid; gap: 14px; }
+.pauza-nastaveni { display: flex; flex-direction: column; gap: 14px; }
+.pauza-prehled {
+  --ikona: 22px;
+  --cislo: 10px;
+  --mezera: 3px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  text-align: left;
+}
+
+@media (min-width: 900px) and (min-height: 560px) {
+  .okno.pauza { width: min(1060px, calc(100% - 32px)); }
+  .pauza-telo {
+    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: 'volby prehled' 'nastaveni prehled';
+    gap: 14px 18px;
+    align-items: start;
+  }
+  #pauza-volby { grid-area: volby; }
+  .pauza-prehled { grid-area: prehled; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .pauza-nastaveni { grid-area: nastaveni; }
+  .pauza-prehled .prehled-zbrane { grid-column: 1 / -1; }
+}
+
+/* Tabulka zbraní: řádek = zapuštěná lišta (ikona s úrovní, jméno s pruhem podílu proti nejsilnější, DPS mosazně,
+   průměr, celkem, zabití). Nejsilnější řádek má mosazný rámeček, cedulku a plný mosazný pruh. */
+.dps-tabulka {
+  width: 100%;
+  margin: -4px 0 0;
+  border-collapse: separate;
+  border-spacing: 0 4px;
+  font-size: 13px;
+  text-shadow: 0 2px 0 var(--noc);
+}
+
+.dps-tabulka th {
+  padding: 0 6px 1px;
+  color: var(--pergamen-tlumeny);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: right;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.dps-tabulka th small { display: block; font-size: 10px; font-weight: normal; letter-spacing: 0; text-transform: none; }
+.dps-tabulka td { padding: 4px 6px; background: var(--drevo-0); vertical-align: middle; }
+.dps-tabulka td:first-child { padding-left: 4px; box-shadow: inset 2px 0 0 var(--noc); }
+.dps-tabulka td.dps-ikona { width: 1px; padding-right: 2px; }
+.dps-tabulka td.dps-cislo { color: var(--pergamen); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dps-tabulka td.dps-hlavni { color: var(--mosaz); font-size: 15px; font-weight: bold; }
+
+/* Jméno bere zbytek šířky, dlouhé se zkrátí třemi tečkami (max-width: 0 v tabulce). */
+.dps-jmeno { width: 100%; max-width: 0; }
+.dps-nazev { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dps-nazev b { overflow: hidden; color: var(--pergamen); text-overflow: ellipsis; white-space: nowrap; }
+
+.dps-nej {
+  flex: none;
+  padding: 0 4px 1px;
+  color: var(--noc);
+  background: var(--mosaz);
+  box-shadow: inset 0 1px 0 var(--mosaz-lesk), inset 0 -1px 0 var(--mosaz-stin);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: none;
+}
+
+.dps-pruh {
+  display: block;
+  height: 6px;
+  margin-top: 4px;
+  background: var(--drevo-2);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.45), 0 0 0 1px var(--noc);
+}
+
+.dps-pruh i { display: block; height: 100%; background: var(--mosaz-stin); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.3); }
+
+.dps-tabulka tr.nejsilnejsi td { background: var(--karta-vybrana); box-shadow: inset 0 2px 0 var(--mosaz), inset 0 -2px 0 var(--mosaz); }
+.dps-tabulka tr.nejsilnejsi td:first-child { box-shadow: inset 2px 0 0 var(--mosaz), inset 0 2px 0 var(--mosaz), inset 0 -2px 0 var(--mosaz); }
+.dps-tabulka tr.nejsilnejsi td:last-child { box-shadow: inset -2px 0 0 var(--mosaz), inset 0 2px 0 var(--mosaz), inset 0 -2px 0 var(--mosaz); }
+.dps-tabulka tr.nejsilnejsi td.dps-hlavni { color: var(--mosaz-svetla); }
+.dps-tabulka tr.nejsilnejsi .dps-pruh i { background: var(--mosaz); box-shadow: inset 0 -2px 0 var(--mosaz-stin); }
+
+/* Pasivy a výbava: mřížka políček (stejná jamka jako přehled vlevo dole) a vedle jméno a co dává. */
+.prehled-mrizka {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 6px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prehled-polozka { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.prehled-polozka .vybava-policko { flex: none; }
+.prehled-text { display: grid; min-width: 0; line-height: 1.25; text-shadow: 0 2px 0 var(--noc); }
+.prehled-text b { overflow: hidden; color: var(--pergamen); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.prehled-text b.prazdne { color: var(--pergamen-tlumeny); }
+.prehled-text small { color: var(--mosaz); font-size: 12px; }
+.prehled-vybava .prehled-text small { color: var(--pergamen-tlumeny); }
+.prehled-strop { color: var(--pergamen-tlumeny); font-size: 10px; font-style: normal; letter-spacing: 0.06em; text-transform: uppercase; }
+.prehled-poznamka { margin: 6px 0 0; color: var(--pergamen-tlumeny); font-size: 12px; text-shadow: 0 2px 0 var(--noc); }
+.prehled-efekt { margin: 8px 0 0; color: var(--mosaz-svetla); font-size: 12px; text-shadow: 0 2px 0 var(--noc); }
+
+@media (max-width: 600px) {
+  .pauza-telo { gap: 10px; }
+  .pauza-nastaveni { gap: 10px; }
+  .pauza-prehled { --ikona: 18px; --cislo: 9px; gap: 10px; }
+  .dps-tabulka { font-size: 12px; }
+  .dps-tabulka th { padding: 0 3px 1px; font-size: 9px; letter-spacing: 0.02em; }
+  .dps-tabulka td { padding: 3px 3px; }
+  .dps-tabulka td.dps-hlavni { font-size: 13px; }
+  .dps-nej { display: none; }
+  .prehled-mrizka { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .prehled-text b { font-size: 12px; }
+  .prehled-text small { font-size: 11px; }
+}
+
 /* Sbírka výbavy bossů v menu: nahoře kolik je objeveno (číslo a pruh po kusech), pak sada po sadě. Sada je
    destička v tenkém rámu s truhlou bosse a počtem (celá sada má mosaznou cedulku), čtyři kusy 2×2 jako sloty výbavy
    ve hře. Kus má sprite ve výklenku a pixelový rámeček v barvě nejlepší nalezené rarity (barvy rarit jsou herní

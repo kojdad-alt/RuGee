@@ -20,7 +20,8 @@ function prvek(znacka, trida = '', text = null) {
 
 const klic = (p) => `${p.druh}:${p.id}`;
 
-function policko(p, novy) {
+// Políčko zbraně nebo pasivy (ikona, číslo úrovně v rohu, rámeček podle stupně). Bere ho i přehled v pauze.
+export function policko(p, novy = false) {
   const e = prvek('div', `vybava-policko stupen-${p.stupen}${novy ? ' nove' : ''}`);
   const obr = obrazekSpritu(p.ikona);
   // Velikost dává style.css (na mobilu menší), ne pevné pixely z obrazekSpritu.
@@ -31,7 +32,7 @@ function policko(p, novy) {
 }
 
 // Slot výbavy bosse: sprite kusu v rámečku jeho rarity, prázdný slot jen stín.
-function slotVystroje(p, novy) {
+export function slotVystroje(p, novy = false) {
   const e = prvek('div', `vybava-policko vystroj-policko ${p.kus ? `rarita-${p.kus.rarita}` : 'prazdne'}${novy ? ' nove' : ''}`);
   const obr = obrazekSpritu(p.kus ? p.kus.id : idKusu(PORADI_SAD[0], p.slot));
   obr.removeAttribute('style');

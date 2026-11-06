@@ -16,6 +16,7 @@ import {
 import { ukazVolby, ukazPorovnani } from './volba.js';
 import { ukazObchod, zatresZbozim, textZlataku } from './obchod.js';
 import { ukazVybavu } from './vybava.js';
+import { ukazPrehled } from './prehled.js';
 import { registruj as registrujAplikaci, novaVerze, priZmene as priZmeneAplikace } from './aplikace.js';
 import { svetlaProSnimek } from './osvetleni.js';
 import { t, prelozStranku, priZmeneJazyka } from './texty.js';
@@ -165,9 +166,10 @@ function vybavaUJoysticku() {
   vybava.classList.toggle('u-joysticku', blizko);
 }
 
-// Pauza (P nebo Esc): hra stojí a okno z trámů nabídne Pokračovat a pod ním skupiny jako v Nastavení: Hra (čísla
-// poškození, světla) a Zvuk (hlasitost, ztlumení). Pořadí šipek je stejné jako dřív. Volby se staví pokaždé znovu, ať
-// ukazují, co je zrovna uložené (mohlo se změnit v menu).
+// Pauza (P nebo Esc): hra stojí a okno z trámů nabídne Pokračovat a Ukončit hru, přehled buildu (DPS zbraní, pasivy,
+// výbava) a skupiny jako v Nastavení: Hra (čísla poškození, světla) a Zvuk (hlasitost, ztlumení). Pořadí šipek je
+// stejné jako dřív (přehled nemá tlačítka). Volby se staví pokaždé znovu, ať ukazují, co je zrovna uložené (mohlo se
+// změnit v menu).
 function nastavPauzu(zapnout) {
   hra.pauza = zapnout;
   el('pauza').hidden = !zapnout;
@@ -203,7 +205,11 @@ function nastavPauzu(zapnout) {
   volbyHry.append(prepinacNastaveni('cislaPoskozeni', t('menu.nastaveni.cislaPoskozeni')), prepinacSvetel());
   const zvuk = skupina(t('menu.nastaveni.zvuk'));
   zvuk.append(ovladaniZvuku());
-  el('pauza-volby').replaceChildren(pokracovat, ukoncit, volbyHry, zvuk);
+  el('pauza-volby').replaceChildren(pokracovat, ukoncit);
+  // Přehled buildu (prehled.js): zbraně podle DPS, pasivy, výbava bossů. Na širokém displeji vpravo od tlačítek,
+  // na úzkém mezi tlačítky a nastavením.
+  ukazPrehled(el('pauza-prehled'), hra);
+  el('pauza-nastaveni').replaceChildren(volbyHry, zvuk);
   pixelovyNadpis(el('pauza-nadpis'), t('pauza.nadpis'), { min: 3, max: 4 });
   vyberTlacitko(pokracovat);
 }
