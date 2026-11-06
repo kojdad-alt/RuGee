@@ -138,6 +138,10 @@
 // dá duše, vejce stojí duše, rozbitý záznam nic neshodí, pety patří profilu a kód uložení je přenese (bez petů je kód
 // stejný jako dřív). Ve hře: bez peta se nic nemění, pet jde za hrdinou, každý bonus dá přesně, co slibuje, každý
 // akční pet svou akci udělá (Dráček, Straka, Želvička, Křeček, Tučňák), boss občas nechá vejce a sebrané se počítá.
+// Přehled buildu v pauze: každý zásah se připíše své zbrani (i ozvěna a roztříštění), DPS je za posledních OKNO_DPS s
+// a pak klesne k nule, průměr se počítá od chvíle, kdy zbraň přibyla, zabití má jen rána, po které nepřítel padl,
+// řádky jsou seřazené podle DPS a pet, Trnová zbroj a rázová vlna mají řádek, až když někoho zasáhnou. Každá zbraň
+// sama připíše všechna zabití sobě. Každá pasiva má v obou jazycích řádek s hodnotou a konečné číslo.
 import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 import { crc32 as crc32Zlib, inflateSync } from 'node:zlib';
@@ -173,6 +177,7 @@ import {
   ocekavanaUroven, prisunZivotu, SCHOPNOSTI_NEPRATEL, schopnostiNepritele, NAPOR_ELITY, ELITNI, OBYCEJNE,
   PRVNI_SCHOPNOST_NEPRATEL, NADBIHANI, VUDCE, TLAK_BOSSU, pauzaBosse,
   BLUDNY_KROK, POUTNIK, BUBLINA, POSLEDNI_VZDOR, zbranArzenalu, maStit, PET,
+  prehledPoskozeni, dpsZdroje, cisloPasivy, OKNO_DPS,
 } from '../src/hra.js';
 import {
   PETY, PORADI_PETU, RARITY_PETU, PORADI_RARIT_PETU, MAX_UROVEN as MAX_UROVEN_PETU, POJISTKA_PETU, CENA_VEJCE, DUSE_ZA_DUPLIKAT, SANCE_VEJCE,
@@ -2429,6 +2434,7 @@ const prakovePokusy = {};
 // musí být opravdu vidět (ve hře, ne jen v číslech) a nic se nerozbije. (Dřív od 10. minuty; od těžší hry roste
 // hrozba už od 6. minuty a nepřátelé v 8. minutě mají zhruba tolik životů jako dřív v 10.)
 const chybyPasiv = [];
+const chybyPrehledu = [];
 const pasivyZbrani = { zbrane: {} };
 {
   const NOVE = ['krit', 'rozpeti', 'ozvena', 'vydrz', 'rychleRuce', 'prival'];
@@ -2553,6 +2559,11 @@ const pasivyZbrani = { zbrane: {} };
     // Co má Příval u které zbraně přidat i ve hře (u ostatních stačí čísla: kusy čtou přímo ze staty).
     const vic = { blesk: nejvic.blesku >= 2, lucerna: h.zasahuUhliky > 0, stopa: nejvic.bocnich === VSE.prival }[id] ?? st[ZBRANE[id].pasivy.prival] === z5[ZBRANE[id].pasivy.prival] + VSE.prival;
     pasivyZbrani.zbrane[id] = { zabito: h.zabito, kritu: h.kritu, ozven: ozvena, otreseno: h.otreseno, uhliky: h.zasahuUhliky, vydrz: delsi, prival: vic };
+    // Přehled v pauze: zbraň sama (i s ozvěnami) připíše poškození i zabití jen sobě, bez bomby všechna zabití.
+    const rany = h.rany[id];
+    if (Object.keys(h.rany).some((z) => z !== id) || !(rany?.celkem > 0) || rany.zabiti > h.zabito || (h.bomb === 0 && rany.zabiti !== h.zabito)) {
+      chybyPrehledu.push(`${id} sám: zdroje ${Object.keys(h.rany)}, celkem ${rany?.celkem}, zabití ${rany?.zabiti} z ${h.zabito} (bomb ${h.bomb})`);
+    }
     if (!(h.zabito > 0) || !(h.kritu > 0) || !(ozvena > 0) || !delsi || !vic) chybyPasiv.push(`${id} se všemi pasivami: ${JSON.stringify(pasivyZbrani.zbrane[id])}`);
     if ((id === 'krumpace' || id === 'blesk' || id === 'svetlusky') !== (h.otreseno > 0)) chybyPasiv.push(`${id}: otřes ${h.otreseno}× (má jen u okamžitých zásahů)`);
   }
@@ -5751,6 +5762,73 @@ const vysledekPetu = {};
 console.log(JSON.stringify({ pety: vysledekPetu }));
 chyby.push(...chybyPetu);
 
+// ---------- Přehled buildu v pauze (prehledPoskozeni, cisloPasivy) ----------
+{
+  const h = novaHra(vytvorRng(seminko));
+  Object.assign(h.hrdina, { krit: 0, sila: 1 });
+  const start = Object.keys(h.zbrane)[0];
+  const prvni = prehledPoskozeni(h);
+  if (prvni.length !== 1 || prvni[0].zdroj !== start || prvni[0].dps !== 0 || prvni[0].celkem !== 0) chybyPrehledu.push(`nová hra: ${JSON.stringify(prvni)}`);
+  const terc = { x: 0, y: 0, hp: 1e9, maxHp: 1e9, polomer: 8 };
+  zasah(h, terc, 10);
+  if (Object.keys(h.rany).length) chybyPrehledu.push('zásah bez zdroje se připsal');
+  // 20 s jedna rána 10 za sekundu: DPS i průměr kolem 10, pak 11 s nic: DPS 0, průměr klesá.
+  for (let s = 0; s < 20; s++) {
+    h.cas = s + 0.5;
+    zasah(h, terc, 10, false, start);
+  }
+  h.cas = 19.9;
+  let r = prehledPoskozeni(h)[0];
+  if (Math.abs(r.dps - 10) > 1.5 || Math.abs(r.prumer - 10) > 0.5 || r.celkem !== 200 || r.zabiti !== 0) chybyPrehledu.push(`DPS po 20 s: ${JSON.stringify(r)}`);
+  h.cas = 31;
+  r = prehledPoskozeni(h)[0];
+  if (r.dps !== 0 || Math.abs(r.prumer - 200 / 31) > 1e-9) chybyPrehledu.push(`DPS po pauze: ${r.dps}, průměr ${r.prumer}`);
+  // Zabití má jen rána, po které padl; do mrtvého se nic nepřipíše.
+  const slaby = { x: 0, y: 0, hp: 15, maxHp: 15, polomer: 8 };
+  for (let i = 0; i < 3; i++) zasah(h, slaby, 10, false, start);
+  r = prehledPoskozeni(h)[0];
+  if (r.zabiti !== 1 || r.celkem !== 220) chybyPrehledu.push(`zabití: ${r.zabiti}, celkem ${r.celkem}`);
+  // Zbraň z karty v 100. s: průměr i DPS od té doby, řádky podle DPS.
+  h.cas = 100;
+  const prak = start === 'prak' ? 'jiskra' : 'prak';
+  vyber(h, karta(h, 'zbran', prak));
+  h.cas = 101;
+  zasah(h, terc, 50, false, prak);
+  const radky = prehledPoskozeni(h);
+  r = radky.find((x) => x.zdroj === prak);
+  if (h.ziskano[prak] !== 100 || Math.abs(r.prumer - 50) > 1e-9 || Math.abs(r.dps - 50) > 1e-9 || radky[0] !== r) chybyPrehledu.push(`zbraň z karty: ${JSON.stringify(r)}`);
+  if (radky.some((x, i) => i > 0 && x.dps > radky[i - 1].dps)) chybyPrehledu.push('řádky nejsou seřazené podle DPS');
+  if (dpsZdroje(null, 50).dps !== 0 || OKNO_DPS !== 10) chybyPrehledu.push('dpsZdroje bez záznamu nebo OKNO_DPS');
+  // Pet, Trnová zbroj a rázová vlna: řádek až po zásahu, s ikonou, která je sprite.
+  if (radky.some((x) => ['pet', 'trnovaZbroj', 'vlna'].includes(x.zdroj))) chybyPrehledu.push('řádek peta, trnů nebo vlny bez zásahu');
+  h.pet = { druh: 'dracek', uroven: 2 };
+  for (const zdroj of ['pet', 'trnovaZbroj', 'vlna']) zasah(h, terc, 5, false, zdroj);
+  for (const zdroj of ['pet', 'trnovaZbroj', 'vlna']) {
+    const x = prehledPoskozeni(h).find((y) => y.zdroj === zdroj);
+    if (!x || !jmenaSpritu.has(x.ikona) || typeof x.nazev !== 'string' || !x.nazev || !(x.celkem === 5)) chybyPrehledu.push(`řádek ${zdroj}: ${JSON.stringify(x)}`);
+  }
+  // Pasivy: řádek s hodnotou v obou jazycích, číslo konečné a nezáporné na každé úrovni.
+  for (const id of Object.keys(PASIVY)) {
+    for (const j of JAZYKY) {
+      const text = SLOVNIKY[j].pauza?.prehled?.hodnoty?.[id];
+      if (typeof text !== 'string' || !text.includes('{n')) chybyPrehledu.push(`${j}: pasiva ${id} nemá řádek s hodnotou`);
+    }
+    for (const u of [1, 2, 5, 6, 12, 40]) {
+      h.pasivy[id] = u;
+      const n = cisloPasivy(h, id);
+      if (!Number.isFinite(n) || n < 0 || /[{}]|NaN|undefined/.test(t(`pauza.prehled.hodnoty.${id}`, { n }))) chybyPrehledu.push(`pasiva ${id} úr. ${u}: ${n}`);
+    }
+    delete h.pasivy[id];
+  }
+  h.pasivy.sila = 1;
+  h.pasivy.krit = 1;
+  if (Math.round(cisloPasivy(h, 'sila')) !== 15 || Math.round(cisloPasivy(h, 'krit')) !== 5) chybyPrehledu.push(`Síla 1 = ${cisloPasivy(h, 'sila')} %, Krit 1 = ${cisloPasivy(h, 'krit')} %`);
+  // Okno pauzy přehled opravdu staví.
+  const mainJs = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  if (!/ukazPrehled\(el\('pauza-prehled'\), hra\)/.test(mainJs) || !readFileSync(new URL('../index.html', import.meta.url), 'utf8').includes('id="pauza-prehled"')) chybyPrehledu.push('pauza nestaví přehled');
+}
+chyby.push(...chybyPrehledu);
+
 // Písmo nadpisů (src/pismo.js): každý znak má stejně řádků stejné délky, česká velká písmena mají diakritiku jen
 // ve 3 horních řádcích a dole jsou stejná jako základní písmeno. Logo jde napsat celé (nadpisy oken a nápisy ve hře
 // hlídají Překlady níž, v každém jazyce).
@@ -5879,7 +5957,7 @@ function pixeloveTexty() {
   const texty = ['volba.novaUroven', 'volba.truhlaBosse', 'volba.zamcenaTruhla', 'porovnani.nadpis', 'obchod.nadpis', 'pauza.nadpis',
     'konec.nadpis', 'kresleni.zuri', 'menu.nastaveni.zvuk', 'menu.nastaveni.hra', 'menu.plocha.nadpis', 'menu.profil.novy',
     'menu.profil.prejmenovat', 'menu.profil.export', 'menu.profil.import', 'hra.oziveni', 'hra.bomba', 'hra.kupec.prijel',
-    'hra.kupec.odjel', 'menu.barvy.nadpis'].map((k) => [k, t(k)]);
+    'hra.kupec.odjel', 'menu.barvy.nadpis', 'pauza.prehled.zbrane', 'pauza.prehled.pasivy', 'pauza.prehled.vybava'].map((k) => [k, t(k)]);
   for (const v of Object.values(t('menu.ovladani.skupiny'))) texty.push(['skupina Ovládání', v]);
   for (const [id, z] of Object.entries(ZALOZKY_SLOVNIKU())) texty.push([`záložka ${id}`, z.nazev]);
   for (const b of Object.values(BOSSOVE)) texty.push(['boss', b.nazev], ['příchod bosse', b.prichod], ['zuří', t('hra.zuri', { boss: b.nazev })]);

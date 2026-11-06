@@ -9,18 +9,18 @@
 // - Skripty a styl mají v adrese otisk (?v=…), takže jsou neměnné a berou se z keše. Co v keši není (nová verze
 //   stránky, ke které se nový worker ještě instaluje), jde ze sítě.
 // verze: začátek (generuje node nastroje/verze.mjs, ručně neupravovat)
-const VERZE = 'f82a4648';
+const VERZE = '882f5391';
 const SOUBORY = [
   './',
-  './style.css?v=c7e50a12',
+  './style.css?v=5d62941d',
   './src/aplikace.js?v=b374be02',
   './src/barvy.js?v=a3bd8c32',
   './src/duse.js?v=15fc9cc1',
-  './src/hra.js?v=fe78e5bd',
+  './src/hra.js?v=8444a383',
   './src/kresleni.js?v=6906cb83',
   './src/lihen.js?v=289e6a45',
   './src/louka.js?v=fd24061d',
-  './src/main.js?v=4622b8d7',
+  './src/main.js?v=db5009ce',
   './src/mapy.js?v=bfd99277',
   './src/menu.js?v=56d7e914',
   './src/obchod.js?v=c39b438d',
@@ -28,6 +28,7 @@ const SOUBORY = [
   './src/ovladac.js?v=2ac9ac15',
   './src/pety.js?v=254d3283',
   './src/pismo.js?v=910d689d',
+  './src/prehled.js?v=e2a9c1ff',
   './src/prenos.js?v=032462ed',
   './src/rng.js?v=60bdabbe',
   './src/sprity.js?v=5b088f5b',
@@ -36,12 +37,12 @@ const SOUBORY = [
   './src/texty.js?v=fa3abc7b',
   './src/ulozeni.js?v=9fb5f73f',
   './src/volba.js?v=43d750a5',
-  './src/vybava.js?v=a3e26c7d',
+  './src/vybava.js?v=9d342cff',
   './src/vystroj.js?v=c932169c',
   './src/vzory.js?v=a74be1f5',
   './src/zvuk.js?v=2ca1e96f',
-  './src/texty/cs.js?v=bda1c2e8',
-  './src/texty/en.js?v=b3e1f2e4',
+  './src/texty/cs.js?v=2d7f5a72',
+  './src/texty/en.js?v=6e079bd9',
   './src/shadery/obraz-pixel.glsl?v=ccac4bd3',
   './src/shadery/obraz-vrchol.glsl?v=e885302b',
   './src/shadery/svetla-pixel.glsl?v=64aeaa2c',
