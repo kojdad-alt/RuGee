@@ -18,7 +18,7 @@
 - **Pety z vajec**: 13 mazlíčků od sovičky po dráčka, který plive oheň. Jeden jde s tebou do hry.
 - **4 postavy** (Lovec, Havíř, Světlonoš, Bouřlivák), **zlaťáky** na kupce a zamčené truhly.
 - **Zvuky a hudba** ze syntezátoru, **až 5 profilů** s přenosem kódem nebo souborem.
-- **Česky, anglicky i rusky** (English, Русский) a s **režimem pro barvoslepé**, obojí přepneš v Nastavení.
+- **Česky, anglicky, rusky i ukrajinsky** (English, Русский, Українська) a s **režimem pro barvoslepé**, obojí přepneš v Nastavení.
 
 ## Ovládání
 
