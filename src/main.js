@@ -632,7 +632,11 @@ function smycka(t) {
   } else if (hra.obchod && !hra.volby && !hra.porovnani && el('obchod').hidden) otevriObchod();
   zapisNalezy();
   if (hra.konec && el('konec').hidden) {
-    zapisKonec();
+    // Rekord a duše se zapíšou jen jednou za hru, i kdyby se okno konce schovalo a ukázalo znovu.
+    if (!hra.zapsanKonec) {
+      hra.zapsanKonec = true;
+      zapisKonec();
+    }
     el('konec').hidden = false;
     prizpusobNadpisy(el('konec'));
     vyberTlacitko(el('znovu'));
