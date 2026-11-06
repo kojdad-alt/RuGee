@@ -90,6 +90,25 @@ export default {
       napovedaDotyk: 'Táhni prstem, dvěma prsty přibliž. Klepni na uzel, druhým klepnutím ho koupíš.',
       napovedaOvladac: '{packa} skáče mezi uzly, {a} koupí, {b} zpět.',
     },
+    // Okno Pety (lihen.js): líheň s vejci a sbírka petů.
+    pety: {
+      podtitul: 'Z vajec se líhnou pety. Jeden jde s tebou do hry a pomáhá malým bonusem.',
+      vajec: 'Vejce: ',
+      pojistka: 'Aspoň epický pet nejpozději za {n} {n|vejce|vejce|vajec}',
+      otevrit: 'Otevřít vejce',
+      koupit: 'Koupit vejce',
+      uroven: 'úroveň {n}',
+      aktivni: 'S tebou',
+      neznamy: 'Ještě se nevylíhl',
+      napoveda: 'Klikni na peta, ať jde s tebou do hry. Vejce padají i z bossů.',
+      napovedaAktivni: 'Klik na peta, který jde s tebou, ho nechá doma.',
+      vysledek: {
+        novy: 'Nový pet!',
+        rarita: 'Vzácnější rarita: {rarita}!',
+        uroven: 'Úroveň {uroven}!',
+        duse: 'Už je na maximu: +{n} {n|duše|duše|duší}',
+      },
+    },
     sbirka: {
       objeveno: 'Objeveno ',
       zCelkem: ' z {n}',
@@ -257,6 +276,7 @@ export default {
     postavy: { nazev: 'Postavy' },
     mapy: { nazev: 'Mapy' },
     vylepseni: { nazev: 'Vylepšení' },
+    pety: { nazev: 'Pety' },
     sbirka: { nazev: 'Sbírka' },
     rekordy: { nazev: 'Rekordy' },
     ovladani: { nazev: 'Ovládání' },
