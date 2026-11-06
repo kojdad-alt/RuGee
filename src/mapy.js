@@ -256,17 +256,19 @@ export const MAPY = {
   },
 
   // Jezero: sníh, a kde ho šum (led.bunka, led.prah) udělá, led. Na ledu hrdina klouže: rychlost se k řízení
-  // přibližuje jen o led.prilnavost za sekundu, takže se rozjíždí i brzdí pomalu. Vlci a ledoví duchové, na sněhu
-  // smrky a kameny (překážky). Hlavní boss je Bludička, co bloudí v mlze nad ledem.
+  // přibližuje jen o led.prilnavost za sekundu, takže se rozjíždí i brzdí pomalu. Vlastní tvorové: vločky, vlci
+  // (i ve smečkách), ledoví duchové, lední medvědi (skáčou), sněhuláci (hází koule) a mroži. Na sněhu smrky
+  // a kameny (překážky). Hlavní boss je Bludička, co bloudí v mlze nad ledem.
   jezero: {
     barva: '#bfe6ff',
     boss: 'bludicka',
     nepratele: [
-      { druh: 'netopyr', od: 0, vaha: 2 },
+      { druh: 'vlocka', od: 0, vaha: 2 },
       { druh: 'vlk', od: 40, vaha: 1 },
       { druh: 'ledovy_duch', od: 75, vaha: 2 },
-      { druh: 'slizak', od: 110, vaha: 1 },
-      { druh: 'kostlivec', od: 170, vaha: 1 },
+      { druh: 'ledni_medved', od: 110, vaha: 1 },
+      { druh: 'snehulak', od: 170, vaha: 1 },
+      { druh: 'mroz', od: 240, vaha: 1 },
     ],
     smecky: { druh: 'vlk', od: 130, kazdych: 18 },
     obtiznost: { zivoty: 1.4, poskozeni: 1.3 },

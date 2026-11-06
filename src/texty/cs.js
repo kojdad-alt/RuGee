@@ -959,7 +959,13 @@ export default {
       macarat: 'Z podzemních tůní lezou macaráti',
       stonozka: 'Ze škvír se sypou jedové stonožky',
     },
-    jezero: { vlk: 'Po sněhu se plíží vlci', ledovy_duch: 'Nad ledem krouží ledoví duchové' },
+    jezero: {
+      vlk: 'Po sněhu se plíží vlci',
+      ledovy_duch: 'Nad ledem krouží ledoví duchové',
+      ledni_medved: 'Z ledových ker vylézají lední medvědi',
+      snehulak: 'Sněhuláci ožili a koulují',
+      mroz: 'Na led se vyvalili mroži',
+    },
     sopka: { kostlivec: 'Z popela vstávají kostlivci', pavouk: 'Z puklin lezou pavouci' },
     bazina: { houbak: 'Z bahna rostou houbáci', duch: 'Nad bažinou bloudí duchové' },
     hrbitov: {

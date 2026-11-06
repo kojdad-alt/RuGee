@@ -159,7 +159,7 @@ import {
   ZBRANE, RARITY, PORADI_RARIT, ZAKLAD_UROVNI, SILA_ZA_PREBYTEK, LECENI_ODPOCINKU, CAS_PLNYCH_RARIT, sanceRarit, nabidka, karta,
   RUST_UROVNI, STROPY, STUPNE_UROVNI, bonusZaUroven, statyZbrane, stupenUrovne, hodnotaPasivy, popisUrovni,
   OD_DUCHU, VIDITELNY_DUCH, SKRYTY_DUCH, OD_HOUBAKU, TRVANI_OBLAKU, NAFUKOVANI_OBLAKU, JED_OBLAKU,
-  OD_VLKU, SMECKA_OD, SMECKA_DO, RYCHLOST_NEPRATEL, MAX_DUCHU, pridejNepritele, PASIVY, seznamVybavy, TRVANI_ZARU,
+  OD_VLKU, SMECKA_OD, SMECKA_DO, RYCHLOST_NEPRATEL, MAX_DUCHU, NAHRADA_DUCHA, pridejNepritele, PASIVY, seznamVybavy, TRVANI_ZARU,
   MAX_BEDEN, KORIST_BEDEN, losujKorist, xpZBedny, JISKRA_NA_BEDNU, TRVANI_VYBUCHU,
   PORADI_BOSSU, BOSSOVE, bossBary, MAX_PAVOUCKU, VYRAZENI_PAVOUCKU, RYCHLOST_VYRAZENI,
   SCHOPNOSTI, schopnostiBosse, ZURIVOST, ZRYCHLENI_ZURIVOSTI, PRVNI_SCHOPNOST, TRES_DUPNUTI, TRVANI_DOPADU,
@@ -4497,12 +4497,15 @@ for (const id of PORADI_MAP.filter((m) => MAPY[m].prekazky)) {
 }
 // Vlastní tvorové map (MAPY_S_VLASTNIMI): taková mapa má aspoň 3 druhy, které nikde jinde nechodí, a nejvýš 2 druhy
 // z jiných map. Tvor se schopností ji na stojícího hrdinu opravdu použije (skok dopadne a trefí, hod trefí) a dopad
-// i střela jsou vidět jako to, co slibují data (permoník jiskří krumpáčem, krystalník hází střep). Jedový tvor po
-// smrti nechá oblak.
-const MAPY_S_VLASTNIMI = ['louka', 'jeskyne'];
+// i střela jsou vidět jako to, co slibují data (permoník jiskří krumpáčem, krystalník hází střep, lední medvěd
+// dopadne do sněhu, sněhulák hází kouli). Jedový tvor po smrti nechá oblak.
+const MAPY_S_VLASTNIMI = ['louka', 'jeskyne', 'jezero'];
 {
+  // Kde druh chodí (i ve smečkách: vlk ze smeček Louky a Hřbitova není vlastní tvor jezera).
   const kdeChodi = {};
-  for (const id of PORADI_MAP) for (const d of MAPY[id].nepratele) (kdeChodi[d.druh] ??= new Set()).add(id);
+  for (const id of PORADI_MAP) {
+    for (const druh of [...MAPY[id].nepratele.map((d) => d.druh), ...(MAPY[id].smecky ? [MAPY[id].smecky.druh] : [])]) (kdeChodi[druh] ??= new Set()).add(id);
+  }
   const tvorove = {};
   for (const id of MAPY_S_VLASTNIMI) {
     const druhy = MAPY[id].nepratele.map((d) => d.druh);
@@ -4548,7 +4551,12 @@ const MAPY_S_VLASTNIMI = ['louka', 'jeskyne'];
       if (h.oblaky.length !== 1) chybyMap.push(`jedový ${druh} (${id}) po smrti nechal ${h.oblaky.length} oblaků`);
     }
   }
-  vysledkyMap.vlastni_tvorove = { mapy: tvorove, schopnosti };
+  // Místo ducha nad MAX_DUCHU přiletí jen druh, který na mapě chodí (na jezeře bez netopýrů vločka).
+  for (const id of PORADI_MAP) {
+    const nahrada = NAHRADA_DUCHA[id];
+    if (!MAPY[id].nepratele.some((d) => d.druh === nahrada) || pridejNepritele(holaHra(0), nahrada, 300, 0).duch) chybyMap.push(`místo ducha na mapě ${id} přiletí ${nahrada}`);
+  }
+  vysledkyMap.vlastni_tvorove = { mapy: tvorove, schopnosti, nahrada_ducha: NAHRADA_DUCHA };
 }
 // Hlavní bossové map: na Louce pořadí beze změny, na každé mapě první její hlavní boss a pak zbylí tři základní
 // (každý jen jednou). Noví bossové vychází ze známého bosse, mají 2–3 schopnosti s varováním, vlastní jméno, nápis

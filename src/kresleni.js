@@ -61,6 +61,11 @@ const BARVY_CASTIC = {
   macarat: ['#ffc2c2', '#ff5a5a', '#e8e2d0'],
   stonozka: ['#b8443c', '#7a2b2e', '#a07e5c'],
   stepek: ['#4fd6c9', '#b8fff5', '#9fc8c6'],
+  vlocka: ['#dfe8ff', '#b8fff5', '#7f9cf0'],
+  ledni_medved: ['#dfe8ff', '#b9c2cc', '#ffffff'],
+  snehulak: ['#dfe8ff', '#b8443c', '#ffb347'],
+  mroz: ['#a07e5c', '#f1d2a8', '#e8e2d0'],
+  snezka: ['#dfe8ff', '#ffffff', '#7f9cf0'],
   lavovy_obr: ['#2e2d3a', '#ffb347', '#151318'],
   bahenni_bludicka: ['#5fae4e', '#9be08a', '#fff3b0'],
   kosteny_kral: ['#e8e2d0', '#b9c2cc', '#4fd6c9'],
@@ -128,6 +133,7 @@ const BARVY_DOPADU = {
   kost: ['rgba(232,226,208,0.3)', '#e8e2d0', '#ffffff'],
   sliz: ['rgba(95,174,78,0.35)', '#5fae4e', '#9be08a'],
   stepek: ['rgba(79,214,201,0.35)', '#4fd6c9', '#b8fff5'],
+  snezka: ['rgba(223,232,255,0.4)', '#dfe8ff', '#ffffff'],
 };
 // Skok slizáka (a permoníka): jak vysoko nad zemí je uprostřed letu (px).
 const VYSKA_SKOKU = 30;

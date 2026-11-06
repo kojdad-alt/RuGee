@@ -554,7 +554,7 @@ export const OD_DUCHU = odKdy(VYCHOZI_MAPA, 'duch');
 export const VIDITELNY_DUCH = 2.6;
 export const SKRYTY_DUCH = 0.9;
 // Duchy (i ledové) jde těžko trefit, takže by se jich jinak nahromadilo plno. Nad tenhle počet místo nich přiletí
-// netopýr.
+// netopýr, a kde netopýři nechodí, první druh mapy, který není duch (NAHRADA_DUCHA, na jezeře vločka).
 export const MAX_DUCHU = 24;
 // Houbák je pomalý, ale po smrti nechá na 3 s jedový oblak, který zraňuje hrdinu, dokud v něm stojí.
 // Prvních pár desetin sekundy se oblak teprve nafukuje a nepálí, ať má hráč čas uhnout.
@@ -901,6 +901,12 @@ const NEPRATELE = {
   krystalnik: { hp: 60, rychlost: 54, poskozeni: 14, xp: 3, polomer: 12 },
   macarat: { hp: 20, rychlost: 78, poskozeni: 7, xp: 2, polomer: 10 },
   stonozka: { hp: 30, rychlost: 40, poskozeni: 8, xp: 3, polomer: 11, jed: true },
+  // Zamrzlé jezero: vločka je drobná a rychlá, lední medvěd skáče, sněhulák hází sněhové koule, mrož je pomalý
+  // a tuhý.
+  vlocka: { hp: 10, rychlost: 72, poskozeni: 5, xp: 1, polomer: 10 },
+  ledni_medved: { hp: 32, rychlost: 44, poskozeni: 10, xp: 2, polomer: 12 },
+  snehulak: { hp: 60, rychlost: 56, poskozeni: 14, xp: 3, polomer: 12 },
+  mroz: { hp: 44, rychlost: 40, poskozeni: 12, xp: 3, polomer: 13 },
   pavoucek: { hp: 8, rychlost: 92, poskozeni: 3, xp: 1, polomer: 7, sit: true },
   strazce: { hp: 320, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
   matka: { hp: 280, rychlost: 54, poskozeni: 16, xp: 25, polomer: 22, boss: true },
@@ -911,6 +917,11 @@ const NEPRATELE = {
   kosteny_kral: { hp: 340, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
 };
 export const RYCHLOST_NEPRATEL = Object.fromEntries(Object.entries(NEPRATELE).map(([id, v]) => [id, v.rychlost]));
+// Kdo na mapě přiletí místo ducha nad MAX_DUCHU (netopýr, když na mapě chodí, jinak první druh, který není duch).
+export const NAHRADA_DUCHA = Object.fromEntries(PORADI_MAP.map((id) => {
+  const druhy = MAPY[id].nepratele.map((d) => d.druh).filter((d) => !NEPRATELE[d].duch);
+  return [id, druhy.includes('netopyr') ? 'netopyr' : druhy[0] ?? 'netopyr'];
+}));
 
 // Schopnosti obyčejných nepřátel: stejná pravidla jako u bossů (varování, pak provedení, pauza s mezi nimi), jen
 // menší. Kostlivec hází kost (Hod): dopadne kousek před hrdinu tam, kam běží (predstih), stojícímu přesně pod nohy,
@@ -943,6 +954,15 @@ export const SCHOPNOSTI_NEPRATEL = {
   krystalnik: {
     pauza: 3.4,
     schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.45, dosah: 330, strela: 'stepek', pocet: [1, 1], let: 0.8, polomer: 22, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
+  },
+  // Zamrzlé jezero: lední medvěd skočí jako slizák a dopadne do sněhu, sněhulák hází sněhové koule.
+  ledni_medved: {
+    pauza: 3.6,
+    schopnosti: [{ id: 'skok', varovani: 0.55, dosah: 240, dopad: 'snezka' }],
+  },
+  snehulak: {
+    pauza: 3.4,
+    schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.45, dosah: 330, strela: 'snezka', pocet: [1, 1], let: 0.8, polomer: 22, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
   },
 };
 export const NAPOR_ELITY = { id: 'vypad', zvuk: 'napor', varovani: 0.7, zamek: 0.25, dosah: 340, rychlost: 430, delka: 320, poskozeni: 12, odhozeni: 50 };
@@ -2038,7 +2058,7 @@ function spawn(hra, sirka, vyska) {
   let duchu = hra.nepratele.filter((n) => n.duch).length;
   for (let i = 0; i < sila.davka; i++) {
     let druh = losujDruh(druhy, celkem, rng.dalsi());
-    if (NEPRATELE[druh].duch && duchu >= MAX_DUCHU) druh = 'netopyr';
+    if (NEPRATELE[druh].duch && duchu >= MAX_DUCHU) druh = NAHRADA_DUCHA[hra.mapa] ?? 'netopyr';
     if (NEPRATELE[druh].duch) duchu += 1;
     const { x, y } = naOkraji(hra, sirka, vyska, true);
     let elita = false;
