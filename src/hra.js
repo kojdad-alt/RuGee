@@ -3,6 +3,9 @@ import { pouzijVylepseni, navicHre, soucetEfektu, utraceno, CENA_STROMU } from '
 import { t, pripojTexty } from './texty.js';
 import { PORADI_SLOTU, ucinekVystroje, losujKus, zlatakyZaKus, RARITY_VYBAVY } from './vystroj.js';
 import {
+  PETY, platnyPet, pouzijPeta, silaPetu, intervalPetu, poskozeniPetu, mrazPetu, losZCisel, SANCE_VEJCE,
+} from './pety.js';
+import {
   MAPY, PORADI_MAP, VYCHOZI_MAPA, PRICHODY_MAP, platnaMapa, naPlose, odKdy, vytlacZPrekazek,
 } from './mapy.js';
 
@@ -988,7 +991,8 @@ export function dobitiStitu(hra) {
 
 // vylepseni: trvalá vylepšení z menu ({ id: úroveň }), bez nich je hra stejná jako dřív.
 // idMapy: kde se hraje (mapy.js), neznámá mapa = Louka.
-export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = VYCHOZI_MAPA) {
+// pet: aktivní pet z vajec ({ druh, rarita, uroven }, pety.js), bez něj (null) je hra stejná jako dřív.
+export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = VYCHOZI_MAPA, pet = null) {
   const trida = platnaTrida(idTridy);
   const mapa = platnaMapa(idMapy);
   const hrdina = {
@@ -1034,6 +1038,8 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     hrdina[vlastnost] *= mistr > 0 ? 1 + (nasobek - 1) * (1 + mistr) : nasobek;
   }
   pouzijVylepseni(hrdina, vylepseni, trida);
+  const zvire = platnyPet(pet);
+  if (zvire) pouzijPeta(hrdina, zvire);
   hrdina.hp = hrdina.maxHp;
   const podilVylepseni = podilTrvalych(vylepseni);
   const navic = navicHre(vylepseni);
@@ -1214,7 +1220,7 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     // klice = klíče na zamčené truhly, prehozeniZdarma = přehození karet od kupce, prehozeno = kolikrát přehodil
     // za zlaťáky (podle toho roste cena). kupec = vůz na louce (null = není), obchod = okno obchodu je otevřené
     // (svět stojí), posledniNakup = co dal poslední nákup (ukáže okno obchodu).
-    zlatakyZ: { bedny: 0, nepratele: 0, elity: 0, vybava: 0 },
+    zlatakyZ: { bedny: 0, nepratele: 0, elity: 0, vybava: 0, pet: 0 },
     mesec: MESEC.strop,
     utraceno: { kupec: 0, prehozeni: 0, zamcene: 0 },
     nakupy: Object.fromEntries(PORADI_ZBOZI.map((id) => [id, 0])),
@@ -1240,9 +1246,220 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     bourek: 0,
     trofeji: 0,
     bludnychKroku: 0,
+    // Pet z vajec (petHrdiny, null = bez peta). vajec = vejce sebraná v téhle hře (menu je připíše do profilu),
+    // vajecPadlo = kolik jich nechali bossové, padloSrdci = kolik srdcí pustili nepřátelé (Beruška tím bliká).
+    pet: zvire ? novyPet(zvire) : null,
+    vajec: 0,
+    vajecPadlo: 0,
+    padloSrdci: 0,
     // Zvuky pro prohlížeč: co se od posledního snímku stalo (id → { pocet, sila }), viz zvuk().
     zvuky: {},
   };
+}
+
+// ---------- Pet z vajec (src/pety.js) ----------
+// Pet běží (letící pet letí) kousek za hrdinou, na straně, kam se hrdina nedívá: odstup px za ním a letící nad px
+// výš. Dohání ho plynule (rychlost = jak rychle se rozdíl zmenší), a kdo zůstal dál než skok px (odhození, útěk),
+// skočí rovnou k hrdinovi. Pety s akcí (PETY[].akce) něco dělají každých intervalPetu s (AKCE_PETU), když to zrovna
+// nejde (žádný nepřítel v dosahu), čekají nabití. Ostatní dávají trvalý bonus (pouzijPeta v novaHra) a nad hlavou
+// jim na zablesk s vyskočí ikona bonusu, když bonus zrovna zabral (SPOUSTECE_PETU), nejvýš jednou za mezera s.
+// Dráčkův oheň letí rychlostí ohen px/s za cílem, Straka letí pro krystal rychlostí let px/s, mrazivý kruh
+// Tučňáka je vidět kruh s.
+export const PET = { odstup: 24, nad: 14, rychlost: 7, skok: 420, let: 460, ohen: 340, zablesk: 0.9, mezera: 2.5, kruh: 0.45 };
+
+function novyPet(zvire) {
+  const sila = silaPetu(zvire.rarita, zvire.uroven);
+  const interval = intervalPetu(zvire.druh, sila);
+  return {
+    ...zvire, sila, interval, x: -PET.odstup, y: -PET.nad, otoceny: 1,
+    // doAkce = za jak dlouho pet zase něco udělá (Želvička začíná s hotovým krunýřem), let = krystal, pro který
+    // Straka letí, stitHotov = krunýř Želvičky je připravený, ohne = Dráčkův oheň v letu, kruhy = mráz Tučňáka,
+    // zablesk = jak dlouho ještě svítí ikona nad petem, posledni = poslední stav spouštěče (SPOUSTECE_PETU).
+    doAkce: zvire.druh === 'zelvicka' ? 0 : interval ?? 0,
+    let: null,
+    stitHotov: false,
+    ohne: [],
+    kruhy: [],
+    zablesk: 0,
+    doZablesku: 0,
+    posledni: null,
+    // Počítadla pro simulaci: akci = kolikrát něco udělal, zasahu a poskozeni (Dráček), doneseno (Straka),
+    // zablokovano (Želvička), zlataku (Křeček), zchlazeno (Tučňák, kolik nepřátel zpomalil).
+    akci: 0,
+    zasahu: 0,
+    poskozeni: 0,
+    doneseno: 0,
+    zablokovano: 0,
+    zlataku: 0,
+    zchlazeno: 0,
+  };
+}
+
+// Co dělají pety s akcí. Vrací true, když akce proběhla (jinak pet čeká nabitý).
+const AKCE_PETU = {
+  // Straka letí pro nejbližší krystal za dosahem magnetu (ale do dosahu akce) a pošle ho hrdinovi.
+  straka(hra, p) {
+    const { hrdina } = hra;
+    let nej = null;
+    let nejD = Infinity;
+    for (const kr of hra.krystaly) {
+      if (kr.pritahovan) continue;
+      const d = vzdalenost(kr, hrdina);
+      if (d <= hrdina.magnet || d > PETY.straka.akce.dosah) continue;
+      const odPeta = vzdalenost(kr, p);
+      if (odPeta < nejD) {
+        nej = kr;
+        nejD = odPeta;
+      }
+    }
+    if (!nej) return false;
+    p.let = nej;
+    return true;
+  },
+  // Dráček plivne oheň do nejbližšího viditelného nepřítele v dosahu.
+  dracek(hra, p) {
+    const n = nejblizsi(hra);
+    if (!n || vzdalenost(n, hra.hrdina) > PETY.dracek.akce.dosah) return false;
+    p.ohne.push({ x: p.x, y: p.y, cil: n, poskozeni: poskozeniPetu('dracek', p.sila), zivot: 1.5 });
+    zvuk(hra, 'petOhen');
+    return true;
+  },
+  // Želvička připraví krunýř, ten zastaví další ránu (krunyrPeta v zran). Interval běží až po ráně.
+  zelvicka(hra, p) {
+    p.stitHotov = true;
+    return true;
+  },
+  // Křeček najde zlaťák, ten hned letí k hrdinovi.
+  krecek(hra, p) {
+    hra.predmety.push({ druh: 'zlatak', x: p.x, y: p.y, hodnota: 1, z: 'pet', pritahovan: true });
+    p.zlataku += 1;
+    return true;
+  },
+  // Tučňák zchladí (otřese) nepřátele kolem hrdiny, bosse napůl jako každý otřes. Bez nikoho v dosahu čeká.
+  tucnak(hra, p) {
+    const { hrdina } = hra;
+    const trvani = mrazPetu('tucnak', p.sila);
+    let kolik = 0;
+    for (const n of hra.nepratele) {
+      if (n.hp <= 0 || !viditelny(n) || vzdalenost(n, hrdina) > PETY.tucnak.akce.dosah) continue;
+      otres(hra, n, trvani);
+      kolik += 1;
+    }
+    if (!kolik) return false;
+    p.zchlazeno += kolik;
+    p.kruhy.push({ x: hrdina.x, y: hrdina.y, zivot: PET.kruh });
+    zvuk(hra, 'mraz');
+    return true;
+  },
+};
+
+// Kdy bonus peta bez akce „zabral“ (ikona nad ním): číslo, které roste, když se to stalo.
+const SPOUSTECE_PETU = {
+  sovicka: (hra) => hra.hrdina.uroven,
+  beruska: (hra) => hra.padloSrdci,
+  houbicka: (hra) => Math.floor(hra.vylecenoRegeneraci / 10),
+  liska: (hra) => (Math.hypot(hra.hrdina.vx, hra.hrdina.vy) > 1 ? Math.floor(hra.cas / 4) : -1),
+  kocour: (hra) => hra.kritu,
+  medvidek: (hra) => Math.floor(hra.zabito / 100),
+  jezek: (hra) => hra.odvetTrnu,
+  havran: (hra) => hra.zabitoBossu + Math.floor(hra.zabito / 200),
+};
+
+function petHrdiny(hra, dt) {
+  const p = hra.pet;
+  if (!p) return;
+  const { hrdina } = hra;
+  const druh = PETY[p.druh];
+  p.zablesk = Math.max(0, p.zablesk - dt);
+  p.doZablesku = Math.max(0, p.doZablesku - dt);
+  if (p.let && (p.let.sebran || p.let.pritahovan)) p.let = null;
+  if (p.let) {
+    // Straka letí pro krystal a pošle ho hrdinovi.
+    const kr = p.let;
+    const d = vzdalenost(kr, p) || 1;
+    const krok = Math.min(d, PET.let * dt);
+    p.x += ((kr.x - p.x) / d) * krok;
+    p.y += ((kr.y - p.y) / d) * krok;
+    p.otoceny = kr.x >= p.x ? 1 : -1;
+    if (d - krok < 10) {
+      kr.pritahovan = true;
+      p.doneseno += 1;
+      p.let = null;
+    }
+  } else {
+    const cilX = hrdina.x - hrdina.otoceny * PET.odstup;
+    const cilY = hrdina.y - (druh.leta ? PET.nad : -4);
+    if (Math.hypot(cilX - p.x, cilY - p.y) > PET.skok) {
+      p.x = cilX;
+      p.y = cilY;
+    }
+    const k = 1 - Math.exp(-PET.rychlost * dt);
+    const dx = (cilX - p.x) * k;
+    p.x += dx;
+    p.y += (cilY - p.y) * k;
+    p.otoceny = Math.abs(dx) > 30 * dt ? Math.sign(dx) : hrdina.otoceny;
+  }
+  if (druh.akce && !(p.druh === 'zelvicka' && p.stitHotov)) {
+    p.doAkce -= dt;
+    if (p.doAkce <= 0) {
+      if (AKCE_PETU[p.druh](hra, p)) {
+        p.doAkce = p.interval;
+        p.akci += 1;
+        if (p.druh !== 'zelvicka') p.zablesk = PET.zablesk;
+      } else {
+        p.doAkce = 0;
+      }
+    }
+  }
+  const spoustec = SPOUSTECE_PETU[p.druh];
+  if (spoustec) {
+    const stav = spoustec(hra);
+    if (p.posledni !== null && stav > p.posledni && p.doZablesku <= 0) {
+      p.zablesk = PET.zablesk;
+      p.doZablesku = PET.mezera;
+    }
+    p.posledni = stav;
+  }
+  // Dráčkův oheň letí za cílem, při dotyku zasáhne (Síla a kritický zásah platí). Když cíl padne nebo se schová,
+  // oheň zhasne.
+  for (const o of p.ohne) {
+    const n = o.cil;
+    o.zivot -= dt;
+    if (!(n.hp > 0) || !viditelny(n)) {
+      o.zivot = 0;
+      continue;
+    }
+    const d = vzdalenost(o, n) || 1;
+    const krok = PET.ohen * dt;
+    if (d <= krok + (n.polomer ?? 8)) {
+      const pred = n.hp;
+      zasah(hra, n, o.poskozeni);
+      p.zasahu += 1;
+      p.poskozeni += Math.max(0, pred - n.hp);
+      rozprsk(hra, n.x, n.y, 'lava', 5);
+      o.zivot = 0;
+    } else {
+      o.x += ((n.x - o.x) / d) * krok;
+      o.y += ((n.y - o.y) / d) * krok;
+    }
+  }
+  p.ohne = p.ohne.filter((o) => o.zivot > 0);
+  for (const kruh of p.kruhy) kruh.zivot -= dt;
+  p.kruhy = p.kruhy.filter((kruh) => kruh.zivot > 0);
+}
+
+// Krunýř Želvičky zastaví ránu jako Štít (modré 0, chvíle bez zranění), pak se začne znovu nabíjet.
+function krunyrPeta(hra, kolik) {
+  const p = hra.pet;
+  const { hrdina } = hra;
+  p.stitHotov = false;
+  p.doAkce = p.interval;
+  p.zablokovano += 1;
+  p.zablesk = PET.zablesk;
+  hrdina.nezranitelny = 0.5;
+  pridejCislo(hra, { x: hrdina.x, y: hrdina.y - 18, text: '0', hodnota: kolik, barva: 'stit' });
+  zvuk(hra, 'stit');
+  rozprsk(hra, hrdina.x, hrdina.y, 'krunyr', 8);
 }
 
 // Prvních pár úrovní přijde rychle, ať má hráč brzy víc zbraní; pak křivka zvolna roste.
@@ -1494,6 +1711,10 @@ function zran(hra, kolik, barva = 'zraneni', odNepritele = true, utocnik = null,
     odvetaTrnu(hra, utocnik, kolik);
     if (hrdina.stitHotov) {
       zablokuj(hra, kolik);
+      return;
+    }
+    if (hra.pet?.stitHotov) {
+      krunyrPeta(hra, kolik);
       return;
     }
   }
@@ -4110,14 +4331,16 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   // Ozvěny zásahů (pasiva Ozvěna)
   ozvenyAZvuky(hra, dt);
   hra.bedny = hra.bedny.filter((b) => !b.rozbita);
+  // Pet z vajec (jde za hrdinou a dělá, co umí)
+  petHrdiny(hra, dt);
 
   pohrbi(hra);
 
-  // srdce, magnet, zlaťák a bomba se seberou dotykem, truhla bosse se začne otevírat (jen jedna naráz,
-  // další se otevře hned po ní). Zlaťák v dosahu magnetu (nebo po sebraném magnetu) letí k hrdinovi.
+  // srdce, magnet, zlaťák, vejce a bomba se seberou dotykem, truhla bosse se začne otevírat (jen jedna naráz,
+  // další se otevře hned po ní). Zlaťák a vejce v dosahu magnetu (zlaťák i po sebraném magnetu) letí k hrdinovi.
   let bouchlo = false;
   for (const p of hra.predmety) {
-    if (p.druh === 'zlatak') {
+    if (p.druh === 'zlatak' || p.druh === 'vejce') {
       const d = vzdalenost(p, hrdina) || 1;
       if (p.pritahovan || d < hrdina.magnet) {
         const kus = Math.min(d, (p.pritahovan ? 520 : 260) * dt);
@@ -4140,6 +4363,10 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
         zvuk(hra, 'srdce');
       } else if (p.druh === 'zlatak') {
         pridejZlataky(hra, p.hodnota ?? 1, p.z ?? 'bedny');
+      } else if (p.druh === 'vejce') {
+        hra.vajec += 1;
+        zvuk(hra, 'vejce');
+        hra.oznameni = { text: t('hra.vejce'), zivot: 2 };
       } else if (p.druh === 'bomba') {
         vybuch(hra, sirka, vyska);
         bouchlo = true;
@@ -4341,6 +4568,11 @@ function pohrbi(hra) {
           hra.trofeji += 1;
         }
         hra.predmety.push({ druh: 'truhla', x: n.x, y: n.y, od: n.druh });
+        // Vejce peta: s šancí SANCE_VEJCE leží vedle truhly (los z čísel hry, ne z rng: náhoda vln se neposune).
+        if (losZCisel(hra.zabito, hra.zabitoBossu, n.maxHp) < SANCE_VEJCE) {
+          hra.vajecPadlo += 1;
+          hra.predmety.push({ druh: 'vejce', x: n.x + 20, y: n.y + 8 });
+        }
         continue;
       }
       // Elita nechá hromádku zlaťáků (bez losu), když je v měšci (jinak menší, nebo nic).
@@ -4354,7 +4586,10 @@ function pohrbi(hra) {
       const los = hra.rng.dalsi();
       const stesti = hrdina.stesti * (hrdina.stestiKoristi ?? 1);
       if (los < SANCE_MAGNET * stesti) hra.predmety.push({ druh: 'magnet', x: n.x, y: n.y });
-      else if (los < (SANCE_MAGNET + SANCE_SRDCE) * stesti) hra.predmety.push({ druh: 'srdce', x: n.x, y: n.y });
+      else if (los < (SANCE_MAGNET + SANCE_SRDCE) * stesti) {
+        hra.predmety.push({ druh: 'srdce', x: n.x, y: n.y });
+        hra.padloSrdci += 1;
+      }
       else if (!n.elita && los < (SANCE_MAGNET + SANCE_SRDCE) * stesti + SANCE_ZLATAKU && hra.mesec >= 1) {
         hra.mesec -= 1;
         hra.predmety.push({ druh: 'zlatak', x: n.x, y: n.y, hodnota: 1, z: 'nepratele' });

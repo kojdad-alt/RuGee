@@ -6,8 +6,9 @@ import {
   KUPEC, CENA_ZAMCENE, POLOMER_ZAMCENE, zakladBosse, DOPAD_KRYSTALU, DOZNIVANI_MRAZU, TRVANI_TRISTENI,
   KYV_ZVONU, ZRANI_SEMINKA, POMER_KERE, RUST_KERE, VADNUTI_KERE, TRVANI_VYBUCHU_SEMINKA,
   VYRAZENI_KORENU, VZPLANUTI, DOHASINANI, PAD_KAMENE, TRVANI_DOZVUKU, poziceUhliku,
-  LET_KAPKY, TRVANI_OSTNU, TRVANI_PRASKNUTI, maStit, dobitiStitu,
+  LET_KAPKY, TRVANI_OSTNU, TRVANI_PRASKNUTI, maStit, dobitiStitu, PET,
 } from './hra.js';
+import { PETY } from './pety.js';
 import { kresliPodlahu } from './louka.js';
 import { MAPY, VYCHOZI_MAPA, hash } from './mapy.js';
 import { nakresliText, STYL_PERGAMEN, STYL_NADPISU, STYL_KREV, PISMO_NADPISU } from './pismo.js';
@@ -74,6 +75,7 @@ const BARVY_CASTIC = {
   oblazek: ['#c9ccd2', '#8d9098', '#53565e'],
   zamcena: ['#a07e5c', '#8a5a35', '#f2c94c'],
   stit: ['#b8fff5', '#dfe8ff', '#7fd8ff'],
+  krunyr: ['#3f8a3c', '#9be08a', '#a07e5c'],
 };
 const BARVA_SITE = 'rgba(236,236,244,0.8)';
 // Duch je i viditelný průsvitný, schovaný je jen tušený obrys. Mezi tím přechází plynule.
@@ -411,6 +413,66 @@ function obrysElity(ctx, obr, x, y, otoceny, velikost, cas) {
   kruhNaZemi(ctx, x, y + velikost * 0.35, velikost * 0.45, true);
   ctx.restore();
   for (const [dx, dy] of [[-krok, 0], [krok, 0], [0, -krok], [0, krok]]) sprite(ctx, obr, x + dx, y + dy, otoceny, OBRYS_ELITY, velikost);
+}
+
+// Pet z vajec (hra.js, petHrdiny): sprite 8×8 ve dvojnásobku (menší než hrdina, ať se s ním neplete). Letící pet
+// se vznáší, běžící při chůzi hrdiny poskakuje, pod ním je stín. Nad ním na chvíli vyskočí ikona bonusu
+// (pet.zablesk), Dráčkův oheň letí jako ohnivý čtvereček, mráz Tučňáka je ledový kruh kolem hrdiny, který se
+// rozběhne do dosahu, a hotový krunýř Želvičky je zelený přerušovaný kruh kolem hrdiny.
+const MERITKO_PETA = 2;
+function kresliPeta(ctx, hra, naObrazovce, stred) {
+  const p = hra.pet;
+  const obr = p && sprity[`pet_${p.druh}`];
+  if (!obr) return;
+  const druh = PETY[p.druh];
+  for (const k of p.kruhy) {
+    const q = naObrazovce(k);
+    const t = 1 - k.zivot / PET.kruh;
+    ctx.save();
+    ctx.globalAlpha = 0.7 * (1 - t);
+    ctx.strokeStyle = '#b8fff5';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(Math.round(q.x), Math.round(q.y), 18 + t * ((druh.akce?.dosah ?? 100) - 18), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (p.stitHotov) {
+    ctx.save();
+    ctx.globalAlpha = 0.75 + 0.2 * Math.sin(hra.cas * 4);
+    ctx.strokeStyle = '#9be08a';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([5, 4]);
+    ctx.lineDashOffset = -hra.cas * 8;
+    ctx.beginPath();
+    ctx.arc(Math.round(stred.x) + 0.5, Math.round(stred.y) + 0.5, 21, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  const q = naObrazovce(p);
+  const bezi = Math.hypot(hra.hrdina.vx, hra.hrdina.vy) > 1 || Boolean(p.let);
+  const posun = druh.leta ? Math.round(Math.sin(hra.cas * 5 + 1) * 2) : bezi ? -Math.abs(Math.round(Math.sin(hra.cas * 14) * 2)) : 0;
+  ctx.fillStyle = 'rgba(11,10,15,0.28)';
+  ctx.fillRect(Math.round(q.x - 6), Math.round(q.y + (druh.leta ? 16 : 9)), 12, 3);
+  sprite(ctx, obr, q.x, q.y + posun, p.otoceny, null, obr.width * MERITKO_PETA);
+  if (p.zablesk > 0) {
+    const ikona = sprity[druh.ikona];
+    const t = 1 - p.zablesk / PET.zablesk;
+    ctx.globalAlpha = Math.min(1, p.zablesk / 0.3);
+    ctx.drawImage(ikona, Math.round(q.x - ikona.width), Math.round(q.y - 30 - t * 8 + posun), ikona.width * 2, ikona.height * 2);
+    ctx.globalAlpha = 1;
+  }
+  for (const o of p.ohne) {
+    const r = naObrazovce(o);
+    const x = Math.round(r.x);
+    const y = Math.round(r.y);
+    ctx.fillStyle = '#0b0a0f';
+    ctx.fillRect(x - 4, y - 4, 8, 8);
+    ctx.fillStyle = '#ff7a2f';
+    ctx.fillRect(x - 3, y - 3, 6, 6);
+    ctx.fillStyle = '#ffd27a';
+    ctx.fillRect(x - 1, y - 1, 2, 2);
+  }
 }
 
 // Pavoučí síť přes hrdinu (nebo zapředeného nepřítele): paprsky a dva kruhy, s koncem sítě bledne.
@@ -2382,6 +2444,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true, horni = HORNI_BARY, sv
   svetluskyRoje(ctx, hra, naObrazovce, false);
   if (hra.zbrane.cep) cepHrdiny(ctx, hra, s, stred, naObrazovce);
   ostnyHrdiny(ctx, hra, stred);
+  kresliPeta(ctx, hra, naObrazovce, stred);
   // Zmizelý hrdina (Bludný plamen) nebliká, je průsvitný a modře se mihotá.
   const zmizel = hrdina.neviditelny > 0;
   const blika = !zmizel && hrdina.nezranitelny > 0 && Math.floor(hrdina.nezranitelny * 20) % 2 === 0;
