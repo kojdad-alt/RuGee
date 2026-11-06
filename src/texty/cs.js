@@ -937,7 +937,7 @@ export default {
     },
     bazina: {
       nazev: 'Bažina',
-      popis: 'Bahno zpomaluje a z něj stoupají jedové bubliny. V rákosí skáčou žáby a rostou houbáci.',
+      popis: 'Bahno zpomaluje a stoupají z něj jedové bubliny. V rákosí skáčou žáby a bzučí komáři, z tůní lezou vodníci.',
     },
     hrbitov: {
       nazev: 'Hřbitov za noci',
@@ -971,7 +971,11 @@ export default {
       golem: 'Čedičoví golemové se dali do pohybu',
       certik: 'Z pekla se vyrojili čertíci',
     },
-    bazina: { houbak: 'Z bahna rostou houbáci', duch: 'Nad bažinou bloudí duchové' },
+    bazina: {
+      houbak: 'Z bahna rostou houbáci',
+      kajman: 'Z bahna vylézají kajmani',
+      vodnik: 'Z tůní se vynořili vodníci',
+    },
     hrbitov: {
       kostlivec: 'Z hrobů vstávají kostlivci',
       duch: 'Mezi hroby bloudí duchové',

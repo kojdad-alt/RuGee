@@ -238,6 +238,38 @@ const SPRITY = {
     'D.e..e..',
     'D.E..E..',
   ],
+  // Bažina: komár (shora, průsvitná křídla, sosák a bříško plné krve), kajman (z boku, hřbet s hrbolky,
+  // zuby), vodník (cylindr, zelená tvář, fajfka, z fraku mu kape voda).
+  komar: [
+    '...DD...',
+    'AaaDDaaA',
+    '.AaZZaA.',
+    'S..ZZ..S',
+    '.S.rr.S.',
+    '..SrRS..',
+    '...rr...',
+    '..S..S..',
+  ],
+  kajman: [
+    '........',
+    '.....y..',
+    '.L.L.lll',
+    'lllllllL',
+    'LMlMlW.W',
+    '.llllllL',
+    '..L..L..',
+    '........',
+  ],
+  vodnik: [
+    '...zzzz.',
+    '...zZZz.',
+    '..zzzzzz',
+    '...MKMK.',
+    '...MMMMn',
+    '.ulllWll',
+    '..lllll.',
+    '.u.l..l.',
+  ],
   slizak: [
     '........',
     '..mmmm..',
@@ -558,6 +590,14 @@ const SPRITY = {
     'eooEE',
     'eoeEE',
     '.EEE.',
+  ],
+  // Hrneček, ve kterém vodník schovává dušičky (hází je, při dopadu se rozbije a vyletí z něj voda).
+  hrnicek: [
+    'aaaa.',
+    'UbUUp',
+    'UUbUp',
+    'UbUU.',
+    '.UU..',
   ],
   // Kost, kterou hází kostlivec (otáčí se v letu, kreslí se šikmo).
   kost: [

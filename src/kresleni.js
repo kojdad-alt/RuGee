@@ -70,6 +70,11 @@ const BARVY_CASTIC = {
   salamandr: ['#b8443c', '#ffb347', '#f2c94c'],
   golem: ['#5c5b70', '#2e2d3a', '#ffb347'],
   certik: ['#b8443c', '#e8e2d0', '#7a2b2e'],
+  komar: ['#53565e', '#ff5a5a', '#e4f6f3'],
+  kajman: ['#3f8a3c', '#26552a', '#9be08a'],
+  vodnik: ['#3f8a3c', '#9be08a', '#7f9cf0'],
+  hrnicek: ['#dfe8ff', '#5f7fb8', '#e4f6f3'],
+  blato: ['#4a3a26', '#7a6a48', '#5fae4e'],
   lavovy_obr: ['#2e2d3a', '#ffb347', '#151318'],
   bahenni_bludicka: ['#5fae4e', '#9be08a', '#fff3b0'],
   kosteny_kral: ['#e8e2d0', '#b9c2cc', '#4fd6c9'],
@@ -139,6 +144,8 @@ const BARVY_DOPADU = {
   stepek: ['rgba(79,214,201,0.35)', '#4fd6c9', '#b8fff5'],
   snezka: ['rgba(223,232,255,0.4)', '#dfe8ff', '#ffffff'],
   magma: ['rgba(255,110,40,0.4)', '#ff7a2f', '#ffd27a'],
+  blato: ['rgba(110,90,50,0.4)', '#5c4a32', '#7d9a4a'],
+  hrnicek: ['rgba(127,156,240,0.4)', '#7f9cf0', '#dfe8ff'],
 };
 // Skok slizáka (a permoníka): jak vysoko nad zemí je uprostřed letu (px).
 const VYSKA_SKOKU = 30;

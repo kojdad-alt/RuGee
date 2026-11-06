@@ -801,7 +801,7 @@ export default {
     },
     bazina: {
       nazev: 'Swamp',
-      popis: 'The mud slows you down and poison bubbles rise from it. Frogs hop in the reeds and shroomers grow.',
+      popis: 'The mud slows you down and poison bubbles rise from it. Frogs hop and mosquitoes buzz in the reeds, water goblins climb out of the pools.',
     },
     hrbitov: {
       nazev: 'Graveyard at Night',
@@ -834,7 +834,11 @@ export default {
       golem: 'The basalt golems are on the move',
       certik: 'Imps swarm up from the underworld',
     },
-    bazina: { houbak: 'Shroomers grow out of the mud', duch: 'Ghosts wander over the swamp' },
+    bazina: {
+      houbak: 'Shroomers grow out of the mud',
+      kajman: 'Caimans crawl out of the mud',
+      vodnik: 'Water goblins rise from the pools',
+    },
     hrbitov: {
       kostlivec: 'Skeletons rise from their graves',
       duch: 'Ghosts wander between the graves',
