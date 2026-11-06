@@ -1,51 +1,69 @@
 {
- "otisk_kodu": "12b4bbc5",
+ "otisk_kodu": "ef131d40",
  "seminko": 1,
- "natoceno_s": 232.9,
+ "profil": {
+  "druh": "ukazka",
+  "mapa": "louka",
+  "vylepseni": 55,
+  "pet": "dracek"
+ },
+ "natoceno_s": 235.9,
  "her": 1,
  "usek_videa_s": [
-  202.7,
-  208.7
+  187.7,
+  193.7
  ],
  "cas_hry": [
-  "3:04",
-  "3:10"
+  "2:44",
+  "2:50"
  ],
- "zmena_za_snimek": 0.1475,
+ "zmena_za_snimek": 0.0858,
  "orez": {
-  "x": 404,
-  "y": 212,
-  "sirka": 472,
-  "vyska": 296
+  "x": 360,
+  "y": 185,
+  "sirka": 560,
+  "vyska": 350
  },
  "gif": {
-  "sirka": 472,
-  "vyska": 296,
+  "sirka": 560,
+  "vyska": 350,
   "fps": 15,
   "barev": 128,
   "sekund": 6.0,
-  "bajtu": 2694850
+  "bajtu": 3444069
  },
  "fotky": {
   "menu": {
    "sirka": 1280,
    "vyska": 720,
-   "bajtu": 375801,
-   "paleta": false
+   "bajtu": 55123,
+   "paleta": true
+  },
+  "strom": {
+   "sirka": 1280,
+   "vyska": 720,
+   "bajtu": 53177,
+   "paleta": true
+  },
+  "pety": {
+   "sirka": 1280,
+   "vyska": 720,
+   "bajtu": 57819,
+   "paleta": true
   },
   "boj": {
    "sirka": 1280,
    "vyska": 720,
-   "bajtu": 350418,
-   "paleta": false,
-   "cas_hry": "3:15"
+   "bajtu": 58322,
+   "paleta": true,
+   "cas_hry": "3:10"
   },
   "uroven": {
    "sirka": 1280,
    "vyska": 720,
-   "bajtu": 37406,
+   "bajtu": 32459,
    "paleta": true,
-   "uroven": 5
+   "uroven": 6
   }
  }
 }
