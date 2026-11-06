@@ -1294,6 +1294,8 @@ export function ovladejTlacitka(kontejner, e) {
   return false;
 }
 
+const MIN_VYSKA_PANELU = 160;
+
 export function vytvorMenu({ hrat }) {
   const koren = document.getElementById('menu');
   const volby = document.getElementById('menu-volby');
@@ -1401,8 +1403,25 @@ export function vytvorMenu({ hrat }) {
     volby.hidden = true;
     zalozka.hidden = false;
     prizpusobNadpisy(zalozka);
+    vejdiSePanel();
     vyberTlacitko(zalozka.querySelector('.zvolena') ?? zalozka.querySelector('button'));
   }
+
+  // Záložka vyšší než obrazovka se posouvá uvnitř rámečku, ne celá stránka (Daliik 6. 11., Rekordy): panel dostane
+  // nejvýš tolik výšky, kolik v menu zbude, a zbytek se posouvá v něm. Strom má vlastní výpočet (strom.js).
+  // Přepočítá se po otevření, při změně velikosti okna a když se obsah panelu změní (podokna, filtry).
+  const panelZalozky = document.getElementById('menu-panel');
+  function vejdiSePanel() {
+    panelZalozky.style.maxHeight = '';
+    panelZalozky.classList.remove('posuvny');
+    if (zalozka.hidden || koren.hidden || panelZalozky.querySelector('.strom-okno')) return;
+    const prebytek = koren.scrollHeight - koren.clientHeight;
+    if (prebytek <= 0) return;
+    panelZalozky.style.maxHeight = `${Math.max(MIN_VYSKA_PANELU, Math.floor(panelZalozky.getBoundingClientRect().height - prebytek))}px`;
+    panelZalozky.classList.add('posuvny');
+  }
+  addEventListener('resize', vejdiSePanel);
+  new MutationObserver(() => setTimeout(vejdiSePanel, 0)).observe(panelZalozky, { childList: true, subtree: true });
 
   // Záložku otevřel hráč (tlačítko menu): zvuk záložky (strom svůj). Překreslení po změně jazyka je potichu.
   function otevriSeZvukem(id) {
