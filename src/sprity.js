@@ -112,6 +112,48 @@ const SPRITY = {
     '..bbbb..',
     '...hh...',
   ],
+  // Jeskyně: permoník (zelená kápě, bílý vous, lucerna), krystalník (kamenné tělo, krystaly na hřbetě),
+  // macarát (bledý jeskynní mlok s rudými žábrami, z boku) a jedová stonožka (shora, pruhy a nožičky).
+  permonik: [
+    '....L...',
+    '...LlL..',
+    '..LllLL.',
+    '..fKfK..',
+    '.WWWWWWo',
+    '.hWWWWhY',
+    '..hhhh..',
+    '..N..N..',
+  ],
+  krystalnik: [
+    '..C..C..',
+    '.cC.cCc.',
+    '.cCGcCG.',
+    'DGGGGGGD',
+    'GKcGGKcD',
+    'DGGGGGGD',
+    '.DGDDGD.',
+    'DD....DD',
+  ],
+  macarat: [
+    '........',
+    '......r.',
+    'r....rRr',
+    'rRRRRRRR',
+    '.RRRRRRR',
+    '..R..R..',
+    '........',
+    '........',
+  ],
+  stonozka: [
+    '..o..o..',
+    '...EE...',
+    '.n.ee.n.',
+    '..nEEn..',
+    '.n.ee.n.',
+    '..nEEn..',
+    '.n.ee.n.',
+    '...EE...',
+  ],
   slizak: [
     '........',
     '..mmmm..',
@@ -408,6 +450,14 @@ const SPRITY = {
     'aHaaaA',
     '.AaHA.',
     '..AA..',
+  ],
+  // Krystalový střep, který hází krystalník (Jeskyně).
+  stepek: [
+    '..C..',
+    '.cCc.',
+    '.cCc.',
+    '.ccA.',
+    '..c..',
   ],
   // Magma, které hází Lávový obr.
   magma: [

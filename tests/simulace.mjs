@@ -4495,6 +4495,61 @@ for (const id of PORADI_MAP.filter((m) => MAPY[m].prekazky)) {
   vysledkyMap.bazina.zaba = { snimku_sedi: sedi, snimku_skace: skace, prumer_px_s: Math.round(prumer), skok_px_s: Math.round(nejrychleji) };
   if (!(SKOK_ZABY.pauza > 0 && SKOK_ZABY.skok > 0)) chybyMap.push('SKOK_ZABY nesedí');
 }
+// Vlastní tvorové map (MAPY_S_VLASTNIMI): taková mapa má aspoň 3 druhy, které nikde jinde nechodí, a nejvýš 2 druhy
+// z jiných map. Tvor se schopností ji na stojícího hrdinu opravdu použije (skok dopadne a trefí, hod trefí) a dopad
+// i střela jsou vidět jako to, co slibují data (permoník jiskří krumpáčem, krystalník hází střep). Jedový tvor po
+// smrti nechá oblak.
+const MAPY_S_VLASTNIMI = ['louka', 'jeskyne'];
+{
+  const kdeChodi = {};
+  for (const id of PORADI_MAP) for (const d of MAPY[id].nepratele) (kdeChodi[d.druh] ??= new Set()).add(id);
+  const tvorove = {};
+  for (const id of MAPY_S_VLASTNIMI) {
+    const druhy = MAPY[id].nepratele.map((d) => d.druh);
+    const vlastni = druhy.filter((d) => kdeChodi[d].size === 1);
+    if (vlastni.length < 3 || druhy.length - vlastni.length > 2) chybyMap.push(`mapa ${id}: vlastních druhů ${vlastni.length}, z jiných map ${druhy.length - vlastni.length}`);
+    tvorove[id] = { vlastni, z_jinych_map: druhy.filter((d) => !vlastni.includes(d)) };
+  }
+  const naStojiciho = (druh) => {
+    const h = holaHra(OBYCEJNE.od + 30);
+    h.hrdina.stani = -Infinity;
+    h.hrdina.hp = h.hrdina.maxHp = 1000;
+    h.pridel.hod = OBYCEJNE.zasoba;
+    h.pridel.skok = OBYCEJNE.zasoba;
+    const n = pridejNepritele(h, druh, h.hrdina.x + 160, h.hrdina.y);
+    Object.assign(n, { rychlost: 0, hp: 1e9, maxHp: 1e9, doSchopnosti: DT / 2 });
+    const dopady = new Set();
+    const strely = new Set();
+    for (let t = 0; t < 2.5; t += DT) {
+      aktualizuj(h, DT, stoj, SIRKA, VYSKA);
+      n.doSchopnosti = Infinity;
+      for (const d of h.dopady) dopady.add(d.druh);
+      for (const k of h.kameny) strely.add(k.druh);
+    }
+    return { hod: h.zasahyNepratel.hod, skok: h.zasahyNepratel.skok, dopady: [...dopady].join(), strely: [...strely].join() };
+  };
+  const schopnosti = {};
+  for (const id of MAPY_S_VLASTNIMI) {
+    for (const druh of tvorove[id].vlastni) {
+      for (const sch of schopnostiNepritele(druh)) {
+        const vysledek = naStojiciho(druh);
+        schopnosti[druh] = vysledek;
+        const dopad = sch.id === 'skok' ? sch.dopad ?? 'sliz' : sch.strela;
+        if (vysledek[sch.id] !== 1 || !vysledek.dopady.split(',').includes(dopad) || (sch.id === 'hod' && vysledek.strely !== sch.strela)) {
+          chybyMap.push(`${druh} (${id}): ${sch.id} na stojícího ${JSON.stringify(vysledek)}`);
+        }
+        if (sch.id === 'hod' && !jmenaSpritu.has(sch.strela)) chybyMap.push(`${druh} hází ${sch.strela} bez spritu`);
+      }
+      const h = holaHra(60);
+      const n = pridejNepritele(h, druh, 300, 0);
+      if (!n.jed) continue;
+      n.hp = 0;
+      aktualizuj(h, DT, stoj, SIRKA, VYSKA);
+      if (h.oblaky.length !== 1) chybyMap.push(`jedový ${druh} (${id}) po smrti nechal ${h.oblaky.length} oblaků`);
+    }
+  }
+  vysledkyMap.vlastni_tvorove = { mapy: tvorove, schopnosti };
+}
 // Hlavní bossové map: na Louce pořadí beze změny, na každé mapě první její hlavní boss a pak zbylí tři základní
 // (každý jen jednou). Noví bossové vychází ze známého bosse, mají 2–3 schopnosti s varováním, vlastní jméno, nápis
 // a sprite aspoň 16×16. Ve hře přijde první opravdu hlavní boss a jeho truhla dá kus sady toho, z koho vychází.

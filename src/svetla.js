@@ -42,7 +42,9 @@ const B = {
 };
 // Střely bossů (stejné barvy jako v kresleni.js) a co svítí, když dopadne kámen bosse.
 const BARVY_STREL = { vejir: [0.5, 0.61, 0.94], bahno: [0.47, 0.78, 0.35], odrazena: [0.89, 0.96, 0.95] };
-const BARVY_DOPADU = { kamen: [1, 0.55, 0.2], kokon: [0.89, 0.96, 0.95], magma: [1, 0.45, 0.15], lebka: [0.31, 0.84, 0.79] };
+const BARVY_DOPADU = {
+  kamen: [1, 0.55, 0.2], kokon: [0.89, 0.96, 0.95], magma: [1, 0.45, 0.15], lebka: [0.31, 0.84, 0.79], stepek: [0.31, 0.84, 0.79],
+};
 // Bossové a nepřátelé, kteří sami svítí: barva, poloměr (px) a síla.
 const SVITI = {
   bludicka: { barva: [0.56, 0.71, 1], r: 120, sila: 0.9 },
@@ -51,6 +53,9 @@ const SVITI = {
   kosteny_kral: { barva: [0.55, 0.9, 0.85], r: 80, sila: 0.4 },
   ohnivy_brouk: { barva: [1, 0.6, 0.25], r: 44, sila: 0.55 },
   ledovy_duch: { barva: [0.62, 0.78, 1], r: 40, sila: 0.35 },
+  // Jeskyně: krystaly krystalníka a lucerna permoníka.
+  krystalnik: { barva: [0.31, 0.84, 0.79], r: 40, sila: 0.4 },
+  permonik: { barva: [1, 0.7, 0.28], r: 36, sila: 0.4 },
 };
 // Kruhy vyvolání svítí barvou bosse (pruh bosse v kresleni.js).
 const BARVY_BOSSU = {

@@ -56,6 +56,11 @@ const BARVY_CASTIC = {
   kralik: ['#e8e2d0', '#b9c2cc', '#ffc2c2'],
   had: ['#3f8a3c', '#26552a', '#f2c94c'],
   strasak: ['#b07a1e', '#a07e5c', '#5f7fb8'],
+  permonik: ['#3f8a3c', '#e8e2d0', '#ffb347'],
+  krystalnik: ['#8d9098', '#4fd6c9', '#b8fff5'],
+  macarat: ['#ffc2c2', '#ff5a5a', '#e8e2d0'],
+  stonozka: ['#b8443c', '#7a2b2e', '#a07e5c'],
+  stepek: ['#4fd6c9', '#b8fff5', '#9fc8c6'],
   lavovy_obr: ['#2e2d3a', '#ffb347', '#151318'],
   bahenni_bludicka: ['#5fae4e', '#9be08a', '#fff3b0'],
   kosteny_kral: ['#e8e2d0', '#b9c2cc', '#4fd6c9'],
@@ -122,8 +127,9 @@ const BARVY_DOPADU = {
   kokon: ['rgba(228,246,243,0.35)', '#c9ccd2', '#ffffff'],
   kost: ['rgba(232,226,208,0.3)', '#e8e2d0', '#ffffff'],
   sliz: ['rgba(95,174,78,0.35)', '#5fae4e', '#9be08a'],
+  stepek: ['rgba(79,214,201,0.35)', '#4fd6c9', '#b8fff5'],
 };
-// Skok slizáka: jak vysoko nad zemí je uprostřed letu (px).
+// Skok slizáka (a permoníka): jak vysoko nad zemí je uprostřed letu (px).
 const VYSKA_SKOKU = 30;
 // Zuřící boss (pod polovinou životů) krátce rudne, pulz trvá PULZ_ZURIVOSTI s.
 const PULZ_ZURIVOSTI = 0.6;
