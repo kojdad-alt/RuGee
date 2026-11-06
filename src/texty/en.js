@@ -805,7 +805,7 @@ export default {
     },
     hrbitov: {
       nazev: 'Graveyard at Night',
-      popis: 'Gravestones, crosses and fog. At night skeletons rise here and ghosts wander between the graves.',
+      popis: 'Gravestones, crosses and fog. At night skeletons rise here, ghosts wander between the graves and ravens croak.',
       smecky: { text: 'A pack howls behind the graveyard wall' },
     },
   },
@@ -842,7 +842,8 @@ export default {
     hrbitov: {
       kostlivec: 'Skeletons rise from their graves',
       duch: 'Ghosts wander between the graves',
-      pavouk: 'Spiders crawl out of the crypts',
+      ghul: 'Ghouls crawl out of dug-up graves',
+      hrobnik: 'The gravediggers have taken up their shovels',
     },
   },
   vystroj: {

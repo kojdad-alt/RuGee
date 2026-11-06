@@ -270,6 +270,38 @@ const SPRITY = {
     '..lllll.',
     '.u.l..l.',
   ],
+  // Hřbitov: havran (z boku, rudé oko), ghúl (shrbený, bledý, dlouhé drápy) a hrobník (klobouk, lopata,
+  // lucerna).
+  havran: [
+    '........',
+    '....zzz.',
+    '...zZrzG',
+    'z..zzzz.',
+    'zzZSSZz.',
+    '.zzZZzz.',
+    '...D.D..',
+    '..DD.DD.',
+  ],
+  ghul: [
+    '....AA..',
+    '...AAyA.',
+    '..DAAAr.',
+    '.DDDAAAa',
+    'DDDDD..a',
+    '.DDDD...',
+    '.A..A...',
+    'AA..AA..',
+  ],
+  hrobnik: [
+    '..NNNN..',
+    '.NNNNNN.',
+    '..fKfK.G',
+    '..ffff.G',
+    'YnnnnnnG',
+    'onNNNNnG',
+    '..nnnnGG',
+    '..N..N..',
+  ],
   slizak: [
     '........',
     '..mmmm..',
@@ -598,6 +630,14 @@ const SPRITY = {
     'UUbUp',
     'UbUU.',
     '.UU..',
+  ],
+  // Hrouda hlíny, kterou hází hrobník (Hřbitov).
+  hlina: [
+    '.nnn.',
+    'nhnnN',
+    'nnhNN',
+    'nNNhN',
+    '.NNN.',
   ],
   // Kost, kterou hází kostlivec (otáčí se v letu, kreslí se šikmo).
   kost: [
