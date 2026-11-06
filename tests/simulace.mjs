@@ -5685,6 +5685,10 @@ for (const text of [souborProfilu(dataHrace), rozsekany, `  ${kodHrace}\n`]) {
   if (JSON.stringify(prectiKod(text).data) !== JSON.stringify(dataHrace)) chybyProfilu.push(`kód v textu se nepřečetl: ${JSON.stringify(text.slice(0, 60))}`);
 }
 if (nazevSouboru('Hráč Žluťoučký') !== 'RuGee-Hrac-Zlutoucky.rugee' || nazevSouboru('!!!') !== 'RuGee-profil.rugee') chybyProfilu.push(`jméno souboru: ${nazevSouboru('Hráč Žluťoučký')}`);
+// jméno v azbuce: kód ho přenese celé, soubor dostane jméno latinkou
+const azbukou = { ...dataHrace, jmeno: 'Гравець Їжак' };
+if (prectiKod(souborProfilu(azbukou)).data?.jmeno !== 'Гравець Їжак') chybyProfilu.push('jméno v azbuce se kódem nepřeneslo');
+if (nazevSouboru('Игрок Ёжик') !== 'RuGee-Igrok-Jozhik.rugee' || nazevSouboru('Щука') !== 'RuGee-Shchuka.rugee') chybyProfilu.push(`jméno souboru v azbuce: ${nazevSouboru('Игрок Ёжик')}`);
 // Plný profil (všechno vylepšené, celá sbírka, rekord na každé mapě) má pořád krátký kód a projde celý.
 const plny = platnaDataProfilu({
   jmeno: 'Žluťoučký kůň 16', trida: 'svetlonos', mapa: 'hrbitov', mapy: PORADI_MAP,
@@ -6160,6 +6164,24 @@ for (const [znak, zaklad] of Object.entries(DIAKRITIKA)) {
   if (!g || g.slice(3).join() !== PISMO_NADPISU[zaklad].slice(3).join() || !g.slice(0, 3).join('').includes('X')) chybyPisma.push(`${znak} nemá diakritiku nad ${zaklad}`);
 }
 if ([...'RuGee'].some((z) => !PISMENA_LOGA[z] || PISMENA_LOGA[z].length !== 8)) chybyPisma.push('logu chybí písmeno');
+// azbuka: celá ruská a ukrajinská abeceda (malá písmena se kreslí velkými) a apostrof, Ё, Й, Ї a Ґ mají znaménko
+// nad základním písmenem, písmena shodná s latinkou mají její tvar
+const AZBUKA = 'АБВГҐДЕЁЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ';
+const chybiAzbuka = [...AZBUKA, ...AZBUKA.toLowerCase(), 'ʼ', '’'].filter((z) => !PISMO_NADPISU[z.toLocaleUpperCase('cs')]);
+if (chybiAzbuka.length) chybyPisma.push(`písmo nemá azbuku: ${chybiAzbuka.join('')}`);
+for (const [znak, zaklad] of Object.entries({ Ё: 'Е', Й: 'И', Ї: 'І', Ґ: 'Г' })) {
+  const g = PISMO_NADPISU[znak];
+  if (!g || g.slice(3).join() !== PISMO_NADPISU[zaklad]?.slice(3).join() || !g.slice(0, 3).join('').includes('X')) chybyPisma.push(`${znak} nemá znaménko nad ${zaklad}`);
+}
+for (const [cyr, lat] of Object.entries({ А: 'A', В: 'B', Е: 'E', К: 'K', М: 'M', Н: 'H', О: 'O', Р: 'P', С: 'C', Т: 'T', Х: 'X', І: 'I' })) {
+  if (PISMO_NADPISU[cyr]?.join() !== PISMO_NADPISU[lat].join()) chybyPisma.push(`${cyr} nemá tvar latinského ${lat}`);
+}
+const tvaryAzbuky = new Map();
+for (const z of AZBUKA) {
+  const tvarZnaku = PISMO_NADPISU[z]?.join();
+  if (tvaryAzbuky.has(tvarZnaku)) chybyPisma.push(`${z} vypadá stejně jako ${tvaryAzbuky.get(tvarZnaku)}`);
+  tvaryAzbuky.set(tvarZnaku, z);
+}
 // Rámy (nastroje/ramy.mjs) jsou obdélníky a mají jen barvy z palety, jinak by svg() spadlo.
 for (const radky of [['KK', 'Kh'], ['Kh', 'K']]) {
   let spadlo = false;
@@ -6275,11 +6297,12 @@ function pixeloveTexty() {
   const texty = ['volba.novaUroven', 'volba.truhlaBosse', 'volba.zamcenaTruhla', 'porovnani.nadpis', 'obchod.nadpis', 'pauza.nadpis',
     'konec.nadpis', 'kresleni.zuri', 'menu.nastaveni.zvuk', 'menu.nastaveni.hra', 'menu.plocha.nadpis', 'menu.profil.novy',
     'menu.profil.prejmenovat', 'menu.profil.export', 'menu.profil.import', 'hra.oziveni', 'hra.bomba', 'hra.kupec.prijel',
-    'hra.kupec.odjel', 'menu.barvy.nadpis', 'pauza.prehled.zbrane', 'pauza.prehled.pasivy', 'pauza.prehled.vybava'].map((k) => [k, t(k)]);
+    'hra.kupec.odjel', 'menu.barvy.nadpis', 'pauza.prehled.zbrane', 'pauza.prehled.pasivy', 'pauza.prehled.vybava',
+    'menu.nastaveni.jazyk', 'pauza.prehled.rarity', 'konec.nadpisUkonceno', 'hra.obkliceni', 'hra.vejce'].map((k) => [k, t(k)]);
   for (const v of Object.values(t('menu.ovladani.skupiny'))) texty.push(['skupina Ovládání', v]);
   for (const [id, z] of Object.entries(ZALOZKY_SLOVNIKU())) texty.push([`záložka ${id}`, z.nazev]);
   for (const b of Object.values(BOSSOVE)) texty.push(['boss', b.nazev], ['příchod bosse', b.prichod], ['zuří', t('hra.zuri', { boss: b.nazev })]);
-  for (const m of Object.values(MAPY)) texty.push(['odemčená mapa', t('hra.odemcenaMapa', { mapa: m.nazev })]);
+  for (const m of Object.values(MAPY)) texty.push(['odemčená mapa', t('hra.odemcenaMapa', { mapa: m.nazev })], ...(m.smecky ? [['smečka', m.smecky.text]] : []));
   for (const p of Object.values(PRICHODY_MAP).flat()) texty.push(['ohlášení mapy', p.text]);
   for (const k of VSECHNY_KUSY) texty.push(['kus', k.nazev], ['výbava bosse', t('hra.vybavaBosse', { kus: k.nazev })]);
   for (const n of [5, 6, 11]) texty.push(...['sili', 'elity', 'casteji'].map((h) => ['hrozba', t(`hra.hrozba.${h}`, { n })]));
@@ -6324,7 +6347,7 @@ function srovnejSlovnik(vzor, jiny, cesta, jazyk) {
     else if (znackyTextu(a) !== znackyTextu(b)) chybyPrekladu.push(`${kde}: značky ${znackyTextu(b)} místo ${znackyTextu(a)}`);
   }
 }
-if (!JAZYKY.includes('en') || JAZYKY[0] !== VYCHOZI_JAZYK || pocetTvaru('cs') !== 3 || pocetTvaru('en') !== 2) chybyPrekladu.push(`jazyky ${JAZYKY}`);
+if (!JAZYKY.includes('en') || !JAZYKY.includes('ru') || JAZYKY[0] !== VYCHOZI_JAZYK || pocetTvaru('cs') !== 3 || pocetTvaru('en') !== 2 || pocetTvaru('ru') !== 3) chybyPrekladu.push(`jazyky ${JAZYKY}`);
 for (const jazyk of JAZYKY.filter((j) => j !== VYCHOZI_JAZYK)) srovnejSlovnik(SLOVNIKY[VYCHOZI_JAZYK], SLOVNIKY[jazyk], '', jazyk);
 const textySlovniku = (v) => (typeof v === 'string' ? [v] : Array.isArray(v) ? v.flatMap(textySlovniku) : v && typeof v === 'object' ? Object.values(v).flatMap(textySlovniku) : []);
 const ceskeVAnglictine = textySlovniku(SLOVNIKY.en).filter((x) => DIAKRITIKA_TEXT.test(x) && /[áčďéěíňóřšťúůýž]/i.test(x));
@@ -6348,7 +6371,7 @@ function ceskeTexty(v, cesta, nalez) {
 const vData = [];
 for (const [jmeno, modul] of Object.entries(moduly)) for (const [k, v] of Object.entries(modul)) if (typeof v === 'object') ceskeTexty(v, `${jmeno}.${k}`, vData);
 const hraEn = novaHra(vytvorRng(5), 'havir', {}, 'jezero');
-const zFunkci = {
+const textyZFunkci = () => ({
   schopnosti: Object.keys(BOSSOVE).flatMap((d) => schopnostiBosse(d).map((s) => s.nazev)),
   hrozba: [1, 6, 11].map((u) => moduly.hra.textHrozby(u)),
   karty: [...nabidka(hraEn), karta(hraEn, 'pasiva', 'stit', 'legendarni'), karta(hraEn, 'leceni', 'leceni', 'vzacna'), karta(hraEn, 'zbran', 'zvon', 'epicka')],
@@ -6357,7 +6380,8 @@ const zFunkci = {
   staty: radkyStatu({ maxHp: 2, zbroj: 0.05, sila: 0.04, nabijeni: 0.03, rychlost: 0.02, magnet: 0.1 }),
   ohlaseni: Object.values(PRICHODY_MAP).flat().map((p) => p.text),
   jmenoProfilu: vychoziJmeno(),
-};
+});
+const zFunkci = textyZFunkci();
 ceskeTexty(zFunkci, 'funkce', vData);
 if (vData.length) chybyPrekladu.push(`v angličtině zůstala čeština: ${vData.slice(0, 4).join(' | ')}`);
 if (zFunkci.jmenoProfilu !== 'Player' || ZBRANE.jiskra.nazev !== 'Spark' || BOSSOVE.strazce.prichod !== t('bossove.strazce.prichod')) chybyPrekladu.push('angličtina: jméno profilu, zbraň nebo boss');
@@ -6383,8 +6407,53 @@ const odehraj = (jazyk) => {
 const hraCesky = odehraj('cs');
 if (odehraj('en') !== hraCesky) chybyPrekladu.push('hra v angličtině dopadla jinak než česky');
 nastavJazyk(VYCHOZI_JAZYK);
+// Jazyky v azbuce (ruština): stejně jako angličtina vrací data po přepnutí texty jazyka a nikde v datech, kopiích
+// ani textech z funkcí nezůstane čeština, tvary slov jsou tři podle posledních číslic (1, 21, 101 | 2–4, 22–24 |
+// 0, 5–20, 25…, 11–14 a desetinné číslo druhý tvar), čísla s desetinnou čárkou, procenta bez mezery, datum
+// 05.11.2026 a hra hraje stejně jako česky. Texty slovníku jsou v azbuce: latinkou smí být jen jména (RuGee, WebGL,
+// DPS, Safari), klávesy a tlačítka ovladače. Ruština nemá ukrajinská písmena (і ї є ґ).
+const LATINKA_V_AZBUCE = new Set(['RuGee', 'RUGEE', 'WebGL', 'DPS', 'Safari', 'Enter', 'Esc', 'Tab', 'Start', 'Back', 'Options', 'Share']);
+const AZBUCE = {
+  ru: {
+    zbran: 'Искра', hrac: 'Игрок', ciziPismena: /[іїєґ]/i,
+    kusy: '0 предметов|1 предмет|2 предмета|4 предмета|5 предметов|11 предметов|12 предметов|14 предметов|21 предмет|22 предмета|25 предметов|101 предмет|111 предметов|1.5 предмета',
+    duse: ['1 душа', '3 души', '7 душ', '21 душа'], zlataky: ['1 золотой', '3 золотых', '12 золотых'], stat: ['+5,6% брони', '+21 здоровья'], datum: '05.11.2026',
+  },
+};
+for (const [jazyk, cekam] of Object.entries(AZBUCE)) {
+  const texty = textySlovniku({ ...SLOVNIKY[jazyk], format: { procenta: SLOVNIKY[jazyk].format.procenta } });
+  const latinka = texty.flatMap((x) => (x.replace(/<\/?\w+>/g, '').replace(/\{[^{}]*\}/g, '').match(/[A-Za-z]{2,}/g) ?? []).filter((slovo) => !LATINKA_V_AZBUCE.has(slovo)).map((slovo) => `${slovo} (${x.slice(0, 40)})`));
+  if (latinka.length) chybyPrekladu.push(`${jazyk} má nepřeložené texty latinkou: ${latinka.slice(0, 4).join(' | ')}`);
+  const cizi = texty.filter((x) => /[áčďéěíňóřšťúůýž]/i.test(x) || cekam.ciziPismena.test(x));
+  if (cizi.length) chybyPrekladu.push(`${jazyk} má písmena jiného jazyka: ${cizi.slice(0, 3).join(' | ')}`);
+  nastavJazyk(jazyk);
+  for (const [cesta, data] of Object.entries(DATA_SLOVNIKU)) projdiVetev(data, hodnota(cesta, jazyk), cesta);
+  const videno = new WeakSet();
+  const ceskeVDatech = [];
+  const projdi = (v, cesta) => {
+    if (typeof v === 'string') { if (/[áčďéěíňóřšťúůýž]/i.test(v)) ceskeVDatech.push(`${cesta}: ${v}`); return; }
+    if (!v || typeof v !== 'object' || videno.has(v)) return;
+    videno.add(v);
+    for (const [k, x] of Object.entries(v)) projdi(x, `${cesta}.${k}`);
+  };
+  for (const [jmeno, modul] of Object.entries(moduly)) for (const [k, v] of Object.entries(modul)) if (typeof v === 'object') projdi(v, `${jmeno}.${k}`);
+  projdi(textyZFunkci(), 'funkce');
+  if (ceskeVDatech.length) chybyPrekladu.push(`v jazyce ${jazyk} zůstala čeština: ${ceskeVDatech.slice(0, 4).join(' | ')}`);
+  if (ZBRANE.jiskra.nazev !== cekam.zbran || vychoziJmeno() !== cekam.hrac || BOSSOVE.strazce.prichod !== t('bossove.strazce.prichod')) chybyPrekladu.push(`${jazyk}: zbraň ${ZBRANE.jiskra.nazev}, hráč ${vychoziJmeno()}`);
+  const kusy = [0, 1, 2, 4, 5, 11, 12, 14, 21, 22, 25, 101, 111, 1.5].map((n) => t('tvary.kusy', { n })).join('|');
+  if (kusy !== cekam.kusy) chybyPrekladu.push(`${jazyk} tvary kusů: ${kusy}`);
+  const duse = [1, 3, 7, 21].map((n) => t('menu.duse', { n }));
+  const zlataky = [1, 3, 12].map((n) => t('tvary.zlataky', { n }));
+  const staty = [...radkyStatu({ zbroj: 0.056 }), ...radkyStatu({ maxHp: 21 })];
+  if (JSON.stringify([duse, zlataky, staty]) !== JSON.stringify([cekam.duse, cekam.zlataky, cekam.stat])) chybyPrekladu.push(`${jazyk} tvary: ${duse} ${zlataky} ${staty}`);
+  if (cisloTextu(1.25) !== '1,3' || procentaTextu(5) !== '5%' || datumTextu(new Date('2026-11-05T12:00:00Z')) !== cekam.datum) chybyPrekladu.push(`${jazyk} čísla: ${cisloTextu(1.25)} ${procentaTextu(5)} ${datumTextu(new Date('2026-11-05T12:00:00Z'))}`);
+  if (nazevSouboru('!!!') !== 'RuGee-profil.rugee') chybyPrekladu.push(`${jazyk} jméno souboru bez jména: ${nazevSouboru('!!!')}`);
+  if (odehraj(jazyk) !== hraCesky) chybyPrekladu.push(`hra v jazyce ${jazyk} dopadla jinak než česky`);
+}
+nastavJazyk(VYCHOZI_JAZYK);
 // jazyk prohlížeče a uložení v nastavení
-const prohlizece = [[['cs-CZ', 'en'], 'cs'], [['sk'], 'cs'], [['en-US'], 'en'], [['de-DE', 'en-GB'], 'en'], [['de-DE', 'cs'], 'cs'], [[], 'en'], [[undefined], 'en']];
+const prohlizece = [[['cs-CZ', 'en'], 'cs'], [['sk'], 'cs'], [['en-US'], 'en'], [['de-DE', 'en-GB'], 'en'], [['de-DE', 'cs'], 'cs'], [[], 'en'], [[undefined], 'en'],
+  [['ru-RU'], 'ru'], [['be-BY', 'en'], 'ru'], [['kk'], 'ru'], [['de-DE', 'ru'], 'ru']];
 for (const [seznam, cekam] of prohlizece) if (jazykProhlizece(seznam) !== cekam) chybyPrekladu.push(`prohlížeč ${seznam} dal ${jazykProhlizece(seznam)}`);
 {
   const ulozene = new Map();
@@ -6392,7 +6461,11 @@ for (const [seznam, cekam] of prohlizece) if (jazykProhlizece(seznam) !== cekam)
   if (nactiNastaveni().jazyk !== '') chybyPrekladu.push('nový hráč má mít jazyk nezvolený');
   ulozNastaveni({ ...nactiNastaveni(), jazyk: 'en' });
   if (nactiNastaveni().jazyk !== 'en') chybyPrekladu.push('jazyk se neuložil');
-  for (const spatne of ['de', 7, null, 'EN']) {
+  for (const j of JAZYKY) {
+    ulozNastaveni({ ...nactiNastaveni(), jazyk: j });
+    if (nactiNastaveni().jazyk !== j) chybyPrekladu.push(`jazyk ${j} se neuložil`);
+  }
+  for (const spatne of ['de', 7, null, 'EN', 'RU', 'ua']) {
     ulozene.set('hlubiny.nastaveni', JSON.stringify({ jazyk: spatne }));
     if (nactiNastaveni().jazyk !== '') chybyPrekladu.push(`rozbitý jazyk ${spatne} prošel`);
   }

@@ -144,10 +144,22 @@ export function souborProfilu(data) {
   return `${t('prenos.hlavicka', { jmeno: d.jmeno })}\n${kodProfilu(d)}\n`;
 }
 
-// Jméno souboru bez diakritiky a mezer: RuGee-Hrac.rugee
+// Azbuka latinkou pro jméno souboru (Игрок → Igrok, Гравець → Gravec), ať je jméno souboru jen z ASCII.
+const LATINKOU = {
+  а: 'a', б: 'b', в: 'v', г: 'g', ґ: 'g', д: 'd', е: 'e', ё: 'jo', є: 'je', ж: 'zh', з: 'z', и: 'i', і: 'i', ї: 'ji',
+  й: 'j', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'c',
+  ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'ju', я: 'ja',
+};
+const doAscii = (text) => [...String(text ?? '')]
+  .map((z) => {
+    const l = LATINKOU[z.toLowerCase()];
+    return l === undefined ? z : z === z.toLowerCase() ? l : l.charAt(0).toUpperCase() + l.slice(1);
+  })
+  .join('').normalize('NFD').replace(/\p{M}/gu, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+// Jméno souboru bez diakritiky, azbuky a mezer: RuGee-Hrac.rugee
 export function nazevSouboru(jmeno) {
-  const ascii = String(jmeno ?? '').normalize('NFD').replace(/\p{M}/gu, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return `RuGee-${ascii || t('prenos.bezJmena')}${PRIPONA_SOUBORU}`;
+  return `RuGee-${doAscii(jmeno) || doAscii(t('prenos.bezJmena')) || 'profil'}${PRIPONA_SOUBORU}`;
 }
 
 // Přečte kód uložení z textu (vložený kód, celý soubor .rugee, klidně s mezerami, zalomením nebo textem okolo).
