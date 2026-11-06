@@ -2,7 +2,7 @@
 // Jen DOM: co zboží stojí a co udělá, je v hra.js (nabidkaKupce, kup). Vzhled karet je stejný jako u karet
 // vylepšení, jen s mosazným rámečkem a cenovkou místo rarity (style.css, .zbozi). Nadpis je pixelovým písmem.
 import { nabidkaKupce } from './hra.js';
-import { obrazekSpritu, vyberTlacitko } from './menu.js';
+import { obrazekSpritu, vyberTlacitko, najedi, najetiMysi } from './menu.js';
 import { mysVybira } from './ovladac.js';
 import { pixelovyNadpis, prizpusobNadpisy } from './pismo.js';
 import { t } from './texty.js';
@@ -65,7 +65,7 @@ export function ukazObchod(okno, hra, kup, vybrat = null) {
   const karty = nabidkaKupce(hra).map((z, i) => {
     const karta = kartaZbozi(z, i);
     karta.addEventListener('click', () => kup(z.id));
-    karta.addEventListener('pointerover', () => { if (mysVybira() && !karta.classList.contains('vybrano')) vyberTlacitko(karta); });
+    karta.addEventListener('pointerover', (e) => { if (mysVybira()) najedi(karta, false, najetiMysi(e)); });
     return karta;
   });
   const zbozi = okno.querySelector('#zbozi');

@@ -5,6 +5,7 @@ import { dusZaHru, DUSE_ZA } from './duse.js';
 import {
   vytvorMenu, ovladejTlacitka, vyberTlacitko, formatCas, zvolenaTrida, zvolenaMapa, obrazekSpritu, cislaPoskozeni,
   prepinacNastaveni, prepinacSvetel, ovladaniZvuku, prepniZtlumeni, skupina, ikonaMapy, sbalenaVybava, prepniSbalenouVybavu,
+  nastavZvukyTlacitek,
 } from './menu.js';
 import { pixelovyNadpis, prizpusobNadpisy, STYL_KREV } from './pismo.js';
 import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu, nactiPety, pripisVejce } from './ulozeni.js';
@@ -103,6 +104,17 @@ function doMenu() {
   nactiNovouVerzi();
 }
 
+// Po prohře (a Ukončit hru v pauze): do menu se zvukem zpět, Znovu se zvukem startu jako Hrát.
+function zpetDoMenu() {
+  zvukHry('zpet');
+  doMenu();
+}
+
+function znovu() {
+  zvukStartu();
+  start();
+}
+
 // Hra začne až po Hrát. Stisk tlačítka zároveň odemkne zvuk (prohlížeč ho jinak nepustí).
 const menu = vytvorMenu({
   hrat() {
@@ -173,7 +185,7 @@ function ukazPanelVybavy(vynutit = false) {
 }
 
 function prepniPanelVybavy() {
-  prepniSbalenouVybavu();
+  zvukHry('prepinac', prepniSbalenouVybavu() ? 0 : 1);
   ukazPanelVybavy();
 }
 
@@ -191,10 +203,11 @@ function vybavaUJoysticku() {
 // Pauza (P nebo Esc): hra stojí a okno z trámů nabídne Pokračovat a Ukončit hru, přehled buildu (DPS zbraní, pasivy,
 // výbava) a skupiny jako v Nastavení: Hra (čísla poškození, sbalená výbava, světla) a Zvuk (hlasitost, ztlumení).
 // Pořadí šipek je stejné jako dřív (přehled nemá tlačítka). Volby se staví pokaždé znovu, ať ukazují, co je zrovna
-// uložené (mohlo se změnit v menu).
-function nastavPauzu(zapnout) {
+// uložené (mohlo se změnit v menu). Otevření zazní jako záložka, pokračování jako zpět (sZvukem = false potichu).
+function nastavPauzu(zapnout, sZvukem = true) {
   hra.pauza = zapnout;
   el('pauza').hidden = !zapnout;
+  if (sZvukem) zvukHry(zapnout ? 'zalozka' : 'zpet');
   if (!zapnout) {
     document.activeElement?.blur?.();
     return;
@@ -214,10 +227,11 @@ function nastavPauzu(zapnout) {
   ukoncit.type = 'button';
   ukoncit.addEventListener('click', () => {
     if (!hra?.pauza || hra.konec) return;
+    zvukHry('zpet');
     if (hra.cas >= ODEMKNUTI_MAPY) {
       hra.ukonceno = true;
       hra.konec = true;
-      nastavPauzu(false);
+      nastavPauzu(false, false);
     } else {
       hra.pauza = false;
       doMenu();
@@ -298,6 +312,7 @@ function nakup(id) {
 function odejdi() {
   if (!hra?.obchod || performance.now() - obchodOd < POJISTKA_VOLBY) return;
   odejdiOdKupce(hra);
+  zvukHry('zpet');
   el('obchod').hidden = true;
   document.activeElement?.blur?.();
 }
@@ -513,6 +528,8 @@ let hlaseniZvuku = 0;
 function prepniZvuk() {
   odemkniZvuk();
   const ztlumeno = prepniZtlumeni();
+  // Zapnutý zvuk cvakne (ztlumený už nic nezahraje).
+  if (!ztlumeno) zvukHry('prepinac', 1);
   const hlaseni = el('zvuk-hlaseni');
   hlaseni.textContent = ztlumeno ? t('hra.zvukVypnuty') : t('hra.zvukZapnuty');
   hlaseni.hidden = false;
@@ -569,7 +586,7 @@ function akceOvladace(u, bylAktivni) {
   const karty = (kontejner) => ovladejTlacitka(kontejner, umelaKlavesa(smer ?? (kontejner.querySelector('.vybrano') ? 'Enter' : 'ArrowRight')));
   const vyber = smer || u === 'a';
   if (hra.konec) {
-    if (u === 'b') doMenu();
+    if (u === 'b') zpetDoMenu();
     else if (vyber) tlacitka(el('konec'));
   } else if (hra.porovnani) {
     if (vyber) karty(el('porovnani-kusy'));
@@ -639,6 +656,9 @@ addEventListener('pointermove', (e) => {
 }, true);
 addEventListener('keydown', (e) => {
   bezOvladace();
+  // Stisk klávesy je pro prohlížeč interakce: zvuk se odemkne hned, ať ťukne už první šipka v menu. Esc se
+  // za interakci nepočítá (Chrome by kontext založil pozastavený).
+  if (e.key !== 'Escape') odemkniZvuk();
   // Psaní do pole v menu (jméno profilu, kód uložení): klávesy patří poli. N by jinak ztlumil zvuk, WASD posouvaly
   // výběr a Backspace zavřel záložku. Enter a Esc si pole obslouží samo.
   if (e.target instanceof Element && e.target.matches('input, textarea')) return;
@@ -654,8 +674,9 @@ addEventListener('keydown', (e) => {
   stisknute.add(k);
   // Po prohře: R znovu, M nebo Esc do menu, šipky a Enter mezi tlačítky Znovu a Menu.
   if (hra.konec) {
-    if (k === 'r') start();
-    else if (k === 'm' || k === 'escape') doMenu();
+    if (k === 'r') {
+      if (!e.repeat) znovu();
+    } else if (k === 'm' || k === 'escape') zpetDoMenu();
     else ovladejTlacitka(el('konec'), e);
     return;
   }
@@ -718,8 +739,8 @@ platno.addEventListener('touchend', pustDotyk);
 platno.addEventListener('touchcancel', pustDotyk);
 addEventListener('blur', () => stisknute.clear());
 addEventListener('resize', zmenVelikost);
-el('znovu').addEventListener('click', () => { if (hra?.konec) start(); });
-el('do-menu').addEventListener('click', () => { if (hra?.konec) doMenu(); });
+el('znovu').addEventListener('click', () => { if (hra?.konec) znovu(); });
+el('do-menu').addEventListener('click', () => { if (hra?.konec) zpetDoMenu(); });
 el('prehodit').addEventListener('click', prehodKarty);
 // Pauza na dotyk: tlačítko vlevo v liště (CSS ho ukáže jen na dotykovém displeji). Funguje jako P, takže ne v okně
 // karet, výbavy, kupce ani po prohře; v pauze ji klepnutí zase pustí.
@@ -757,6 +778,7 @@ priZmeneOvladace((zmena, stav) => {
   document.body.classList.toggle('ovladac', stav.aktivni);
 });
 zmenVelikost();
+nastavZvukyTlacitek();
 doMenu();
 registrujAplikaci();
 priZmeneAplikace(nactiNovouVerzi);

@@ -11,8 +11,8 @@ import {
   prehledStromu,
 } from './duse.js';
 import { nactiDuse, ulozDuse } from './ulozeni.js';
-import { obrazekSpritu, vyberTlacitko, pocetDusi } from './menu.js';
-import { odemkniZvuk, zvukNakupu, zvukOdmitnuti } from './zvuk.js';
+import { obrazekSpritu, vyberTlacitko, najedi, najetiMysi, pocetDusi } from './menu.js';
+import { odemkniZvuk, zvukHry, zvukNakupu, zvukOdmitnuti } from './zvuk.js';
 import { mysVybira, vyplnZnackami } from './ovladac.js';
 import { t } from './texty.js';
 
@@ -307,11 +307,14 @@ export function vyplnStrom(panel) {
     vratit.disabled = !kVraceni;
     if (vybrany) popisUzlu(vybrany);
   }
-  function vyber(id, posunout = false) {
+  // zvuk = výběr přesunul hráč (myš, šipky, páčka): tiché ťuknutí, jen když se výběr opravdu pohnul.
+  function vyber(id, posunout = false, zvuk = false) {
+    const jiny = id !== vybrany || !uzly.get(id)?.classList.contains('vybrano');
     vybrany = id;
     vyberTlacitko(uzly.get(id));
     popisUzlu(id);
     if (posunout) ukaz(id);
+    if (zvuk && jiny) zvukHry('najeti');
   }
   function zatres(e) {
     e.classList.remove('zatrast');
@@ -416,13 +419,14 @@ export function vyplnStrom(panel) {
 
   for (const [id, b] of uzly) {
     b.addEventListener('pointerover', (e) => {
-      if (e.pointerType === 'mouse' && mysVybira() && !tah?.pohnul && vybrany !== id) vyber(id);
+      if (e.pointerType === 'mouse' && mysVybira() && !tah?.pohnul && vybrany !== id) vyber(id, false, najetiMysi(e));
     });
     b.addEventListener('focus', () => {
       if (vybrany !== id) popisUzlu(id);
     });
     b.addEventListener('click', (e) => {
-      if (tahnuto) return;
+      // Puštěný tah (posun stromu) není klik: preventDefault = bez zvuku kliku (menu.js).
+      if (tahnuto) return e.preventDefault();
       // Na dotyk první klepnutí uzel jen vybere (a ukáže popis), druhé koupí. Myš a Enter kupují rovnou.
       if (vybrany !== id && (posledniUkazatel !== 'mouse' || e.detail === 0)) {
         vyber(id);
@@ -472,18 +476,20 @@ export function vyplnStrom(panel) {
     const smer = SMERY[k];
     if (smer) {
       e.preventDefault();
+      // Držená šipka chodí po uzlech dál, ale ťukne jen první stisk (žádné drnčení).
+      const zvuk = !e.repeat;
       if (naListe) {
-        if (smer.y > 0) vyber(vybrany ?? STRED, true);
+        if (smer.y > 0) vyber(vybrany ?? STRED, true, zvuk);
         else if (smer.x) {
           const tl = tlacitkaListy();
           const i = tl.indexOf(document.activeElement);
-          vyberTlacitko(tl[(i + smer.x + tl.length) % tl.length], false);
+          najedi(tl[(i + smer.x + tl.length) % tl.length], false, zvuk);
         }
         return true;
       }
       const dalsi = dalsiUzel(vybrany ?? STRED, smer);
-      if (dalsi) vyber(dalsi, true);
-      else if (smer.y < 0) vyberTlacitko(tlacitkaListy()[0], false);
+      if (dalsi) vyber(dalsi, true, zvuk);
+      else if (smer.y < 0) najedi(tlacitkaListy()[0], false, zvuk);
       return true;
     }
     if (k === 'enter' || k === ' ') {
