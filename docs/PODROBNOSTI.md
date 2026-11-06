@@ -227,6 +227,18 @@ GIF v README a tři screenshoty v `docs/ukazky/` (menu, boj a okno nové úrovn�
 
 Potřebuje Python 3.9+ s Pillow, Node, ffmpeg a Playwright s Chromiem (`npm i playwright && npx playwright install chromium`, nebo `PLAYWRIGHT_MODUL=/cesta/k/node_modules/playwright`). Volby: `--sekund 120`, `--seed 3`, `--delka 5`, `--max-mb 3`, `--vystup jinam` (jinak se přepíše `docs/ukazky`), `--prace slozka` (natočení si nechá) a `--z-natoceni slozka` (nenatáčí, jen znovu vybere úsek a udělá výstup). Ukázky přegeneruj po větší změně vzhledu a commitni je; každá nová verze GIFu přidá do historie repa pár MB, tak ne po každé drobnosti.
 
+### Náhled odkazu
+
+<img src="ukazky/nahled.png" alt="Náhled odkazu: logo RuGee nad loukou plnou nepřátel" width="60%">
+
+```bash
+node nastroje/nahled.mjs
+```
+
+Když někdo pošle odkaz na hru do Discordu, WhatsAppu, Messengeru nebo na X, ukáže se pod ním obrázek `docs/ukazky/nahled.png` (1200×630) s titulkem a popisem. Berou se z meta značek `og:*` a `twitter:card` v hlavičce `index.html`; adresa obrázku musí být celá (`https://kojdad-alt.github.io/RuGee/docs/ukazky/nahled.png`), relativní cestu chaty neberou. `docs/ukazky/socialni-nahled.png` (1280×640) je stejný obrázek pro sociální náhled repa na GitHubu. Ten jde nastavit jen ručně na webu: Settings → General → Social preview → Edit → Upload an image.
+
+Oba obrázky dělá `nastroje/nahled.mjs` ze skutečné hry. Chromium bez okna (Playwright) načte moduly hry, odehraje se semínkem 1 přesně 200 s na Louce (Lovec s dráčkem, bot jako u ukázek utíká a bere zbraně) a jeden snímek vykreslí přes `kresli()` v polovičním rozlišení, takže je po zvětšení každý pixel spritu vidět i na malém náhledu v chatu. Hrdina stojí níž a nad ním je logo RuGee a podtitul pixelovým písmem z `src/pismo.js`, pod nimi stejné ztmavení jako pod hlavním menu. Čísla poškození a pruhy bossů se nekreslí. Nakonec Pillow převede obrázek na paletu 256 barev bez rozptylu: z 800 kB zbude kolem 180 kB (WhatsApp velké obrázky u odkazu neukáže) a okem rozdíl není. Stejné semínko a stejný kód dají stejný obrázek. Volby: `--seminko`, `--sekund`, `--mapa`, `--trida`, `--pet druh:rarita:uroven`, `--zvetseni 3`, `--podtitul "…"`, `--jen nahled` a `--slozka jinam` (na zkoušení scén). Potřebuje Node a Playwright s Chromiem jako ukázky, Python s Pillow jen na zmenšení.
+
 ## Nová verze
 
 Po každé změně kódu spusť `node nastroje/verze.mjs`. Do `index.html` zapíše otisky souborů (`?v=…`), aby hráči po nasazení nedostali z cache starý modul, a do `sw.js` novou verzi se seznamem souborů pro hraní bez internetu (viz [Aplikace](#aplikace-a-hraní-bez-internetu)).

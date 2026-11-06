@@ -9,7 +9,7 @@
 // - Skripty a styl mají v adrese otisk (?v=…), takže jsou neměnné a berou se z keše. Co v keši není (nová verze
 //   stránky, ke které se nový worker ještě instaluje), jde ze sítě.
 // verze: začátek (generuje node nastroje/verze.mjs, ručně neupravovat)
-const VERZE = 'fb5056e1';
+const VERZE = '04dbaaed';
 const SOUBORY = [
   './',
   './style.css?v=407d575d',
