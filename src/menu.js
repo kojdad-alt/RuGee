@@ -63,6 +63,18 @@ export function cislaPoskozeni() {
   return nastaveni.cislaPoskozeni;
 }
 
+// Přehled výbavy vlevo dole sbalený jen na lištu zbraní (klávesa V nebo Tab, Y na ovladači, tlačítko v rohu
+// přehledu, přepínač v Nastavení a v pauze). Uloží se jako ostatní nastavení.
+export function sbalenaVybava() {
+  return nastaveni.sbalenaVybava;
+}
+
+export function prepniSbalenouVybavu() {
+  nastaveni = { ...nastaveni, sbalenaVybava: !nastaveni.sbalenaVybava };
+  ulozNastaveni(nastaveni);
+  return nastaveni.sbalenaVybava;
+}
+
 export function formatCas(s) {
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
@@ -405,6 +417,7 @@ const OVLADANI = [
     [['R'], 'prehodit'],
     [['1–5'], 'kupec'],
     [['P', 'Esc'], 'pauza'],
+    [['V', '@tab'], 'panel'],
     [['N'], 'zvuk'],
   ]],
   ['menu', [
@@ -423,6 +436,7 @@ const OVLADANI_OVLADACE = [
   [['b'], 'zpet'],
   [['x'], 'prehodit'],
   [['start'], 'pauza'],
+  [['y'], 'panel'],
   [['zpet'], 'zvuk'],
 ];
 
@@ -686,7 +700,7 @@ function vyplnNastaveni(panel) {
   zvuk.append(ovladaniZvuku());
   const hra = skupina(t('menu.nastaveni.hra'));
   const radek = prvek('div', 'radek-tlacitek nastaveni-radek');
-  radek.append(prepinacNastaveni('cislaPoskozeni', t('menu.nastaveni.cislaPoskozeni')));
+  radek.append(prepinacNastaveni('cislaPoskozeni', t('menu.nastaveni.cislaPoskozeni')), prepinacNastaveni('sbalenaVybava', t('menu.nastaveni.sbalenaVybava')));
   hra.append(radek, prepinacSvetel());
   panel.append(
     prvek('p', 'podtitul', t('menu.nastaveni.podtitul')),

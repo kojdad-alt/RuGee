@@ -30,6 +30,8 @@ export default {
     hrozba: 'Hrozba',
     hrozbaNavic: 'Hrozba +{n} za sílu hrdiny',
     zabito: 'Zabito',
+    vybavaSbalit: 'Sbalit přehled výbavy',
+    vybavaRozbalit: 'Rozbalit přehled výbavy',
   },
 
   // Hlavní menu a jeho záložky.
@@ -123,7 +125,7 @@ export default {
       podtitul: 'Zbraně střílí samy, ty jen uhýbáš a sbíráš krystaly.',
       pata: 'Hlasitost, čísla poškození a světla najdeš v Nastavení.',
       skupiny: { pohyb: 'Pohyb', veHre: 'Ve hře', menu: 'Menu a konec hry', ovladac: 'Ovladač' },
-      klavesy: { sipky: 'šipky', tah: 'tah prstem' },
+      klavesy: { sipky: 'šipky', tah: 'tah prstem', tab: 'Tab' },
       radky: {
         pohyb: 'pohyb',
         pohybMobil: 'pohyb na mobilu',
@@ -132,6 +134,7 @@ export default {
         prehodit: 'přehodit karty za zlaťáky (nebo zdarma od kupce)',
         kupec: 'u kupce koupit zboží (Esc nebo Q odejít)',
         pauza: 'pauza (na mobilu tlačítko vlevo nahoře)',
+        panel: 'sbalit nebo rozbalit přehled výbavy vlevo dole (na mobilu tlačítko v jeho rohu)',
         zvuk: 'ztlumit nebo zapnout zvuk (hlasitost je v Nastavení)',
         vyberMenu: 'výběr v menu',
         zpetMenu: 'zpět v menu',
@@ -145,6 +148,7 @@ export default {
         zpet: 'zpět (v pauze pokračovat, u kupce odejít, po prohře menu)',
         prehodit: 'přehodit karty',
         pauza: 'pauza (v hlavním menu Hrát)',
+        panel: 'sbalit nebo rozbalit přehled výbavy',
         zvuk: 'ztlumit nebo zapnout zvuk',
         zadny: 'Připoj ovladač a stiskni na něm jakékoli tlačítko. Prohlížeč ho ukáže až po prvním stisku, pak tu uvidíš, co které tlačítko dělá.',
       },
@@ -155,6 +159,7 @@ export default {
       zvuk: 'Zvuk',
       hra: 'Hra',
       cislaPoskozeni: 'Čísla poškození',
+      sbalenaVybava: 'Sbalená výbava',
       zapnuto: 'zapnuto',
       vypnuto: 'vypnuto',
     },
