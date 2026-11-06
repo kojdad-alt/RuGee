@@ -702,15 +702,18 @@ const EFEKTY = {
       hlas(e, t + 0.035, { f: zapnuto ? 1319 : 659, delka: 0.06, h: 0.016, vlna: 'triangle' });
     },
   },
-  // Okno nové úrovně: stoupající znělka, čím vzácnější nejlepší karta (0 běžná … 3 legendární), tím delší.
+  // Okno nové úrovně: stoupající znělka, čím vzácnější nejlepší karta (0 běžná … 6 božská), tím delší. Neobvyklá
+  // zní jako Běžná, od Vzácné je o tón delší, Mýtická a Božská mají navrch tichý třpyt (Božská delší).
   volba: {
     mezera: 0.15,
     dulezity: true,
     okno: true,
     hraj(t, e, stupen) {
-      const tony = [523, 659, 784, 1047, 1319];
-      const kolik = 2 + omez(Math.round(stupen) || 0, 0, 3);
-      for (let i = 0; i < kolik; i++) hlas(e, t + i * 0.07, { f: tony[i], delka: i === kolik - 1 ? 0.18 : 0.08, h: 0.03 });
+      const s = omez(Math.round(stupen) || 0, 0, 6);
+      const tony = [523, 659, 784, 1047, 1319, 1568, 2093];
+      const kolik = 2 + Math.max(0, s - 1);
+      for (let i = 0; i < kolik; i++) hlas(e, t + i * 0.07, { f: tony[i], delka: i === kolik - 1 ? 0.18 + 0.04 * Math.max(0, s - 4) : 0.08, h: 0.03 });
+      if (s >= 5) for (let i = 0; i < (s === 6 ? 6 : 3); i++) hlas(e, t + 0.12 + i * 0.06, { f: 2637 + 260 * i, delka: 0.05, h: 0.007, vlna: 'sine' });
     },
   },
   // Karta, postava, mapa, profil nebo pet vybrán: krátké cinknutí.
@@ -757,7 +760,7 @@ const EFEKTY = {
     },
   },
   // Okno Pety: vejce se zatřese (ťuknutí, každé o kus výš), praskne a vylíhne se pet. Znělka líhnutí je tím delší
-  // a jasnější, čím vzácnější rarita padla (stupen 0 běžná … 3 legendární).
+  // a jasnější, čím vzácnější rarita padla (stupen 0 běžná … 6 božská, Neobvyklá zní jako Běžná).
   tukVejce: {
     mezera: 0.1,
     dulezity: true,
@@ -782,11 +785,12 @@ const EFEKTY = {
     dulezity: true,
     okno: true,
     hraj(t, e, stupen) {
-      const s = omez(Math.round(stupen) || 0, 0, 3);
-      const tony = [523, 659, 784, 1047, 1319, 1568];
+      const r = omez(Math.round(stupen) || 0, 0, 6);
+      const s = Math.max(0, r - 1);
+      const tony = [523, 659, 784, 1047, 1319, 1568, 2093, 2637];
       const kolik = 3 + s;
-      for (let i = 0; i < kolik; i++) hlas(e, t + i * 0.08, { f: tony[i], delka: i === kolik - 1 ? 0.3 + 0.1 * s : 0.09, h: 0.03, vlna: 'triangle' });
-      if (s >= 2) for (let i = 0; i < 4; i++) hlas(e, t + 0.1 + i * 0.06, { f: 2093 + 300 * i, delka: 0.05, h: 0.008, vlna: 'sine' });
+      for (let i = 0; i < kolik; i++) hlas(e, t + i * 0.08, { f: tony[i], delka: i === kolik - 1 ? 0.3 + 0.1 * Math.min(s, 3) : 0.09, h: 0.03, vlna: 'triangle' });
+      if (s >= 2) for (let i = 0; i < (r === 6 ? 8 : 4); i++) hlas(e, t + 0.1 + i * 0.06, { f: 2093 + 300 * i, delka: 0.05, h: 0.008, vlna: 'sine' });
     },
   },
   // Ukázka při změně hlasitosti efektů v nastavení.
