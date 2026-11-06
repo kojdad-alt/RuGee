@@ -63,6 +63,9 @@
   --znak-kosoctverec: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M4 0h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM2 2h1v1h-1zM6 2h1v1h-1zM1 3h1v1h-1zM7 3h1v1h-1zM0 4h1v1h-1zM8 4h1v1h-1zM1 5h1v1h-1zM7 5h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1zM3 7h1v1h-1zM5 7h1v1h-1zM4 8h1v1h-1z'/%3E%3Cpath fill='%23f3efe6' d='M4 1h1v1h-1zM3 2h3v1h-3zM2 3h5v1h-5zM1 4h7v1h-7zM2 5h4v1h-4zM3 6h2v1h-2z'/%3E%3Cpath fill='%23a59bb4' d='M6 5h1v1h-1zM5 6h1v1h-1zM4 7h1v1h-1z'/%3E%3C/svg%3E");
   --znak-trojuhelnik: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M4 0h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM2 3h1v1h-1zM6 3h1v1h-1zM2 4h1v1h-1zM6 4h1v1h-1zM1 5h1v1h-1zM7 5h1v1h-1zM1 6h1v1h-1zM7 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h9v1h-9z'/%3E%3Cpath fill='%23f3efe6' d='M4 1h1v1h-1zM4 2h1v1h-1zM3 3h3v1h-3zM3 4h3v1h-3zM2 5h5v1h-5zM2 6h4v1h-4zM1 7h4v1h-4z'/%3E%3Cpath fill='%23a59bb4' d='M6 6h1v1h-1zM5 7h3v1h-3z'/%3E%3C/svg%3E");
   --znak-hvezda: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M4 0h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM3 2h1v1h-1zM5 2h1v1h-1zM0 3h3v1h-3zM6 3h3v1h-3zM0 4h1v1h-1zM8 4h1v1h-1zM1 5h1v1h-1zM7 5h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1zM1 7h1v1h-1zM4 7h1v1h-1zM7 7h1v1h-1zM1 8h3v1h-3zM5 8h3v1h-3z'/%3E%3Cpath fill='%23f3efe6' d='M4 1h1v1h-1zM4 2h1v1h-1zM3 3h3v1h-3zM1 4h7v1h-7zM2 5h4v1h-4zM3 6h2v1h-2zM2 7h2v1h-2z'/%3E%3Cpath fill='%23a59bb4' d='M6 5h1v1h-1zM5 6h1v1h-1zM5 7h2v1h-2z'/%3E%3C/svg%3E");
+  --znak-ctverec: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M0 0h9v1h-9zM0 1h1v1h-1zM8 1h1v1h-1zM0 2h1v1h-1zM8 2h1v1h-1zM0 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM8 5h1v1h-1zM0 6h1v1h-1zM8 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h9v1h-9z'/%3E%3Cpath fill='%23f3efe6' d='M1 1h7v1h-7zM1 2h7v1h-7zM1 3h7v1h-7zM1 4h7v1h-7zM1 5h6v1h-6zM1 6h5v1h-5zM1 7h2v1h-2z'/%3E%3Cpath fill='%23a59bb4' d='M7 5h1v1h-1zM6 6h2v1h-2zM3 7h5v1h-5z'/%3E%3C/svg%3E");
+  --znak-koruna: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M0 0h1v1h-1zM4 0h1v1h-1zM8 0h1v1h-1zM0 1h2v1h-2zM3 1h1v1h-1zM5 1h1v1h-1zM7 1h2v1h-2zM0 2h1v1h-1zM2 2h1v1h-1zM6 2h1v1h-1zM8 2h1v1h-1zM0 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM8 5h1v1h-1zM0 6h9v1h-9zM1 7h1v1h-1zM7 7h1v1h-1zM1 8h7v1h-7z'/%3E%3Cpath fill='%23f3efe6' d='M4 1h1v1h-1zM1 2h1v1h-1zM3 2h3v1h-3zM7 2h1v1h-1zM1 3h7v1h-7zM1 4h6v1h-6zM1 5h5v1h-5zM2 7h3v1h-3z'/%3E%3Cpath fill='%23a59bb4' d='M7 4h1v1h-1zM6 5h2v1h-2zM5 7h2v1h-2z'/%3E%3C/svg%3E");
+  --znak-slunce: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' shape-rendering='crispEdges'%3E%3Cpath fill='%23140c08' d='M0 0h2v1h-2zM4 0h1v1h-1zM7 0h2v1h-2zM0 1h1v1h-1zM2 1h1v1h-1zM4 1h1v1h-1zM6 1h1v1h-1zM8 1h1v1h-1zM1 2h3v1h-3zM5 2h3v1h-3zM2 3h1v1h-1zM6 3h1v1h-1zM0 4h2v1h-2zM7 4h2v1h-2zM2 5h1v1h-1zM6 5h1v1h-1zM1 6h3v1h-3zM5 6h3v1h-3zM0 7h1v1h-1zM2 7h1v1h-1zM4 7h1v1h-1zM6 7h1v1h-1zM8 7h1v1h-1zM0 8h2v1h-2zM4 8h1v1h-1zM7 8h2v1h-2z'/%3E%3Cpath fill='%23f3efe6' d='M1 1h1v1h-1zM7 1h1v1h-1zM4 2h1v1h-1zM3 3h3v1h-3zM2 4h5v1h-5zM3 5h2v1h-2z'/%3E%3Cpath fill='%23a59bb4' d='M5 5h1v1h-1zM4 6h1v1h-1zM1 7h1v1h-1zM7 7h1v1h-1z'/%3E%3C/svg%3E");
 }
 /* ramy: konec */
 
@@ -374,30 +377,45 @@ html, body {
    --c (rámeček, pruh) je barva rarity jako ve hře. --c-pozadi tónuje líc karty, kusu ve Sbírce a jamky výbavy;
    běžná rarita líc netónuje, je to čisté dřevo se železným kováním (dřív šedofialový podklad #221f2b). */
 .rarita-bezna { --c: #6e6577; --c-svetla: #f3efe6; --c-pozadi: var(--drevo-1); --c-zar: rgba(0, 0, 0, 0); --c-pas: #fffaf0; }
+.rarita-neobvykla { --c: #4fa83d; --c-svetla: #a6e29a; --c-pozadi: #16261a; --c-zar: rgba(110, 200, 90, 0.35); --zar: 3px; --c-pas: var(--noc); }
 .rarita-vzacna { --c: #3d7fd9; --c-svetla: #9fd0ff; --c-pozadi: #172236; --c-zar: rgba(80, 160, 255, 0.4); --zar: 4px; --c-pas: var(--noc); }
 .rarita-epicka { --c: #9a4fd8; --c-svetla: #dcb0ff; --c-pozadi: #241835; --c-zar: rgba(185, 100, 255, 0.5); --zar: 6px; --c-pas: #fffaf0; }
 .rarita-legendarni { --c: #e8962a; --c-svetla: #ffd27a; --c-pozadi: #33230d; --c-zar: rgba(255, 180, 60, 0.6); --zar: 8px; --c-pas: var(--noc); }
+.rarita-myticka { --c: #d8423a; --c-svetla: #ff9e8c; --c-pozadi: #361311; --c-zar: rgba(255, 90, 70, 0.6); --zar: 9px; --c-pas: #fffaf0; }
+.rarita-bozska { --c: #ece8f8; --c-svetla: #ffffff; --c-pozadi: #26232f; --c-zar: rgba(240, 235, 255, 0.7); --zar: 10px; --c-pas: var(--noc); }
 
 /* barvy: začátek (generuje node nastroje/ramy.mjs ze src/barvy.js, ručně neupravovat) */
 .rarita-bezna { --znak: var(--znak-kruh); }
+.rarita-neobvykla { --znak: var(--znak-ctverec); }
 .rarita-vzacna { --znak: var(--znak-kosoctverec); }
 .rarita-epicka { --znak: var(--znak-trojuhelnik); }
 .rarita-legendarni { --znak: var(--znak-hvezda); }
+.rarita-myticka { --znak: var(--znak-koruna); }
+.rarita-bozska { --znak: var(--znak-slunce); }
 :where(body[data-barvy="deuteranopie"]) { --ok: #7cc4ff; --chyba: #ffb04a; }
-:where(body[data-barvy="deuteranopie"]) .rarita-bezna { --c: #605f62; --c-svetla: #f3efe6; --c-pozadi: #221b1f; --c-zar: rgba(96, 95, 98, 0); --c-pas: #fffaf0; }
-:where(body[data-barvy="deuteranopie"]) .rarita-vzacna { --c: #2e85fa; --c-svetla: #62a4fb; --c-pozadi: #19223a; --c-zar: rgba(46, 133, 250, 0.4); --c-pas: var(--noc); }
-:where(body[data-barvy="deuteranopie"]) .rarita-epicka { --c: #ec92ba; --c-svetla: #f1adcb; --c-pozadi: #3b242f; --c-zar: rgba(236, 146, 186, 0.5); --c-pas: var(--noc); }
-:where(body[data-barvy="deuteranopie"]) .rarita-legendarni { --c: #eb9200; --c-svetla: #f0ad40; --c-pozadi: #3b240d; --c-zar: rgba(235, 146, 0, 0.6); --c-pas: var(--noc); }
+:where(body[data-barvy="deuteranopie"]) .rarita-bezna { --c: #605f62; --c-svetla: #ececec; --c-pozadi: #221b1f; --c-zar: rgba(96, 95, 98, 0); --c-pas: #fffaf0; }
+:where(body[data-barvy="deuteranopie"]) .rarita-neobvykla { --c: #2cb994; --c-svetla: #61cbaf; --c-pozadi: #182b28; --c-zar: rgba(44, 185, 148, 0.35); --c-pas: var(--noc); }
+:where(body[data-barvy="deuteranopie"]) .rarita-vzacna { --c: #3185f6; --c-svetla: #65a4f8; --c-pozadi: #192239; --c-zar: rgba(49, 133, 246, 0.4); --c-pas: var(--noc); }
+:where(body[data-barvy="deuteranopie"]) .rarita-epicka { --c: #efb3ff; --c-svetla: #f3c6ff; --c-pozadi: #3b2a3b; --c-zar: rgba(239, 179, 255, 0.5); --c-pas: var(--noc); }
+:where(body[data-barvy="deuteranopie"]) .rarita-legendarni { --c: #f28800; --c-svetla: #f5a640; --c-pozadi: #3c220d; --c-zar: rgba(242, 136, 0, 0.6); --c-pas: var(--noc); }
+:where(body[data-barvy="deuteranopie"]) .rarita-myticka { --c: #a83b18; --c-svetla: #be6c52; --c-pozadi: #2f1411; --c-zar: rgba(168, 59, 24, 0.6); --c-pas: #fffaf0; }
+:where(body[data-barvy="deuteranopie"]) .rarita-bozska { --c: #ffffce; --c-svetla: #ffffda; --c-pozadi: #3e3832; --c-zar: rgba(255, 255, 206, 0.7); --c-pas: var(--noc); }
 :where(body[data-barvy="protanopie"]) { --ok: #7cc4ff; --chyba: #ffb04a; }
-:where(body[data-barvy="protanopie"]) .rarita-bezna { --c: #605f60; --c-svetla: #f3efe6; --c-pozadi: #221b1e; --c-zar: rgba(96, 95, 96, 0); --c-pas: #fffaf0; }
-:where(body[data-barvy="protanopie"]) .rarita-vzacna { --c: #9fc7e4; --c-svetla: #b7d5eb; --c-pozadi: #2d2e36; --c-zar: rgba(159, 199, 228, 0.4); --c-pas: var(--noc); }
-:where(body[data-barvy="protanopie"]) .rarita-epicka { --c: #9c2bf9; --c-svetla: #b560fb; --c-pozadi: #2c123a; --c-zar: rgba(156, 43, 249, 0.5); --c-pas: #fffaf0; }
-:where(body[data-barvy="protanopie"]) .rarita-legendarni { --c: #e79528; --c-svetla: #edb05e; --c-pozadi: #3a2514; --c-zar: rgba(231, 149, 40, 0.6); --c-pas: var(--noc); }
+:where(body[data-barvy="protanopie"]) .rarita-bezna { --c: #737373; --c-svetla: #c8c8c8; --c-pozadi: #251f22; --c-zar: rgba(115, 115, 115, 0); --c-pas: #fffaf0; }
+:where(body[data-barvy="protanopie"]) .rarita-neobvykla { --c: #5bfe3b; --c-svetla: #84fe6c; --c-pozadi: #213818; --c-zar: rgba(91, 254, 59, 0.35); --c-pas: var(--noc); }
+:where(body[data-barvy="protanopie"]) .rarita-vzacna { --c: #95caf3; --c-svetla: #b0d7f6; --c-pozadi: #2b2e39; --c-zar: rgba(149, 202, 243, 0.4); --c-pas: var(--noc); }
+:where(body[data-barvy="protanopie"]) .rarita-epicka { --c: #9c2af9; --c-svetla: #b55ffb; --c-pozadi: #2c113a; --c-zar: rgba(156, 42, 249, 0.5); --c-pas: #fffaf0; }
+:where(body[data-barvy="protanopie"]) .rarita-legendarni { --c: #d68309; --c-svetla: #e0a247; --c-pozadi: #37210f; --c-zar: rgba(214, 131, 9, 0.6); --c-pas: var(--noc); }
+:where(body[data-barvy="protanopie"]) .rarita-myticka { --c: #c2170c; --c-svetla: #d15149; --c-pozadi: #330e0f; --c-zar: rgba(194, 23, 12, 0.6); --c-pas: #fffaf0; }
+:where(body[data-barvy="protanopie"]) .rarita-bozska { --c: #ffffeb; --c-svetla: #fffff0; --c-pozadi: #3e3837; --c-zar: rgba(255, 255, 235, 0.7); --c-pas: var(--noc); }
 :where(body[data-barvy="tritanopie"]) { --ok: #7cf08a; --chyba: #ff7a9a; }
-:where(body[data-barvy="tritanopie"]) .rarita-bezna { --c: #625d71; --c-svetla: #bdb6c6; --c-pozadi: #221b21; --c-zar: rgba(98, 93, 113, 0); --c-pas: #fffaf0; }
-:where(body[data-barvy="tritanopie"]) .rarita-vzacna { --c: #2189f8; --c-svetla: #59a7fa; --c-pozadi: #16233a; --c-zar: rgba(33, 137, 248, 0.4); --c-pas: var(--noc); }
-:where(body[data-barvy="tritanopie"]) .rarita-epicka { --c: #dc09f9; --c-svetla: #e547fb; --c-pozadi: #380b3a; --c-zar: rgba(220, 9, 249, 0.5); --c-pas: var(--noc); }
-:where(body[data-barvy="tritanopie"]) .rarita-legendarni { --c: #ffd787; --c-svetla: #ffe1a5; --c-pozadi: #3e3125; --c-zar: rgba(255, 215, 135, 0.6); --c-pas: var(--noc); }
+:where(body[data-barvy="tritanopie"]) .rarita-bezna { --c: #625d71; --c-svetla: #b9b9b9; --c-pozadi: #221b21; --c-zar: rgba(98, 93, 113, 0); --c-pas: #fffaf0; }
+:where(body[data-barvy="tritanopie"]) .rarita-neobvykla { --c: #06e72d; --c-svetla: #44ed62; --c-pozadi: #113315; --c-zar: rgba(6, 231, 45, 0.35); --c-pas: var(--noc); }
+:where(body[data-barvy="tritanopie"]) .rarita-vzacna { --c: #3574f8; --c-svetla: #6897fa; --c-pozadi: #1a1f3a; --c-zar: rgba(53, 116, 248, 0.4); --c-pas: var(--noc); }
+:where(body[data-barvy="tritanopie"]) .rarita-epicka { --c: #d409ff; --c-svetla: #df47ff; --c-pozadi: #370b3b; --c-zar: rgba(212, 9, 255, 0.5); --c-pas: var(--noc); }
+:where(body[data-barvy="tritanopie"]) .rarita-legendarni { --c: #efc059; --c-svetla: #f3d083; --c-pozadi: #3b2c1d; --c-zar: rgba(239, 192, 89, 0.6); --c-pas: var(--noc); }
+:where(body[data-barvy="tritanopie"]) .rarita-myticka { --c: #e71a2a; --c-svetla: #ed535f; --c-pozadi: #3a0f15; --c-zar: rgba(231, 26, 42, 0.6); --c-pas: #fffaf0; }
+:where(body[data-barvy="tritanopie"]) .rarita-bozska { --c: #f5ffd1; --c-svetla: #f8ffdd; --c-pozadi: #3d3833; --c-zar: rgba(245, 255, 209, 0.7); --c-pas: var(--noc); }
 /* barvy: konec */
 
 /* Režim pro barvoslepé (body[data-barvy], src/barvy.js): rarita má kromě barvy značku (--znak dávají .rarita-*,

@@ -7,8 +7,9 @@
 // Třídy: hlavní hra je za výchozí třídu, každá třída pak hraje krátce sama (svoje zbraň, svoje výhoda).
 // Duše a trvalá vylepšení: hlavní hra je bez vylepšení (stejná jako před nimi), prázdná nebo rozbitá vylepšení
 // hrají úplně stejně, každé vylepšení změní svou vlastnost, Oživení vrátí hrdinu jednou, obchod a úložiště sedí.
-// Rarity karet: šance sedí s losováním, s časem a Štěstím přibývá vzácnějších, truhla nedá běžnou, karta přidá
-// vždy celý počet úrovní své rarity a dá přesně to, co slibuje (úrovně, poškození, doléčení).
+// Rarity karet (sedm, od Běžné po Božskou): šance sedí s losováním, s časem a Štěstím (trvalým i pasivou) přibývá
+// vzácnějších, Štěstí nebere z rng nic navíc, truhla nedá Běžnou ani Neobvyklou, karta přidá vždy celý počet úrovní
+// své rarity a dá přesně to, co slibuje (úrovně, poškození, doléčení).
 // Úrovně bez stropu: 1–5 jako dřív, každá další +8 % poškození a každá třetí ještě kus, nabíjení nebo velikost,
 // nic nepřeleze strop (12 kusů, čtvrtina nabíjení, 2,5× velikost), pasivy nad pátou dají menší díl a na stropu
 // poškození, nabídka nikdy nedojde a zbraně na vysoké úrovni hru nerozbijí (žádné NaN, limity drží).
@@ -183,7 +184,7 @@ import {
   ocekavanaUroven, prisunZivotu, SCHOPNOSTI_NEPRATEL, schopnostiNepritele, NAPOR_ELITY, ELITNI, OBYCEJNE,
   PRVNI_SCHOPNOST_NEPRATEL, NADBIHANI, VUDCE, TLAK_BOSSU, pauzaBosse,
   BLUDNY_KROK, POUTNIK, BUBLINA, POSLEDNI_VZDOR, zbranArzenalu, maStit, PET,
-  prehledPoskozeni, dpsZdroje, cisloPasivy, OKNO_DPS,
+  prehledPoskozeni, dpsZdroje, cisloPasivy, OKNO_DPS, PODIL_STESTI_RARIT, stestiRarit,
 } from '../src/hra.js';
 import {
   PETY, PORADI_PETU, RARITY_PETU, PORADI_RARIT_PETU, MAX_UROVEN as MAX_UROVEN_PETU, POJISTKA_PETU, CENA_VEJCE, DUSE_ZA_DUPLIKAT, SANCE_VEJCE,
@@ -1048,7 +1049,9 @@ let oziveni = null;
 const sOzivenim = hrajKratce({ oziveni: 1 }, 1200, kamikaze, (h) => {
   if (h.oziveno && !oziveni) {
     const nejblizsi = Math.min(...h.nepratele.map((n) => Math.hypot(n.x - h.hrdina.x, n.y - h.hrdina.y)));
-    oziveni = { cas: h.cas, hp: h.hrdina.hp, maxHp: h.hrdina.maxHp, nezranitelny: h.hrdina.nezranitelny, nejblizsi };
+    // Za zbytek kroku se hrdina (kamikaze běží k nejbližšímu) i nepřítel stihnou trochu přiblížit.
+    const posun = DT * (h.hrdina.rychlost + Math.max(0, ...h.nepratele.map((n) => n.rychlost ?? 0)));
+    oziveni = { cas: h.cas, hp: h.hrdina.hp, maxHp: h.hrdina.maxHp, nezranitelny: h.hrdina.nezranitelny, nejblizsi, posun };
   }
 });
 const bezOziveni = hrajKratce({}, 1200, kamikaze);
@@ -1057,7 +1060,7 @@ else {
   // (maxHp z chvíle oživení: karta Srdce po něm by ho změnila)
   if (oziveni.hp !== Math.round(oziveni.maxHp * ZIVOTY_PO_OZIVENI)) chybyDusi.push(`po oživení ${oziveni.hp} životů`);
   if (oziveni.nezranitelny !== NEZRANITELNY_PO_OZIVENI) chybyDusi.push('po oživení hrdina není nezranitelný');
-  if (oziveni.nejblizsi < ODHOZENI_PRI_OZIVENI - 4) chybyDusi.push(`po oživení zůstal nepřítel ${oziveni.nejblizsi.toFixed(1)} px od hrdiny`);
+  if (oziveni.nejblizsi < ODHOZENI_PRI_OZIVENI - Math.max(4, oziveni.posun)) chybyDusi.push(`po oživení zůstal nepřítel ${oziveni.nejblizsi.toFixed(1)} px od hrdiny`);
   if (!sOzivenim.konec || sOzivenim.oziveno !== 1) chybyDusi.push('Oživení platí víc než jednou za hru');
   if (!bezOziveni.konec || bezOziveni.oziveno !== 0 || bezOziveni.cas > oziveni.cas + 1e-9) chybyDusi.push('bez Oživení hrdina vstal nebo přežil déle');
 }
@@ -1105,6 +1108,7 @@ const sPozde = sanceRarit(pozde);
 const sStesti = sanceRarit(stastny);
 const sTruhla = sanceRarit(naZacatku, 'vzacna');
 const vzacnejsi = (s) => 1 - s.bezna;
+const blizkoR = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
 for (const [popis, s] of [['začátek', sZacatek], ['15. minuta', sPozde], ['Štěstí', sStesti], ['truhla', sTruhla]]) {
   const soucet = Object.values(s).reduce((a, b) => a + b, 0);
   if (Math.abs(soucet - 1) > 1e-9 || Object.values(s).some((p) => !(p >= 0))) chybyRarit.push(`šance rarit (${popis}) nedávají 1`);
@@ -1112,7 +1116,34 @@ for (const [popis, s] of [['začátek', sZacatek], ['15. minuta', sPozde], ['Št
 if (!PORADI_RARIT.every((id, i) => i === 0 || sZacatek[id] < sZacatek[PORADI_RARIT[i - 1]])) chybyRarit.push('vzácnější rarita není vzácnější');
 if (!(vzacnejsi(sPozde) > vzacnejsi(sZacatek))) chybyRarit.push('s časem nepřibylo vzácnějších karet');
 if (!(vzacnejsi(sStesti) > vzacnejsi(sZacatek))) chybyRarit.push('Štěstí nepřidalo vzácnější karty');
-if (sTruhla.bezna !== 0) chybyRarit.push('truhla má šanci na běžnou kartu');
+if (sTruhla.bezna !== 0 || sTruhla.neobvykla !== 0) chybyRarit.push('truhla má šanci na běžnou nebo neobvyklou kartu');
+if (JSON.stringify(PORADI_RARIT) !== JSON.stringify(['bezna', 'neobvykla', 'vzacna', 'epicka', 'legendarni', 'myticka', 'bozska'])) chybyRarit.push(`pořadí rarit ${PORADI_RARIT}`);
+// výchozí váhy zhruba 100 / 30 / 12 / 3,5 / 1 / 0,25 / 0,06: Božská na začátku hry pod 0,1 %, Mýtická pod 0,3 %
+if (!(sZacatek.bozska > 0 && sZacatek.bozska < 0.001 && sZacatek.myticka < 0.003 && sZacatek.neobvykla > 0.15 && sZacatek.neobvykla < 0.25)) chybyRarit.push(`šance na začátku ${JSON.stringify(sZacatek)}`);
+// Pasiva Štěstí: každá úroveň +PODIL_STESTI_RARIT z jejích +20 % k vahám vyšších rarit, s trvalým Štěstím se násobí.
+const sPasivou = (urovni, vylepseni = {}) => {
+  const h = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, vylepseni);
+  for (let u = 0; u < urovni; u++) vyber(h, karta(h, 'pasiva', 'stesti', 'bezna'));
+  return h;
+};
+const stastna5 = sPasivou(5);
+const sStesti5 = sanceRarit(stastna5);
+const cekamNasobek = 1 + PODIL_STESTI_RARIT * 5 * PASIVY.stesti.pricti;
+if (!blizkoR(stestiRarit(stastna5.hrdina), cekamNasobek) || !blizkoR(stestiRarit(stastna5.hrdina, false), cekamNasobek)) chybyRarit.push(`Štěstí 5: násobek rarit ${stestiRarit(stastna5.hrdina)}, čekám ${cekamNasobek}`);
+if (!blizkoR(sStesti5.myticka / sStesti5.bezna, (sZacatek.myticka / sZacatek.bezna) * cekamNasobek)) chybyRarit.push('pasiva Štěstí nenásobí váhy vyšších rarit');
+if (!(vzacnejsi(sStesti5) > vzacnejsi(sZacatek))) chybyRarit.push('pasiva Štěstí nepřidala vzácnější karty');
+const obojeStesti = sPasivou(5, { stesti: VYLEPSENI.stesti.max });
+if (!blizkoR(stestiRarit(obojeStesti.hrdina), stestiRarit(stastny.hrdina) * cekamNasobek)) chybyRarit.push('trvalé Štěstí a pasiva se nenásobí');
+if (stestiRarit(novaHra(vytvorRng(seminko)).hrdina) !== 1 || stestiRarit({}) !== 1 || stestiRarit({ stesti: 0.5 }) !== 1) chybyRarit.push('Štěstí bez vylepšení není 1');
+// Štěstí mění raritu, ne počet losů: po stejné nabídce je rng na stejném místě (náhoda vln se neposune).
+{
+  const a = novaHra(vytvorRng(seminko));
+  const b = sPasivou(0, { stesti: VYLEPSENI.stesti.max });
+  b.hrdina.stestiKoristi = 3;
+  const ra = nabidka(a).map((v) => v.rarita);
+  const rb = nabidka(b).map((v) => v.rarita);
+  if (a.rng.dalsi() !== b.rng.dalsi() || ra.length !== rb.length) chybyRarit.push('Štěstí vzalo z rng víc losů');
+}
 // Losování sedí se šancemi: 3000 nabídek po 3 kartách na začátku hry.
 const losovano = Object.fromEntries(PORADI_RARIT.map((id) => [id, 0]));
 let karet = 0;
@@ -1162,6 +1193,23 @@ k.hrdina.hp = 1;
 vyber(k, karta(k, 'leceni', 'leceni', 'vzacna'));
 if (k.hrdina.hp !== 1 + 2 * LECENI_ODPOCINKU) chybyRarit.push(`vzácný odpočinek doléčil na ${k.hrdina.hp}`);
 if (karta(k, 'zbran', 'lucerna', 'drak').rarita !== 'bezna') chybyRarit.push('neznámá rarita není běžná');
+// Nové rarity: Neobvyklá = 1 úroveň a malé poškození, Mýtická a Božská víc úrovní, poškození a doléčení.
+// Vyšší rarita nikdy nedá méně úrovní ani poškození než nižší.
+for (const [id, urovni, sila, doleceni] of [['neobvykla', 1, 0.02, false], ['myticka', 4, 0.15, true], ['bozska', 5, 0.2, true]]) {
+  const h = novaHra(vytvorRng(seminko));
+  h.hrdina.hp = 10;
+  const kk = karta(h, 'pasiva', 'boty', id);
+  const pred = h.hrdina.sila;
+  vyber(h, kk);
+  if (kk.kroku !== urovni || h.pasivy.boty !== urovni || !blizko(h.hrdina.sila, pred * (1 + sila)) || (h.hrdina.hp === h.hrdina.maxHp) !== doleceni) {
+    chybyRarit.push(`${id} karta: ${kk.kroku} úrovní, síla ${h.hrdina.sila}, životy ${h.hrdina.hp}/${h.hrdina.maxHp}`);
+  }
+  if (!kk.bonusy.length || /[{}]|undefined|NaN/.test(kk.bonusy.join())) chybyRarit.push(`${id} karta nemá bonus v textu: ${kk.bonusy}`);
+}
+if (!PORADI_RARIT.every((id, i) => i === 0 || (RARITY[id].urovni >= RARITY[PORADI_RARIT[i - 1]].urovni && RARITY[id].urovni + RARITY[id].sila * 10 > RARITY[PORADI_RARIT[i - 1]].urovni + RARITY[PORADI_RARIT[i - 1]].sila * 10))) {
+  chybyRarit.push('vyšší rarita karty nedává víc');
+}
+if (!(RARITY.bozska.sila <= 0.25 && RARITY.bozska.urovni <= 5)) chybyRarit.push('Božská karta je moc silná');
 // Truhla a nová úroveň ve stejném snímku: nejdřív se otevře truhla, úroveň počká, až bude vybraná.
 const tr = novaHra(vytvorRng(seminko));
 tr.predmety.push({ druh: 'truhla', x: 0, y: 0 });
@@ -2579,7 +2627,7 @@ const pasivyZbrani = { zbrane: {} };
 // z dotyku i z jedového oblaku po houbákovi svůj počet (aspoň 1 projde, červené číslo ukáže zmenšenou ránu),
 // z bahenního oblaku nic (to je mapa, láva se hlídá u Sopky). Regenerace léčí přesně svůj počet za sekundu až po
 // plné životy, zelené číslo vyskočí nejvýš jednou za CISLO_REGENERACE. Štěstí ze stejných losů dá víc srdcí
-// a magnetů, nad stropem už ne, s trvalým Štěstím se násobí a šance na rarity karet nemění.
+// a magnetů, nad stropem už ne, s trvalým Štěstím se násobí a zvedne šance na vyšší rarity karet (nad stropem už ne).
 const pasivyPreziti = {};
 const relBlizkoP = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
 {
@@ -2652,7 +2700,11 @@ const relBlizkoP = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
   if (!(padloP[urovniNaStrop] > padloP[5]) || padloP[30] !== padloP[urovniNaStrop]) chybyPasiv.push(`Štěstí nad stropem: ${JSON.stringify(padloP)}`);
   if (!(sTrvalym > padloP[5])) chybyPasiv.push(`Štěstí s trvalým Štěstím ${sTrvalym} (bez ${padloP[5]})`);
   const stastna = sUrovni(ticha(), 'stesti', 30);
-  if (JSON.stringify(sanceRarit(stastna)) !== JSON.stringify(sanceRarit(ticha()))) chybyPasiv.push('pasiva Štěstí změnila rarity karet');
+  const naStropuStesti = sUrovni(ticha(), 'stesti', urovniNaStrop);
+  if (!(sanceRarit(stastna).bezna < sanceRarit(ticha()).bezna)) chybyPasiv.push('pasiva Štěstí nezměnila rarity karet');
+  if (JSON.stringify(sanceRarit(stastna)) !== JSON.stringify(sanceRarit(naStropuStesti))) chybyPasiv.push('pasiva Štěstí nad stropem dál zvedá rarity');
+  if (!blizkoR(stestiRarit(naStropuStesti.hrdina), 1 + PODIL_STESTI_RARIT * STROPY.pasivy.stesti)) chybyPasiv.push(`Štěstí na stropu: násobek rarit ${stestiRarit(naStropuStesti.hrdina)}`);
+  pasivyPreziti.stesti_rarity = { bezna_bez: sanceRarit(ticha()).bezna, bezna_na_stropu: sanceRarit(naStropuStesti).bezna, nasobek_na_stropu: stestiRarit(naStropuStesti.hrdina) };
   pasivyPreziti.stesti_srdce_a_magnety = { ...padloP, s_trvalym_max_a_5: sTrvalym };
 }
 
@@ -3658,6 +3710,23 @@ for (const [hrozba, stesti] of [[1, 1], [4, 1], [20, 1], [4, 2]]) {
 const vzacnejsiKusy = (sance) => 1 - sance.bezna;
 if (!(vzacnejsiKusy(sanceRaritVybavy(20)) > vzacnejsiKusy(sanceRaritVybavy(4)) && vzacnejsiKusy(sanceRaritVybavy(4, 2)) > vzacnejsiKusy(sanceRaritVybavy(4)))) {
   chybyVystroje.push('s hrozbou ani Štěstím nepřibývá vzácnějších kusů');
+}
+// Sedm rarit jako u karet, vyšší rarita = silnější staty a víc zlaťáků, průměrný kus (hrozba 1) zhruba jako dřív
+// se čtyřmi raritami (1,158× běžný), Mýtická a Božská zřídka.
+if (JSON.stringify(PORADI_RARIT_VYBAVY) !== JSON.stringify(PORADI_RARIT)) chybyVystroje.push(`rarity výbavy ${PORADI_RARIT_VYBAVY}`);
+if (!PORADI_RARIT_VYBAVY.every((id, i) => i === 0 || (RARITY_VYBAVY[id].nasobek > RARITY_VYBAVY[PORADI_RARIT_VYBAVY[i - 1]].nasobek
+  && RARITY_VYBAVY[id].zlataky > RARITY_VYBAVY[PORADI_RARIT_VYBAVY[i - 1]].zlataky && RARITY_VYBAVY[id].vaha < RARITY_VYBAVY[PORADI_RARIT_VYBAVY[i - 1]].vaha))) {
+  chybyVystroje.push('vyšší rarita kusu není silnější, dražší a vzácnější');
+}
+const prumerKusu = (h) => Object.entries(sanceRaritVybavy(h)).reduce((a, [id, p]) => a + p * RARITY_VYBAVY[id].nasobek, 0);
+if (Math.abs(prumerKusu(1) - 1.158) > 0.02 || Math.abs(prumerKusu(8) - 1.242) > 0.03) chybyVystroje.push(`průměrný kus ${prumerKusu(1).toFixed(3)} / ${prumerKusu(8).toFixed(3)}`);
+if (!(sanceRaritVybavy(4).bozska > 0 && sanceRaritVybavy(4).bozska < 0.002 && sanceRaritVybavy(4).myticka < 0.01)) chybyVystroje.push(`šance na mýtický a božský kus ${JSON.stringify(sanceRaritVybavy(4))}`);
+// Truhla bosse i kupec berou na raritu kusu Štěstí i z pasivy (stestiRarit bez karet), ne jen trvalé.
+const volaniKusu = [...readFileSync(new URL('../src/hra.js', import.meta.url), 'utf8').matchAll(/losujKus\(([^\n]*)\);/g)].map((m) => m[1]);
+if (volaniKusu.length < 2 || volaniKusu.some((v) => !v.endsWith('stestiRarit(hra.hrdina, false)'))) chybyVystroje.push(`kusy se losují bez Štěstí z pasivy: ${volaniKusu}`);
+const sPasivouStesti = { stesti: 1, stestiKoristi: 1 + 5 * PASIVY.stesti.pricti, stestiKaret: 2 };
+if (!(vzacnejsiKusy(sanceRaritVybavy(4, stestiRarit(sPasivouStesti, false))) > vzacnejsiKusy(sanceRaritVybavy(4))) || stestiRarit(sPasivouStesti, false) >= stestiRarit(sPasivouStesti)) {
+  chybyVystroje.push('pasiva Štěstí nezvedla raritu kusů (nebo kusy berou Vybíravost karet)');
 }
 const losovaneKusy = Object.fromEntries(PORADI_RARIT_VYBAVY.map((id) => [id, 0]));
 for (let i = 0; i < 10000; i++) losovaneKusy[rarituKusuZLosu((i + 0.5) / 10000, 8)] += 1;
@@ -5719,7 +5788,7 @@ const vysledekPetu = {};
   // Zvuky petů a okna Pety (líheň) existují.
   for (const id of ['vejce', 'petOhen', 'tukVejce', 'praskVejce', 'vylihnuti']) if (!zvuk.ID_EFEKTU.includes(id)) chybyPetu.push(`chybí zvuk ${id}`);
   if (!readFileSync(new URL('../src/menu.js', import.meta.url), 'utf8').includes('pety: { vypln: vyplnPety }')) chybyPetu.push('menu nemá záložku Pety');
-  // Síla: vzácnější rarita a vyšší úroveň vždy víc, legendární na maximu nejvýš ~5× běžná první úroveň.
+  // Síla: vzácnější rarita a vyšší úroveň vždy víc, Božská na maximu nejvýš 8× běžná první úroveň.
   let predSila = 0;
   for (const r of PORADI_RARIT_PETU) {
     for (let u = 1; u <= MAX_UROVEN_PETU; u++) {
@@ -5729,7 +5798,10 @@ const vysledekPetu = {};
     if (!(silaPetu(r, 1) > predSila)) chybyPetu.push(`rarita ${r} není silnější než předchozí`);
     predSila = silaPetu(r, 1);
   }
-  if (silaPetu('bezna', 1) !== 1 || MAX_SILA_PETU > 5) chybyPetu.push(`síla petů: běžný ${silaPetu('bezna', 1)}, nejsilnější ${MAX_SILA_PETU}`);
+  if (silaPetu('bezna', 1) !== 1 || MAX_SILA_PETU > 8 || MAX_SILA_PETU !== silaPetu('bozska', MAX_UROVEN_PETU)) chybyPetu.push(`síla petů: běžný ${silaPetu('bezna', 1)}, nejsilnější ${MAX_SILA_PETU}`);
+  if (JSON.stringify(PORADI_RARIT_PETU) !== JSON.stringify(PORADI_RARIT)) chybyPetu.push(`rarity petů ${PORADI_RARIT_PETU} nejsou rarity karet`);
+  // Mýtická řádově 1 %, Božská řádově 0,2 % (velmi vzácné, ale možné).
+  if (!(RARITY_PETU.myticka.sance >= 0.005 && RARITY_PETU.myticka.sance <= 0.015 && RARITY_PETU.bozska.sance >= 0.001 && RARITY_PETU.bozska.sance <= 0.003)) chybyPetu.push('šance na mýtického a božského peta');
   // Los rarit sedí se šancemi (součet 1, běžná nejčastější, legendární vzácná ale možná).
   const soucet = PORADI_RARIT_PETU.reduce((a, r) => a + RARITY_PETU[r].sance, 0);
   if (Math.abs(soucet - 1) > 1e-9) chybyPetu.push(`šance rarit petů dávají ${soucet}`);
@@ -5742,9 +5814,11 @@ const vysledekPetu = {};
     if (Math.abs(podil - RARITY_PETU[r].sance) > Math.max(0.004, RARITY_PETU[r].sance * 0.1)) chybyPetu.push(`rarita ${r} padla v ${(podil * 100).toFixed(2)} %, čekám ${RARITY_PETU[r].sance * 100} %`);
   }
   vysledekPetu.los_rarit_procenta = Object.fromEntries(PORADI_RARIT_PETU.map((r) => [r, Math.round((padlo[r] / losu) * 10000) / 100]));
-  if (rarituZLosu(0) !== 'bezna' || rarituZLosu(0.999999) !== 'legendarni' || rarituZLosu(NaN) !== 'bezna' || rarituZLosu(5) !== 'legendarni') chybyPetu.push('los rarit na krajích');
+  if (rarituZLosu(0) !== 'bezna' || rarituZLosu(0.999999) !== 'bozska' || rarituZLosu(NaN) !== 'bezna' || rarituZLosu(5) !== 'bozska') chybyPetu.push('los rarit na krajích');
   const sPojistkou = sanceRaritPetu(POJISTKA_PETU - 1);
-  if (sPojistkou.bezna !== 0 || sPojistkou.vzacna !== 0 || Math.abs(sPojistkou.epicka + sPojistkou.legendarni - 1) > 1e-9) chybyPetu.push(`šance s pojistkou ${JSON.stringify(sPojistkou)}`);
+  const odEpicke = PORADI_RARIT_PETU.slice(PORADI_RARIT_PETU.indexOf('epicka'));
+  if (sPojistkou.bezna !== 0 || sPojistkou.neobvykla !== 0 || sPojistkou.vzacna !== 0 || Math.abs(odEpicke.reduce((a, r) => a + sPojistkou[r], 0) - 1) > 1e-9
+    || !(sPojistkou.bozska > 0)) chybyPetu.push(`šance s pojistkou ${JSON.stringify(sPojistkou)}`);
   // Otevírání hodně vajec za sebou: pojistka drží (nejvýš POJISTKA_PETU − 1 za sebou bez epického), druhy padají rovnoměrně,
   // každý pet má platnou raritu a úroveň, vejce ubývají a duše za duplikáty jen na maximu.
   let stav = pridejVejce({}, 999);
@@ -5758,7 +5832,7 @@ const vysledekPetu = {};
     const { pety, vysledek: v } = otevriVejce(stav, rngVajec.dalsi(), rngVajec.dalsi());
     druhy[v.druh] += 1;
     zmeny[v.zmena] += 1;
-    if (['epicka', 'legendarni'].includes(v.rarita)) {
+    if (odEpicke.includes(v.rarita)) {
       epickychAVys += 1;
       zaSebou = 0;
     } else nejdelsi = Math.max(nejdelsi, ++zaSebou);
@@ -5774,7 +5848,9 @@ const vysledekPetu = {};
   // Jednotlivé případy: nový pet (rovnou aktivní), stejná rarita = úroveň, vzácnější = rarita (úroveň zůstane),
   // na maximu duše, pojistka a nákup.
   const los = (druh) => (PORADI_PETU.indexOf(druh) + 0.5) / PORADI_PETU.length;
-  const losRarity = { bezna: 0.1, vzacna: 0.7, epicka: 0.95, legendarni: 0.995 };
+  // Kumulativně: běžná do 0,45, neobvyklá do 0,7, vzácná do 0,88, epická do 0,968, legendární do 0,988, mýtická do 0,998.
+  const losRarity = { bezna: 0.1, neobvykla: 0.6, vzacna: 0.8, epicka: 0.95, legendarni: 0.98, myticka: 0.993, bozska: 0.9995 };
+  for (const [r, l] of Object.entries(losRarity)) if (rarituZLosu(l) !== r) chybyPetu.push(`los ${l} dal ${rarituZLosu(l)}, ne ${r}`);
   let s1 = otevriVejce(pridejVejce({}, 5), los('liska'), losRarity.vzacna);
   if (s1.vysledek.zmena !== 'novy' || s1.pety.aktivni !== 'liska' || JSON.stringify(s1.pety.sbirka) !== '{"liska":{"rarita":"vzacna","uroven":1}}') chybyPetu.push(`nový pet: ${JSON.stringify(s1)}`);
   s1 = otevriVejce(s1.pety, los('liska'), losRarity.bezna);
@@ -6001,7 +6077,7 @@ chyby.push(...chybyPetu);
     for (const u of [1, 2, 5, 6, 12, 40]) {
       h.pasivy[id] = u;
       const n = cisloPasivy(h, id);
-      if (!Number.isFinite(n) || n < 0 || /[{}]|NaN|undefined/.test(t(`pauza.prehled.hodnoty.${id}`, { n }))) chybyPrehledu.push(`pasiva ${id} úr. ${u}: ${n}`);
+      if (!Number.isFinite(n) || n < 0 || /[{}]|NaN|undefined/.test(t(`pauza.prehled.hodnoty.${id}`, { n, r: n * PODIL_STESTI_RARIT }))) chybyPrehledu.push(`pasiva ${id} úr. ${u}: ${n}`);
     }
     delete h.pasivy[id];
   }
@@ -6143,7 +6219,7 @@ const projdiVetev = (data, vetev, cesta) => {
     if (v && typeof v === 'object' && !Array.isArray(v)) {
       if (!data?.[k] || typeof data[k] !== 'object') chybyPrekladu.push(`data nemají ${cesta}.${k}`);
       else projdiVetev(data[k], v, `${cesta}.${k}`);
-    } else if (JSON.stringify(data?.[k]) !== JSON.stringify(t(`${cesta}.${k}`, { s: '?' })) && !/\{s\}/.test(String(v))) {
+    } else if (JSON.stringify(data?.[k]) !== JSON.stringify(t(`${cesta}.${k}`, { s: '?' })) && !/\{[sr]\}/.test(String(v))) {
       chybyPrekladu.push(`${cesta}.${k}: data vrací ${JSON.stringify(data?.[k])}`);
     }
   }
@@ -6154,6 +6230,7 @@ const DATA_SLOVNIKU = {
 };
 for (const [cesta, data] of Object.entries(DATA_SLOVNIKU)) projdiVetev(data, hodnota(cesta, VYCHOZI_JAZYK), cesta);
 if (PASIVY.stit.popisPrvni !== `Bublina každých ${DOBITI_STITU} s zastaví jednu ránu`) chybyPrekladu.push(`Štít: ${PASIVY.stit.popisPrvni}`);
+if (PASIVY.stesti.popis !== '+10 % šance na lepší raritu karet a výbavy, +20 % srdcí a magnetů' || PASIVY.stesti.popisDal !== PASIVY.stesti.popis) chybyPrekladu.push(`Štěstí: ${PASIVY.stesti.popis}`);
 for (const [id, m] of Object.entries(MAPY)) {
   for (const d of m.nepratele) {
     if ((d.text ?? null) !== (hodnota(`prichody.${id}.${d.druh}`) ?? null)) chybyPrekladu.push(`ohlášení ${id} ${d.druh}: ${d.text}`);

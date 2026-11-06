@@ -14,7 +14,7 @@ import { MAPY, VYCHOZI_MAPA, hash } from './mapy.js';
 import { nakresliText, STYL_PERGAMEN, STYL_NADPISU, STYL_KREV, PISMO_NADPISU } from './pismo.js';
 // t ze slovníku je tu preklad (t je v kreslení skoro všude průběh animace 0..1)
 import { t as preklad } from './texty.js';
-import { barvoslepy, barvyRarity, ZNAKY_RARIT } from './barvy.js';
+import { barvoslepy, barvyRarity, ZNAKY_RARIT, PALETY_RARIT } from './barvy.js';
 import { vzorNebezpeci, znakRarity } from './vzory.js';
 
 // Kde je kamera (levý horní roh obrazovky ve světě) v tomhle snímku: vzory režimu pro barvoslepé drží ke světu.
@@ -116,13 +116,9 @@ const BARVY_BOSSU = {
   bahenni_bludicka: { pruh: '#9be08a', tmava: '#26552a', text: '#d8f7b0' },
   kosteny_kral: { pruh: '#e8e2d0', tmava: '#4a4650', text: '#f3efe6' },
 };
-// Barvy rarit výbavy (stejné jako u karet v style.css): c = rámeček a paprsky, svetla = záře a nápis.
-const BARVY_RARIT = {
-  bezna: { c: '#8f86a0', svetla: '#f3efe6' },
-  vzacna: { c: '#3d7fd9', svetla: '#9fd0ff' },
-  epicka: { c: '#9a4fd8', svetla: '#dcb0ff' },
-  legendarni: { c: '#e8962a', svetla: '#ffd27a' },
-};
+// Barvy rarit výbavy (paleta bez režimu z barvy.js, stejná jako u karet v style.css): c = rámeček a paprsky,
+// svetla = záře a nápis. Běžná má paprsky o kus světlejší než rámeček karty, jinak by na tmě zmizely.
+const BARVY_RARIT = { ...PALETY_RARIT.vyp, bezna: { ...PALETY_RARIT.vyp.bezna, c: '#8f86a0' } };
 // Otevírání truhly: prvních TRESENI_TRUHLY z celé doby se zavřená truhla třese, pak se otevře a kus vystoupá
 // o VYSTUP_KUSU px nad ni. Truhla na zemi poskočí jednou za SKOK_TRUHLY s.
 const TRESENI_TRUHLY = 0.3;

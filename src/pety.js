@@ -31,12 +31,17 @@ export const PETY = {
 pripojTexty(PETY, 'pety');
 export const PORADI_PETU = Object.keys(PETY);
 
-// Rarity petů mají stejná jména a barvy jako rarity karet (RARITY v hra.js, barvy.js). sance = jak často se vylíhne.
+// Rarity petů mají stejné klíče, jména a barvy jako rarity karet (RARITY v hra.js, barvy.js). sance = jak často se
+// vylíhne (pevně, Štěstí ze hry ani ze stromu vejce nemění). Mýtická (1 %) a Božská (0,2 %) jsou velmi vzácné
+// a mají nejsilnější bonus.
 export const RARITY_PETU = {
-  bezna: { sila: 1, sance: 0.62 },
-  vzacna: { sila: 1.4, sance: 0.27 },
-  epicka: { sila: 1.9, sance: 0.09 },
+  bezna: { sila: 1, sance: 0.45 },
+  neobvykla: { sila: 1.2, sance: 0.25 },
+  vzacna: { sila: 1.4, sance: 0.18 },
+  epicka: { sila: 1.9, sance: 0.088 },
   legendarni: { sila: 2.6, sance: 0.02 },
+  myticka: { sila: 3.3, sance: 0.01 },
+  bozska: { sila: 4.2, sance: 0.002 },
 };
 export const PORADI_RARIT_PETU = Object.keys(RARITY_PETU);
 export const MAX_UROVEN = 5;
@@ -57,7 +62,7 @@ export function silaPetu(rarita, uroven = 1) {
   const u = Math.min(MAX_UROVEN, Math.max(1, Math.floor(uroven) || 1));
   return r.sila * (1 + RUST_UROVNE * (u - 1));
 }
-export const MAX_SILA = silaPetu('legendarni', MAX_UROVEN);
+export const MAX_SILA = silaPetu(PORADI_RARIT_PETU.at(-1), MAX_UROVEN);
 
 // Za kolik sekund pet zopakuje svou akci (silnější pet častěji).
 export function intervalPetu(druh, sila) {

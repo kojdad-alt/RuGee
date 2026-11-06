@@ -6,6 +6,7 @@
 // cisloPasivy).
 import {
   prehledPoskozeni, seznamVybavy, seznamVystroje, cisloPasivy, pasivaNaStropu, stupenUrovne, kratkeCislo, OKNO_DPS,
+  PODIL_STESTI_RARIT,
 } from './hra.js';
 import { SLOTY, VYBAVA, EFEKTY_VYBAVY, RARITY_VYBAVY, PORADI_SAD, PORADI_SLOTU, radkyStatu, popisEfektu } from './vystroj.js';
 import { policko, slotVystroje } from './vybava.js';
@@ -85,9 +86,10 @@ function tabulkaZbrani(hra) {
 }
 
 // Řádek pasivy: číslo z cisloPasivy do textu pauza.prehled.hodnoty (Příval celé kusy, jinak na desetiny).
+// r = kolik z toho jde na rarity (jen Štěstí, PODIL_STESTI_RARIT).
 function textPasivy(hra, id) {
   const n = cisloPasivy(hra, id);
-  return t(`pauza.prehled.hodnoty.${id}`, { n: id === 'prival' ? Math.round(n) : cislo(n) });
+  return t(`pauza.prehled.hodnoty.${id}`, { n: id === 'prival' ? Math.round(n) : cislo(n), r: cislo(n * PODIL_STESTI_RARIT) });
 }
 
 function seznamPasiv(hra) {

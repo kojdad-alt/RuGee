@@ -1,11 +1,13 @@
 // Režim pro barvoslepé (Nastavení → Barvy): vyp, deuteranopie, protanopie, tritanopie. Nic ve hře se pak neliší
-// jen barvou: rarity karet a výbavy mají značku (kruh, kosočtverec, trojúhelník, hvězda) a barvy, které daný
+// jen barvou: rarity karet a výbavy mají značku (kruh, čtverec, kosočtverec, trojúhelník, hvězda, koruna, slunce)
+// a barvy, které daný
 // druh barvosleposti rozezná, varování bossů jsou šikmé pruhy, láva klikaté praskliny, bahno vlnky, jed puntíky
 // a led jiskry. Bez režimu (vyp) vypadá všechno jako dřív.
 // Jen data a funkce bez DOM (test je načte v Node). CSS (značky, palety rarit) z nich zapisuje nastroje/ramy.mjs do
 // style.css, kreslení na plátno (kresleni.js, louka.js) je čte přímo. Body stránky dostane data-barvy (main.js).
 // Palety jsou spočítané simulací barvosleposti (nastroje/barvoslepost.mjs): v daném režimu je mezi každou dvojicí
-// rarit rozdíl aspoň ΔE00 25, test to hlídá.
+// rarit rozdíl aspoň ΔE00 25, test to hlídá. Se sedmi raritami je to těsné, barvy hledal optimalizátor (běžná
+// zůstala šedá, nové rarity co nejblíž barvám bez režimu), značka ale raritu pozná vždycky i bez barvy.
 
 export const REZIMY_BAREV = ['vyp', 'deuteranopie', 'protanopie', 'tritanopie'];
 
@@ -35,7 +37,9 @@ export function priZmeneBarev(posluchac) {
 }
 
 // Značka rarity a její kresba 9×9 (K = obrys, W = výplň, Q = stín). Každá má jiný obrys, takže se pozná i malá.
-export const ZNAKY_RARIT = { bezna: 'kruh', vzacna: 'kosoctverec', epicka: 'trojuhelnik', legendarni: 'hvezda' };
+export const ZNAKY_RARIT = {
+  bezna: 'kruh', neobvykla: 'ctverec', vzacna: 'kosoctverec', epicka: 'trojuhelnik', legendarni: 'hvezda', myticka: 'koruna', bozska: 'slunce',
+};
 export const KRESBY_ZNAKU = {
   kruh: [
     '..KKKKK..',
@@ -81,6 +85,39 @@ export const KRESBY_ZNAKU = {
     '.KWWKQQK.',
     '.KKK.KKK.',
   ],
+  ctverec: [
+    'KKKKKKKKK',
+    'KWWWWWWWK',
+    'KWWWWWWWK',
+    'KWWWWWWWK',
+    'KWWWWWWWK',
+    'KWWWWWWQK',
+    'KWWWWWQQK',
+    'KWWQQQQQK',
+    'KKKKKKKKK',
+  ],
+  koruna: [
+    'K...K...K',
+    'KK.KWK.KK',
+    'KWKWWWKWK',
+    'KWWWWWWWK',
+    'KWWWWWWQK',
+    'KWWWWWQQK',
+    'KKKKKKKKK',
+    '.KWWWQQK.',
+    '.KKKKKKK.',
+  ],
+  slunce: [
+    'KK..K..KK',
+    'KWK.K.KWK',
+    '.KKKWKKK.',
+    '..KWWWK..',
+    'KKWWWWWKK',
+    '..KWWQK..',
+    '.KKKQKKK.',
+    'KQK.K.KQK',
+    'KK..K..KK',
+  ],
 };
 export const BARVY_ZNAKU = { K: '#140c08', W: '#f3efe6', Q: '#a59bb4' };
 
@@ -101,34 +138,47 @@ function rarita(c, zar = 0.45) {
   return { c, svetla: michej(c, '#ffffff', 0.25), pozadi: michej(c, '#140c10', 0.82), zar: rgba(c, zar) };
 }
 
-// Palety rarit. vyp = jako dřív (style.css .rarita-*), ostatní najde v daném režimu každá dvojice rarit.
+// Palety rarit. vyp = bez režimu (style.css .rarita-*): šedá, zelená, modrá, fialová, oranžová, karmínová a perleťová
+// (Božská má v CSS navíc pomalou duhovou záři). Ostatní najde v daném režimu každá dvojice rarit.
 export const PALETY_RARIT = {
   vyp: {
     bezna: { c: '#6e6577', svetla: '#f3efe6', pozadi: '#2b1c12', zar: 'rgba(0, 0, 0, 0)' },
+    neobvykla: { c: '#4fa83d', svetla: '#a6e29a', pozadi: '#16261a', zar: 'rgba(110, 200, 90, 0.35)' },
     vzacna: { c: '#3d7fd9', svetla: '#9fd0ff', pozadi: '#172236', zar: 'rgba(80, 160, 255, 0.4)' },
     epicka: { c: '#9a4fd8', svetla: '#dcb0ff', pozadi: '#241835', zar: 'rgba(185, 100, 255, 0.5)' },
     legendarni: { c: '#e8962a', svetla: '#ffd27a', pozadi: '#33230d', zar: 'rgba(255, 180, 60, 0.6)' },
+    myticka: { c: '#d8423a', svetla: '#ff9e8c', pozadi: '#361311', zar: 'rgba(255, 90, 70, 0.6)' },
+    bozska: { c: '#ece8f8', svetla: '#ffffff', pozadi: '#26232f', zar: 'rgba(240, 235, 255, 0.7)' },
   },
-  // zelená a červená splývají: modrá, růžová a oranžová se liší odstínem i jasem
+  // zelená a červená splývají: tyrkysová, modrá, světle růžová, oranžová, rezavá a smetanová se liší odstínem i jasem
   deuteranopie: {
-    bezna: { ...rarita('#605f62', 0), svetla: '#f3efe6' },
-    vzacna: rarita('#2e85fa', 0.4),
-    epicka: rarita('#ec92ba', 0.5),
-    legendarni: rarita('#eb9200', 0.6),
+    bezna: { ...rarita('#605f62', 0), svetla: '#ececec' },
+    neobvykla: rarita('#2cb994', 0.35),
+    vzacna: rarita('#3185f6', 0.4),
+    epicka: rarita('#efb3ff', 0.5),
+    legendarni: rarita('#f28800', 0.6),
+    myticka: rarita('#a83b18', 0.6),
+    bozska: rarita('#ffffce', 0.7),
   },
-  // červená tmavne a splývá se zelenou: světle modrá, sytě fialová a oranžová
+  // červená tmavne a splývá se zelenou: jasně zelená, světle modrá, sytě fialová, oranžová, rudá a smetanová
   protanopie: {
-    bezna: { ...rarita('#605f60', 0), svetla: '#f3efe6' },
-    vzacna: rarita('#9fc7e4', 0.4),
-    epicka: rarita('#9c2bf9', 0.5),
-    legendarni: rarita('#e79528', 0.6),
+    bezna: { ...rarita('#737373', 0), svetla: '#c8c8c8' },
+    neobvykla: rarita('#5bfe3b', 0.35),
+    vzacna: rarita('#95caf3', 0.4),
+    epicka: rarita('#9c2af9', 0.5),
+    legendarni: rarita('#d68309', 0.6),
+    myticka: rarita('#c2170c', 0.6),
+    bozska: rarita('#ffffeb', 0.7),
   },
-  // modrá splývá se zelenou a žlutá s růžovou: modrá, purpurová a světle zlatá
+  // modrá splývá se zelenou a žlutá s růžovou: zelená, modrá, purpurová, světle zlatá, rudá a světle žlutá
   tritanopie: {
-    bezna: { ...rarita('#625d71', 0), svetla: '#bdb6c6' },
-    vzacna: rarita('#2189f8', 0.4),
-    epicka: rarita('#dc09f9', 0.5),
-    legendarni: rarita('#ffd787', 0.6),
+    bezna: { ...rarita('#625d71', 0), svetla: '#b9b9b9' },
+    neobvykla: rarita('#06e72d', 0.35),
+    vzacna: rarita('#3574f8', 0.4),
+    epicka: rarita('#d409ff', 0.5),
+    legendarni: rarita('#efc059', 0.6),
+    myticka: rarita('#e71a2a', 0.6),
+    bozska: rarita('#f5ffd1', 0.7),
   },
 };
 

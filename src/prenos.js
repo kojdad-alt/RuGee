@@ -17,7 +17,7 @@ export const MAX_DELKA_KODU = 20000;
 // Ve sbírce je kus zapsaný dvěma písmeny: slot a rarita. Písmena jsou napevno, nikdy je neměň (staré kódy by se
 // přečetly špatně), nový slot nebo raritu přidej s novým písmenem. Co tu chybí, jde do kódu celým jménem (s2).
 const PISMENO_SLOTU = { hlava: 'h', telo: 't', amulet: 'a', prsten: 'p' };
-const PISMENO_RARITY = { bezna: 'b', vzacna: 'v', epicka: 'e', legendarni: 'l' };
+const PISMENO_RARITY = { bezna: 'b', vzacna: 'v', epicka: 'e', legendarni: 'l', neobvykla: 'n', myticka: 'm', bozska: 'z' };
 const SLOT_PISMENA = Object.fromEntries(Object.entries(PISMENO_SLOTU).map(([slot, p]) => [p, slot]));
 const RARITA_PISMENA = Object.fromEntries(Object.entries(PISMENO_RARITY).map(([rarita, p]) => [p, rarita]));
 const KUSY = new Map(VSECHNY_KUSY.map((kus) => [kus.id, kus]));

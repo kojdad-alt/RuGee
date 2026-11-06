@@ -149,7 +149,8 @@ pripojTexty(ZBRANE, 'zbrane');
 //   Regenerace – životy samy přibývají (hrdina.regenerace za sekundu), nejvýš STROPY.pasivy.regenerace, ať se
 //                nedá přežít donekonečna jen stáním.
 //   Štěstí – větší šance, že nepřítel pustí srdce nebo magnet (hrdina.stestiKoristi násobí šanci spolu se
-//            Štěstím z trvalých vylepšení, karty ani výbavu nemění), nejvýš STROPY.pasivy.stesti.
+//            Štěstím z trvalých vylepšení), a vyšší šance na lepší raritu karet a výbavy z truhel bossů: na rarity
+//            jde PODIL_STESTI_RARIT z toho, co pasiva přidá (stestiRarit), nejvýš STROPY.pasivy.stesti.
 // Pasivy II:
 //   Upíří zub – šance (hrdina.upiri), že zabití nepřítele vrátí ZIVOT_ZA_SANI. Od padlého doletí ke hrdinovi kapka
 //               krve a nad ním je růžové +N. Nejvýš SANI_ZA_SEKUNDU za sekundu, ať v hustých vlnách nejde jen stát.
@@ -166,6 +167,9 @@ pripojTexty(ZBRANE, 'zbrane');
 export const DOBITI_STITU = 20;
 export const MIN_DOBITI_STITU = 8;
 const UBYTEK_STITU = 1;
+// Kolik z pasivy Štěstí (hrdina.stestiKoristi nad 1) jde na rarity: 0,5 = každá úroveň (+20 % srdcí a magnetů)
+// přidá +10 % k šancím vyšších rarit karet a výbavy z truhel (stestiRarit).
+export const PODIL_STESTI_RARIT = 0.5;
 export const PASIVY = {
   srdce: {
     ikona: 'srdce', vlastnost: 'maxHp', pricti: 20, dal: 10,
@@ -222,8 +226,10 @@ export const PASIVY = {
     ikona: 'chamtivost', vlastnost: 'chamtivost', nasobek: 0.1, dal: 0.03,
   },
 };
+const textStesti = { n: Math.round(PASIVY.stesti.pricti * 100), r: Math.round(PASIVY.stesti.pricti * PODIL_STESTI_RARIT * 100) };
 pripojTexty(PASIVY, 'pasivy', {
   'stit.popisPrvni': { s: DOBITI_STITU }, 'stit.popis': { s: UBYTEK_STITU },
+  'stesti.popis': textStesti, 'stesti.popisDal': textStesti,
 });
 
 // Úrovně nemají strop. Úrovně 1–5 popisuje každá zbraň a pasiva sama (popis), od 6. dál dá každá úroveň menší
@@ -256,15 +262,22 @@ export const STROPY = {
 // Od těchto úrovní mění barvu rámeček v přehledu výbavy a čtverečky na kartě (stupenUrovne).
 export const STUPNE_UROVNI = [5, 10, 15];
 
-// Rarita karty při nové úrovni: kolik úrovní karta přidá a jaký bonus dá navíc.
-// vaha = jak často padá na začátku hry; vzácnějších rarit časem přibývá (v 15. minutě 2×) a Štěstí je násobí dál.
+// Rarita karty při nové úrovni: kolik úrovní karta přidá a jaký bonus dá navíc. Sedm rarit od Běžné po Božskou,
+// stejné klíče, jména a barvy mají výbava bossů (vystroj.js) a pety (pety.js). Pořadí je napevno (od nejhorší).
+// vaha = jak často padá na začátku hry; vzácnějších rarit časem přibývá (v 15. minutě 2×) a Štěstí je násobí dál
+// (stestiRarit: trvalé Štěstí, Vybíravost a Vzácnost ze stromu, pasiva Štěstí a Beruška).
 // Úrovně nemají strop, takže karta přidá vždy celý počet úrovní své rarity.
 // Váhy a bonusy jsou nízko schválně: s dvojnásobnými rozjel bot v simulaci sněhovou kouli a přežil přes 20 minut.
+// Neobvyklá je časté malé plus (úroveň a +2 % poškození), Mýtická a Božská padnou za hru zřídka a jednou kartou
+// hrdinu výrazně posunou (4 a 5 úrovní, +15 a +20 % poškození, doléčení).
 export const RARITY = {
   bezna: { urovni: 1, sila: 0, doleceni: false, vaha: 100 },
+  neobvykla: { urovni: 1, sila: 0.02, doleceni: false, vaha: 30 },
   vzacna: { urovni: 2, sila: 0, doleceni: false, vaha: 12 },
   epicka: { urovni: 2, sila: 0.05, doleceni: false, vaha: 3.5 },
   legendarni: { urovni: 3, sila: 0.1, doleceni: true, vaha: 1 },
+  myticka: { urovni: 4, sila: 0.15, doleceni: true, vaha: 0.25 },
+  bozska: { urovni: 5, sila: 0.2, doleceni: true, vaha: 0.06 },
 };
 pripojTexty(RARITY, 'rarity');
 export const PORADI_RARIT = Object.keys(RARITY);
@@ -1088,8 +1101,9 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     // Pasivy pro zbraně: krit a ozvena = šance (0–1), rozpeti a vydrz = násobky, prival = kusů navíc.
     krit: 0, rozpeti: 1, ozvena: 0, vydrz: 1, prival: 0,
     // Pasivy pro přežití: pancir = kolik ubere Zbroj z každé rány nepřátel, regenerace = životů za sekundu,
-    // stestiKoristi = násobek šance na srdce a magnet ze Štěstí (pasiva), naRegeneraci = vyléčeno, ale ještě
-    // neukázáno číslem, doCislaRegenerace = za jak dlouho vyskočí další zelené číslo.
+    // stestiKoristi = násobek šance na srdce a magnet ze Štěstí (pasiva, jeho díl jde i na rarity: stestiRarit),
+    // naRegeneraci = vyléčeno, ale ještě neukázáno číslem, doCislaRegenerace = za jak dlouho vyskočí další zelené
+    // číslo.
     pancir: 0, regenerace: 0, stestiKoristi: 1, naRegeneraci: 0, doCislaRegenerace: 0,
     // Pasivy II: upiri = šance na život za zabití, doSani = za jak dlouho smí Upíří zub léčit znovu,
     // trnovaZbroj = kolik rány se vrátí útočníkovi (1 = celá), dobitiStitu = za kolik sekund se štít dobije (bez
@@ -3834,7 +3848,7 @@ export function rozhodniKus(hra, vzit) {
 // Kus je ze sady bosse, u hlavního bosse mapy ze sady toho, z koho vychází (Lávový obr dá kus Kamenného obra).
 function otevriTruhlu(hra, p) {
   const od = Object.hasOwn(BOSSOVE, p.od) ? p.od : 'strazce';
-  const kus = losujKus(zakladBosse(od), hra.rng.dalsi(), hra.rng.dalsi(), hra.hrozba, hra.hrdina.stesti);
+  const kus = losujKus(zakladBosse(od), hra.rng.dalsi(), hra.rng.dalsi(), hra.hrozba, stestiRarit(hra.hrdina, false));
   hra.otevira = { x: p.x, y: p.y, od, kus, cas: 0 };
   zvuk(hra, 'truhla');
 }
@@ -4010,7 +4024,7 @@ const POUZITI_ZBOZI = {
   },
   kus(hra) {
     const boss = PORADI_BOSSU[Math.min(PORADI_BOSSU.length - 1, Math.floor(hra.rng.dalsi() * PORADI_BOSSU.length))];
-    const kus = losujKus(boss, hra.rng.dalsi(), hra.rng.dalsi(), hra.hrozba, hra.hrdina.stesti);
+    const kus = losujKus(boss, hra.rng.dalsi(), hra.rng.dalsi(), hra.hrozba, stestiRarit(hra.hrdina, false));
     ziskejKus(hra, kus);
     hra.truhlaKus = null;
     return t('hra.koupeno.kus', { kus: kus.nazev, rarita: RARITY_VYBAVY[kus.rarita].nazev });
@@ -4745,10 +4759,19 @@ function pohrbi(hra) {
   hra.nepratele = hra.nepratele.filter((n) => n.hp > 0);
 }
 
-// Šance na každou raritu (součet 1). minimum: horší rarity než tahle nepadnou (truhla bosse).
+// Násobek šancí vyšších rarit ze Štěstí (aspoň 1): trvalé Štěstí × pasiva Štěstí (její PODIL_STESTI_RARIT, i od
+// Berušky) a u karet ještě Vybíravost a Vzácnost ze stromu (stestiKaret). Výbava z truhel (karty = false) bere
+// totéž bez stestiKaret.
+export function stestiRarit(hrdina, karty = true) {
+  const pasiva = 1 + PODIL_STESTI_RARIT * Math.max(0, (hrdina?.stestiKoristi ?? 1) - 1);
+  return Math.max(1, (hrdina?.stesti ?? 1) * (karty ? hrdina?.stestiKaret ?? 1 : 1) * pasiva);
+}
+
+// Šance na každou raritu (součet 1). minimum: horší rarity než tahle nepadnou (truhla bosse). Čas a Štěstí
+// násobí váhy všech rarit nad Běžnou stejně (stestiRarit).
 export function sanceRarit(hra, minimum = 'bezna') {
   const cas = Math.min(Math.max(0, hra.cas), CAS_PLNYCH_RARIT);
-  const nasobek = (1 + cas / CAS_PLNYCH_RARIT) * Math.max(1, (hra.hrdina.stesti ?? 1) * (hra.hrdina.stestiKaret ?? 1));
+  const nasobek = (1 + cas / CAS_PLNYCH_RARIT) * stestiRarit(hra.hrdina);
   const od = Math.max(0, PORADI_RARIT.indexOf(minimum));
   const vahy = PORADI_RARIT.map((id, i) => (i < od ? 0 : RARITY[id].vaha * (i > 0 ? nasobek : 1)));
   const soucet = vahy.reduce((a, b) => a + b, 0);
