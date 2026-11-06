@@ -5125,6 +5125,12 @@ if (kontextZvuku) {
     if (m.db > -20) chybyZvuku.push(`zvuk okna ${id} je moc hlasitý (${m.db} dB)`);
     hlasitostiOken[id] = m.db;
   }
+  // Znělka nové úrovně a líhnutí: čím vzácnější rarita (0 běžná … 6 božská), tím víc tónů, Mýtická a Božská
+  // s třpytem navrch, Neobvyklá jako Běžná.
+  for (const id of ['volba', 'vylihnuti']) {
+    const uzlu = [0, 1, 2, 4, 5, 6].map((st) => zmer(id, st).uzlu);
+    if (uzlu[0] !== uzlu[1] || !uzlu.slice(1).every((u, i) => u > uzlu[i] || i === 0)) chybyZvuku.push(`${id}: uzly podle rarity ${uzlu}`);
+  }
   const ostatniOkna = Object.entries(hlasitostiOken).filter(([id]) => id !== 'najeti').map(([, db]) => db);
   if (!(hlasitostiOken.najeti < Math.min(...ostatniOkna)) || !(hlasitostiOken.klik - hlasitostiOken.najeti >= 10)) {
     chybyZvuku.push(`najetí není nejtišší nebo je moc blízko kliku (${hlasitostiOken.najeti} dB, klik ${hlasitostiOken.klik} dB)`);
@@ -6024,6 +6030,21 @@ console.log(JSON.stringify({ pety: vysledekPetu }));
 chyby.push(...chybyPetu);
 
 // ---------- Přehled buildu v pauze (prehledPoskozeni, cisloPasivy) ----------
+// Rarity a Štěstí v pauze: přehled ukazuje šance karet i kusu z truhly z pravidel hry a co dělá Štěstí, texty jsou
+// v obou jazycích. Mýtická a Božská karta mají vlastní efekt (Božská duhovou záři, bez pohybu klidnou).
+{
+  const zdrojPrehledu = readFileSync(new URL('../src/prehled.js', import.meta.url), 'utf8');
+  if (!/polozkySanci\(sanceRarit\(hra\)/.test(zdrojPrehledu) || !/sanceRaritVybavy\(hra\.hrozba, stestiRarit\(hra\.hrdina, false\)\)/.test(zdrojPrehledu)) chybyPrehledu.push('pauza neukazuje šance rarit z pravidel');
+  for (const j of JAZYKY) {
+    for (const k of ['rarity', 'sanceKaret', 'sanceKusu', 'stesti']) if (typeof SLOVNIKY[j].pauza?.prehled?.[k] !== 'string') chybyPrehledu.push(`${j}: chybí pauza.prehled.${k}`);
+    if (!SLOVNIKY[j].pauza.prehled.stesti.includes('{n}')) chybyPrehledu.push(`${j}: Štěstí v pauze bez násobku`);
+  }
+  const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  for (const pravidlo of ['.karta.rarita-myticka::after', '.karta.rarita-bozska::after', '@keyframes duha', '.karta.rarita-myticka { --zar-max', '.karta.rarita-bozska { --zar-max']) {
+    if (!css.includes(pravidlo)) chybyPrehledu.push(`style.css nemá ${pravidlo}`);
+  }
+  if (!/prefers-reduced-motion[^{]*\{[^@]*\.rarita-bozska \{\s*animation: none/.test(css.replace(/,\s*\n\s*/g, ', '))) chybyPrehledu.push('Božská se hýbe i při omezeném pohybu');
+}
 {
   const h = novaHra(vytvorRng(seminko));
   Object.assign(h.hrdina, { krit: 0, sila: 1 });

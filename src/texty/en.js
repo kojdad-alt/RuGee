@@ -375,6 +375,10 @@ export default {
       strop: 'max',
       vybava: 'Boss gear',
       prazdnySlot: 'empty',
+      rarity: 'Rarities and Luck',
+      sanceKaret: 'Next card:',
+      sanceKusu: 'Chest gear:',
+      stesti: 'Luck ×{n}: better odds of a higher rarity for cards and gear, more hearts and magnets. Rarer drops also grow with time.',
       hodnoty: {
         srdce: '+{n} max HP',
         boty: '+{n}% movement speed',

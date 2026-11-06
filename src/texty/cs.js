@@ -391,6 +391,10 @@ export default {
       strop: 'strop',
       vybava: 'Výbava bossů',
       prazdnySlot: 'prázdné',
+      rarity: 'Rarity a Štěstí',
+      sanceKaret: 'Příští karta:',
+      sanceKusu: 'Kus z truhly:',
+      stesti: 'Štěstí ×{n}: vyšší šance na lepší raritu karet a výbavy, víc srdcí a magnetů. Vzácnějších rarit přibývá i s časem.',
       hodnoty: {
         srdce: '+{n} max. životů',
         boty: '+{n} % rychlost pohybu',

@@ -23,10 +23,22 @@ function prvek(znacka, trida = '', text = null) {
   return e;
 }
 
-// 0,9 % · 4,6 % · 17 % (pod deset procent s jedním desetinným místem)
-function procenta(p) {
+// 0,04 % · 0,9 % · 4,6 % · 17 % (pod jedno procento na setiny, pod deset na desetiny), Božská na začátku hry
+// má kolem 0,04 %, nesmí vypadat jako nula.
+export function procentaSance(p) {
   const x = p * 100;
-  return procentaTextu(x < 10 ? desetinne(x.toFixed(1)) : Math.round(x));
+  if (x > 0 && x < 0.01) return procentaTextu(desetinne('0.01'));
+  return procentaTextu(x < 1 ? desetinne(x.toFixed(2)) : x < 10 ? desetinne(x.toFixed(1)) : Math.round(x));
+}
+
+// Šance rarit jako malá barevná procenta (drahokam v barvě rarity, pro barvoslepé značka): řádek pod kartami
+// a v přehledu v pauze. Rarity pod minimem (truhla nedá Běžnou ani Neobvyklou) a Běžná se nevypisují.
+export function polozkySanci(sance, rarity, nazvy) {
+  return rarity.filter((id) => sance[id] > 0).map((id) => {
+    const polozka = prvek('span', `sance rarita-${id}`);
+    polozka.append(prvek('i'), `${nazvy[id].nazev} ${procentaSance(sance[id])}`);
+    return polozka;
+  });
 }
 
 export function vytvorKartu(volba, i) {
@@ -94,7 +106,7 @@ export function ukazPrehozeni(tlacitko, hra) {
   tlacitko.setAttribute('aria-label', cena === 0 ? t('volba.prehoditZdarmaAria', { n: hra.prehozeniZdarma }) : t('volba.prehoditZaAria', { n: cena }));
 }
 
-// Vyplní a ukáže okno. zvol(i) se zavolá po kliku na kartu. Vrací stupeň nejvzácnější karty (0 běžná … 3 legendární).
+// Vyplní a ukáže okno. zvol(i) se zavolá po kliku na kartu. Vrací stupeň nejvzácnější karty (0 běžná … 6 božská).
 // Zamčená truhla (truhlaOd = 'zamcena') má vlastní nadpis a štítek, čím se odemkla.
 export function ukazVolby(okno, hra, zvol) {
   const truhla = hra.zTruhly;
@@ -122,11 +134,7 @@ export function ukazVolby(okno, hra, zvol) {
   if (prehodit) ukazPrehozeni(prehodit, hra);
   const radek = okno.querySelector('#volba-sance');
   radek.replaceChildren(prvek('span', '', truhla ? t('volba.sanceTruhla') : t('volba.sance')));
-  for (const id of PORADI_RARIT.slice(1)) {
-    const polozka = prvek('span', `sance rarita-${id}`);
-    polozka.append(prvek('i'), `${RARITY[id].nazev} ${procenta(sance[id])}`);
-    radek.append(polozka);
-  }
+  radek.append(...polozkySanci(sance, PORADI_RARIT.slice(1), RARITY));
 
   okno.hidden = false;
   prizpusobNadpisy(okno);
@@ -173,7 +181,7 @@ export function vytvorKartuKusu(kus, { stitek, akce, detail = '', klavesa, rozdi
 
 // Okno porovnání: vlevo nový kus (Vzít), vpravo nasazený (Nechat), mezi nimi šipky výměny se jménem slotu
 // (jen ozdoba, šipky a Enter chodí jen po kartách). rozhodni(vzit) se zavolá po kliku.
-// Vrací stupeň rarity nového kusu (0 běžná … 3 legendární) pro znělku.
+// Vrací stupeň rarity nového kusu (0 běžná … 6 božská) pro znělku.
 export function ukazPorovnani(okno, hra, rozhodni) {
   const { novy, nasazeny } = hra.porovnani;
   // Kus koupený u kupce nepřišel z poraženého bosse. Z truhly je nápis toho, kdo ji nechal (hlavní boss mapy

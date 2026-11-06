@@ -1997,7 +1997,8 @@ function cedulkaKusu(nazev, barvy, znak = null) {
 }
 
 // Otevírání truhly (svět stojí): okolí ztmavne do teplé hnědé, truhla se zatřese a otevře, z ní vyrazí paprsky
-// v barvě rarity kusu, kus vystoupá nad ni a nad ním se objeví cedulka s jeho jménem.
+// v barvě rarity kusu (u Božské každý jiného odstínu, duha se pomalu otáčí; v režimu pro barvoslepé barvou
+// palety), kus vystoupá nad ni a nad ním se objeví cedulka s jeho jménem.
 function otevirani(ctx, hra, naObrazovce, sirka, vyska) {
   const o = hra.otevira;
   const t = Math.min(1, o.cas / TRVANI_OTEVRENI);
@@ -2015,7 +2016,9 @@ function otevirani(ctx, hra, naObrazovce, sirka, vyska) {
     ctx.globalCompositeOperation = 'lighter';
     ctx.fillStyle = barvy.c;
     ctx.globalAlpha = 0.35;
+    const duha = o.kus.rarita === 'bozska' && !barvoslepy();
     for (let i = 0; i < 8; i++) {
+      if (duha) ctx.fillStyle = `hsl(${Math.round((i * 45 + o.cas * 90) % 360)}, 85%, 74%)`;
       const uhel = (i / 8) * Math.PI * 2 + o.cas * 0.8;
       const delka = 40 + 90 * u;
       ctx.beginPath();

@@ -1,15 +1,19 @@
 // Přehled buildu v pauze (jako v Megabonku). Nahoře tabulka zbraní seřazená podle DPS (poškození za sekundu za
 // posledních OKNO_DPS s): ikona s úrovní, jméno s pruhem (kolik dává proti nejsilnější), DPS, průměr od chvíle, kdy
 // zbraň přibyla, celkové poškození a zabití. Nejsilnější řádek má mosazný rámeček a cedulku. Mezi zbraněmi jsou
-// i pet, Trnová zbroj a rázová vlna výbavy, jakmile někoho zasáhly. Pod tabulkou pasivy s tím, co dávají, a výbava
-// bossů se staty a efekty sad. Jen DOM a jen při otevření pauzy (hra stojí), čísla dává hra.js (prehledPoskozeni,
-// cisloPasivy).
+// i pet, Trnová zbroj a rázová vlna výbavy, jakmile někoho zasáhly. Pod tabulkou pasivy s tím, co dávají, rarity
+// (jaká je teď šance na kterou raritu karty a kusu z truhly a jak velké je Štěstí) a výbava bossů se staty a efekty
+// sad. Jen DOM a jen při otevření pauzy (hra stojí), čísla dává hra.js (prehledPoskozeni, cisloPasivy, sanceRarit,
+// stestiRarit) a vystroj.js (sanceRaritVybavy).
 import {
   prehledPoskozeni, seznamVybavy, seznamVystroje, cisloPasivy, pasivaNaStropu, stupenUrovne, kratkeCislo, OKNO_DPS,
-  PODIL_STESTI_RARIT,
+  PODIL_STESTI_RARIT, RARITY, PORADI_RARIT, sanceRarit, stestiRarit,
 } from './hra.js';
-import { SLOTY, VYBAVA, EFEKTY_VYBAVY, RARITY_VYBAVY, PORADI_SAD, PORADI_SLOTU, radkyStatu, popisEfektu } from './vystroj.js';
+import {
+  SLOTY, VYBAVA, EFEKTY_VYBAVY, RARITY_VYBAVY, PORADI_SAD, PORADI_SLOTU, radkyStatu, popisEfektu, sanceRaritVybavy,
+} from './vystroj.js';
 import { policko, slotVystroje } from './vybava.js';
+import { polozkySanci } from './volba.js';
 import { skupina } from './menu.js';
 import { t, cislo } from './texty.js';
 
@@ -115,6 +119,23 @@ function seznamPasiv(hra) {
   return sekce;
 }
 
+// Rarity a Štěstí: šance na raritu příští karty (po úrovni) a kusu z truhly bosse právě teď, jako malá barevná
+// procenta, pod tím, kolikrát Štěstí násobí šance vyšších rarit a co dělá.
+function sanceAStesti(hra) {
+  const sekce = skupina(t('pauza.prehled.rarity'), 'prehled-rarity');
+  const radek = (popis, polozky) => {
+    const r = prvek('p', 'prehled-sance');
+    r.append(prvek('span', 'prehled-sance-popis', popis), ...polozky);
+    return r;
+  };
+  sekce.append(
+    radek(t('pauza.prehled.sanceKaret'), polozkySanci(sanceRarit(hra), PORADI_RARIT.slice(1), RARITY)),
+    radek(t('pauza.prehled.sanceKusu'), polozkySanci(sanceRaritVybavy(hra.hrozba, stestiRarit(hra.hrdina, false)), PORADI_RARIT.slice(1), RARITY_VYBAVY)),
+    prvek('p', 'prehled-poznamka', t('pauza.prehled.stesti', { n: cislo(stestiRarit(hra.hrdina)) })),
+  );
+  return sekce;
+}
+
 function seznamVystrojeSEfekty(hra) {
   const sekce = skupina(t('pauza.prehled.vybava'), 'prehled-vybava');
   const seznam = prvek('ul', 'prehled-mrizka');
@@ -143,5 +164,5 @@ function seznamVystrojeSEfekty(hra) {
 }
 
 export function ukazPrehled(kontejner, hra) {
-  kontejner.replaceChildren(tabulkaZbrani(hra), seznamPasiv(hra), seznamVystrojeSEfekty(hra));
+  kontejner.replaceChildren(tabulkaZbrani(hra), seznamPasiv(hra), sanceAStesti(hra), seznamVystrojeSEfekty(hra));
 }
