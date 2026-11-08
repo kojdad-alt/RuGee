@@ -28,6 +28,11 @@ export default {
     vybavaSbalit: 'Collapse the gear panel',
     vybavaRozbalit: 'Expand the gear panel',
   },
+  lektvary: {
+    leceni: { nazev: 'Healing', popis: 'Restores 40% of your health.' },
+    sila: { nazev: 'Strength', popis: '+40% damage for 12 s.' },
+    stit: { nazev: 'Shield', popis: 'The next hit from an enemy stops.' },
+  },
 
   menu: {
     podtitul: 'Survive the depths as long as you can',
@@ -127,6 +132,7 @@ export default {
         prehodit: 'reroll cards for gold (or free from the merchant)',
         kupec: 'buy goods at the merchant (Esc or Q to leave)',
         pauza: 'pause (on mobile, the button at top left)',
+        lektvary: 'drink a potion (healing, strength, shield)',
         panel: 'collapse or expand the gear panel at bottom left (on mobile, the button in its corner)',
         zvuk: 'mute or unmute sound (volume is in Settings)',
         vyberMenu: 'choose in the menu',

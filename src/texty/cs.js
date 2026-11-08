@@ -33,6 +33,11 @@ export default {
     vybavaSbalit: 'Sbalit přehled výbavy',
     vybavaRozbalit: 'Rozbalit přehled výbavy',
   },
+  lektvary: {
+    leceni: { nazev: 'Léčivý', popis: 'Vrátí 40 % životů.' },
+    sila: { nazev: 'Síla', popis: '+40 % poškození na 12 s.' },
+    stit: { nazev: 'Štít', popis: 'Další rána od nepřítele se zastaví.' },
+  },
 
   // Hlavní menu a jeho záložky.
   menu: {
@@ -134,6 +139,7 @@ export default {
         prehodit: 'přehodit karty za zlaťáky (nebo zdarma od kupce)',
         kupec: 'u kupce koupit zboží (Esc nebo Q odejít)',
         pauza: 'pauza (na mobilu tlačítko vlevo nahoře)',
+        lektvary: 'vypít lektvar (léčení, síla, štít)',
         panel: 'sbalit nebo rozbalit přehled výbavy vlevo dole (na mobilu tlačítko v jeho rohu)',
         zvuk: 'ztlumit nebo zapnout zvuk (hlasitost je v Nastavení)',
         vyberMenu: 'výběr v menu',

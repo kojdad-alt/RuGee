@@ -185,6 +185,7 @@ import {
   PRVNI_SCHOPNOST_NEPRATEL, NADBIHANI, VUDCE, TLAK_BOSSU, pauzaBosse,
   BLUDNY_KROK, POUTNIK, BUBLINA, POSLEDNI_VZDOR, zbranArzenalu, maStit, PET,
   prehledPoskozeni, dpsZdroje, cisloPasivy, OKNO_DPS, PODIL_STESTI_RARIT, stestiRarit,
+  dejLektvary, vypijLektvar,
 } from '../src/hra.js';
 import {
   PETY, PORADI_PETU, RARITY_PETU, PORADI_RARIT_PETU, MAX_UROVEN as MAX_UROVEN_PETU, POJISTKA_PETU, CENA_VEJCE, DUSE_ZA_DUPLIKAT, SANCE_VEJCE,
@@ -206,8 +207,10 @@ import {
   MAX_PROFILU, MAX_JMENA, vychoziJmeno, zajistiProfily, seznamProfilu, aktivniProfil, vytvorProfil, prejmenujProfil,
   prepniProfil, smazProfil, dataProfilu, platnaDataProfilu, importujProfil, prehledProfilu,
   VYCHOZI_NASTAVENI, MOZNOSTI_NASTAVENI, pomalaSvetla, zapisPomalaSvetla, POMALA_SVETLA_PLATI, nactiPety, ulozPety, pripisVejce,
+  nactiLektvary, ulozLektvary, kupLektvar,
 } from '../src/ulozeni.js';
 import { kodProfilu, prectiKod, souborProfilu, nazevSouboru, crc32, VERZE_KODU } from '../src/prenos.js';
+import { LEKTVARY, PORADI_LEKTVARU, platneLektvary } from '../src/lektvary.js';
 import { PISMO_NADPISU, PISMENA_LOGA } from '../src/pismo.js';
 import {
   t, hodnota, dosad, tvar, nastavJazyk, aktualniJazyk, jazykProhlizece, JAZYKY, VYCHOZI_JAZYK, SLOVNIKY, cislo as cisloTextu,
@@ -4993,7 +4996,7 @@ class FalesnyUzel {
     this.druh = druh;
     this.cile = [];
     c.zaznam?.push(this);
-    for (const p of ['gain', 'frequency', 'Q', 'threshold', 'knee', 'ratio', 'attack', 'release']) this[p] = new FalesnyParam(1);
+    for (const p of ['gain', 'frequency', 'Q', 'threshold', 'knee', 'ratio', 'attack', 'release', 'delayTime']) this[p] = new FalesnyParam(1);
   }
   connect(cil) {
     if (!(cil instanceof FalesnyUzel)) spatnychHodnot += 1;
@@ -5018,6 +5021,7 @@ class FalesnyKontext {
   createBiquadFilter() { return new FalesnyUzel(this, 'filtr'); }
   createBufferSource() { return new FalesnyUzel(this, 'sum'); }
   createDynamicsCompressor() { return new FalesnyUzel(this, 'omezovac'); }
+  createDelay() { return new FalesnyUzel(this, 'delay'); }
   createBuffer(kanalu, delka) { return { getChannelData: () => new Float32Array(delka) }; }
   resume() { return Promise.resolve(); }
 }
@@ -5521,6 +5525,38 @@ ulozDuse(kupVylepseni(nactiDuse(), 'sila'));
 if (nactiDuse().vylepseni.sila !== 1 || nactiDuse().duse !== 55 - cenaVylepseni('sila', 0)) chyby.push('nákup se neuložil');
 ulozDuse(vratDuse(nactiDuse()));
 if (nactiDuse().duse !== 55 || Object.keys(nactiDuse().vylepseni).length) chyby.push('vrácení se neuložilo');
+const dusePredLektvarem = nactiDuse();
+const koupenyLektvar = kupLektvar('leceni');
+if (!koupenyLektvar || koupenyLektvar.leceni !== 1 || nactiDuse().duse !== dusePredLektvarem.duse - LEKTVARY.leceni.cena) chyby.push('lektvar se nekoupil za duše');
+ulozDuse({ ...dusePredLektvarem, duse: LEKTVARY.sila.cena - 1 });
+if (kupLektvar('sila')) chyby.push('lektvar síly šel koupit bez duší');
+ulozDuse(dusePredLektvarem);
+ulozLektvary({});
+if (nactiLektvary().leceni !== 0 || nactiDuse().duse !== dusePredLektvarem.duse) chyby.push('lektvary se nevrátily na nulu');
+{
+  const h = novaHra(vytvorRng(7));
+  const stejna = novaHra(vytvorRng(7));
+  dejLektvary(h, { leceni: 2, sila: 1, stit: 1 });
+  h.hrdina.hp = 10;
+  const poLeceni = Math.min(h.hrdina.maxHp, 10 + Math.max(1, Math.round(h.hrdina.maxHp * LEKTVARY.leceni.lecba)));
+  if (!vypijLektvar(h, 'leceni') || h.hrdina.hp !== poLeceni || h.lektvary.leceni !== 1) chyby.push(`léčivý lektvar nechal ${h.hrdina.hp} životů a ${h.lektvary.leceni} ks`);
+  h.hrdina.hp = h.hrdina.maxHp;
+  if (vypijLektvar(h, 'leceni') || h.lektvary.leceni !== 1) chyby.push('plné životy snědly léčivý lektvar');
+  const obet = () => ({ hp: 1e9, maxHp: 1e9, boss: false, elita: false, x: 0, y: 0 });
+  const bez = obet();
+  zasah(h, bez, 20);
+  if (!vypijLektvar(h, 'sila') || h.lektvary.sila !== 0) chyby.push('lektvar síly se nevypil');
+  const se = obet();
+  zasah(h, se, 20);
+  const ranaBez = 1e9 - bez.hp;
+  const ranaSe = 1e9 - se.hp;
+  if (!(ranaSe >= Math.round(ranaBez * (1 + LEKTVARY.sila.sila) - 1))) chyby.push(`síla přidala ${ranaSe} místo ${ranaBez}`);
+  if (h.hrdina.stitHotov) chyby.push('hrdina už měl štít');
+  if (!vypijLektvar(h, 'stit') || !h.hrdina.stitHotov || h.lektvary.stit !== 0) chyby.push('lektvar štítu nenasadil bublinu');
+  if (vypijLektvar(h, 'stit')) chyby.push('prázdný štít se vypil');
+  if (h.rng.dalsi() !== stejna.rng.dalsi()) chyby.push('pití lektvarů posunulo náhodu vln');
+  if (PORADI_LEKTVARU.some((id) => platneLektvary({ [id]: 99 })[id] !== LEKTVARY[id].strop)) chyby.push('strop lektvarů neplatí');
+}
 for (const spatne of ['{rozbité', '42', '"duse"', '{"duse":"hodně","vylepseni":{"sila":99,"drak":3,"toString":1}}', '{"duse":-7,"vylepseni":[1,2]}']) {
   mapa.set('hlubiny.duse', spatne);
   const st = nactiDuse();
@@ -5755,6 +5791,7 @@ const nesmysly = prectiKod(vyrobKod(doBase64Url(JSON.stringify({
 const cekamNesmysly = {
   jmeno: vychoziJmeno(), trida: VYCHOZI_TRIDA, mapa: VYCHOZI_MAPA, mapy: [VYCHOZI_MAPA], duse: { duse: 0, vylepseni: { sila: VYLEPSENI.sila.max } },
   sbirka: { strazce_telo: 'legendarni', matka_hlava: 'epicka' }, pety: { vejce: 0, aktivni: null, sbirka: {}, otevreno: 0, odEpicke: 0 },
+  lektvary: { leceni: 0, sila: 0, stit: 0 },
   rekordy: { louka: { cas: 0, hrozba: 3, mapa: 'louka' } },
 };
 if (JSON.stringify(nesmysly.data) !== JSON.stringify(cekamNesmysly)) chybyProfilu.push(`kód s nesmysly dal ${JSON.stringify(nesmysly)}`);
@@ -6268,7 +6305,7 @@ for (const [, atribut, hodnotaAtributu, klic] of strankaHtml.matchAll(/\s([a-z-]
 if (prvniText.length < 15) chybyPrekladu.push(`index.html má jen ${prvniText.length} prvků s data-t`);
 // český text mimo slovník: řetězce v kódu (bez komentářů) s českými písmeny
 // (s českými písmeny, nebo jako slovo či věta s velkým písmenem: „Na voze: “, „Hod“; klávesy Esc a Enter smí)
-const POVOLENE_CESKE = new Set(['soubor je moc velký', 'Esc', 'Enter', 'Escape']);
+const POVOLENE_CESKE = new Set(['soubor je moc velký', 'Esc', 'Enter', 'Escape', 'ě', 'š', 'č']);
 const DIAKRITIKA_TEXT = /[áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]|^[A-Z][a-z]{2,}$|^[A-Z][a-z]+[ :,.!?]/;
 for (const [soubor, zdroj] of Object.entries(zdrojeSrc)) {
   if (soubor === 'pismo.js' || soubor === 'sprity.js') continue; // písmena písma (Á, Č…), řádky spritů

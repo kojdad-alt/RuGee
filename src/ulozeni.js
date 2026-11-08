@@ -13,6 +13,7 @@ import { PORADI_MAP, VYCHOZI_MAPA, ODEMKNUTI_MAPY, platnaMapa, predchoziMapa } f
 import { platnyStav } from './duse.js';
 import { platnaSbirka, pridejDoSbirky } from './vystroj.js';
 import { platnePety, pridejVejce } from './pety.js';
+import { LEKTVARY, platneLektvary } from './lektvary.js';
 import { t, JAZYKY } from './texty.js';
 import { REZIMY_BAREV } from './barvy.js';
 
@@ -35,6 +36,7 @@ const SBIRKA = 'sbirka';
 const MAPA = 'mapa';
 const MAPY = 'mapy';
 const PETY = 'pety';
+const LEKTVAR = 'lektvary';
 
 // Nastavení z menu a pauzy: přepínače ano/ne (sbalenaVybava = přehled výbavy vlevo dole jen jako lišta zbraní,
 // klávesa V nebo Tab), hlasitosti zvuku v procentech (efekty 60 %, hudba 40 %,
@@ -97,7 +99,7 @@ function klicRekordu(mapa) {
 }
 
 function kliceProfilu() {
-  return [JMENO, TRIDA, DUSE, SBIRKA, MAPA, MAPY, PETY, ...PORADI_MAP.map((id) => klicRekordu(id))];
+  return [JMENO, TRIDA, DUSE, SBIRKA, MAPA, MAPY, PETY, LEKTVAR, ...PORADI_MAP.map((id) => klicRekordu(id))];
 }
 
 // ---------- Profily ----------
@@ -292,6 +294,28 @@ export function pripisDuse(kolik) {
   return novy;
 }
 
+// Lektvary na profilu: { leceni, sila, stit }. Rozbitý záznam = nic.
+export function nactiLektvary(slot = aktivniSlot()) {
+  return platneLektvary(nacti(klic(slot, LEKTVAR)));
+}
+
+export function ulozLektvary(zasoba) {
+  uloz(klic(aktivniSlot(), LEKTVAR), platneLektvary(zasoba));
+}
+
+// Koupí jeden lektvar za duše. Málo duší, neznámý lektvar nebo plný strop = null a nic se nestrhne.
+export function kupLektvar(id) {
+  const def = LEKTVARY[id];
+  if (!def) return null;
+  const duse = nactiDuse();
+  const zasoba = nactiLektvary();
+  if (zasoba[id] >= def.strop || duse.duse < def.cena) return null;
+  ulozDuse({ ...duse, duse: duse.duse - def.cena });
+  zasoba[id] += 1;
+  ulozLektvary(zasoba);
+  return zasoba;
+}
+
 // Sbírka výbavy: { id kusu: nejlepší nalezená rarita }. Rozbitý záznam = nic nenalezeno.
 export function nactiSbirku(slot = aktivniSlot()) {
   return platnaSbirka(nacti(klic(slot, SBIRKA)));
@@ -374,7 +398,7 @@ export function platnyRekord(zaznam, mapa = VYCHOZI_MAPA) {
   return rekord;
 }
 
-// Celý profil jako jeden objekt s pevným pořadím klíčů: { jmeno, trida, mapa, mapy, duse, sbirka, pety, rekordy }.
+// Celý profil jako jeden objekt s pevným pořadím klíčů: { jmeno, trida, mapa, mapy, duse, sbirka, pety, lektvary, rekordy }.
 // Cokoli chybí nebo je rozbité, dostane výchozí hodnotu, neznámé věci se zahodí. mapy = odemčené mapy (stejně
 // jako odemceneMapy), mapa = zvolená, jen když je odemčená.
 export function platnaDataProfilu(data) {
@@ -400,6 +424,7 @@ export function platnaDataProfilu(data) {
     duse: { duse: Math.min(MAX_CISLA, duse.duse), vylepseni: duse.vylepseni },
     sbirka: platnaSbirka(d.sbirka),
     pety: platnePety(d.pety),
+    lektvary: platneLektvary(d.lektvary),
     rekordy,
   };
 }
@@ -416,6 +441,7 @@ export function dataProfilu(slot = aktivniSlot()) {
     duse: nactiDuse(slot),
     sbirka: nactiSbirku(slot),
     pety: nactiPety(slot),
+    lektvary: nactiLektvary(slot),
     rekordy,
   });
 }
@@ -424,7 +450,7 @@ export function dataProfilu(slot = aktivniSlot()) {
 // které data nemají, smaže.
 function zapisDataProfilu(slot, data) {
   const d = platnaDataProfilu(data);
-  let povedlo = [[JMENO, d.jmeno], [TRIDA, d.trida], [MAPA, d.mapa], [MAPY, d.mapy], [DUSE, d.duse], [SBIRKA, d.sbirka], [PETY, d.pety]]
+  let povedlo = [[JMENO, d.jmeno], [TRIDA, d.trida], [MAPA, d.mapa], [MAPY, d.mapy], [DUSE, d.duse], [SBIRKA, d.sbirka], [PETY, d.pety], [LEKTVAR, d.lektvary]]
     .every(([nazev, hodnota]) => uloz(klic(slot, nazev), hodnota));
   for (const id of PORADI_MAP) {
     if (d.rekordy[id]) povedlo = uloz(klic(slot, klicRekordu(id)), d.rekordy[id]) && povedlo;

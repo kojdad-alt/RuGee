@@ -14,7 +14,7 @@
 - **8 map a každá má vlastní tvory**: na Louce včely a strašáci, v Jeskyni permoníci, na jezeře sněhuláci, na Sopce salamandři a čertíci, v Bažině vodníci, na Hřbitově ghúlové a hrobníci, v Sadu vosy a zahradník, ve Mlýně vrabci, krysy a mlynář.
 - **Bossové každé 3 minuty.** Dupou, hází kameny, dělají výpady a vyvolávají pomocníky. Po nich zůstane truhla s výbavou.
 - **Hrozba** roste každou minutu, od 5. minuty chodí elity a kdo stojí na místě, toho nepřátelé obklíčí.
-- **Strom vylepšení** se 72 uzly: za duše z každé výpravy si koupíš trvalou sílu a odemkneš klíčové uzly.
+- **Strom vylepšení** se 72 uzly: za duše si koupíš trvalou sílu, klíčové uzly a lektvary ě š č do hry.
 - **Pety z vajec**: 16 mazlíčků od sovičky po dráčka, který plive oheň. Jeden jde s tebou do hry.
 - **5 postav** (Lovec, Havíř, Světlonoš, Pekař, Bouřlivák), **zlaťáky** na kupce a zamčené truhly.
 - **Zvuky a hudba** ze syntezátoru, **až 5 profilů** s přenosem kódem nebo souborem.

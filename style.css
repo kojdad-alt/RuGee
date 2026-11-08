@@ -2990,6 +2990,69 @@ body[data-barvy] .barvy-vzory { display: flex; }
   .profil-kod { font-size: 16px; }
 }
 
+/* Lektvary ve hře: pás vpravo uprostřed, ať nepřekrývá lištu nahoře, výbavu vlevo dole ani životy.
+   Na telefonu řada nad životy, ať na ni dosáhne palec. V menu se schová. */
+.lektvary {
+  position: fixed;
+  z-index: 8;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+}
+body.v-menu .lektvary { display: none; }
+.lektvar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 92px;
+  padding: 6px 8px;
+  color: var(--pergamen);
+  background: var(--drevo-3);
+  border: 2px solid var(--mosaz);
+  box-shadow: inset 0 2px 0 var(--drevo-4), 0 3px 0 var(--drevo-1);
+  cursor: pointer;
+}
+.lektvar canvas { flex: none; }
+.lektvar b { font-size: 16px; line-height: 1; }
+.lektvar small { display: block; font-size: 11px; letter-spacing: 0.08em; color: var(--mosaz); }
+.lektvar.prazdny { opacity: 0.45; }
+.lektvar.bezi {
+  border-color: var(--mosaz-lesk, #f0d080);
+  box-shadow: inset 0 2px 0 var(--drevo-4), 0 0 0 2px var(--mosaz);
+}
+.lekarna {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.lekarna-kus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 168px;
+  text-align: left;
+}
+.lekarna-text { display: flex; flex-direction: column; gap: 2px; }
+.lekarna-text small { font-size: 11px; opacity: 0.8; }
+.lekarna-kusy { margin-left: auto; font-style: normal; font-size: 16px; }
+@media (max-width: 700px) {
+  .lektvary {
+    top: auto;
+    bottom: 52px;
+    right: 8px;
+    transform: none;
+    flex-direction: row;
+  }
+  .lektvar { width: auto; padding: 6px; }
+  .lektvar small { display: none; }
+}
+
 /* Telefon: akce po dvou, Smazat přes celou šířku mezi správou a přenosem. */
 @media (max-width: 520px) {
   .profil-akce { grid-template-columns: 1fr 1fr; }

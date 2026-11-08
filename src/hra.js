@@ -10,6 +10,7 @@ import {
 import {
   MAPY, PORADI_MAP, VYCHOZI_MAPA, PRICHODY_MAP, platnaMapa, naPlose, odKdy, vytlacZPrekazek,
 } from './mapy.js';
+import { LEKTVARY, platneLektvary } from './lektvary.js';
 
 // ikona = jméno spritu, který se ukáže na kartě vylepšení. Jméno (nazev), popis (řádek za každou z úrovní 1–5)
 // a texty (řádek na kartě nad 5. úrovní) jsou ve slovníku src/texty/cs.js (větev zbrane), pripojTexty je připojí.
@@ -1747,7 +1748,8 @@ export function zasah(hra, n, kolik, zar = false, zdroj = null) {
   const h = hra.hrdina;
   const krit = h.krit > 0 && kolik > 0 && losPasiv(hra) < h.krit;
   const proti = n.boss ? h.silaNaBosse : n.elita ? h.silaNaElity : 1;
-  const poskozeni = Math.round(kolik * h.sila * (krit ? NASOBEK_KRITU + h.kritNavic : 1) * proti);
+  const zLektvaru = hra.silaLektvaru > hra.cas ? 1 + LEKTVARY.sila.sila : 1;
+  const poskozeni = Math.round(kolik * h.sila * zLektvaru * (krit ? NASOBEK_KRITU + h.kritNavic : 1) * proti);
   const zil = n.hp > 0;
   // Pro převahu (přizpůsobení hrozby) se počítá celá rána, i co přeteče přes životy, jen do živého nepřítele.
   if (zil && poskozeni > 0) hra.soucetPoskozeni += poskozeni;
@@ -1774,6 +1776,33 @@ export function zasah(hra, n, kolik, zar = false, zdroj = null) {
       hra.efektyPouzito.sit += 1;
     }
   }
+}
+
+// Lektvary z profilu do hry. Píti nemění rng: léčení jen při chybějících životech, síla je časovač
+// (ne trvalá hrdina.sila) a štít jen hotová bublina, kterou sebere první rána od nepřítele.
+export function dejLektvary(hra, zasoba) {
+  hra.lektvary = platneLektvary(zasoba);
+  hra.silaLektvaru = 0;
+}
+
+export function vypijLektvar(hra, id) {
+  const def = LEKTVARY[id];
+  if (!def || !hra.lektvary || hra.konec || !(hra.lektvary[id] > 0)) return false;
+  const h = hra.hrdina;
+  if (id === 'leceni') {
+    if (h.hp >= h.maxHp) return false;
+    const pred = h.hp;
+    h.hp = Math.min(h.maxHp, h.hp + Math.max(1, Math.round(h.maxHp * def.lecba)));
+    cisloLeceni(hra, h.hp - pred);
+  } else if (id === 'sila') {
+    hra.silaLektvaru = hra.cas + def.trvani;
+  } else if (id === 'stit') {
+    if (h.stitHotov) return false;
+    h.stitHotov = true;
+  } else return false;
+  hra.lektvary[id] -= 1;
+  zvuk(hra, id === 'sila' ? 'lektvarSila' : id === 'stit' ? 'lektvarStit' : 'lektvar');
+  return true;
 }
 
 // Los pro kritické zásahy a ozvěny (0 až 1): vlastní řada z počítadla, ne z rng, ať pasivy neposunou náhodu vln

@@ -10,7 +10,8 @@ import {
   VYLEPSENI, VETVE, STRED, poziceUzlu, stavUzlu, cenaVylepseni, kupVylepseni, vratDuse, utraceno, popisVylepseni,
   prehledStromu,
 } from './duse.js';
-import { nactiDuse, ulozDuse } from './ulozeni.js';
+import { nactiDuse, ulozDuse, nactiLektvary, kupLektvar } from './ulozeni.js';
+import { LEKTVARY, PORADI_LEKTVARU } from './lektvary.js';
 import { obrazekSpritu, vyberTlacitko, najedi, najetiMysi, pocetDusi } from './menu.js';
 import { odemkniZvuk, zvukHry, zvukNakupu, zvukOdmitnuti } from './zvuk.js';
 import { mysVybira, vyplnZnackami } from './ovladac.js';
@@ -94,6 +95,33 @@ export function vyplnStrom(panel) {
   ovladani.append(oddalit, priblizit, naStred, vratit);
   lista.append(pokladna, postup, ovladani);
 
+  const lekarna = prvek('div', 'lekarna');
+  const lekarnaTlacitka = new Map();
+  for (const id of PORADI_LEKTVARU) {
+    const def = LEKTVARY[id];
+    const b = prvek('button', 'menu-tlacitko lekarna-kus');
+    b.type = 'button';
+    b.dataset.lektvar = id;
+    const text = prvek('span', 'lekarna-text');
+    const nazev = prvek('b', '', `${def.klavesa} ${t(`lektvary.${id}.nazev`)}`);
+    const cena = prvek('small', '', '');
+    const kusy = prvek('i', 'lekarna-kusy', '0');
+    text.append(nazev, cena);
+    b.append(obrazekSpritu(def.ikona, 3), text, kusy);
+    b.addEventListener('click', () => {
+      odemkniZvuk();
+      if (!kupLektvar(id)) {
+        zvukOdmitnuti();
+        zatres(b);
+        return;
+      }
+      zvukNakupu();
+      obnov();
+    });
+    lekarna.append(b);
+    lekarnaTlacitka.set(id, { b, cena, kusy });
+  }
+
   const okno = prvek('div', 'strom-okno');
   const platno = prvek('div', 'strom-platno');
   okno.append(platno);
@@ -168,7 +196,7 @@ export function vyplnStrom(panel) {
     prvek('span', 'jen-dotyk', t('menu.vylepseni.napovedaDotyk')),
     naOvladaci,
   );
-  panel.append(lista, okno, popis, napoveda);
+  panel.append(lista, lekarna, okno, popis, napoveda);
 
   // ---------- Pohled: posun a přiblížení ----------
   let { x: posunX, y: posunY, z } = pohled ?? { x: 0, y: 0, z: 0 };
@@ -308,6 +336,15 @@ export function vyplnStrom(panel) {
     vratit.textContent = kVraceni ? t('menu.vylepseni.vratit', { n: kVraceni }) : t('menu.vylepseni.nicKVraceni');
     vratit.disabled = !kVraceni;
     if (vybrany) popisUzlu(vybrany);
+    const zasoba = nactiLektvary();
+    for (const [id, { b, cena, kusy }] of lekarnaTlacitka) {
+      const def = LEKTVARY[id];
+      const n = zasoba[id];
+      kusy.textContent = String(n);
+      cena.textContent = t('menu.vylepseni.ariaCena', { n: def.cena });
+      b.disabled = n >= def.strop || stav.duse < def.cena;
+      b.setAttribute('aria-label', `${t(`lektvary.${id}.nazev`)} ${def.klavesa}, ${t(`lektvary.${id}.popis`)} ${cena.textContent}`);
+    }
   }
   // zvuk = výběr přesunul hráč (myš, šipky, páčka): tiché ťuknutí, jen když se výběr opravdu pohnul.
   function vyber(id, posunout = false, zvuk = false) {

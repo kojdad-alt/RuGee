@@ -1,5 +1,5 @@
 import { vytvorRng } from './rng.js';
-import { novaHra, aktualizuj, vyber, rozhodniKus, TRIDY, kup, odejdiOdKupce, prehod, PORADI_ZBOZI, hrozbaNavic } from './hra.js';
+import { novaHra, aktualizuj, vyber, rozhodniKus, TRIDY, kup, odejdiOdKupce, prehod, PORADI_ZBOZI, hrozbaNavic, dejLektvary, vypijLektvar } from './hra.js';
 import { kresli, kresliMenu } from './kresleni.js';
 import { dusZaHru, DUSE_ZA } from './duse.js';
 import {
@@ -8,7 +8,7 @@ import {
   nastavZvukyTlacitek,
 } from './menu.js';
 import { pixelovyNadpis, prizpusobNadpisy, STYL_KREV } from './pismo.js';
-import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu, nactiPety, pripisVejce } from './ulozeni.js';
+import { zapisVysledek, nactiDuse, pripisDuse, zapisNalez, odemceneMapy, odemkniMapu, nactiPety, pripisVejce, nactiLektvary, ulozLektvary } from './ulozeni.js';
 import { petDoHry } from './pety.js';
 import { MAPY, ODEMKNUTI_MAPY, dalsiMapa } from './mapy.js';
 import {
@@ -21,6 +21,7 @@ import { ukazPrehled } from './prehled.js';
 import { registruj as registrujAplikaci, novaVerze, priZmene as priZmeneAplikace } from './aplikace.js';
 import { svetlaProSnimek } from './osvetleni.js';
 import { t, prelozStranku, priZmeneJazyka } from './texty.js';
+import { LEKTVARY, PORADI_LEKTVARU, KLAVESA_LEKTVARU } from './lektvary.js';
 import { vytvorCtecku, stavOvladace, nastavOvladac, priZmeneOvladace, vyplnNapovedy, jenOvladac } from './ovladac.js';
 import { rezimBarev, priZmeneBarev } from './barvy.js';
 
@@ -53,6 +54,7 @@ let odemcenaVHre = null;
 // horniOkraj = spodek lišty v px (měří se při změně času, dokud není změřený, platí výchozí z kresleni.js).
 let ukazanyCas = '';
 let horniOkraj;
+let ukazaneLektvary = '';
 
 function zmenVelikost() {
   platno.width = innerWidth;
@@ -65,6 +67,8 @@ function start() {
   // ?seed=123 v adrese dá pořád stejné vlny (hodí se na hledání chyb).
   const seminko = Number(new URLSearchParams(location.search).get('seed')) || (Date.now() >>> 0);
   hra = novaHra(vytvorRng(seminko), zvolenaTrida(), nactiDuse().vylepseni, zvolenaMapa(), petDoHry(nactiPety()));
+  dejLektvary(hra, nactiLektvary());
+  ukazaneLektvary = '';
   const dalsi = dalsiMapa(hra.mapa);
   mapaKOdemceni = dalsi && !odemceneMapy().includes(dalsi) ? dalsi : null;
   odemcenaVHre = null;
@@ -483,6 +487,61 @@ function zivotyHrdiny(hrdina) {
   pruh.classList.toggle('malo', procent < 30);
 }
 
+function postavLektvary() {
+  const pasek = el('lektvary');
+  pasek.replaceChildren();
+  for (const id of PORADI_LEKTVARU) {
+    const def = LEKTVARY[id];
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'lektvar';
+    b.dataset.lektvar = id;
+    const text = document.createElement('span');
+    const klavesa = document.createElement('small');
+    klavesa.className = 'lektvar-klavesa';
+    klavesa.textContent = def.klavesa;
+    const pocet = document.createElement('b');
+    pocet.textContent = '0';
+    text.append(klavesa, pocet);
+    b.append(obrazekSpritu(def.ikona, 3), text);
+    pasek.append(b);
+  }
+  popisLektvaru();
+}
+
+function popisLektvaru() {
+  for (const id of PORADI_LEKTVARU) {
+    const b = document.querySelector(`#lektvary [data-lektvar="${id}"]`);
+    if (!b) return;
+    b.title = t(`lektvary.${id}.popis`);
+    b.setAttribute('aria-label', `${LEKTVARY[id].klavesa} ${t(`lektvary.${id}.nazev`)}`);
+  }
+}
+
+function pijLektvar(id) {
+  if (!hra || vMenu || hra.konec || hra.pauza || hra.obchod) return;
+  if (!vypijLektvar(hra, id)) {
+    zvukOdmitnuti();
+    return;
+  }
+  ulozLektvary(hra.lektvary);
+  ukazaneLektvary = '';
+}
+
+function nakresliLektvary() {
+  if (!hra?.lektvary) return;
+  const bezi = hra.silaLektvaru > hra.cas ? Math.ceil(hra.silaLektvaru - hra.cas) : 0;
+  const klic = PORADI_LEKTVARU.map((id) => hra.lektvary[id]).join(',') + ':' + bezi;
+  if (klic === ukazaneLektvary) return;
+  ukazaneLektvary = klic;
+  for (const id of PORADI_LEKTVARU) {
+    const b = document.querySelector(`#lektvary [data-lektvar="${id}"]`);
+    b.querySelector('b').textContent = String(hra.lektvary[id]);
+    b.classList.toggle('prazdny', !(hra.lektvary[id] > 0));
+    b.classList.toggle('bezi', id === 'sila' && bezi > 0);
+  }
+}
+
 function hud() {
   const { hrdina } = hra;
   el('uroven').textContent = hrdina.uroven;
@@ -497,6 +556,7 @@ function hud() {
     stitek.classList.add('roste');
   }
   ukazaneZlato = hra.zlataky;
+  nakresliLektvary();
   el('hud-klice').hidden = !(hra.klice > 0);
   el('klice').textContent = hra.klice;
   const cas = formatCas(hra.cas);
@@ -707,6 +767,11 @@ addEventListener('keydown', (e) => {
     if (!e.repeat) prepniPanelVybavy();
     return;
   }
+  if (KLAVESA_LEKTVARU[k]) {
+    e.preventDefault();
+    if (!e.repeat) pijLektvar(KLAVESA_LEKTVARU[k]);
+    return;
+  }
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
   // Porovnání výbavy: 1 vezme nový kus, 2 nechá nasazený, šipky a Enter jako u karet.
   if (hra.porovnani) {
@@ -763,12 +828,20 @@ el('lebka-ikona').replaceWith(obrazekSpritu('lebka', 2));
 el('zlato-ikona').replaceWith(obrazekSpritu('zlatak', 2));
 el('klic-ikona').replaceWith(obrazekSpritu('klic', 2));
 // Statické texty stránky (data-t v index.html) ve zvoleném jazyce, nápovědy pro ovladač se značkami tlačítek.
+postavLektvary();
+el('lektvary').addEventListener('click', (e) => {
+  const b = e.target instanceof Element ? e.target.closest('[data-lektvar]') : null;
+  if (!b) return;
+  e.stopPropagation();
+  pijLektvar(b.dataset.lektvar);
+});
 prelozStranku();
 vyplnNapovedy();
 ukazPanelVybavy(true);
 priZmeneJazyka(() => {
   vyplnNapovedy();
   ukazPanelVybavy(true);
+  popisLektvaru();
 });
 // Režim pro barvoslepé (Nastavení → Barvy): stránka dostane data-barvy, CSS podle něj přidá značky a palety.
 const ukazBarvy = (rezim) => {

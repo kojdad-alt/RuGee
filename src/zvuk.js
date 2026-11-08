@@ -81,6 +81,19 @@ function postavVystup() {
   const nalada = c.createGain();
   nalada.gain.value = 0;
   efekty.connect(hlavni);
+  // Krátká ozvěna na sběrnici efektů: jeden prostor pro všechny zvuky, bez dalšího oscilátoru na každou ránu.
+  try {
+    const ozvena = c.createDelay(0.25);
+    ozvena.delayTime.value = 0.07;
+    const zpet = c.createGain();
+    zpet.gain.value = 0.16;
+    efekty.connect(ozvena);
+    ozvena.connect(zpet);
+    zpet.connect(hlavni);
+    statistika.uzlu += 2;
+  } catch {
+    // kontext bez ozvěny nechá zvuky suché
+  }
   nalada.connect(hudba);
   hudba.connect(hlavni);
   hlavni.connect(omezovac);
@@ -791,6 +804,33 @@ const EFEKTY = {
       const kolik = 3 + s;
       for (let i = 0; i < kolik; i++) hlas(e, t + i * 0.08, { f: tony[i], delka: i === kolik - 1 ? 0.3 + 0.1 * Math.min(s, 3) : 0.09, h: 0.03, vlna: 'triangle' });
       if (s >= 2) for (let i = 0; i < (r === 6 ? 8 : 4); i++) hlas(e, t + 0.1 + i * 0.06, { f: 2093 + 300 * i, delka: 0.05, h: 0.008, vlna: 'sine' });
+    },
+  },
+  // Lektvary: doušek, pak akord. Léčení měkké, síla světlejší, štít sklo.
+  lektvar: {
+    mezera: 0.2,
+    dulezity: true,
+    hraj(t, e) {
+      sumik(e, t, { delka: 0.06, h: 0.02, fl: { typ: 'lowpass', f: 900 } });
+      hlas(e, t + 0.04, { f: 523, delka: 0.12, h: 0.04, vlna: 'sine' });
+      hlas(e, t + 0.1, { f: 784, delka: 0.18, h: 0.03, vlna: 'triangle' });
+    },
+  },
+  lektvarSila: {
+    mezera: 0.2,
+    dulezity: true,
+    hraj(t, e) {
+      sumik(e, t, { delka: 0.05, h: 0.016, fl: { typ: 'lowpass', f: 1100 } });
+      hlas(e, t + 0.03, { f: 659, f2: 988, delka: 0.16, h: 0.04, vlna: 'triangle' });
+      hlas(e, t + 0.08, { f: 1319, delka: 0.14, h: 0.02, vlna: 'sine' });
+    },
+  },
+  lektvarStit: {
+    mezera: 0.2,
+    dulezity: true,
+    hraj(t, e) {
+      hlas(e, t, { f: 880, f2: 1760, delka: 0.1, h: 0.03, vlna: 'sine' });
+      hlas(e, t + 0.06, { f: 523, delka: 0.2, h: 0.035, vlna: 'triangle' });
     },
   },
   // Ukázka při změně hlasitosti efektů v nastavení.

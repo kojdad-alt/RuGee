@@ -414,6 +414,7 @@ const OVLADANI = [
     [['@tah'], 'pohybMobil'],
   ]],
   ['veHre', [
+    [['ě', 'š', 'č'], 'lektvary'],
     [['1', '2', '3'], 'vyber'],
     [['1', '2'], 'vybava'],
     [['R'], 'prehodit'],

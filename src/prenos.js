@@ -7,6 +7,7 @@ import { platnaDataProfilu } from './ulozeni.js';
 import { VSECHNY_KUSY } from './vystroj.js';
 import { VYLEPSENI } from './duse.js';
 import { PORADI_PETU } from './pety.js';
+import { PORADI_LEKTVARU } from './lektvary.js';
 import { t } from './texty.js';
 
 export const VERZE_KODU = 1;
@@ -104,9 +105,10 @@ function zkrat(d) {
     r[mapa] = [z.cas, z.uroven ?? null, z.zabito ?? null, z.hrozba ?? null, z.trida ?? null, z.datum ? Date.parse(z.datum) : null];
   }
   const p = zkratPety(d.pety);
+  const l = PORADI_LEKTVARU.map((id) => d.lektvary[id]);
   return {
     v: VERZE_KODU, j: d.jmeno, t: d.trida, m: d.mapa, o: d.mapy, d: d.duse.duse, u: zkratVylepseni(d.duse.vylepseni), s,
-    ...(Object.keys(s2).length ? { s2 } : {}), r, ...(p ? { p } : {}),
+    ...(Object.keys(s2).length ? { s2 } : {}), r, ...(p ? { p } : {}), ...(l.some((n) => n > 0) ? { l } : {}),
   };
 }
 
@@ -127,8 +129,10 @@ function rozbal(z) {
     if (!Array.isArray(p)) continue;
     rekordy[mapa] = { cas: p[0], uroven: p[1], zabito: p[2], hrozba: p[3], trida: p[4], datum: p[5] };
   }
+  const lektvary = {};
+  if (Array.isArray(z.l)) PORADI_LEKTVARU.forEach((id, i) => { lektvary[id] = z.l[i]; });
   return {
-    jmeno: z.j, trida: z.t, mapa: z.m, mapy: z.o, duse: { duse: z.d, vylepseni: rozbalVylepseni(z.u) }, sbirka, pety: rozbalPety(z.p), rekordy,
+    jmeno: z.j, trida: z.t, mapa: z.m, mapy: z.o, duse: { duse: z.d, vylepseni: rozbalVylepseni(z.u) }, sbirka, pety: rozbalPety(z.p), lektvary, rekordy,
   };
 }
 
