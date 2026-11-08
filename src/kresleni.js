@@ -89,6 +89,14 @@ const BARVY_CASTIC = {
   kuna: ['#6b3e24', '#f1d2a8', '#151318'],
   jablko: ['#c0392b', '#9be08a', '#f2c94c'],
   pan_sadu: ['#6b3e24', '#c0392b', '#f2c94c'],
+  vrabec: ['#6b3e24', '#f1d2a8', '#f2c94c'],
+  krysa: ['#8d9098', '#ffc2c2', '#151318'],
+  snop: ['#f2c94c', '#e0a030', '#6b3e24'],
+  mlynar: ['#e8e2d0', '#6b3e24', '#f2c94c'],
+  lasicka: ['#e07a3d', '#f1d2a8', '#151318'],
+  pytel: ['#c4b49a', '#6b3e24', '#e8e2d0'],
+  slama: ['#f2c94c', '#e0a030', '#c4b49a'],
+  mlynsky_obr: ['#8d9098', '#f2c94c', '#6b3e24'],
   magma: ['#b8443c', '#ffb347', '#7a2b2e'],
   lebka: ['#e8e2d0', '#b9c2cc', '#151318'],
   lava: ['#ff7a2f', '#ffd27a', '#a8321a'],
@@ -123,6 +131,7 @@ const BARVY_BOSSU = {
   bahenni_bludicka: { pruh: '#9be08a', tmava: '#26552a', text: '#d8f7b0' },
   kosteny_kral: { pruh: '#e8e2d0', tmava: '#4a4650', text: '#f3efe6' },
   pan_sadu: { pruh: '#e07a3d', tmava: '#6b3e24', text: '#ffd27a' },
+  mlynsky_obr: { pruh: '#e0a030', tmava: '#53565e', text: '#fff3b0' },
 };
 // Barvy rarit výbavy (paleta bez režimu z barvy.js, stejná jako u karet v style.css): c = rámeček a paprsky,
 // svetla = záře a nápis. Běžná má paprsky o kus světlejší než rámeček karty, jinak by na tmě zmizely.

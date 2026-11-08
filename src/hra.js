@@ -292,6 +292,7 @@ export const TRIDY = {
   lovec: { zbran: 'jiskra', nasobky: { rychlost: 1.15 } },
   havir: { zbran: 'krumpace', nasobky: { maxHp: 1.3 } },
   svetlonos: { zbran: 'lucerna', nasobky: { magnet: 1.5 } },
+  pekar: { zbran: 'prak', nasobky: { sila: 1.2 } },
   bourlivak: { zbran: 'blesk', nasobky: { nabijeni: 0.8 } },
 };
 pripojTexty(TRIDY, 'tridy');
@@ -721,6 +722,16 @@ export const BOSSOVE = {
       { id: 'vyvolani', druh: 'osa', pocet: [6, 6], max: 14, vzdalenost: 50 },
     ],
   },
+  // Mlýnský obr (Mlýn) vychází z Kamenného obra: hází pytle, dupe a vyvolá vrabce. Truhla dá sadu Obra.
+  mlynsky_obr: {
+    pauza: 2.6,
+    zaklad: 'obr',
+    schopnosti: [
+      { id: 'hod', strela: 'pytel', poskozeni: 16 },
+      { id: 'dupnuti', polomer: 200, dosah: 280, poskozeni: 20, odhozeni: 120 },
+      { id: 'vyvolani', druh: 'vrabec', pocet: [6, 8], max: 16, vzdalenost: 50 },
+    ],
+  },
 };
 pripojTexty(BOSSOVE, 'bossove');
 // Ze kterého ze čtyř bossů tenhle vychází (u čtyř základních on sám). Podle toho se kreslí a co dá truhla.
@@ -951,6 +962,12 @@ const NEPRATELE = {
   housenka: { hp: 30, rychlost: 36, poskozeni: 8, xp: 3, polomer: 11, jed: true },
   zahradnik: { hp: 58, rychlost: 48, poskozeni: 13, xp: 3, polomer: 12 },
   kuna: { hp: 14, rychlost: 96, poskozeni: 6, xp: 2, polomer: 9 },
+  // Mlýn: vrabec je drobný a rychlý, krysa běhá, snop skáče, mlynář hází pytle, lasička chodí ve smečkách.
+  vrabec: { hp: 8, rychlost: 92, poskozeni: 5, xp: 1, polomer: 8 },
+  krysa: { hp: 14, rychlost: 100, poskozeni: 6, xp: 2, polomer: 9 },
+  snop: { hp: 24, rychlost: 54, poskozeni: 8, xp: 2, polomer: 12, skace: true },
+  mlynar: { hp: 62, rychlost: 44, poskozeni: 14, xp: 3, polomer: 12 },
+  lasicka: { hp: 13, rychlost: 98, poskozeni: 6, xp: 2, polomer: 9 },
   pavoucek: { hp: 8, rychlost: 92, poskozeni: 3, xp: 1, polomer: 7, sit: true },
   strazce: { hp: 320, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
   matka: { hp: 280, rychlost: 54, poskozeni: 16, xp: 25, polomer: 22, boss: true },
@@ -960,6 +977,7 @@ const NEPRATELE = {
   bahenni_bludicka: { hp: 250, rychlost: 42, poskozeni: 12, xp: 25, polomer: 18, boss: true },
   kosteny_kral: { hp: 340, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
   pan_sadu: { hp: 380, rychlost: 46, poskozeni: 24, xp: 28, polomer: 22, boss: true },
+  mlynsky_obr: { hp: 460, rychlost: 32, poskozeni: 28, xp: 32, polomer: 24, boss: true },
 };
 export const RYCHLOST_NEPRATEL = Object.fromEntries(Object.entries(NEPRATELE).map(([id, v]) => [id, v.rychlost]));
 // Kdo na mapě přiletí místo ducha nad MAX_DUCHU (netopýr, když na mapě chodí, jinak první druh, který není duch).
@@ -1044,6 +1062,15 @@ export const SCHOPNOSTI_NEPRATEL = {
   zahradnik: {
     pauza: 3.4,
     schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.5, dosah: 330, strela: 'jablko', pocet: [1, 1], let: 0.8, polomer: 22, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
+  },
+  // Mlýn: snop skočí jako srnec a dopadne do slámy, mlynář hází pytle jako kostlivec kosti.
+  snop: {
+    pauza: 3.6,
+    schopnosti: [{ id: 'skok', varovani: 0.55, dosah: 240, dopad: 'slama' }],
+  },
+  mlynar: {
+    pauza: 3.4,
+    schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.5, dosah: 330, strela: 'pytel', pocet: [1, 1], let: 0.8, polomer: 22, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
   },
 };
 export const NAPOR_ELITY = { id: 'vypad', zvuk: 'napor', varovani: 0.7, zamek: 0.25, dosah: 340, rychlost: 430, delka: 320, poskozeni: 12, odhozeni: 50 };

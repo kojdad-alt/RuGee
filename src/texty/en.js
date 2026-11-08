@@ -658,6 +658,7 @@ export default {
     lovec: { nazev: 'Hunter', vyhoda: '+15% movement speed', popis: 'A tracker from the edge of the forest. Outruns almost anything.' },
     havir: { nazev: 'Miner', vyhoda: '+30% HP', popis: 'Knows every tunnel. Takes a hit like solid rock.' },
     svetlonos: { nazev: 'Lightbearer', vyhoda: '+50% pickup range', popis: 'Carries light into the dark. Crystals fly to him on their own.' },
+    pekar: { nazev: 'Baker', vyhoda: '+20% damage', popis: 'From the mill. Slings stones, and every hit hurts more.' },
     bourlivak: { nazev: 'Stormcaller', vyhoda: '-20% weapon cooldown', popis: 'Calls the storm up from the deep. Strikes before anyone else.' },
   },
   schopnosti: {
@@ -708,6 +709,11 @@ export default {
       nazev: 'Orchard Lord',
       prichod: 'The apple trees shake, the Orchard Lord arrives',
       porazen: 'Orchard Lord defeated',
+    },
+    mlynsky_obr: {
+      nazev: 'Mill Giant',
+      prichod: 'The mill wheel stops, the Mill Giant arrives',
+      porazen: 'Mill Giant defeated',
     },
   },
   zbozi: {
@@ -832,6 +838,11 @@ export default {
       popis: 'Autumn apple trees and fences. Wasps sting, deer leap, caterpillars crawl along the bark and the gardener throws apples.',
       smecky: { text: 'A pack of martens flashes between the trees' },
     },
+    mlyn: {
+      nazev: 'Mill',
+      popis: 'A windmill, a rye field and sacks of flour. Sparrows steal the grain, rats run under the wheel and the miller throws sacks.',
+      smecky: { text: 'A pack of weasels flashes through the wheat' },
+    },
   },
   prichody: {
     louka: {
@@ -873,6 +884,11 @@ export default {
       srnec: 'Deer leap between the apple trees',
       housenka: 'Caterpillars crawl along the bark',
       zahradnik: 'The gardener has taken up the apples',
+    },
+    mlyn: {
+      krysa: 'Rats swarm under the mill',
+      snop: 'The sheaves of grain rise up',
+      mlynar: 'The miller has taken up the sacks',
     },
   },
   vystroj: {

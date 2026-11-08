@@ -11,12 +11,12 @@
 ## Co tě čeká
 
 - **14 zbraní**, od Jiskry a Lucerny po Cep na řetězu a Odrazný kámen. Úrovně nemají strop.
-- **7 map a každá má vlastní tvory**: na Louce včely a strašáci, v Jeskyni permoníci, na jezeře sněhuláci, na Sopce salamandři a čertíci, v Bažině vodníci, na Hřbitově ghúlové a hrobníci, v Sadu vosy, srnci a zahradník.
+- **8 map a každá má vlastní tvory**: na Louce včely a strašáci, v Jeskyni permoníci, na jezeře sněhuláci, na Sopce salamandři a čertíci, v Bažině vodníci, na Hřbitově ghúlové a hrobníci, v Sadu vosy a zahradník, ve Mlýně vrabci, krysy a mlynář.
 - **Bossové každé 3 minuty.** Dupou, hází kameny, dělají výpady a vyvolávají pomocníky. Po nich zůstane truhla s výbavou.
 - **Hrozba** roste každou minutu, od 5. minuty chodí elity a kdo stojí na místě, toho nepřátelé obklíčí.
 - **Strom vylepšení** se 72 uzly: za duše z každé výpravy si koupíš trvalou sílu a odemkneš klíčové uzly.
 - **Pety z vajec**: 16 mazlíčků od sovičky po dráčka, který plive oheň. Jeden jde s tebou do hry.
-- **4 postavy** (Lovec, Havíř, Světlonoš, Bouřlivák), **zlaťáky** na kupce a zamčené truhly.
+- **5 postav** (Lovec, Havíř, Světlonoš, Pekař, Bouřlivák), **zlaťáky** na kupce a zamčené truhly.
 - **Zvuky a hudba** ze syntezátoru, **až 5 profilů** s přenosem kódem nebo souborem.
 - **Česky, anglicky, rusky i ukrajinsky** (English, Русский, Українська) a s **režimem pro barvoslepé**, obojí přepneš v Nastavení.
 

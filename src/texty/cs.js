@@ -782,6 +782,11 @@ export default {
       vyhoda: '+50 % dosah sběru',
       popis: 'Nese světlo do tmy. Krystaly letí k němu samy.',
     },
+    pekar: {
+      nazev: 'Pekař',
+      vyhoda: '+20 % poškození',
+      popis: 'Z mlýna. Hází kameny prakem a každá rána bolí víc.',
+    },
     bourlivak: {
       nazev: 'Bouřlivák',
       vyhoda: '-20 % nabíjení zbraní',
@@ -837,6 +842,11 @@ export default {
       nazev: 'Pán sadu',
       prichod: 'Jabloně se třesou, přichází Pán sadu',
       porazen: 'Pán sadu poražen',
+    },
+    mlynsky_obr: {
+      nazev: 'Mlýnský obr',
+      prichod: 'Kolo mlýna se zastavilo, přichází Mlýnský obr',
+      porazen: 'Mlýnský obr poražen',
     },
   },
   zbozi: {
@@ -964,6 +974,11 @@ export default {
       popis: 'Podzimní jabloně a ploty. Vosy bodají, srnci skáčou, po kůře lezou housenky a zahradník hází jablka.',
       smecky: { text: 'Mezi stromy se mihne smečka kun' },
     },
+    mlyn: {
+      nazev: 'Mlýn',
+      popis: 'Větrný mlýn, žitné pole a pytle mouky. Vrabci kradou zrní, krysy běhají pod kolem a mlynář hází pytle.',
+      smecky: { text: 'Mezi klasy se mihne smečka lasiček' },
+    },
   },
   // Ohlášení příchodu druhu nepřítele na mapě (prichody.<mapa>.<druh>).
   prichody: {
@@ -1006,6 +1021,11 @@ export default {
       srnec: 'Srnci skáčou mezi jabloněmi',
       housenka: 'Po kůře lezou housenky',
       zahradnik: 'Zahradník se chopil jablek',
+    },
+    mlyn: {
+      krysa: 'Pod mlýnem se vyrojily krysy',
+      snop: 'Obilné snopy se zvedly',
+      mlynar: 'Mlynář se chopil pytlů',
     },
   },
   // Výbava bossů (vystroj.js): sloty, staty (tvary podle čísla), rarity, efekty a sady s kusy.

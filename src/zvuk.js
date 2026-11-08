@@ -876,6 +876,10 @@ export const NALADY = {
     tempo: 88, koren: 60, vlna: 'triangle', jas: 1300, oktava: 0, rytmus: 'x.x..x..',
     akordy: [[0, 4, 7], [5, 9, 12], [-5, -1, 2], [-3, 0, 4]], stupnice: [0, 2, 4, 5, 7, 9, 12, 14],
   },
+  mlyn: {
+    tempo: 104, koren: 67, vlna: 'triangle', jas: 1500, oktava: 0, rytmus: 'x.x.x...',
+    akordy: [[0, 4, 7], [5, 9, 12], [7, 11, 14], [-5, -1, 2]], stupnice: [0, 2, 4, 5, 7, 9, 11, 12],
+  },
 };
 const RYTMUS_BOSSE = 'x.x.xx.x';
 const ZRYCHLENI_BOSSE = 1.25;
