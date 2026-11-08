@@ -5757,7 +5757,7 @@ const plny = platnaDataProfilu({
   rekordy: Object.fromEntries(PORADI_MAP.map((id, i) => [id, { cas: 1800 + i, uroven: 90, zabito: 23456, hrozba: 31, trida: 'havir', datum: '2026-11-04T21:15:30.123Z' }])),
 });
 const kodPlny = kodProfilu(plny);
-if (kodPlny.length > 1000) chybyProfilu.push(`kód plného profilu má ${kodPlny.length} znaků`);
+if (kodPlny.length > 1100) chybyProfilu.push(`kód plného profilu má ${kodPlny.length} znaků`);
 if (JSON.stringify(prectiKod(kodPlny).data) !== JSON.stringify(plny) || Object.keys(plny.sbirka).length !== VSECHNY_KUSY.length) chybyProfilu.push('plný profil neprošel exportem a importem');
 // Poškozený, useknutý nebo cizí kód se odmítne (a nic nevrátí).
 const vyrobKod = (telo, verze = VERZE_KODU) => {

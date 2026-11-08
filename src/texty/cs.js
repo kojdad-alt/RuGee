@@ -854,6 +854,11 @@ export default {
       prichod: 'Kolo mlýna se zastavilo, přichází Mlýnský obr',
       porazen: 'Mlýnský obr poražen',
     },
+    hradni_pan: {
+      nazev: 'Pán hradu',
+      prichod: 'Mříž spadla, přichází Pán hradu',
+      porazen: 'Pán hradu poražen',
+    },
   },
   zbozi: {
     lektvar: { nazev: 'Lektvar léčení', popis: 'Doléčí polovinu životů' },
@@ -985,6 +990,11 @@ export default {
       popis: 'Větrný mlýn, žitné pole a pytle mouky. Vrabci kradou zrní, krysy běhají pod kolem a mlynář hází pytle.',
       smecky: { text: 'Mezi klasy se mihne smečka lasiček' },
     },
+    hrad: {
+      nazev: 'Hrad',
+      popis: 'Kamenné hradby, věže a praporce. Holubi sedají na cimbuří, stráž pochoduje, berani útočí a lučištník střílí šípy.',
+      smecky: { text: 'Podél hradby se mihne smečka fretek' },
+    },
   },
   // Ohlášení příchodu druhu nepřítele na mapě (prichody.<mapa>.<druh>).
   prichody: {
@@ -1032,6 +1042,11 @@ export default {
       krysa: 'Pod mlýnem se vyrojily krysy',
       snop: 'Obilné snopy se zvedly',
       mlynar: 'Mlynář se chopil pytlů',
+    },
+    hrad: {
+      strazny: 'Z brány vychází stráž',
+      beran: 'Berani sklonili rohy',
+      lucistnik: 'Lučištník se chopil luku',
     },
   },
   // Výbava bossů (vystroj.js): sloty, staty (tvary podle čísla), rarity, efekty a sady s kusy.

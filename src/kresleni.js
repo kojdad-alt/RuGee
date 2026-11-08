@@ -97,6 +97,14 @@ const BARVY_CASTIC = {
   pytel: ['#c4b49a', '#6b3e24', '#e8e2d0'],
   slama: ['#f2c94c', '#e0a030', '#c4b49a'],
   mlynsky_obr: ['#8d9098', '#f2c94c', '#6b3e24'],
+  holub: ['#8d9098', '#e8e2d0', '#f2c94c'],
+  strazny: ['#3e5684', '#e8e2d0', '#c4a574'],
+  beran: ['#a07e5c', '#f1d2a8', '#6b3e24'],
+  lucistnik: ['#6b3e24', '#e8e2d0', '#f2c94c'],
+  fretka: ['#c4a574', '#f1d2a8', '#151318'],
+  sip: ['#f2c94c', '#8a5a35', '#e8e2d0'],
+  prach: ['#8a8074', '#d4cbb8', '#5c564e'],
+  hradni_pan: ['#3e5684', '#f2c94c', '#e8e2d0'],
   magma: ['#b8443c', '#ffb347', '#7a2b2e'],
   lebka: ['#e8e2d0', '#b9c2cc', '#151318'],
   lava: ['#ff7a2f', '#ffd27a', '#a8321a'],
@@ -132,6 +140,7 @@ const BARVY_BOSSU = {
   kosteny_kral: { pruh: '#e8e2d0', tmava: '#4a4650', text: '#f3efe6' },
   pan_sadu: { pruh: '#e07a3d', tmava: '#6b3e24', text: '#ffd27a' },
   mlynsky_obr: { pruh: '#e0a030', tmava: '#53565e', text: '#fff3b0' },
+  hradni_pan: { pruh: '#9aa4b8', tmava: '#3e5684', text: '#f3e6c8' },
 };
 // Barvy rarit výbavy (paleta bez režimu z barvy.js, stejná jako u karet v style.css): c = rámeček a paprsky,
 // svetla = záře a nápis. Běžná má paprsky o kus světlejší než rámeček karty, jinak by na tmě zmizely.
@@ -164,6 +173,7 @@ const BARVY_DOPADU = {
   blato: ['rgba(110,90,50,0.4)', '#5c4a32', '#7d9a4a'],
   hrnicek: ['rgba(127,156,240,0.4)', '#7f9cf0', '#dfe8ff'],
   hlina: ['rgba(138,90,53,0.4)', '#8a5a35', '#a07e5c'],
+  prach: ['rgba(138,128,116,0.35)', '#d4cbb8', '#8a8074'],
 };
 // Skok slizáka (a permoníka): jak vysoko nad zemí je uprostřed letu (px).
 const VYSKA_SKOKU = 30;

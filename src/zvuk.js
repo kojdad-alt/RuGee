@@ -920,6 +920,10 @@ export const NALADY = {
     tempo: 104, koren: 67, vlna: 'triangle', jas: 1500, oktava: 0, rytmus: 'x.x.x...',
     akordy: [[0, 4, 7], [5, 9, 12], [7, 11, 14], [-5, -1, 2]], stupnice: [0, 2, 4, 5, 7, 9, 11, 12],
   },
+  hrad: {
+    tempo: 92, koren: 58, vlna: 'square', jas: 900, oktava: -1, rytmus: 'x..x.x..',
+    akordy: [[0, 3, 7], [5, 8, 12], [3, 7, 10], [-2, 2, 5]], stupnice: [0, 2, 3, 5, 7, 8, 10, 12],
+  },
 };
 const RYTMUS_BOSSE = 'x.x.xx.x';
 const ZRYCHLENI_BOSSE = 1.25;

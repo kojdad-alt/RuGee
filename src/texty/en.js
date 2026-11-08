@@ -721,6 +721,11 @@ export default {
       prichod: 'The mill wheel stops, the Mill Giant arrives',
       porazen: 'Mill Giant defeated',
     },
+    hradni_pan: {
+      nazev: 'Castle Lord',
+      prichod: 'The portcullis drops, the Castle Lord arrives',
+      porazen: 'Castle Lord defeated',
+    },
   },
   zbozi: {
     lektvar: { nazev: 'Healing Potion', popis: 'Heals half your HP' },
@@ -849,6 +854,11 @@ export default {
       popis: 'A windmill, a rye field and sacks of flour. Sparrows steal the grain, rats run under the wheel and the miller throws sacks.',
       smecky: { text: 'A pack of weasels flashes through the wheat' },
     },
+    hrad: {
+      nazev: 'Castle',
+      popis: 'Stone walls, towers and banners. Pigeons settle on the battlements, guards march, rams charge and the archer looses arrows.',
+      smecky: { text: 'A pack of ferrets flashes along the wall' },
+    },
   },
   prichody: {
     louka: {
@@ -895,6 +905,11 @@ export default {
       krysa: 'Rats swarm under the mill',
       snop: 'The sheaves of grain rise up',
       mlynar: 'The miller has taken up the sacks',
+    },
+    hrad: {
+      strazny: 'Guards march out of the gate',
+      beran: 'The rams lower their horns',
+      lucistnik: 'The archer takes up his bow',
     },
   },
   vystroj: {

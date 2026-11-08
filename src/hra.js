@@ -738,6 +738,16 @@ export const BOSSOVE = {
       { id: 'vyvolani', druh: 'vrabec', pocet: [6, 8], max: 16, vzdalenost: 50 },
     ],
   },
+  // Pán hradu (Hrad) vychází ze Strážce: výpad, hází šípy a vyvolá strážné. Truhla dá sadu Strážce.
+  hradni_pan: {
+    pauza: 2.7,
+    zaklad: 'strazce',
+    schopnosti: [
+      { id: 'vypad', poskozeni: 18 },
+      { id: 'hod', strela: 'sip', pocet: [3, 4], poskozeni: 12, polomer: 24 },
+      { id: 'vyvolani', druh: 'strazny', pocet: [4, 6], max: 12, vzdalenost: 55 },
+    ],
+  },
 };
 pripojTexty(BOSSOVE, 'bossove');
 // Ze kterého ze čtyř bossů tenhle vychází (u čtyř základních on sám). Podle toho se kreslí a co dá truhla.
@@ -984,6 +994,12 @@ const NEPRATELE = {
   kosteny_kral: { hp: 340, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
   pan_sadu: { hp: 380, rychlost: 46, poskozeni: 24, xp: 28, polomer: 22, boss: true },
   mlynsky_obr: { hp: 460, rychlost: 32, poskozeni: 28, xp: 32, polomer: 24, boss: true },
+  hradni_pan: { hp: 420, rychlost: 40, poskozeni: 26, xp: 30, polomer: 22, boss: true },
+  holub: { hp: 8, rychlost: 90, poskozeni: 5, xp: 1, polomer: 8 },
+  strazny: { hp: 28, rychlost: 62, poskozeni: 9, xp: 2, polomer: 11 },
+  beran: { hp: 26, rychlost: 70, poskozeni: 8, xp: 2, polomer: 12, skace: true },
+  lucistnik: { hp: 48, rychlost: 40, poskozeni: 12, xp: 3, polomer: 12 },
+  fretka: { hp: 12, rychlost: 96, poskozeni: 6, xp: 2, polomer: 9 },
 };
 export const RYCHLOST_NEPRATEL = Object.fromEntries(Object.entries(NEPRATELE).map(([id, v]) => [id, v.rychlost]));
 // Kdo na mapě přiletí místo ducha nad MAX_DUCHU (netopýr, když na mapě chodí, jinak první druh, který není duch).
@@ -1077,6 +1093,15 @@ export const SCHOPNOSTI_NEPRATEL = {
   mlynar: {
     pauza: 3.4,
     schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.5, dosah: 330, strela: 'pytel', pocet: [1, 1], let: 0.8, polomer: 22, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
+  },
+  // Hrad: beran skočí a dopadne do prachu, lučištník hází šípy jako kostlivec kosti.
+  beran: {
+    pauza: 3.5,
+    schopnosti: [{ id: 'skok', varovani: 0.55, dosah: 240, dopad: 'prach' }],
+  },
+  lucistnik: {
+    pauza: 3.3,
+    schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.5, dosah: 340, strela: 'sip', pocet: [1, 1], let: 0.7, polomer: 18, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
   },
 };
 export const NAPOR_ELITY = { id: 'vypad', zvuk: 'napor', varovani: 0.7, zamek: 0.25, dosah: 340, rychlost: 430, delka: 320, poskozeni: 12, odhozeni: 50 };
