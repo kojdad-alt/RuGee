@@ -1,5 +1,5 @@
 import { vytvorRng } from './rng.js';
-import { novaHra, aktualizuj, vyber, rozhodniKus, TRIDY, kup, odejdiOdKupce, prehod, PORADI_ZBOZI, hrozbaNavic, dejLektvary, vypijLektvar } from './hra.js';
+import { novaHra, aktualizuj, vyber, rozhodniKus, TRIDY, kup, odejdiOdKupce, prehod, PORADI_ZBOZI, hrozbaNavic, dejLektvary, vypijLektvar, spojZbran, EVOLUCE, SVATYNE } from './hra.js';
 import { kresli, kresliMenu } from './kresleni.js';
 import { dusZaHru, DUSE_ZA } from './duse.js';
 import {
@@ -518,6 +518,25 @@ function popisLektvaru() {
   }
 }
 
+function spojeni() {
+  if (!hra || vMenu || hra.konec || hra.pauza || hra.obchod || hra.volby || hra.porovnani || !hra.svatyne) return;
+  if (!spojZbran(hra)) zvukOdmitnuti();
+}
+
+function nakresliSpojeni() {
+  const b = el('spojeni');
+  const s = hra?.svatyne;
+  const blizko = Boolean(s) && Math.hypot(s.x - hra.hrdina.x, s.y - hra.hrdina.y) <= SVATYNE.dosah;
+  const ukazat = blizko && !vMenu && !hra.konec && !hra.pauza && !hra.obchod && !hra.volby && !hra.porovnani;
+  if (!ukazat) {
+    b.hidden = true;
+    return;
+  }
+  const text = t('hra.svatyne.spojit', { zbran: EVOLUCE[s.zbran].nazev });
+  if (b.textContent !== text) b.textContent = text;
+  b.hidden = false;
+}
+
 function pijLektvar(id) {
   if (!hra || vMenu || hra.konec || hra.pauza || hra.obchod) return;
   if (!vypijLektvar(hra, id)) {
@@ -557,6 +576,7 @@ function hud() {
   }
   ukazaneZlato = hra.zlataky;
   nakresliLektvary();
+  nakresliSpojeni();
   el('hud-klice').hidden = !(hra.klice > 0);
   el('klice').textContent = hra.klice;
   const cas = formatCas(hra.cas);
@@ -772,6 +792,10 @@ addEventListener('keydown', (e) => {
     if (!e.repeat) pijLektvar(KLAVESA_LEKTVARU[k]);
     return;
   }
+  if (k === 'f') {
+    if (!e.repeat) spojeni();
+    return;
+  }
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
   // Porovnání výbavy: 1 vezme nový kus, 2 nechá nasazený, šipky a Enter jako u karet.
   if (hra.porovnani) {
@@ -829,6 +853,10 @@ el('zlato-ikona').replaceWith(obrazekSpritu('zlatak', 2));
 el('klic-ikona').replaceWith(obrazekSpritu('klic', 2));
 // Statické texty stránky (data-t v index.html) ve zvoleném jazyce, nápovědy pro ovladač se značkami tlačítek.
 postavLektvary();
+el('spojeni').addEventListener('click', (e) => {
+  e.stopPropagation();
+  spojeni();
+});
 el('lektvary').addEventListener('click', (e) => {
   const b = e.target instanceof Element ? e.target.closest('[data-lektvar]') : null;
   if (!b) return;

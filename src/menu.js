@@ -415,6 +415,7 @@ const OVLADANI = [
   ]],
   ['veHre', [
     [['ě', 'š', 'č'], 'lektvary'],
+    [['F'], 'svatyne'],
     [['1', '2', '3'], 'vyber'],
     [['1', '2'], 'vybava'],
     [['R'], 'prehodit'],

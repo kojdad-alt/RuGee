@@ -133,6 +133,7 @@ export default {
         kupec: 'buy goods at the merchant (Esc or Q to leave)',
         pauza: 'pause (on mobile, the button at top left)',
         lektvary: 'drink a potion (healing, strength, shield)',
+        svatyne: 'unite a weapon with its passive at a shrine (or the button when you stand by it)',
         panel: 'collapse or expand the gear panel at bottom left (on mobile, the button in its corner)',
         zvuk: 'mute or unmute sound (volume is in Settings)',
         vyberMenu: 'choose in the menu',
@@ -448,6 +449,11 @@ export default {
       plneZivoty: 'Your HP is full',
       maloZlataku: 'Not enough gold',
     },
+    svatyne: {
+      nazev: 'Shrine',
+      spojit: 'F  Unite: {zbran}',
+      spojeno: 'United: {zbran}',
+    },
     koupeno: {
       lektvar: '+{n} HP',
       prehozeni: 'Free rerolls: {n}',
@@ -490,6 +496,22 @@ export default {
     odpocinek: 'Rest',
   },
 
+  evoluce: {
+    jiskra: { nazev: 'Sparkstorm', popis: 'Sparks hit 40% harder.' },
+    lucerna: { nazev: 'Beacon', popis: 'The lantern burns 40% hotter.' },
+    krumpace: { nazev: 'Deep Picks', popis: 'The picks strike 40% harder.' },
+    blesk: { nazev: 'Thunder', popis: 'The lightning hits 40% harder.' },
+    trny: { nazev: 'Thorn Wall', popis: 'The thorns cut 40% deeper.' },
+    zrcadlo: { nazev: 'Mirror Bastion', popis: 'The mirrors hit 40% harder.' },
+    svetlusky: { nazev: 'Golden Swarm', popis: 'The fireflies sting 40% harder.' },
+    mraz: { nazev: 'Endless Frost', popis: 'The frost crushes 40% harder.' },
+    zvon: { nazev: 'Death Knell', popis: 'The bell wave hits 40% harder.' },
+    cep: { nazev: 'Chain Flail', popis: 'The flail strikes 40% harder.' },
+    seminka: { nazev: 'Living Thorn', popis: 'The burst and the bush both prick 40% harder.' },
+    korene: { nazev: 'The Vice', popis: 'The roots squeeze 40% harder.' },
+    stopa: { nazev: 'Funeral Fire', popis: 'The flames burn 40% hotter.' },
+    prak: { nazev: 'Lucky Sling', popis: 'Stones from the sling hit 40% harder.' },
+  },
   zbrane: {
     jiskra: {
       nazev: 'Spark',

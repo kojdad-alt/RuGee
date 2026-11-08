@@ -140,6 +140,7 @@ export default {
         kupec: 'u kupce koupit zboží (Esc nebo Q odejít)',
         pauza: 'pauza (na mobilu tlačítko vlevo nahoře)',
         lektvary: 'vypít lektvar (léčení, síla, štít)',
+        svatyne: 'u svatyně spojit zbraň s pasivou (nebo tlačítko, když u ní stojíš)',
         panel: 'sbalit nebo rozbalit přehled výbavy vlevo dole (na mobilu tlačítko v jeho rohu)',
         zvuk: 'ztlumit nebo zapnout zvuk (hlasitost je v Nastavení)',
         vyberMenu: 'výběr v menu',
@@ -465,6 +466,11 @@ export default {
       plneZivoty: 'Máš plné životy',
       maloZlataku: 'Málo zlaťáků',
     },
+    svatyne: {
+      nazev: 'Svatyně',
+      spojit: 'F  Spojit: {zbran}',
+      spojeno: 'Spojeno: {zbran}',
+    },
     // Co hrdina koupil (řádek v okně kupce).
     koupeno: {
       lektvar: '+{n} životů',
@@ -510,6 +516,23 @@ export default {
     odpocinek: 'Odpočinek',
   },
   // Data hry: větve se jmény jako v kódu, pripojTexty je připojí k ZBRANE, PASIVY, BOSSOVE… (stejné klíče).
+  // Evoluce: nové jméno spojené zbraně. Zbraň i pasiva musí být na 5. úrovni, pak je spojí svatyně.
+  evoluce: {
+    jiskra: { nazev: 'Bouře jisker', popis: 'Jiskry bolí o 40 % víc.' },
+    lucerna: { nazev: 'Maják', popis: 'Žár lucerny pálí o 40 % víc.' },
+    krumpace: { nazev: 'Hlubinné krumpáče', popis: 'Krumpáče sekají o 40 % tvrději.' },
+    blesk: { nazev: 'Hrom', popis: 'Blesk udeří o 40 % silněji.' },
+    trny: { nazev: 'Trnová hradba', popis: 'Trny řežou o 40 % hlouběji.' },
+    zrcadlo: { nazev: 'Zrcadlová bašta', popis: 'Zrcadla bolí o 40 % víc.' },
+    svetlusky: { nazev: 'Zlatý roj', popis: 'Světlušky bodají o 40 % víc.' },
+    mraz: { nazev: 'Věčný mráz', popis: 'Mráz drtí o 40 % víc.' },
+    zvon: { nazev: 'Umíráček', popis: 'Vlna zvonu bolí o 40 % víc.' },
+    cep: { nazev: 'Řetězová kosa', popis: 'Koule na řetězu bije o 40 % tvrději.' },
+    seminka: { nazev: 'Živý trn', popis: 'Výbuch i keř píchají o 40 % víc.' },
+    korene: { nazev: 'Svěrák', popis: 'Kořeny svírají o 40 % silněji.' },
+    stopa: { nazev: 'Pohřební oheň', popis: 'Plameny pálí o 40 % víc.' },
+    prak: { nazev: 'Šťastný prak', popis: 'Kameny z praku bolí o 40 % víc.' },
+  },
   // Zbraně: popis = řádek karty za úrovně 1–5, dal.texty = co přidá každá třetí úroveň nad pátou.
   zbrane: {
     jiskra: {

@@ -4,6 +4,7 @@ import {
   TRVANI_ZARU, TRVANI_VYBUCHU, bossBary, TRVANI_DOPADU, ZJEVENI_BLUDICKY, POLOMER_STRELY_BOSSU,
   RUST_TRNU, VADNUTI_TRNU, DOZNIVANI_TRNU, TRVANI_ODLESKU, poziceZrcadla, TRVANI_HLASENI_HROZBY, TRVANI_OTEVRENI,
   KUPEC, CENA_ZAMCENE, POLOMER_ZAMCENE, zakladBosse, DOPAD_KRYSTALU, DOZNIVANI_MRAZU, TRVANI_TRISTENI,
+  SVATYNE,
   KYV_ZVONU, ZRANI_SEMINKA, POMER_KERE, RUST_KERE, VADNUTI_KERE, TRVANI_VYBUCHU_SEMINKA,
   VYRAZENI_KORENU, VZPLANUTI, DOHASINANI, PAD_KAMENE, TRVANI_DOZVUKU, poziceUhliku,
   LET_KAPKY, TRVANI_OSTNU, TRVANI_PRASKNUTI, maStit, dobitiStitu, PET,
@@ -1954,6 +1955,23 @@ function zamcenaNaZemi(ctx, z, p, hra) {
 
 // Vůz kupce: pod ním pulzuje zlatý kruh (kam dojít pro obchod), nad ním nápis a pruh, kolik času kupci zbývá.
 // Posledních pár sekund vůz bliká, že odjíždí.
+function svatyneNaZemi(ctx, s, p, cas) {
+  const pulz = (cas % 1.4) / 1.4;
+  ctx.save();
+  ctx.globalAlpha = 0.35 * (1 - pulz);
+  ctx.fillStyle = '#f2c94c';
+  kruhNaZemi(ctx, p.x, p.y + 8, SVATYNE.dosah * (0.55 + 0.45 * pulz));
+  ctx.restore();
+  if (s.zbyva < 5 && Math.floor(cas * 6) % 2) ctx.globalAlpha = 0.55;
+  celySprite(ctx, sprity.svatyne, p.x, p.y - 6);
+  ctx.globalAlpha = 1;
+  ctx.save();
+  ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
+  ctx.textAlign = 'center';
+  napis(ctx, preklad('kresleni.sekundy', { n: Math.ceil(s.zbyva) }), p.x, p.y - 28, s.zbyva < 10 ? '#f08a8d' : '#ffe08a');
+  ctx.restore();
+}
+
 function vuzKupce(ctx, k, p, cas) {
   const pulz = (cas % 1.2) / 1.2;
   ctx.save();
@@ -2259,6 +2277,10 @@ export function kresli(ctx, hra, { cislaPoskozeni = true, horni = HORNI_BARY, sv
     const p = naObrazovce(hra.kupec);
     if (p.x > -60 && p.y > -120 && p.x < sirka + 60 && p.y < vyska + 60) vuzKupce(ctx, hra.kupec, p, hra.cas);
   }
+  if (hra.svatyne) {
+    const p = naObrazovce(hra.svatyne);
+    if (p.x > -60 && p.y > -80 && p.x < sirka + 60 && p.y < vyska + 60) svatyneNaZemi(ctx, hra.svatyne, p, hra.cas);
+  }
 
   for (const kr of hra.krystaly) krystalNaZemi(ctx, kr, naObrazovce(kr), hra.cas);
 
@@ -2511,6 +2533,16 @@ export function kresli(ctx, hra, { cislaPoskozeni = true, horni = HORNI_BARY, sv
   // Zmizelý hrdina (Bludný plamen) nebliká, je průsvitný a modře se mihotá.
   const zmizel = hrdina.neviditelny > 0;
   const blika = !zmizel && hrdina.nezranitelny > 0 && Math.floor(hrdina.nezranitelny * 20) % 2 === 0;
+  if (Object.values(hra.zbrane).some((z) => z?.evoluce)) {
+    ctx.save();
+    ctx.globalAlpha = 0.55 + 0.25 * Math.sin(hra.cas * 4);
+    ctx.strokeStyle = '#f2c94c';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(stred.x, stred.y + 10, 16, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
   const obrHrdiny = sprity[hra.trida] ?? sprity[VYCHOZI_TRIDA];
   if (zmizel) ctx.globalAlpha = 0.45 + 0.12 * Math.sin(hra.cas * 18);
   if (!blika) sprite(ctx, obrHrdiny, stred.x, stred.y, hrdina.otoceny, zmizel ? 'rgba(127,156,240,0.55)' : hrdina.sit > 0 ? 'rgba(215,222,236,0.5)' : null);
@@ -2607,6 +2639,17 @@ export function kresli(ctx, hra, { cislaPoskozeni = true, horni = HORNI_BARY, sv
     ctx.restore();
   }
   // kupec mimo obrazovku: zlatá šipka s vozem a s tím, kolik sekund ještě zůstane
+  if (hra.svatyne) {
+    const p = naObrazovce(hra.svatyne);
+    if (!(p.x > 0 && p.y > 0 && p.x < sirka && p.y < vyska)) {
+      const kde = sipkaKOkraji(ctx, p, sirka, vyska, sprity.svatyne, '#f2c94c', 64, 28);
+      ctx.save();
+      ctx.font = 'bold 12px ui-monospace, Menlo, monospace';
+      ctx.textAlign = 'center';
+      napis(ctx, preklad('kresleni.sekundy', { n: Math.ceil(hra.svatyne.zbyva) }), kde.x, kde.y + 22, hra.svatyne.zbyva < 10 ? '#f08a8d' : '#ffe08a');
+      ctx.restore();
+    }
+  }
   if (hra.kupec) {
     const p = naObrazovce(hra.kupec);
     if (!(p.x > 0 && p.y > 0 && p.x < sirka && p.y < vyska)) {

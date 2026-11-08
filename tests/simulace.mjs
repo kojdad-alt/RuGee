@@ -185,7 +185,7 @@ import {
   PRVNI_SCHOPNOST_NEPRATEL, NADBIHANI, VUDCE, TLAK_BOSSU, pauzaBosse,
   BLUDNY_KROK, POUTNIK, BUBLINA, POSLEDNI_VZDOR, zbranArzenalu, maStit, PET,
   prehledPoskozeni, dpsZdroje, cisloPasivy, OKNO_DPS, PODIL_STESTI_RARIT, stestiRarit,
-  dejLektvary, vypijLektvar,
+  dejLektvary, vypijLektvar, EVOLUCE, SVATYNE, SILA_EVOLUCE, pripraveneEvoluce, spojZbran,
 } from '../src/hra.js';
 import {
   PETY, PORADI_PETU, RARITY_PETU, PORADI_RARIT_PETU, MAX_UROVEN as MAX_UROVEN_PETU, POJISTKA_PETU, CENA_VEJCE, DUSE_ZA_DUPLIKAT, SANCE_VEJCE,
@@ -7220,6 +7220,48 @@ const chybyBarev = [];
   if (/barvy\.js/.test(zdrojeSrc['hra.js'])) chybyBarev.push('hra.js čte režim barev (hra se má hrát stejně)');
 }
 chyby.push(...chybyBarev);
+
+// Svatyně spojení: zbraň i její pasiva na 5. úrovni, svatyně přijde bez losu z rng, z dálky se nespojí,
+// u ní ano a poškození je SILA_EVOLUCE×. Podruhé už ne. Bez páté úrovně svatyně nepřijde a za žijícího bosse taky ne.
+const chybyEvoluce = [];
+{
+  if (Object.keys(EVOLUCE).join() !== Object.keys(ZBRANE).join()) chybyEvoluce.push('evoluce nemá všechny zbraně');
+  for (const [id, e] of Object.entries(EVOLUCE)) {
+    if (!Object.hasOwn(PASIVY, e.pasiva) || !(SILA_EVOLUCE > 1)) chybyEvoluce.push(`${id} se spojuje s ${e.pasiva}`);
+  }
+  const ticho = (uroven, pasiva) => {
+    const h = tichaHra({ jiskra: { uroven, nabiti: 1e9 } });
+    if (pasiva) h.pasivy.ozvena = pasiva;
+    Object.assign(h, { cas: SVATYNE.prvni, dalsiSvatyne: SVATYNE.prvni, dalsiBoss: 1e9, dalsiKupec: 1e9, doZamcene: 1e9 });
+    return h;
+  };
+  const cela = ticho(ZAKLAD_UROVNI, ZAKLAD_UROVNI);
+  const brzy = ticho(ZAKLAD_UROVNI - 1, ZAKLAD_UROVNI);
+  const losy = (h) => [h.rng.dalsi(), h.rng.dalsi(), h.rng.dalsi()];
+  const predCele = losy(cela);
+  const predBrzy = losy(brzy);
+  aktualizuj(cela, DT, stoj, SIRKA, VYSKA);
+  aktualizuj(brzy, DT, stoj, SIRKA, VYSKA);
+  if (!cela.svatyne || cela.svatyne.zbran !== 'jiskra' || brzy.svatyne) chybyEvoluce.push(`svatyně: ${cela.svatyne?.zbran} / ${brzy.svatyne?.zbran}`);
+  if (losy(cela).join() !== losy(brzy).join() || losy(cela).join() === predCele.join()) chybyEvoluce.push('svatyně pohnula rng');
+  if (predCele.join() !== predBrzy.join()) chybyEvoluce.push('příprava svatyně neměla stejné losy');
+  const pred = staty(cela).jiskra.poskozeni;
+  if (spojZbran(cela) || cela.zbrane.jiskra.evoluce) chybyEvoluce.push('spojení z dálky prošlo');
+  Object.assign(cela.hrdina, { x: cela.svatyne.x, y: cela.svatyne.y });
+  cela.pauza = true;
+  if (spojZbran(cela)) chybyEvoluce.push('spojení v pauze prošlo');
+  cela.pauza = false;
+  if (!spojZbran(cela) || !cela.zbrane.jiskra.evoluce || cela.svatyne) chybyEvoluce.push('spojení u svatyně neprošlo');
+  const po = staty(cela).jiskra.poskozeni;
+  if (!(Math.abs(po / pred - SILA_EVOLUCE) < 1e-9)) chybyEvoluce.push(`poškození po spojení ${po} místo ${pred} × ${SILA_EVOLUCE}`);
+  if (prehledPoskozeni(cela).find((r) => r.zdroj === 'jiskra')?.nazev !== EVOLUCE.jiskra.nazev) chybyEvoluce.push('přehled nemá jméno evoluce');
+  if (spojZbran(cela) || pripraveneEvoluce(cela).includes('jiskra')) chybyEvoluce.push('jiskra šla spojit podruhé');
+  const boss = ticho(ZAKLAD_UROVNI, ZAKLAD_UROVNI);
+  boss.nepratele.push({ boss: true });
+  aktualizuj(boss, DT, stoj, SIRKA, VYSKA);
+  if (boss.svatyne) chybyEvoluce.push('svatyně přišla za žijícího bosse');
+}
+chyby.push(...chybyEvoluce);
 if (chyby.length) {
   console.error('CHYBA:', chyby.join('; '));
   process.exit(1);

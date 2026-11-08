@@ -799,6 +799,25 @@ const SPRITY = {
     '.zzzzzz.',
     '..zzzz..',
   ],
+  // Svatyně spojení: zlatý plamen nad kamenným oltářem.
+  svatyne: [
+    '................',
+    '......yyyy......',
+    '.....yYYYYy.....',
+    '......yyyy......',
+    '.......hh.......',
+    '......hhhh......',
+    '.....hYYYYh.....',
+    '....hhYYYYhh....',
+    '...hhhYYYYhhh...',
+    '..hhhhhhhhhhhh..',
+    '.hNNNNNNNNNNNNh.',
+    'hNNNNNNNNNNNNNNh',
+    '.NNNNNNNNNNNNNN.',
+    '..NNNNNNNNNNNN..',
+    '...NN......NN...',
+    '................',
+  ],
   // Vůz kupce (16×12): plachta s pruhy, dřevěná korba, dvě kola a vpředu na kozlíku kupec v klobouku.
   vuz: [
     '...WWeWWeWW.....',

@@ -587,6 +587,22 @@ const EFEKTY = {
       });
     },
   },
+  // Svatyně spojení: hlubší zvon než kupec, ať je slyšet, že přišla. Spojení je krátký vzestupný akord.
+  svatyne: {
+    mezera: 1,
+    dulezity: true,
+    hraj(t, e) {
+      hlas(e, t, { f: 196, delka: 0.45, h: 0.02, vlna: 'triangle' });
+      [523, 659, 784].forEach((f, i) => hlas(e, t + 0.08 + i * 0.14, { f, delka: 0.28, h: 0.014, vlna: 'triangle' }));
+    },
+  },
+  spojeni: {
+    mezera: 0.4,
+    dulezity: true,
+    hraj(t, e) {
+      [523, 659, 784, 1047].forEach((f, i) => hlas(e, t + i * 0.07, { f, delka: i === 3 ? 0.36 : 0.14, h: 0.016, vlna: 'triangle' }));
+    },
+  },
   hrozba: {
     mezera: 1,
     dulezity: true,

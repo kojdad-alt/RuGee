@@ -3003,7 +3003,23 @@ body[data-barvy] .barvy-vzory { display: flex; }
   gap: 8px;
   pointer-events: auto;
 }
-body.v-menu .lektvary { display: none; }
+body.v-menu .lektvary, body.v-menu .spojeni { display: none; }
+.spojeni {
+  position: fixed;
+  z-index: 8;
+  left: 50%;
+  bottom: 92px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 8px 14px;
+  color: var(--pergamen);
+  background: var(--drevo-3);
+  border: 2px solid var(--mosaz);
+  box-shadow: inset 0 2px 0 var(--drevo-4), 0 3px 0 var(--drevo-1);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.spojeni[hidden] { display: none; }
 .lektvar {
   display: flex;
   align-items: center;

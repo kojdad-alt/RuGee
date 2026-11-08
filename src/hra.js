@@ -127,6 +127,36 @@ export const ZBRANE = {
 };
 pripojTexty(ZBRANE, 'zbrane');
 
+// Evoluce: zbraň se spojí se svou pasivou. Obě musí být aspoň na 5. úrovni, pak na louku přijde svatyně
+// (jedSvatyne, bez losu z rng) a hráč u ní stiskne F (spojZbran). Spojená zbraň bolí SILA_EVOLUCE× na všech
+// číslech z dal.poskozeni a v přehledu má nové jméno. Každá zbraň jen jednou. Bot svatyni sám nespouští.
+export const SILA_EVOLUCE = 1.4;
+export const SVATYNE = { prvni: 100, cekani: 12, kazdych: 75, trvani: 36, dosah: 48, okraj: 72 };
+export const EVOLUCE = {
+  jiskra: { pasiva: 'ozvena' },
+  lucerna: { pasiva: 'rozpeti' },
+  krumpace: { pasiva: 'sila' },
+  blesk: { pasiva: 'krit' },
+  trny: { pasiva: 'zbroj' },
+  zrcadlo: { pasiva: 'stit' },
+  svetlusky: { pasiva: 'magnet' },
+  mraz: { pasiva: 'vydrz' },
+  zvon: { pasiva: 'rychleRuce' },
+  cep: { pasiva: 'prival' },
+  seminka: { pasiva: 'regenerace' },
+  korene: { pasiva: 'trnovaZbroj' },
+  stopa: { pasiva: 'upiriZub' },
+  prak: { pasiva: 'stesti' },
+};
+pripojTexty(EVOLUCE, 'evoluce');
+
+// Zbraně, které už jdou spojit: má je, obě části jsou aspoň na 5. úrovni a tahle zbraň spojená není.
+export function pripraveneEvoluce(hra) {
+  return Object.keys(EVOLUCE).filter((id) => !hra.zbrane[id]?.evoluce
+    && (hra.zbrane[id]?.uroven ?? 0) >= ZAKLAD_UROVNI
+    && (hra.pasivy[EVOLUCE[id].pasiva] ?? 0) >= ZAKLAD_UROVNI);
+}
+
 // Pasivy: na úrovních 1–5 dá každá úroveň plný díl (násobí vlastnost hrdiny o nasobek, pricti přičte),
 // od 6. jen menší díl dal (přičítá se k násobku z 5. úrovně) a popisDal na kartě. Kde je strop (STROPY.pasivy),
 // tam se pasiva po jeho dosažení promění v +3 % poškození všech zbraní za úroveň (SILA_ZA_PREBYTEK). Záporný
@@ -235,8 +265,8 @@ pripojTexty(PASIVY, 'pasivy', {
 
 // Úrovně nemají strop. Úrovně 1–5 popisuje každá zbraň a pasiva sama (popis), od 6. dál dá každá úroveň menší
 // díl: zbraň +8 % poškození (proti 5. úrovni, sčítá se) a každá třetí (8, 11, 14, …) navíc jednu věc z dal.poradi
-// o kus, o 10 % kratší nabíjení (násobí se) nebo o 15 % větší dosah či velikost (sčítá se). Evoluce zbraní
-// půjdou od ZAKLAD_UROVNI dál.
+// o kus, o 10 % kratší nabíjení (násobí se) nebo o 15 % větší dosah či velikost (sčítá se). Evoluce (EVOLUCE)
+// jde od ZAKLAD_UROVNI: zbraň i její pasiva na 5. úrovni, pak svatyně a klávesa F.
 export const ZAKLAD_UROVNI = 5;
 export const RUST_UROVNI = { poskozeni: 0.08, kazda: 3, nabiti: 0.9, velikost: 0.15 };
 // Stropy jen tam, kde by se hra rozbila (všechno proti 5. úrovni zbraně). Když je zbraň na stropu všude, roste
@@ -1415,6 +1445,10 @@ export function novaHra(rng, idTridy = VYCHOZI_TRIDA, vylepseni = {}, idMapy = V
     kupec: null,
     dalsiKupec: KUPEC.prvni,
     kupcu: 0,
+    // Svatyně spojení: null = žádná nestojí. dalsiSvatyne = kdy se smí objevit další, svatyni = kolik jich přišlo.
+    svatyne: null,
+    dalsiSvatyne: SVATYNE.prvni,
+    svatyni: 0,
     obchod: false,
     posledniNakup: null,
     // Zamčené truhly na louce, odemceno = čím se otevřela ta, z které je právě volba karet ('klic' / 'zlato').
@@ -1752,7 +1786,7 @@ export function prehledPoskozeni(hra) {
     radky.push({ zdroj, druh, ikona, nazev, uroven, ...dpsZdroje(r, hra.cas, od ?? r?.od ?? 0), celkem: r?.celkem ?? 0, zabiti: r?.zabiti ?? 0 });
   };
   for (const [id, z] of Object.entries(hra.zbrane)) {
-    if (Object.hasOwn(ZBRANE, id) && z?.uroven > 0) pridej(id, 'zbran', ZBRANE[id].ikona, ZBRANE[id].nazev, z.uroven, hra.ziskano?.[id] ?? 0);
+    if (Object.hasOwn(ZBRANE, id) && z?.uroven > 0) pridej(id, 'zbran', ZBRANE[id].ikona, z.evoluce ? EVOLUCE[id].nazev : ZBRANE[id].nazev, z.uroven, hra.ziskano?.[id] ?? 0);
   }
   if (rany.pet && hra.pet) pridej('pet', 'pet', `pet_${hra.pet.druh}`, PETY[hra.pet.druh].nazev, hra.pet.uroven);
   if (rany.trnovaZbroj) pridej('trnovaZbroj', 'pasiva', PASIVY.trnovaZbroj.ikona, PASIVY.trnovaZbroj.nazev, hra.pasivy.trnovaZbroj ?? 0);
@@ -2941,7 +2975,13 @@ export function pasivyDoZbrane(id, cisla, h) {
 // Čísla všech zbraní hrdiny i s pasivami. Na mapě s dosahLucerny (jeskyně) svítí lucerna dál.
 export function staty(hra) {
   const n = hra.hrdina.nabijeni ?? 1;
-  const s = Object.fromEntries(Object.keys(ZBRANE).map((id) => [id, pasivyDoZbrane(id, statyZbrane(id, hra.zbrane[id]?.uroven ?? 0, n), hra.hrdina)]));
+  const s = Object.fromEntries(Object.keys(ZBRANE).map((id) => {
+    const cisla = pasivyDoZbrane(id, statyZbrane(id, hra.zbrane[id]?.uroven ?? 0, n), hra.hrdina);
+    if (hra.zbrane[id]?.evoluce) {
+      for (const pole of ZBRANE[id].dal.poskozeni ?? []) if (typeof cisla[pole] === 'number') cisla[pole] *= SILA_EVOLUCE;
+    }
+    return [id, cisla];
+  }));
   s.lucerna.dosah *= MAPY[hra.mapa]?.dosahLucerny ?? 1;
   return s;
 }
@@ -4080,6 +4120,51 @@ function jedeKupec(hra, dt, sirka, vyska) {
   hra.oznameni = { text: t('hra.kupec.prijel'), zivot: 3 };
 }
 
+// Kam postavit svatyni: za okraj obrazovky, los z čísel hry, ne z rng (vlny zůstanou stejné).
+function mistoSvatyne(hra, sirka, vyska) {
+  const uhel = losZCisel(Math.round(hra.cas * 10), hra.svatyni, 17) * Math.PI * 2;
+  const cos = Math.cos(uhel);
+  const sin = Math.sin(uhel);
+  const kOkraji = Math.min(sirka / 2 / Math.max(Math.abs(cos), 1e-9), vyska / 2 / Math.max(Math.abs(sin), 1e-9));
+  const misto = { x: hra.hrdina.x + cos * (kOkraji + SVATYNE.okraj), y: hra.hrdina.y + sin * (kOkraji + SVATYNE.okraj) };
+  return mimoPrekazky(hra, misto, 18);
+}
+
+// Svatyně stojí, dokud nevyprší nebo se zbraň nespojí. Nová přijde, jen když je co spojit a zrovna nežije boss
+// ani nepřijde dřív, než by svatyně zmizela. Když není co spojit, zkusí to znovu za cekani s.
+function jedSvatyne(hra, dt, sirka, vyska) {
+  const s = hra.svatyne;
+  if (s) {
+    s.zbyva -= dt;
+    if (s.zbyva <= 0) hra.svatyne = null;
+    return;
+  }
+  if (hra.cas < hra.dalsiSvatyne) return;
+  const hotove = pripraveneEvoluce(hra);
+  if (!hotove.length || hra.nepratele.some((n) => n.boss) || hra.dalsiBoss - hra.cas < SVATYNE.trvani) {
+    hra.dalsiSvatyne = hra.cas + SVATYNE.cekani;
+    return;
+  }
+  const { x, y } = mistoSvatyne(hra, sirka, vyska);
+  hra.svatyne = { x, y, zbyva: SVATYNE.trvani, zbran: hotove[0] };
+  hra.svatyni += 1;
+  hra.dalsiSvatyne = hra.cas + SVATYNE.kazdych;
+  zvuk(hra, 'svatyne');
+}
+
+// Hráč u svatyně spojí zbraň, kterou nabízí. Z dálky, v okně nebo podruhé ne. Vrací, jestli se spojila.
+export function spojZbran(hra) {
+  const s = hra.svatyne;
+  if (!s || hra.konec || hra.volby || hra.porovnani || hra.pauza || hra.obchod || hra.otevira) return false;
+  if (vzdalenost(s, hra.hrdina) > SVATYNE.dosah) return false;
+  if (!pripraveneEvoluce(hra).includes(s.zbran)) return false;
+  hra.zbrane[s.zbran].evoluce = true;
+  hra.svatyne = null;
+  hra.oznameni = { text: t('hra.svatyne.spojeno', { zbran: EVOLUCE[s.zbran].nazev }), zivot: 3 };
+  zvuk(hra, 'spojeni');
+  return true;
+}
+
 // Cena zboží teď (roste s hrozbou, klíč ne).
 export function cenaZbozi(hra, id) {
   const z = ZBOZI[id];
@@ -4382,6 +4467,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
     zvuk(hra, 'boss');
   }
   jedeKupec(hra, dt, sirka, vyska);
+  jedSvatyne(hra, dt, sirka, vyska);
   if (hra.dalsiSmecka !== null && hra.cas >= hra.dalsiSmecka) {
     smecka(hra, sirka, vyska);
     hra.dalsiSmecka += mapa.smecky.kazdych;
