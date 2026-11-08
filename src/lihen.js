@@ -1,9 +1,10 @@
 // Okno Pety (záložka v menu): nahoře líheň s vejci, pod ní sbírka petů. Jen DOM a ovládání: šance, duplikáty
 // a cena vejce jsou v pety.js, uložení v ulozeni.js.
 // Líheň: velké vejce ve výklenku, kolik vajec máš a za kolik vajec nejpozději přijde epický pet (pojistka), tlačítka
-// Otevřít vejce a Koupit vejce (za duše). Otevření je krátká animace: vejce se třikrát zatřese (podruhé a potřetí už
-// prosvítá barvou rarity, když je aspoň vzácná), praskne a vyskočí pet s cedulkou (jméno, rarita, co se stalo: nový
-// pet, úroveň výš, vzácnější rarita, nebo duše za duplikát na maximu). Výsledek se uloží hned při stisku, takže
+// Otevřít vejce a Koupit vejce (za duše). Otevření je krátká animace: vejce se třikrát zatřese, každé ťuknutí
+// silněji, a skořápkou roste prasklina (podruhé a potřetí už prosvítá barvou rarity, když je aspoň neobvyklá),
+// pak se skořápka rozletí na dvě půlky a střepy a vyskočí pet s cedulkou (jméno, rarita, co se stalo: nový pet,
+// úroveň výš, vzácnější rarita, nebo duše za duplikát na maximu). Výsledek se uloží hned při stisku, takže
 // zavřené okno uprostřed animace o nic nepřipraví. Další stisk Otevřít nebo klik na vejce animaci přeskočí.
 // Sbírka: dlaždice všech petů v pořadí PORADI_PETU (neobjevený je stín a ???). Klik (Enter) zvolí aktivního peta,
 // klik na aktivního ho nechá doma (hraje se bez peta). Aktivní má mosaznou cedulku.
@@ -16,7 +17,7 @@ import { obrazekSpritu, vyberTlacitko } from './menu.js';
 import { odemkniZvuk, zvukHry, zvukNakupu, zvukOdmitnuti } from './zvuk.js';
 import { t } from './texty.js';
 
-// Animace otevření (ms): tři zatřesení po TRES, pak prasknutí, za chvíli vyskočí pet.
+// Animace otevření (ms): tři zatřesení po TRES (každé silnější, roste prasklina), pak skořápka odletí, za chvíli vyskočí pet.
 const TRES = 420;
 const PRASKNUTI = 3 * TRES;
 const VYLIHNUTI = PRASKNUTI + 380;
@@ -185,19 +186,37 @@ export function vyplnPety(panel) {
       },
     };
     vysledek.hidden = true;
-    vyklenek.className = 'lihen-vyklenek';
-    vyklenek.replaceChildren(vejce);
-    vejce.classList.remove('stin');
+    vyklenek.className = 'lihen-vyklenek dycha';
+    vejce.classList.remove('stin', 'houpe-1', 'houpe-2', 'houpe-3');
+    const prasklina = prvek('i', 'lihen-prask');
+    vyklenek.replaceChildren(vejce, prasklina);
     const kdyz = (fn) => () => { if (lihen.isConnected) fn(); };
     for (let i = 0; i < 3; i++) {
       casovace.push(setTimeout(kdyz(() => {
-        if (i > 0 && stupen > 0) vyklenek.className = `lihen-vyklenek prosvita rarita-${v.rarita}${i > 1 ? ' silne' : ''}`;
+        vyklenek.className = `lihen-vyklenek${i > 0 && stupen > 0 ? ` prosvita rarita-${v.rarita}${i > 1 ? ' silne' : ''}` : ' dycha'} prask-${i + 1}`;
+        vejce.classList.remove('houpe-1', 'houpe-2', 'houpe-3');
+        vejce.classList.add(`houpe-${i + 1}`);
         zatres(vejce);
         zvukHry('tukVejce', i);
       }), i * TRES));
     }
     casovace.push(setTimeout(kdyz(() => {
-      vejce.replaceWith(Object.assign(obrazekSpritu('vejce_praskle', MERITKO_VEJCE), { className: 'pixel lihen-vejce' }));
+      const scena = prvek('span', 'lihen-scena');
+      const leva = obrazekSpritu('vejce_praskle', MERITKO_VEJCE);
+      const prava = obrazekSpritu('vejce_praskle', MERITKO_VEJCE);
+      leva.className = 'pixel lihen-vejce skorapka leva';
+      prava.className = 'pixel lihen-vejce skorapka prava';
+      scena.append(leva, prava);
+      // Střepy vyletí do stran (světlá skořápka a zlatá skvrna). Čísla jsou pixely, ne náhoda ze hry.
+      for (const [x, y, tmavy] of [[-22, -18, 0], [20, -22, 1], [-16, 10, 0], [18, 8, 1], [-4, -26, 0], [6, -6, 1]]) {
+        const s = prvek('i', tmavy ? 'lihen-strep tmavy' : 'lihen-strep');
+        s.style.setProperty('--x', `${x}px`);
+        s.style.setProperty('--y', `${y}px`);
+        scena.append(s);
+      }
+      vyklenek.classList.remove('dycha');
+      vyklenek.classList.add('prasklo');
+      vyklenek.replaceChildren(scena);
       zvukHry('praskVejce');
     }), PRASKNUTI));
     casovace.push(setTimeout(kdyz(() => {
@@ -221,8 +240,10 @@ function ukazVylihnuti(panel, v, zablesk) {
   const vysledek = panel.querySelector('.lihen-vysledek');
   if (!vyklenek || !vysledek) return;
   vyklenek.className = `lihen-vyklenek vylihnuto rarita-${v.raritaPeta}${zablesk ? ' zablesk' : ''}`;
-  vyklenek.replaceChildren(obrazekSpritu(`pet_${v.druh}`, MERITKO_VEJCE));
-  vysledek.className = `lihen-vysledek rarita-${v.raritaPeta}`;
+  const obr = obrazekSpritu(`pet_${v.druh}`, MERITKO_VEJCE);
+  if (zablesk) obr.classList.add('vykoukne');
+  vyklenek.replaceChildren(obr);
+  vysledek.className = `lihen-vysledek rarita-${v.raritaPeta}${zablesk ? ' prilet' : ''}`;
   vysledek.replaceChildren(
     prvek('span', 'lihen-stitek', RARITY[v.raritaPeta].nazev),
     prvek('b', '', PETY[v.druh].nazev),
