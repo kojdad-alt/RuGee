@@ -258,6 +258,20 @@ export function polomerSvetla(hra, s = staty(hra)) {
   return tma.svetlo + (hra.zbrane.lucerna ? tma.lucerna + s.lucerna.dosah : 0);
 }
 
+// Krystal zkušeností na zemi. velky = šťastný úlovek (trojnásobek xp): větší sprite a bledá záře kolem.
+function krystalNaZemi(ctx, kr, p, cas) {
+  if (kr.velky) {
+    const tep = 20 + Math.round(2 * Math.sin(cas * 6));
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.drawImage(sprity.krystal, Math.round(p.x - tep), Math.round(p.y - tep), tep * 2, tep * 2);
+    ctx.restore();
+    ctx.drawImage(sprity.krystal, Math.round(p.x - 16), Math.round(p.y - 16), 32, 32);
+    return;
+  }
+  ctx.drawImage(sprity.krystal, Math.round(p.x - 10), Math.round(p.y - 10), 20, 20);
+}
+
 // Co ve tmě svítí: krystaly ve skále (ozdoby se září) a krystaly zkušeností na zemi, obojí jen napůl
 // a s pomalým mihotáním, ať se dá ve tmě aspoň trochu vyznat.
 function svetlaVeTme(ctx, zare, hra, naObrazovce) {
@@ -268,10 +282,7 @@ function svetlaVeTme(ctx, zare, hra, naObrazovce) {
     ctx.drawImage(z.obr, z.x, z.y, z.velikost, z.velikost);
   }
   ctx.globalAlpha = 0.45;
-  for (const kr of hra.krystaly) {
-    const p = naObrazovce(kr);
-    ctx.drawImage(sprity.krystal, Math.round(p.x - 10), Math.round(p.y - 10), 20, 20);
-  }
+  for (const kr of hra.krystaly) krystalNaZemi(ctx, kr, naObrazovce(kr), hra.cas);
   // Světlušky ve tmě svítí jako malé lucerny.
   ctx.globalAlpha = 1;
   for (const l of hra.svetlusky ?? []) {
@@ -2239,10 +2250,7 @@ export function kresli(ctx, hra, { cislaPoskozeni = true, horni = HORNI_BARY, sv
     if (p.x > -60 && p.y > -120 && p.x < sirka + 60 && p.y < vyska + 60) vuzKupce(ctx, hra.kupec, p, hra.cas);
   }
 
-  for (const kr of hra.krystaly) {
-    const p = naObrazovce(kr);
-    ctx.drawImage(sprity.krystal, Math.round(p.x - 10), Math.round(p.y - 10), 20, 20);
-  }
+  for (const kr of hra.krystaly) krystalNaZemi(ctx, kr, naObrazovce(kr), hra.cas);
 
   for (const pr of hra.predmety) {
     const p = naObrazovce(pr);

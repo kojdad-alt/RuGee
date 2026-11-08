@@ -517,6 +517,11 @@ const MAX_KRYSTALU = 300;
 // a magnet za 3–4 minuty při ~300 zabitích za minutu; Štěstí šanci dál násobí.
 const SANCE_SRDCE = 0.004;
 const SANCE_MAGNET = 0.001;
+// Větší krystal: zhruba každý dvanáctý nepřítel nechá krystal, který dá trojnásobek zkušeností a je vidět větší.
+// Štěstí šanci násobí, strop ať z ní není skoro jistota. Los je z čísel hry (losZCisel), ne z rng, ať se vlny neposunou.
+export const SANCE_VELKEHO_KRYSTALU = 0.08;
+export const NASOBEK_VELKEHO_KRYSTALU = 3;
+const STROP_VELKEHO_KRYSTALU = 0.35;
 const LECENI_SRDCE = 25;
 const BOSS_KAZDYCH = 180;
 const MAX_CASTIC = 400;
@@ -4615,7 +4620,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
       kr.x += ((hrdina.x - kr.x) / d) * rychlost * dt;
       kr.y += ((hrdina.y - kr.y) / d) * rychlost * dt;
     }
-    if (d < 12) {
+    if (d < (kr.velky ? 16 : 12)) {
       kr.sebran = true;
       hrdina.xp += kr.xp * hrdina.zkusenosti;
       zvuk(hra, 'krystal');
@@ -4625,7 +4630,7 @@ export function aktualizuj(hra, dt, vstup, sirka, vyska) {
   // Moc krystalů na zemi: dva nejstarší se slijí do jednoho, zkušenosti se neztratí.
   while (hra.krystaly.length > MAX_KRYSTALU) {
     const [a, b] = hra.krystaly.splice(0, 2);
-    hra.krystaly.push({ x: b.x, y: b.y, xp: a.xp + b.xp });
+    hra.krystaly.push({ x: b.x, y: b.y, xp: a.xp + b.xp, velky: !!(a.velky || b.velky) });
   }
   // Když se zrovna otevírá truhla, nová úroveň počká, až bude otevřená a vybraná (jinak by truhlu přepsala).
   if (hrdina.xp >= hrdina.potreba && !hra.volby && !hra.otevira) {
@@ -4763,13 +4768,16 @@ function vystrelJiskry(hra, st) {
 // nebo zlaťák.
 function pohrbi(hra) {
   const { hrdina } = hra;
+  const stesti = hrdina.stesti * (hrdina.stestiKoristi ?? 1);
   for (const n of hra.nepratele) {
     if (n.hp <= 0) {
       hra.zabito += 1;
       zvuk(hra, n.boss ? 'bossPadl' : n.elita ? 'elitaPadla' : 'smrt');
       rozlet(hra, n);
       sajKrev(hra, n);
-      hra.krystaly.push({ x: n.x, y: n.y, xp: n.xp });
+      const sance = Math.min(STROP_VELKEHO_KRYSTALU, SANCE_VELKEHO_KRYSTALU * stesti);
+      const velky = n.xp > 0 && losZCisel(hra.zabito, n.x, n.y, n.xp) < sance;
+      hra.krystaly.push({ x: n.x, y: n.y, xp: velky ? n.xp * NASOBEK_VELKEHO_KRYSTALU : n.xp, velky });
       if (n.jed) {
         hra.oblaky.push({ x: n.x, y: n.y, zivot: TRVANI_OBLAKU, polomer: POLOMER_OBLAKU });
         if (hra.oblaky.length > MAX_OBLAKU) hra.oblaky.splice(0, hra.oblaky.length - MAX_OBLAKU);
@@ -4798,7 +4806,6 @@ function pohrbi(hra) {
       // Štěstí z trvalých vylepšení i pasiva Štěstí zvětší šanci na srdce a magnet, los z rng je pořád jeden
       // (náhoda vln se neposune). Zlaťák se bere ze stejného losu hned za nimi.
       const los = hra.rng.dalsi();
-      const stesti = hrdina.stesti * (hrdina.stestiKoristi ?? 1);
       if (los < SANCE_MAGNET * stesti) hra.predmety.push({ druh: 'magnet', x: n.x, y: n.y });
       else if (los < (SANCE_MAGNET + SANCE_SRDCE) * stesti) {
         hra.predmety.push({ druh: 'srdce', x: n.x, y: n.y });

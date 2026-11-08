@@ -9,15 +9,15 @@
 // - Skripty a styl mají v adrese otisk (?v=…), takže jsou neměnné a berou se z keše. Co v keši není (nová verze
 //   stránky, ke které se nový worker ještě instaluje), jde ze sítě.
 // verze: začátek (generuje node nastroje/verze.mjs, ručně neupravovat)
-const VERZE = 'e8b3731f';
+const VERZE = '4f0c41e4';
 const SOUBORY = [
   './',
   './style.css?v=d1405916',
   './src/aplikace.js?v=b374be02',
   './src/barvy.js?v=17c49c1b',
   './src/duse.js?v=15fc9cc1',
-  './src/hra.js?v=171538a5',
-  './src/kresleni.js?v=b42e15ec',
+  './src/hra.js?v=4826b46d',
+  './src/kresleni.js?v=7a1a9dca',
   './src/lihen.js?v=289e6a45',
   './src/louka.js?v=fd24061d',
   './src/main.js?v=458419be',
@@ -33,7 +33,7 @@ const SOUBORY = [
   './src/rng.js?v=60bdabbe',
   './src/sprity.js?v=1878f137',
   './src/strom.js?v=df6de417',
-  './src/svetla.js?v=a9a0dec5',
+  './src/svetla.js?v=5877baf4',
   './src/texty.js?v=2613aff0',
   './src/ulozeni.js?v=30311597',
   './src/volba.js?v=086a55cd',

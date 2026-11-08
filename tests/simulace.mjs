@@ -175,7 +175,7 @@ import {
   HROZBA, ELITA, silaHrozby, textHrozby, POLOMER_OBLAKU, prevaha,
   zasah, kratkeCislo, TRVANI_CISLA, SLUCOVANI_CISEL, MAX_CISEL, NAD_PRAHEM,
   TRVANI_OTEVRENI, PRVNI_VLNA_HRDINY, ZPOMALENI_SITE_BOSSE, nasadKus, sundejKus, ziskejKus, rozhodniKus, seznamVystroje,
-  SANCE_ZLATAKU, MESEC, KUPEC, ZBOZI, PORADI_ZBOZI, RUST_CEN, LECENI_LEKTVARU, PREHOZENI, MAX_ZAMCENYCH, PRVNI_ZAMCENA, CENA_ZAMCENE,
+  SANCE_ZLATAKU, SANCE_VELKEHO_KRYSTALU, NASOBEK_VELKEHO_KRYSTALU, MESEC, KUPEC, ZBOZI, PORADI_ZBOZI, RUST_CEN, LECENI_LEKTVARU, PREHOZENI, MAX_ZAMCENYCH, PRVNI_ZAMCENA, CENA_ZAMCENE,
   POLOMER_ZAMCENE, cenaZbozi, prekazkaNakupu, nabidkaKupce, kup, odejdiOdKupce, cenaPrehozeni, prehod,
   POLOMER_HRDINY, SKOK_ZABY, poradiBossu, zakladBosse,
   pasivyDoZbrane, NASOBEK_KRITU, CISLO_REGENERACE,
@@ -1022,6 +1022,30 @@ const zk = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, { zkusenosti: VYLEPSENI.zk
 zk.krystaly.push({ x: 0, y: 0, xp: 2 });
 aktualizuj(zk, 0.001, { dx: 0, dy: 0 }, SIRKA, VYSKA);
 if (Math.abs(zk.hrdina.xp - 2 * zk.hrdina.zkusenosti) > 1e-9 || zk.hrdina.zkusenosti <= 1) chybyDusi.push(`zkušenosti z krystalu nesedí (${zk.hrdina.xp})`);
+// Větší krystal: šance z čísel hry (rng vln se neposune), dá trojnásobek a je označený. Štěstí jich přinese víc.
+// Nepřítel bez zkušeností ho nenechá.
+const velkeKrystaly = (stesti) => {
+  const h = novaHra(vytvorRng(seminko));
+  h.hrdina.stesti = stesti;
+  h.hrdina.nezranitelny = 10;
+  h.doSpawnu = 1e9;
+  for (let i = 0; i < 250; i++) {
+    h.nepratele.push({ druh: 'netopyr', x: 800 + i * 17, y: 800 + (i * 13) % 240, hp: 0, maxHp: 10, rychlost: 0, poskozeni: 0, xp: i === 0 ? 0 : 1, polomer: 1, zasazen: 0, zasahKrumpacem: 0 });
+  }
+  aktualizuj(h, 0.001, { dx: 0, dy: 0 }, SIRKA, VYSKA);
+  return { h, po: h.rng.dalsi() };
+};
+const bezStesti = velkeKrystaly(1);
+const seStestim = velkeKrystaly(2);
+const velke = bezStesti.h.krystaly.filter((k) => k.velky);
+const male = bezStesti.h.krystaly.filter((k) => !k.velky && k.xp === 1);
+if (velke.length < 8 || velke.length > 45 || velke.some((k) => k.xp !== NASOBEK_VELKEHO_KRYSTALU) || !male.length) {
+  chybyDusi.push(`větší krystaly: ${velke.length} po ${velke[0]?.xp} xp`);
+}
+if (!(SANCE_VELKEHO_KRYSTALU > 0 && SANCE_VELKEHO_KRYSTALU < 0.2)) chybyDusi.push('šance na větší krystal nesedí');
+if (!(seStestim.h.krystaly.filter((k) => k.velky).length > velke.length)) chybyDusi.push('štěstí nepřidalo větší krystaly');
+if (!bezStesti.h.krystaly.some((k) => k.xp === 0 && !k.velky)) chybyDusi.push('prázdný krystal byl větší nebo zmizel');
+if (bezStesti.po !== seStestim.po) chybyDusi.push('větší krystal posunul náhodu vln');
 // Štěstí: stejné losy z rng, víc srdcí a magnetů. 3000 nepřátel padne naráz u nezranitelného hrdiny.
 const padlo = (vylepseni) => {
   const h = novaHra(vytvorRng(seminko), VYCHOZI_TRIDA, vylepseni);

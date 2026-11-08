@@ -266,7 +266,8 @@ export function sberSvetel(pole, hra, pohled) {
   if (o.hrdina) {
     let krystalu = 0;
     for (let i = 0; i < hra.krystaly.length && krystalu < MAX_KRYSTALU; i++) {
-      if (pridej(hra.krystaly[i].x - kx, hra.krystaly[i].y - ky, 26, B.krystal, 0.6, 0.2)) krystalu += 1;
+      const kr = hra.krystaly[i];
+      if (pridej(kr.x - kx, kr.y - ky, kr.velky ? 42 : 26, B.krystal, kr.velky ? 0.9 : 0.6, 0.2)) krystalu += 1;
     }
   }
   cil = null;
