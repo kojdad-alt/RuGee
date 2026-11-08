@@ -471,6 +471,9 @@ export default {
     jezek: { nazev: 'Hedgehog', popis: '{n}% of each hit goes back to the attacker' },
     havran: { nazev: 'Raven', popis: '+{n}% souls per run' },
     tucnak: { nazev: 'Penguin', popis: 'Every {s}s chills the enemies around you and slows them' },
+    veverka: { nazev: 'Squirrel', popis: '+{n}% magnet range' },
+    motyl: { nazev: 'Butterfly', popis: '+{n}% experience from crystals' },
+    krtek: { nazev: 'Mole', popis: '+{n} health per second' },
   },
   karta: {
     vickrat: '{n}× {radek}',
@@ -701,6 +704,11 @@ export default {
       prichod: 'The graves crack open, the Bone King rises',
       porazen: 'Bone King defeated',
     },
+    pan_sadu: {
+      nazev: 'Orchard Lord',
+      prichod: 'The apple trees shake, the Orchard Lord arrives',
+      porazen: 'Orchard Lord defeated',
+    },
   },
   zbozi: {
     lektvar: { nazev: 'Healing Potion', popis: 'Heals half your HP' },
@@ -819,6 +827,11 @@ export default {
       popis: 'Gravestones, crosses and fog. At night skeletons rise here, ghosts wander between the graves and ravens croak.',
       smecky: { text: 'A pack howls behind the graveyard wall' },
     },
+    sad: {
+      nazev: 'Orchard',
+      popis: 'Autumn apple trees and fences. Wasps sting, deer leap, caterpillars crawl along the bark and the gardener throws apples.',
+      smecky: { text: 'A pack of martens flashes between the trees' },
+    },
   },
   prichody: {
     louka: {
@@ -855,6 +868,11 @@ export default {
       duch: 'Ghosts wander between the graves',
       ghul: 'Ghouls crawl out of dug-up graves',
       hrobnik: 'The gravediggers have taken up their shovels',
+    },
+    sad: {
+      srnec: 'Deer leap between the apple trees',
+      housenka: 'Caterpillars crawl along the bark',
+      zahradnik: 'The gardener has taken up the apples',
     },
   },
   vystroj: {

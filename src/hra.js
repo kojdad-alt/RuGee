@@ -711,6 +711,16 @@ export const BOSSOVE = {
       { id: 'vyvolani', druh: 'kostlivec', pocet: [6, 6], max: 12, vzdalenost: 60 },
     ],
   },
+  // Pán sadu (Sad) vychází ze Strážce: výpad, hází jablka a vyvolá vosy. Truhla dá sadu Strážce.
+  pan_sadu: {
+    pauza: 2.8,
+    zaklad: 'strazce',
+    schopnosti: [
+      { id: 'vypad', poskozeni: 18 },
+      { id: 'hod', strela: 'jablko', pocet: [3, 4], poskozeni: 12, polomer: 26 },
+      { id: 'vyvolani', druh: 'osa', pocet: [6, 6], max: 14, vzdalenost: 50 },
+    ],
+  },
 };
 pripojTexty(BOSSOVE, 'bossove');
 // Ze kterého ze čtyř bossů tenhle vychází (u čtyř základních on sám). Podle toho se kreslí a co dá truhla.
@@ -934,6 +944,13 @@ const NEPRATELE = {
   havran: { hp: 10, rychlost: 72, poskozeni: 5, xp: 1, polomer: 10 },
   ghul: { hp: 32, rychlost: 44, poskozeni: 10, xp: 2, polomer: 11 },
   hrobnik: { hp: 48, rychlost: 52, poskozeni: 12, xp: 3, polomer: 12 },
+  // Sad: vosa je drobná a rychlá, srnec skáče, housenka po smrti nechá jedový oblak, zahradník hází jablka,
+  // kuna je rychlá a chodí ve smečkách.
+  osa: { hp: 9, rychlost: 88, poskozeni: 5, xp: 1, polomer: 8 },
+  srnec: { hp: 18, rychlost: 62, poskozeni: 7, xp: 2, polomer: 11, skace: true },
+  housenka: { hp: 30, rychlost: 36, poskozeni: 8, xp: 3, polomer: 11, jed: true },
+  zahradnik: { hp: 58, rychlost: 48, poskozeni: 13, xp: 3, polomer: 12 },
+  kuna: { hp: 14, rychlost: 96, poskozeni: 6, xp: 2, polomer: 9 },
   pavoucek: { hp: 8, rychlost: 92, poskozeni: 3, xp: 1, polomer: 7, sit: true },
   strazce: { hp: 320, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
   matka: { hp: 280, rychlost: 54, poskozeni: 16, xp: 25, polomer: 22, boss: true },
@@ -942,6 +959,7 @@ const NEPRATELE = {
   lavovy_obr: { hp: 440, rychlost: 34, poskozeni: 28, xp: 30, polomer: 24, boss: true },
   bahenni_bludicka: { hp: 250, rychlost: 42, poskozeni: 12, xp: 25, polomer: 18, boss: true },
   kosteny_kral: { hp: 340, rychlost: 48, poskozeni: 22, xp: 25, polomer: 22, boss: true },
+  pan_sadu: { hp: 380, rychlost: 46, poskozeni: 24, xp: 28, polomer: 22, boss: true },
 };
 export const RYCHLOST_NEPRATEL = Object.fromEntries(Object.entries(NEPRATELE).map(([id, v]) => [id, v.rychlost]));
 // Kdo na mapě přiletí místo ducha nad MAX_DUCHU (netopýr, když na mapě chodí, jinak první druh, který není duch).
@@ -1017,6 +1035,15 @@ export const SCHOPNOSTI_NEPRATEL = {
   hrobnik: {
     pauza: 3.4,
     schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.45, dosah: 330, strela: 'hlina', pocet: [1, 1], let: 0.8, polomer: 22, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
+  },
+  // Sad: srnec skočí jako slizák a dopadne do listí, zahradník hází jablka jako kostlivec kosti.
+  srnec: {
+    pauza: 3.6,
+    schopnosti: [{ id: 'skok', varovani: 0.55, dosah: 240, dopad: 'jablko' }],
+  },
+  zahradnik: {
+    pauza: 3.4,
+    schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.5, dosah: 330, strela: 'jablko', pocet: [1, 1], let: 0.8, polomer: 22, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
   },
 };
 export const NAPOR_ELITY = { id: 'vypad', zvuk: 'napor', varovani: 0.7, zamek: 0.25, dosah: 340, rychlost: 430, delka: 320, poskozeni: 12, odhozeni: 50 };

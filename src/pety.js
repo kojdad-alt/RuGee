@@ -27,6 +27,9 @@ export const PETY = {
   jezek: { ikona: 'trnovaZbroj', bonus: { vlastnost: 'trnovaZbroj', pricti: 0.05, procenta: true } },
   havran: { ikona: 'chamtivost', leta: true, bonus: { vlastnost: 'chamtivost', nasobek: 0.03 } },
   tucnak: { ikona: 'mraz', akce: { kazdych: 9, dosah: 110, otres: 1 } },
+  veverka: { ikona: 'magnet', bonus: { vlastnost: 'magnet', nasobek: 0.02 } },
+  motyl: { ikona: 'moudrost', leta: true, bonus: { vlastnost: 'zkusenosti', nasobek: 0.006 } },
+  krtek: { ikona: 'regenerace', bonus: { vlastnost: 'regenerace', pricti: 0.03 } },
 };
 pripojTexty(PETY, 'pety');
 export const PORADI_PETU = Object.keys(PETY);

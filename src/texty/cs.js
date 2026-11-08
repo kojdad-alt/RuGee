@@ -490,6 +490,9 @@ export default {
     jezek: { nazev: 'Ježek', popis: '{n} % rány se vrátí útočníkovi' },
     havran: { nazev: 'Havran', popis: '+{n} % duší za hru' },
     tucnak: { nazev: 'Tučňák', popis: 'Každých {s} s zchladí nepřátele kolem tebe a zpomalí je' },
+    veverka: { nazev: 'Veverka', popis: '+{n} % dosah magnetu' },
+    motyl: { nazev: 'Motýl', popis: '+{n} % zkušeností z krystalů' },
+    krtek: { nazev: 'Krtek', popis: '+{n} životů za sekundu' },
   },
   // Řádky na kartě vylepšení (hra.js, popisUrovni a karta).
   karta: {
@@ -830,6 +833,11 @@ export default {
       prichod: 'Hroby se otvírají, vstává Kostěný král',
       porazen: 'Kostěný král poražen',
     },
+    pan_sadu: {
+      nazev: 'Pán sadu',
+      prichod: 'Jabloně se třesou, přichází Pán sadu',
+      porazen: 'Pán sadu poražen',
+    },
   },
   zbozi: {
     lektvar: { nazev: 'Lektvar léčení', popis: 'Doléčí polovinu životů' },
@@ -951,6 +959,11 @@ export default {
       popis: 'Náhrobky, kříže a mlha. V noci tu vstávají kostlivci, mezi hroby bloudí duchové a krákají havrani.',
       smecky: { text: 'Za zdí hřbitova vyje smečka' },
     },
+    sad: {
+      nazev: 'Sad',
+      popis: 'Podzimní jabloně a ploty. Vosy bodají, srnci skáčou, po kůře lezou housenky a zahradník hází jablka.',
+      smecky: { text: 'Mezi stromy se mihne smečka kun' },
+    },
   },
   // Ohlášení příchodu druhu nepřítele na mapě (prichody.<mapa>.<druh>).
   prichody: {
@@ -988,6 +1001,11 @@ export default {
       duch: 'Mezi hroby bloudí duchové',
       ghul: 'Z rozkopaných hrobů lezou ghúlové',
       hrobnik: 'Hrobníci se chopili lopat',
+    },
+    sad: {
+      srnec: 'Srnci skáčou mezi jabloněmi',
+      housenka: 'Po kůře lezou housenky',
+      zahradnik: 'Zahradník se chopil jablek',
     },
   },
   // Výbava bossů (vystroj.js): sloty, staty (tvary podle čísla), rarity, efekty a sady s kusy.
