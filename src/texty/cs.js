@@ -882,6 +882,11 @@ export default {
       prichod: 'Mříž spadla, přichází Pán hradu',
       porazen: 'Pán hradu poražen',
     },
+    dulni_mistr: {
+      nazev: 'Důlní mistr',
+      prichod: 'Ve štole zhasla světla, přichází Důlní mistr',
+      porazen: 'Důlní mistr poražen',
+    },
   },
   zbozi: {
     lektvar: { nazev: 'Lektvar léčení', popis: 'Doléčí polovinu životů' },
@@ -1018,6 +1023,11 @@ export default {
       popis: 'Kamenné hradby, věže a praporce. Holubi sedají na cimbuří, stráž pochoduje, berani útočí a lučištník střílí šípy.',
       smecky: { text: 'Podél hradby se mihne smečka fretek' },
     },
+    dul: {
+      nazev: 'Důl',
+      popis: 'Tmavá štola z výdřevy a uhlí. Svíčkové můry blikají, skřítci pobíhají, vozíky skáčou z kolejí a horník hází krumpáče.',
+      smecky: { text: 'Podél kolejí se mihne smečka myší' },
+    },
   },
   // Ohlášení příchodu druhu nepřítele na mapě (prichody.<mapa>.<druh>).
   prichody: {
@@ -1070,6 +1080,11 @@ export default {
       strazny: 'Z brány vychází stráž',
       beran: 'Berani sklonili rohy',
       lucistnik: 'Lučištník se chopil luku',
+    },
+    dul: {
+      skritek: 'Ze štol vylézají skřítci',
+      vozik: 'Koleje se rozjely, jedou vozíky',
+      hornik: 'Horníci se chopili krumpáčů',
     },
   },
   // Výbava bossů (vystroj.js): sloty, staty (tvary podle čísla), rarity, efekty a sady s kusy.

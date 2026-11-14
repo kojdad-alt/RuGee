@@ -748,6 +748,11 @@ export default {
       prichod: 'The portcullis drops, the Castle Lord arrives',
       porazen: 'Castle Lord defeated',
     },
+    dulni_mistr: {
+      nazev: 'Mine Master',
+      prichod: 'The lamps go out, the Mine Master arrives',
+      porazen: 'Mine Master defeated',
+    },
   },
   zbozi: {
     lektvar: { nazev: 'Healing Potion', popis: 'Heals half your HP' },
@@ -881,6 +886,11 @@ export default {
       popis: 'Stone walls, towers and banners. Pigeons settle on the battlements, guards march, rams charge and the archer looses arrows.',
       smecky: { text: 'A pack of ferrets flashes along the wall' },
     },
+    dul: {
+      nazev: 'Mine',
+      popis: 'A dark shaft of timber and coal. Candle moths flicker, kobolds scurry, carts jump the rails and the miner throws picks.',
+      smecky: { text: 'A pack of mice scurries along the rails' },
+    },
   },
   prichody: {
     louka: {
@@ -932,6 +942,11 @@ export default {
       strazny: 'Guards march out of the gate',
       beran: 'The rams lower their horns',
       lucistnik: 'The archer takes up his bow',
+    },
+    dul: {
+      skritek: 'Kobolds climb out of the shafts',
+      vozik: 'The carts jump the rails',
+      hornik: 'The miners take up their picks',
     },
   },
   vystroj: {
