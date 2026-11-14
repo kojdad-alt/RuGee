@@ -106,6 +106,14 @@ const BARVY_CASTIC = {
   sip: ['#f2c94c', '#8a5a35', '#e8e2d0'],
   prach: ['#8a8074', '#d4cbb8', '#5c564e'],
   hradni_pan: ['#3e5684', '#f2c94c', '#e8e2d0'],
+  svicka: ['#fff3b0', '#ffb347', '#6b4c8a'],
+  skritek: ['#c4a574', '#f1d2a8', '#4a3530'],
+  vozik: ['#8d9098', '#2e2d3a', '#ffb347'],
+  hornik: ['#f2c94c', '#8a5a35', '#ffb347'],
+  mys: ['#8d9098', '#ffc2c2', '#151318'],
+  krumpac: ['#c9ccd2', '#8a5a35', '#f2c94c'],
+  uhel: ['#2e2d3a', '#53565e', '#ffb347'],
+  dulni_mistr: ['#c4a574', '#ffb347', '#2e2d3a'],
   magma: ['#b8443c', '#ffb347', '#7a2b2e'],
   lebka: ['#e8e2d0', '#b9c2cc', '#151318'],
   lava: ['#ff7a2f', '#ffd27a', '#a8321a'],
@@ -142,6 +150,7 @@ const BARVY_BOSSU = {
   pan_sadu: { pruh: '#e07a3d', tmava: '#6b3e24', text: '#ffd27a' },
   mlynsky_obr: { pruh: '#e0a030', tmava: '#53565e', text: '#fff3b0' },
   hradni_pan: { pruh: '#9aa4b8', tmava: '#3e5684', text: '#f3e6c8' },
+  dulni_mistr: { pruh: '#c4a574', tmava: '#3a2a18', text: '#ffd27a' },
 };
 // Barvy rarit výbavy (paleta bez režimu z barvy.js, stejná jako u karet v style.css): c = rámeček a paprsky,
 // svetla = záře a nápis. Běžná má paprsky o kus světlejší než rámeček karty, jinak by na tmě zmizely.

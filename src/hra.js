@@ -778,6 +778,16 @@ export const BOSSOVE = {
       { id: 'vyvolani', druh: 'strazny', pocet: [4, 6], max: 12, vzdalenost: 55 },
     ],
   },
+  // Důlní mistr (Důl) vychází ze Strážce: výpad, hází krumpáče a vyvolá horníky. Truhla dá sadu Strážce.
+  dulni_mistr: {
+    pauza: 2.6,
+    zaklad: 'strazce',
+    schopnosti: [
+      { id: 'vypad', poskozeni: 18 },
+      { id: 'hod', strela: 'krumpac', pocet: [3, 4], poskozeni: 13, polomer: 26 },
+      { id: 'vyvolani', druh: 'hornik', pocet: [4, 6], max: 12, vzdalenost: 55 },
+    ],
+  },
 };
 pripojTexty(BOSSOVE, 'bossove');
 // Ze kterého ze čtyř bossů tenhle vychází (u čtyř základních on sám). Podle toho se kreslí a co dá truhla.
@@ -1025,6 +1035,13 @@ const NEPRATELE = {
   pan_sadu: { hp: 380, rychlost: 46, poskozeni: 24, xp: 28, polomer: 22, boss: true },
   mlynsky_obr: { hp: 460, rychlost: 32, poskozeni: 28, xp: 32, polomer: 24, boss: true },
   hradni_pan: { hp: 420, rychlost: 40, poskozeni: 26, xp: 30, polomer: 22, boss: true },
+  dulni_mistr: { hp: 480, rychlost: 38, poskozeni: 28, xp: 32, polomer: 22, boss: true },
+  // Důl: svíčka je drobná a rychlá, skřítek běhá, vozík skáče, horník hází krumpáče, myš chodí ve smečkách.
+  svicka: { hp: 8, rychlost: 94, poskozeni: 5, xp: 1, polomer: 8 },
+  skritek: { hp: 16, rychlost: 78, poskozeni: 7, xp: 2, polomer: 9 },
+  vozik: { hp: 30, rychlost: 58, poskozeni: 9, xp: 2, polomer: 12, skace: true },
+  hornik: { hp: 56, rychlost: 42, poskozeni: 13, xp: 3, polomer: 12 },
+  mys: { hp: 11, rychlost: 100, poskozeni: 6, xp: 2, polomer: 8 },
   holub: { hp: 8, rychlost: 90, poskozeni: 5, xp: 1, polomer: 8 },
   strazny: { hp: 28, rychlost: 62, poskozeni: 9, xp: 2, polomer: 11 },
   beran: { hp: 26, rychlost: 70, poskozeni: 8, xp: 2, polomer: 12, skace: true },
@@ -1132,6 +1149,15 @@ export const SCHOPNOSTI_NEPRATEL = {
   lucistnik: {
     pauza: 3.3,
     schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.5, dosah: 340, strela: 'sip', pocet: [1, 1], let: 0.7, polomer: 18, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
+  },
+  // Důl: vozík skočí a dopadne do uhlí, horník hází krumpáče jako kostlivec kosti.
+  vozik: {
+    pauza: 3.5,
+    schopnosti: [{ id: 'skok', varovani: 0.55, dosah: 240, dopad: 'uhel' }],
+  },
+  hornik: {
+    pauza: 3.3,
+    schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.5, dosah: 330, strela: 'krumpac', pocet: [1, 1], let: 0.75, polomer: 22, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
   },
 };
 export const NAPOR_ELITY = { id: 'vypad', zvuk: 'napor', varovani: 0.7, zamek: 0.25, dosah: 340, rychlost: 430, delka: 320, poskozeni: 12, odhozeni: 50 };

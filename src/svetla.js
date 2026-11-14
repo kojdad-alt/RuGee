@@ -44,7 +44,7 @@ const B = {
 const BARVY_STREL = { vejir: [0.5, 0.61, 0.94], bahno: [0.47, 0.78, 0.35], odrazena: [0.89, 0.96, 0.95] };
 const BARVY_DOPADU = {
   kamen: [1, 0.55, 0.2], kokon: [0.89, 0.96, 0.95], magma: [1, 0.45, 0.15], lebka: [0.31, 0.84, 0.79], stepek: [0.31, 0.84, 0.79],
-  snezka: [0.87, 0.91, 1], hrnicek: [0.5, 0.61, 0.94], prach: [0.7, 0.65, 0.55],
+  snezka: [0.87, 0.91, 1], hrnicek: [0.5, 0.61, 0.94], prach: [0.7, 0.65, 0.55], uhel: [0.35, 0.28, 0.18],
 };
 // Bossové a nepřátelé, kteří sami svítí: barva, poloměr (px) a síla.
 const SVITI = {
@@ -62,12 +62,15 @@ const SVITI = {
   salamandr: { barva: [1, 0.5, 0.2], r: 40, sila: 0.45 },
   // Hřbitov: lucerna hrobníka.
   hrobnik: { barva: [1, 0.7, 0.28], r: 40, sila: 0.45 },
+  // Důl: plamínek svíčkové můry a kahan horníka.
+  svicka: { barva: [1, 0.85, 0.4], r: 36, sila: 0.5 },
+  hornik: { barva: [1, 0.7, 0.28], r: 34, sila: 0.4 },
 };
 // Kruhy vyvolání svítí barvou bosse (pruh bosse v kresleni.js).
 const BARVY_BOSSU = {
   strazce: [1, 0.7, 0.28], matka: [0.9, 0.28, 0.3], obr: [0.5, 0.77, 0.42], bludicka: [0.56, 0.71, 1],
   lavovy_obr: [1, 0.48, 0.18], bahenni_bludicka: [0.61, 0.88, 0.54], kosteny_kral: [0.91, 0.89, 0.82],
-  hradni_pan: [0.6, 0.64, 0.72],
+  hradni_pan: [0.6, 0.64, 0.72], dulni_mistr: [0.83, 0.65, 0.25],
 };
 
 // Jak mapa svítí. tma = síla tmy (0 = žádná), barvaTmy = do čeho tmavne, zare = kolik ze světla se přičte navíc
