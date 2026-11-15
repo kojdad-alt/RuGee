@@ -788,6 +788,16 @@ export const BOSSOVE = {
       { id: 'vyvolani', druh: 'hornik', pocet: [4, 6], max: 12, vzdalenost: 55 },
     ],
   },
+  // Kapitán (Přístav) vychází ze Strážce: výpad, hází háky a vyvolá námořníky. Truhla dá sadu Strážce.
+  kapitan: {
+    pauza: 2.5,
+    zaklad: 'strazce',
+    schopnosti: [
+      { id: 'vypad', poskozeni: 18 },
+      { id: 'hod', strela: 'hak', pocet: [3, 4], poskozeni: 13, polomer: 24 },
+      { id: 'vyvolani', druh: 'namornik', pocet: [4, 6], max: 12, vzdalenost: 50 },
+    ],
+  },
 };
 pripojTexty(BOSSOVE, 'bossove');
 // Ze kterého ze čtyř bossů tenhle vychází (u čtyř základních on sám). Podle toho se kreslí a co dá truhla.
@@ -1042,6 +1052,13 @@ const NEPRATELE = {
   vozik: { hp: 30, rychlost: 58, poskozeni: 9, xp: 2, polomer: 12, skace: true },
   hornik: { hp: 56, rychlost: 42, poskozeni: 13, xp: 3, polomer: 12 },
   mys: { hp: 11, rychlost: 100, poskozeni: 6, xp: 2, polomer: 8 },
+  kapitan: { hp: 500, rychlost: 40, poskozeni: 28, xp: 34, polomer: 22, boss: true },
+  // Přístav: racek je drobný a rychlý, krab leze, sud skáče, námořník hází hák, kormorán chodí ve smečkách.
+  racek: { hp: 8, rychlost: 96, poskozeni: 5, xp: 1, polomer: 8 },
+  krab: { hp: 18, rychlost: 54, poskozeni: 8, xp: 2, polomer: 10 },
+  becka: { hp: 28, rychlost: 50, poskozeni: 9, xp: 2, polomer: 12, skace: true },
+  namornik: { hp: 54, rychlost: 46, poskozeni: 13, xp: 3, polomer: 12 },
+  kormoran: { hp: 12, rychlost: 98, poskozeni: 6, xp: 2, polomer: 9 },
   holub: { hp: 8, rychlost: 90, poskozeni: 5, xp: 1, polomer: 8 },
   strazny: { hp: 28, rychlost: 62, poskozeni: 9, xp: 2, polomer: 11 },
   beran: { hp: 26, rychlost: 70, poskozeni: 8, xp: 2, polomer: 12, skace: true },
@@ -1158,6 +1175,15 @@ export const SCHOPNOSTI_NEPRATEL = {
   hornik: {
     pauza: 3.3,
     schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.5, dosah: 330, strela: 'krumpac', pocet: [1, 1], let: 0.75, polomer: 22, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
+  },
+  // Přístav: sud skočí a dopadne do pěny, námořník hází hák jako kostlivec kosti.
+  becka: {
+    pauza: 3.5,
+    schopnosti: [{ id: 'skok', varovani: 0.55, dosah: 240, dopad: 'pena' }],
+  },
+  namornik: {
+    pauza: 3.3,
+    schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.5, dosah: 330, strela: 'hak', pocet: [1, 1], let: 0.7, polomer: 20, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
   },
 };
 export const NAPOR_ELITY = { id: 'vypad', zvuk: 'napor', varovani: 0.7, zamek: 0.25, dosah: 340, rychlost: 430, delka: 320, poskozeni: 12, odhozeni: 50 };
