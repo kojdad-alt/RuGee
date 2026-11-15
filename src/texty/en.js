@@ -758,6 +758,11 @@ export default {
       prichod: 'The bell rings on the pier, the Captain arrives',
       porazen: 'Captain defeated',
     },
+    pan_pisku: {
+      nazev: 'Sand Lord',
+      prichod: 'The sand rises, the Sand Lord arrives',
+      porazen: 'Sand Lord defeated',
+    },
   },
   zbozi: {
     lektvar: { nazev: 'Healing Potion', popis: 'Heals half your HP' },
@@ -901,6 +906,11 @@ export default {
       popis: 'Wet planks, ropes and crates. Gulls circle, crabs crawl, barrels hop off the pier and the sailor throws a hook.',
       smecky: { text: 'A flock of cormorants flashes over the pier' },
     },
+    poust: {
+      nazev: 'Desert',
+      popis: 'Scorching sand and rock. Vultures circle, scorpions sting, snakes strike and the bandit throws daggers.',
+      smecky: { text: 'A pack of fennecs flashes over the dunes' },
+    },
   },
   prichody: {
     louka: {
@@ -962,6 +972,11 @@ export default {
       krab: 'Crabs climb out of the water',
       becka: 'Barrels roll off the pier',
       namornik: 'The sailors take up their hooks',
+    },
+    poust: {
+      stir: 'Scorpions crawl out of the sand',
+      zmije: 'Snakes dig out of the dunes',
+      bandita: 'The bandits take up their daggers',
     },
   },
   vystroj: {
