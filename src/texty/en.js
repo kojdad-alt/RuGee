@@ -753,6 +753,11 @@ export default {
       prichod: 'The lamps go out, the Mine Master arrives',
       porazen: 'Mine Master defeated',
     },
+    kapitan: {
+      nazev: 'Captain',
+      prichod: 'The bell rings on the pier, the Captain arrives',
+      porazen: 'Captain defeated',
+    },
   },
   zbozi: {
     lektvar: { nazev: 'Healing Potion', popis: 'Heals half your HP' },
@@ -891,6 +896,11 @@ export default {
       popis: 'A dark shaft of timber and coal. Candle moths flicker, kobolds scurry, carts jump the rails and the miner throws picks.',
       smecky: { text: 'A pack of mice scurries along the rails' },
     },
+    pristav: {
+      nazev: 'Harbor',
+      popis: 'Wet planks, ropes and crates. Gulls circle, crabs crawl, barrels hop off the pier and the sailor throws a hook.',
+      smecky: { text: 'A flock of cormorants flashes over the pier' },
+    },
   },
   prichody: {
     louka: {
@@ -947,6 +957,11 @@ export default {
       skritek: 'Kobolds climb out of the shafts',
       vozik: 'The carts jump the rails',
       hornik: 'The miners take up their picks',
+    },
+    pristav: {
+      krab: 'Crabs climb out of the water',
+      becka: 'Barrels roll off the pier',
+      namornik: 'The sailors take up their hooks',
     },
   },
   vystroj: {

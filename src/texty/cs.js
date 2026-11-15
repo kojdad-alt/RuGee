@@ -887,6 +887,11 @@ export default {
       prichod: 'Ve štole zhasla světla, přichází Důlní mistr',
       porazen: 'Důlní mistr poražen',
     },
+    kapitan: {
+      nazev: 'Kapitán',
+      prichod: 'Na můstku zazněl zvon, přichází Kapitán',
+      porazen: 'Kapitán poražen',
+    },
   },
   zbozi: {
     lektvar: { nazev: 'Lektvar léčení', popis: 'Doléčí polovinu životů' },
@@ -1028,6 +1033,11 @@ export default {
       popis: 'Tmavá štola z výdřevy a uhlí. Svíčkové můry blikají, skřítci pobíhají, vozíky skáčou z kolejí a horník hází krumpáče.',
       smecky: { text: 'Podél kolejí se mihne smečka myší' },
     },
+    pristav: {
+      nazev: 'Přístav',
+      popis: 'Mokrá prkna, lana a bedny. Rackové krouží, krabi lezou, sudy skáčou z můstku a námořník hází hák.',
+      smecky: { text: 'Nad molem se mihne hejno kormoránů' },
+    },
   },
   // Ohlášení příchodu druhu nepřítele na mapě (prichody.<mapa>.<druh>).
   prichody: {
@@ -1085,6 +1095,11 @@ export default {
       skritek: 'Ze štol vylézají skřítci',
       vozik: 'Koleje se rozjely, jedou vozíky',
       hornik: 'Horníci se chopili krumpáčů',
+    },
+    pristav: {
+      krab: 'Z vody lezou krabi',
+      becka: 'Sudy se kutálí z můstku',
+      namornik: 'Námořníci se chopili háků',
     },
   },
   // Výbava bossů (vystroj.js): sloty, staty (tvary podle čísla), rarity, efekty a sady s kusy.
