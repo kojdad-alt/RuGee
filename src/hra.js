@@ -798,6 +798,16 @@ export const BOSSOVE = {
       { id: 'vyvolani', druh: 'namornik', pocet: [4, 6], max: 12, vzdalenost: 50 },
     ],
   },
+  // Pán písku (Poušť) vychází z Kamenného obra: hází dýky, dupe a vyvolá štíry. Truhla dá sadu Obra.
+  pan_pisku: {
+    pauza: 2.5,
+    zaklad: 'obr',
+    schopnosti: [
+      { id: 'hod', strela: 'dyka', pocet: [3, 4], poskozeni: 14, polomer: 22 },
+      { id: 'dupnuti', polomer: 200, dosah: 280, poskozeni: 20, odhozeni: 120 },
+      { id: 'vyvolani', druh: 'stir', pocet: [6, 8], max: 14, vzdalenost: 50 },
+    ],
+  },
 };
 pripojTexty(BOSSOVE, 'bossove');
 // Ze kterého ze čtyř bossů tenhle vychází (u čtyř základních on sám). Podle toho se kreslí a co dá truhla.
@@ -1059,6 +1069,13 @@ const NEPRATELE = {
   becka: { hp: 28, rychlost: 50, poskozeni: 9, xp: 2, polomer: 12, skace: true },
   namornik: { hp: 54, rychlost: 46, poskozeni: 13, xp: 3, polomer: 12 },
   kormoran: { hp: 12, rychlost: 98, poskozeni: 6, xp: 2, polomer: 9 },
+  pan_pisku: { hp: 520, rychlost: 34, poskozeni: 30, xp: 34, polomer: 24, boss: true },
+  // Poušť: sup je drobný a rychlý, štír po smrti nechá jed, zmije skáče, bandita hází dýky, fenek chodí ve smečkách.
+  sup: { hp: 9, rychlost: 90, poskozeni: 5, xp: 1, polomer: 9 },
+  stir: { hp: 16, rychlost: 62, poskozeni: 8, xp: 2, polomer: 10, jed: true },
+  zmije: { hp: 22, rychlost: 72, poskozeni: 8, xp: 2, polomer: 10, skace: true },
+  bandita: { hp: 52, rychlost: 48, poskozeni: 13, xp: 3, polomer: 12 },
+  fenek: { hp: 12, rychlost: 102, poskozeni: 6, xp: 2, polomer: 9 },
   holub: { hp: 8, rychlost: 90, poskozeni: 5, xp: 1, polomer: 8 },
   strazny: { hp: 28, rychlost: 62, poskozeni: 9, xp: 2, polomer: 11 },
   beran: { hp: 26, rychlost: 70, poskozeni: 8, xp: 2, polomer: 12, skace: true },
@@ -1184,6 +1201,15 @@ export const SCHOPNOSTI_NEPRATEL = {
   namornik: {
     pauza: 3.3,
     schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.5, dosah: 330, strela: 'hak', pocet: [1, 1], let: 0.7, polomer: 20, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
+  },
+  // Poušť: zmije skočí a dopadne do písku, bandita hází dýky jako kostlivec kosti.
+  zmije: {
+    pauza: 3.4,
+    schopnosti: [{ id: 'skok', varovani: 0.55, dosah: 240, dopad: 'pisek' }],
+  },
+  bandita: {
+    pauza: 3.3,
+    schopnosti: [{ id: 'hod', zvuk: 'hodKosti', varovani: 0.5, dosah: 330, strela: 'dyka', pocet: [1, 1], let: 0.65, polomer: 18, poskozeni: 3, rozptyl: 0, predstih: 0.7 }],
   },
 };
 export const NAPOR_ELITY = { id: 'vypad', zvuk: 'napor', varovani: 0.7, zamek: 0.25, dosah: 340, rychlost: 430, delka: 320, poskozeni: 12, odhozeni: 50 };

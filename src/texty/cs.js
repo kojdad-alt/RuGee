@@ -892,6 +892,11 @@ export default {
       prichod: 'Na můstku zazněl zvon, přichází Kapitán',
       porazen: 'Kapitán poražen',
     },
+    pan_pisku: {
+      nazev: 'Pán písku',
+      prichod: 'Písek se zvedl, přichází Pán písku',
+      porazen: 'Pán písku poražen',
+    },
   },
   zbozi: {
     lektvar: { nazev: 'Lektvar léčení', popis: 'Doléčí polovinu životů' },
@@ -1038,6 +1043,11 @@ export default {
       popis: 'Mokrá prkna, lana a bedny. Rackové krouží, krabi lezou, sudy skáčou z můstku a námořník hází hák.',
       smecky: { text: 'Nad molem se mihne hejno kormoránů' },
     },
+    poust: {
+      nazev: 'Poušť',
+      popis: 'Rozpálený písek a skály. Supi krouží, štíři bodají, zmije skáčou a bandita hází dýky.',
+      smecky: { text: 'Po dunách se mihne smečka feneků' },
+    },
   },
   // Ohlášení příchodu druhu nepřítele na mapě (prichody.<mapa>.<druh>).
   prichody: {
@@ -1100,6 +1110,11 @@ export default {
       krab: 'Z vody lezou krabi',
       becka: 'Sudy se kutálí z můstku',
       namornik: 'Námořníci se chopili háků',
+    },
+    poust: {
+      stir: 'Z písku lezou štíři',
+      zmije: 'Zmije se vyhrabaly z dun',
+      bandita: 'Bandité se chopili dýk',
     },
   },
   // Výbava bossů (vystroj.js): sloty, staty (tvary podle čísla), rarity, efekty a sady s kusy.
